@@ -5,7 +5,12 @@ export interface TOCEntry {
   group: typeof groupsNames[number];
 }
 
-export const groupsNames = ["Guide", "Reference", "Use JSR with"] as const;
+export const groupsNames = [
+  "Guide",
+  "Reference",
+  "Governance",
+  "Use JSR with",
+] as const;
 
 export default [
   {
@@ -53,7 +58,6 @@ export default [
     "id": "faq",
     group: "Guide",
   },
-
   {
     title: "Scopes",
     id: "scopes",
@@ -100,6 +104,11 @@ export default [
     group: "Reference",
   },
   {
+    title: "Licenses",
+    id: "licenses",
+    group: "Reference",
+  },
+  {
     title: "Badges",
     id: "badges",
     group: "Reference",
@@ -123,6 +132,16 @@ export default [
     title: "API",
     id: "api",
     group: "Reference",
+  },
+  {
+    title: "Overview",
+    id: "governance",
+    group: "Governance",
+  },
+  {
+    title: "Charter Document",
+    id: "governance/charter",
+    group: "Governance",
   },
   {
     title: "Deno",

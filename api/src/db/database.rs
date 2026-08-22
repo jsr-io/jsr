@@ -1,23 +1,79 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use chrono::DateTime;
-use chrono::Utc;
-use sqlx::migrate;
-use sqlx::postgres::PgPoolOptions;
-use sqlx::Result;
-use tracing::instrument;
-use uuid::Uuid;
-
 use crate::api::ApiMetrics;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
+use crate::ids::ScopeDescription;
 use crate::ids::ScopeName;
 use crate::ids::Version;
+use chrono::DateTime;
+use chrono::Duration;
+use chrono::Utc;
+use registry_api_macros::query_concat;
+use registry_api_macros::query_concat_as;
+use serde_json::json;
+use sqlx::FromRow;
+use sqlx::Result;
+use sqlx::Row;
+use sqlx::migrate;
+use sqlx::postgres::PgConnectOptions;
+use sqlx::postgres::PgPoolOptions;
+use sqlx::postgres::PgSslMode;
+use std::str::FromStr;
+use tracing::instrument;
+use uuid::Uuid;
 
 use super::models::*;
+
+macro_rules! sort_by {
+  ($maybe_sort:expr => { $(@timestamps $($timestamp:literal),+;)? $( $key:expr $(=> $val:expr)? ),+, } || $default:expr) => {
+    if let Some(sort) = $maybe_sort {
+      let mut inverse = sort.starts_with('!');
+      let sort = if inverse { &sort[1..] } else { sort };
+
+      $(
+        if [$($timestamp),+].contains(&sort) {
+          inverse = !inverse;
+        }
+      )?
+
+      let order = if inverse { "DESC" } else { "ASC" };
+
+      match sort {
+        $(
+          $key => format!("{} {order}", sort_by!(@expand $key $(, $val)? )),
+        )+
+        _ => $default.to_string(),
+      }
+    } else {
+      $default.to_string()
+    }
+  };
+
+  (@expand $key:expr, $val:expr) => { $val };
+  (@expand $key:expr) => { $key };
+}
+
+/// How long a publishing task may stay in a non-terminal state
+/// (`processing`/`processed`) before it is considered stranded. The publish
+/// queue normally finishes a task in seconds, and Cloud Run caps a single
+/// request well under this, so a task older than this is not actively being
+/// processed. Stranded tasks are re-driven by the reaper in `tasks.rs`, and
+/// `create_publishing_task` fails a stranded `processing` task inline when a
+/// new publish for the same version arrives.
+pub const STALE_PUBLISHING_TASK_SECS: i64 = 30 * 60;
 
 #[derive(Debug, Clone)]
 pub struct Database {
   pool: sqlx::PgPool,
+}
+
+/// Client-certificate TLS material for connecting to the database. Supplied
+/// when the database requires a client certificate (`ssl_mode =
+/// TRUSTED_CLIENT_CERTIFICATE_REQUIRED`); the same cert is also presented by
+/// the Hyperdrive-backed `api` Worker so both reach Cloud SQL over mTLS.
+pub struct DbTls {
+  pub client_cert: String,
+  pub client_key: String,
 }
 
 impl Database {
@@ -25,11 +81,28 @@ impl Database {
     database_url: &str,
     pool_size: u32,
     acquire_timeout: std::time::Duration,
+    tls: Option<DbTls>,
   ) -> anyhow::Result<Self> {
+    let mut opts = PgConnectOptions::from_str(database_url)?;
+    if let Some(tls) = tls {
+      // Present our client cert (the DB requires one) and encrypt, but don't
+      // verify the server cert. We use `Require`, not `VerifyCa`: Cloud Run
+      // connects to Cloud SQL by private IP, yet the server cert is only valid
+      // for the instance's `*.sql.goog` DNS name. `VerifyCa` is meant to skip
+      // that hostname check, but sqlx 0.8's `NoHostnameTlsVerifier` only
+      // swallows rustls's legacy `NotValidForName` error, not 0.23's
+      // `NotValidForNameContext`, so verification fails and the connection is
+      // refused. The client certificate (mTLS) is the access boundary and the
+      // link stays inside the VPC.
+      opts = opts
+        .ssl_mode(PgSslMode::Require)
+        .ssl_client_cert_from_pem(tls.client_cert.into_bytes())
+        .ssl_client_key_from_pem(tls.client_key.into_bytes());
+    }
     let pool = PgPoolOptions::new()
       .max_connections(pool_size)
       .acquire_timeout(acquire_timeout)
-      .connect(database_url)
+      .connect_with(opts)
       .await?;
     if std::env::var("DATABASE_DISABLE_MIGRATIONS").is_err() {
       migrate!("./migrations")
@@ -43,13 +116,9 @@ impl Database {
 
   #[instrument(name = "Database::get_user", skip(self), err)]
   pub async fn get_user(&self, id: Uuid) -> Result<Option<User>> {
-    sqlx::query_as!(
+    query_concat_as!(
       User,
-      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
-      FROM users
-      WHERE id = $1"#,
+      "SELECT ", USER_SELECT_FULL, " FROM users WHERE id = $1";
       id
     )
     .fetch_optional(&self.pool)
@@ -60,7 +129,7 @@ impl Database {
   pub async fn get_user_public(&self, id: Uuid) -> Result<Option<UserPublic>> {
     sqlx::query_as!(
       UserPublic,
-      r#"SELECT id, name, avatar_url, github_id, updated_at, created_at
+      r#"SELECT id, name, avatar_url, github_id, gitlab_id, updated_at, created_at
       FROM users
       WHERE id = $1"#,
       id
@@ -74,14 +143,24 @@ impl Database {
     &self,
     github_id: i64,
   ) -> Result<Option<User>> {
-    sqlx::query_as!(
+    query_concat_as!(
       User,
-      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
-      FROM users
-      WHERE github_id = $1"#,
+      "SELECT ", USER_SELECT_FULL, " FROM users WHERE github_id = $1";
       github_id
+    )
+    .fetch_optional(&self.pool)
+    .await
+  }
+
+  #[instrument(name = "Database::get_user_by_gitlab_id", skip(self), err)]
+  pub async fn get_user_by_gitlab_id(
+    &self,
+    gitlab_id: i64,
+  ) -> Result<Option<User>> {
+    query_concat_as!(
+      User,
+      "SELECT ", USER_SELECT_FULL, " FROM users WHERE gitlab_id = $1";
+      gitlab_id
     )
     .fetch_optional(&self.pool)
     .await
@@ -93,6 +172,7 @@ impl Database {
     start: i64,
     limit: i64,
     maybe_search_query: Option<&str>,
+    maybe_sort: Option<&str>,
   ) -> Result<(usize, Vec<User>)> {
     let mut tx = self.pool.begin().await?;
 
@@ -106,17 +186,28 @@ impl Database {
         maybe_search_query.unwrap_or("")
       }
     );
-    let users = sqlx::query_as!(
-      User,
-      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
-      FROM users WHERE (name ILIKE $1 OR email ILIKE $1) AND (id = $2 OR $2 IS NULL) ORDER BY created_at DESC OFFSET $3 LIMIT $4"#,
-      search,
-      maybe_id,
-      start,
-      limit,
-    )
+
+    let sort = sort_by!(maybe_sort => {
+      @timestamps "created_at";
+      "email",
+      "github_id",
+      "scope_limit",
+      "is_staff",
+      "is_blocked",
+      "created_at",
+    } || "created_at DESC");
+
+    let users: Vec<User> = sqlx::query_as(&format!(
+      r#"SELECT {}
+      FROM users
+      WHERE (name ILIKE $1 OR email ILIKE $1) AND (id = $2 OR $2 IS NULL)
+      ORDER BY {sort} OFFSET $3 LIMIT $4"#,
+      crate::db::sql_fragments::USER_SELECT_FULL_RT,
+    ))
+    .bind(&search)
+    .bind(maybe_id)
+    .bind(start)
+    .bind(limit)
     .fetch_all(&mut *tx)
     .await?;
 
@@ -125,25 +216,58 @@ impl Database {
       search,
       maybe_id,
     )
-    .map(|r| r.count)
-    .fetch_one(&mut *tx)
-    .await?;
+      .map(|r| r.count)
+      .fetch_one(&mut *tx)
+      .await?;
 
     tx.commit().await?;
 
     Ok((total_users as usize, users))
   }
 
-  #[instrument(name = "Database::insert_user", skip(self, new_user), err, fields(user.name = new_user.name, user.email = new_user.email, user.avatar_url = new_user.avatar_url, user.github_id = new_user.github_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff))]
+  #[cfg(test)]
+  #[instrument(
+    name = "Database::insert_user",
+    skip(self, new_user),
+    err,
+    fields(user.name = new_user.name, user.email = new_user.email, user.avatar_url = new_user.avatar_url, user.github_id = new_user.github_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff
+    )
+  )]
   pub async fn insert_user(&self, new_user: NewUser<'_>) -> Result<User> {
-    sqlx::query_as!(
+    query_concat_as!(
       User,
-      r#"INSERT INTO users (name, email, avatar_url, github_id, is_blocked, is_staff)
+      "INSERT INTO users (name, email, avatar_url, github_id, gitlab_id, is_blocked, is_staff)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING ", USER_SELECT_FULL;
+      new_user.name,
+      new_user.email,
+      new_user.avatar_url,
+      new_user.github_id,
+      new_user.gitlab_id,
+      new_user.is_blocked,
+      new_user.is_staff
+    )
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::upsert_user_by_github_id", skip(
+    self,
+    new_user
+  ), err, fields(user.github_id = new_user.github_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff
+  ))]
+  pub async fn upsert_user_by_github_id(
+    &self,
+    new_user: NewUser<'_>,
+  ) -> Result<User> {
+    assert!(new_user.github_id.is_some(), "github_id is required");
+    query_concat_as!(
+      User,
+      "INSERT INTO users (name, email, avatar_url, github_id, is_blocked, is_staff)
       VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
-      "#,
+      ON CONFLICT(github_id) DO UPDATE
+      SET name = $1, email = $2, avatar_url = $3
+      RETURNING ", USER_SELECT_FULL;
       new_user.name,
       new_user.email,
       new_user.avatar_url,
@@ -151,32 +275,67 @@ impl Database {
       new_user.is_blocked,
       new_user.is_staff
     )
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::upsert_user_by_gitlab_id", skip(
+    self,
+    new_user
+  ), err, fields(user.github_id = new_user.github_id, user.gitlab_id = new_user.gitlab_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff
+  ))]
+  pub async fn upsert_user_by_gitlab_id(
+    &self,
+    new_user: NewUser<'_>,
+  ) -> Result<User> {
+    assert!(new_user.gitlab_id.is_some(), "gitlab_id is required");
+    query_concat_as!(
+      User,
+      "INSERT INTO users (name, email, avatar_url, gitlab_id, is_blocked, is_staff)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      ON CONFLICT(gitlab_id) DO UPDATE
+      SET name = $1, email = $2, avatar_url = $3
+      RETURNING ", USER_SELECT_FULL;
+      new_user.name,
+      new_user.email,
+      new_user.avatar_url,
+      new_user.gitlab_id,
+      new_user.is_blocked,
+      new_user.is_staff
+    )
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::user_set_github_id", skip(self), err)]
+  pub async fn user_set_github_id(
+    &self,
+    user: Uuid,
+    id: Option<i64>,
+  ) -> Result<User> {
+    query_concat_as!(
+      User,
+      "UPDATE users SET github_id = $1 WHERE id = $2
+      RETURNING ", USER_SELECT_FULL;
+      id,
+      user as _,
+    )
     .fetch_one(&self.pool)
     .await
   }
 
-  #[instrument(name = "Database::upsert_user_by_github_id", skip(self, new_user), err, fields(user.name = new_user.name, user.email = new_user.email, user.avatar_url = new_user.avatar_url, user.github_id = new_user.github_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff))]
-  pub async fn upsert_user_by_github_id(
+  #[instrument(name = "Database::user_set_gitlab_id", skip(self), err)]
+  pub async fn user_set_gitlab_id(
     &self,
-    new_user: NewUser<'_>,
+    user: Uuid,
+    id: Option<i64>,
   ) -> Result<User> {
-    assert!(new_user.github_id.is_some(), "github_id is required");
-    sqlx::query_as!(
+    query_concat_as!(
       User,
-      r#"INSERT INTO users (name, email, avatar_url, github_id, is_blocked, is_staff)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      ON CONFLICT(github_id) DO UPDATE
-      SET name = $1, email = $2, avatar_url = $3
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
-      "#,
-      new_user.name,
-      new_user.email,
-      new_user.avatar_url,
-      new_user.github_id,
-      new_user.is_blocked,
-      new_user.is_staff
+      "UPDATE users SET gitlab_id = $1 WHERE id = $2
+      RETURNING ", USER_SELECT_FULL;
+      id,
+      user as _,
     )
     .fetch_one(&self.pool)
     .await
@@ -185,73 +344,118 @@ impl Database {
   #[instrument(name = "Database::user_set_staff", skip(self), err)]
   pub async fn user_set_staff(
     &self,
+    staff_id: &Uuid,
     user_id: Uuid,
     is_staff: bool,
   ) -> Result<User> {
-    sqlx::query_as!(
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      staff_id,
+      true,
+      "user_set_staff",
+      json!({
+        "user_id": user_id,
+        "is_staff": is_staff,
+      }),
+    )
+    .await?;
+
+    let user = query_concat_as!(
       User,
-      r#"UPDATE users SET is_staff = $1 WHERE id = $2
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
-      "#,
+      "UPDATE users SET is_staff = $1 WHERE id = $2
+      RETURNING ", USER_SELECT_FULL;
       is_staff,
       user_id
     )
-    .fetch_one(&self.pool)
-    .await
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(user)
   }
 
   #[instrument(name = "Database::user_set_blocked", skip(self), err)]
   pub async fn user_set_blocked(
     &self,
+    staff_id: &Uuid,
     user_id: Uuid,
     is_blocked: bool,
   ) -> Result<User> {
-    sqlx::query_as!(
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      staff_id,
+      true,
+      "user_set_blocked",
+      json!({
+        "user_id": user_id,
+        "is_blocked": is_blocked,
+      }),
+    )
+    .await?;
+
+    let user = query_concat_as!(
       User,
-      r#"UPDATE users SET is_blocked = $1 WHERE id = $2
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
-      "#,
+      "UPDATE users SET is_blocked = $1 WHERE id = $2
+      RETURNING ", USER_SELECT_FULL;
       is_blocked,
       user_id
     )
-    .fetch_one(&self.pool)
-    .await
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(user)
   }
 
   #[instrument(name = "Database::user_set_scope_limit", skip(self), err)]
   pub async fn user_set_scope_limit(
     &self,
+    staff_id: &Uuid,
     user_id: Uuid,
     scope_limit: i32,
   ) -> Result<User> {
-    sqlx::query_as!(
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      staff_id,
+      true,
+      "user_set_scope_limit",
+      json!({
+        "user_id": user_id,
+        "scope_limit": scope_limit,
+      }),
+    )
+    .await?;
+
+    let user = query_concat_as!(
       User,
-      r#"UPDATE users SET scope_limit = $1 WHERE id = $2
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
-      "#,
+      "UPDATE users SET scope_limit = $1 WHERE id = $2
+      RETURNING ", USER_SELECT_FULL;
       scope_limit,
       user_id
     )
-    .fetch_one(&self.pool)
-    .await
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(user)
   }
 
+  #[cfg(test)]
   #[instrument(name = "Database::delete_user", skip(self), err)]
   pub async fn delete_user(&self, id: Uuid) -> Result<Option<User>> {
-    sqlx::query_as!(
+    query_concat_as!(
       User,
-      r#"DELETE FROM users
-      WHERE id = $1
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
-      "#,
+      "DELETE FROM users WHERE id = $1
+      RETURNING ", USER_SELECT_FULL;
       id
     )
     .fetch_optional(&self.pool)
@@ -264,49 +468,47 @@ impl Database {
     scope: &ScopeName,
     name: &PackageName,
   ) -> Result<Option<PackageWithGitHubRepoAndMeta>> {
-    sqlx::query!(
-      r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat "package_runtime_compat: RuntimeCompat", packages.when_featured "package_when_featured", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count!",
-        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_latest_version",
-        (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta: PackageVersionMeta",
-        github_repositories.id "github_repository_id?", github_repositories.owner "github_repository_owner?", github_repositories.name "github_repository_name?", github_repositories.updated_at "github_repository_updated_at?", github_repositories.created_at "github_repository_created_at?"
+    query_concat!(
+      "SELECT ", PACKAGE_SELECT_JOINED, ", ", GITHUB_REPOSITORY_SELECT_JOINED, "
       FROM packages
       LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
-      WHERE packages.scope = $1 AND packages.name = $2"#,
+      WHERE packages.scope = $1 AND packages.name = $2";
       scope as _,
       name as _
     )
-    .map(|r| {
-      let package = Package {
-        scope: r.package_scope,
-        name: r.package_name,
-        description: r.package_description,
-        github_repository_id: r.package_github_repository_id,
-        runtime_compat: r.package_runtime_compat,
-        created_at: r.package_created_at,
-        updated_at: r.package_updated_at,
-        version_count: r.package_version_count,
-        latest_version: r.package_latest_version,
-        when_featured: r.package_when_featured,
-      };
-      let github_repository = if r.package_github_repository_id.is_some() {
-        Some(GithubRepository {
-          id: r.github_repository_id.unwrap(),
-          owner: r.github_repository_owner.unwrap(),
-          name: r.github_repository_name.unwrap(),
-          created_at: r.github_repository_created_at.unwrap(),
-          updated_at: r.github_repository_updated_at.unwrap(),
-        })
-      } else {
-        None
-      };
+      .map(|r| {
+        let package = Package {
+          scope: r.package_scope,
+          name: r.package_name,
+          description: r.package_description,
+          github_repository_id: r.package_github_repository_id,
+          runtime_compat: r.package_runtime_compat,
+          created_at: r.package_created_at,
+          updated_at: r.package_updated_at,
+          version_count: r.package_version_count,
+          latest_version: r.package_latest_version,
+          when_featured: r.package_when_featured,
+          is_archived: r.package_is_archived,
+          readme_source: r.package_readme_source,
+        };
+        let github_repository = if r.package_github_repository_id.is_some() {
+          Some(GithubRepository {
+            id: r.github_repository_id.unwrap(),
+            owner: r.github_repository_owner.unwrap(),
+            name: r.github_repository_name.unwrap(),
+            created_at: r.github_repository_created_at.unwrap(),
+            updated_at: r.github_repository_updated_at.unwrap(),
+          })
+        } else {
+          None
+        };
 
-      let meta = r.package_version_meta.unwrap_or_default();
+        let meta = r.package_version_meta.unwrap_or_default();
 
-      (package, github_repository, meta)
-    })
-  .fetch_optional(&self.pool)
-    .await
+        (package, github_repository, meta)
+      })
+      .fetch_optional(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::create_package", skip(self), err)]
@@ -316,27 +518,26 @@ impl Database {
     name: &PackageName,
   ) -> Result<CreatePackageResult> {
     let mut tx = self.pool.begin().await?;
-    let res = sqlx::query_as!(
+    let res = query_concat_as!(
       Package,
-      r#"
-      INSERT INTO packages (scope, name)
+      "INSERT INTO packages (scope, name)
       VALUES ($1, $2)
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", when_featured, updated_at, created_at,
+      RETURNING ", PACKAGE_SELECT, r#",
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "version_count!",
         (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "latest_version"
-      "#,
+      "#;
       scope as _,
       name as _
     )
-    .fetch_one(&mut *tx)
-    .await;
+      .fetch_one(&mut *tx)
+      .await;
     let package = match res {
       Ok(package) => package,
       Err(err) => {
-        if let Some(dberr) = err.as_database_error() {
-          if dberr.is_unique_violation() {
-            return Ok(CreatePackageResult::AlreadyExists);
-          }
+        if let Some(dberr) = err.as_database_error()
+          && dberr.is_unique_violation()
+        {
+          return Ok(CreatePackageResult::AlreadyExists);
         }
         return Err(err);
       }
@@ -370,8 +571,8 @@ impl Database {
       package_name as _,
       version as _
     )
-    .execute(&self.pool)
-    .await?;
+      .execute(&self.pool)
+      .await?;
 
     Ok(())
   }
@@ -379,50 +580,89 @@ impl Database {
   #[instrument(name = "Database::update_package_description", skip(self), err)]
   pub async fn update_package_description(
     &self,
+    actor_id: &Uuid,
+    is_sudo: bool,
     scope: &ScopeName,
     name: &PackageName,
     description: &str,
   ) -> Result<PackageWithGitHubRepoAndMeta> {
-    sqlx::query!(
-      r#"UPDATE packages
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "update_package_description",
+      json!({
+          "scope": scope,
+          "name": name,
+      }),
+    )
+    .await?;
+
+    let package = query_concat!(
+      "UPDATE packages
       SET description = $3
       WHERE scope = $1 AND name = $2
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", when_featured, updated_at, created_at,
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
-        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version",
-        (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta: PackageVersionMeta""#,
+      RETURNING ", PACKAGE_SELECT_JOINED;
       scope as _,
       name as _,
       description
     )
-      .map(|r| {
-        let package = Package {
-          scope: r.scope,
-          name: r.name,
-          description: r.description,
-          github_repository_id: r.github_repository_id,
-          runtime_compat: r.runtime_compat,
-          updated_at: r.updated_at,
-          created_at: r.created_at,
-          version_count: r.version_count,
-          latest_version: r.latest_version,
-          when_featured: r.when_featured,
-        };
+    .map(|r| {
+      let package = Package {
+        scope: r.package_scope,
+        name: r.package_name,
+        description: r.package_description,
+        github_repository_id: r.package_github_repository_id,
+        runtime_compat: r.package_runtime_compat,
+        updated_at: r.package_updated_at,
+        created_at: r.package_created_at,
+        version_count: r.package_version_count,
+        latest_version: r.package_latest_version,
+        when_featured: r.package_when_featured,
+        is_archived: r.package_is_archived,
+        readme_source: r.package_readme_source,
+      };
 
-        (package, None, r.package_version_meta.unwrap_or_default())
-      })
-    .fetch_one(&self.pool)
-    .await
+      (package, None, r.package_version_meta.unwrap_or_default())
+    })
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(package)
   }
 
-  #[instrument(name = "Database::update_package_github_repository", skip(self, repo), err, fields(repo.id = repo.id, repo.owner = repo.owner, repo.name = repo.name))]
+  #[instrument(name = "Database::update_package_github_repository", skip(
+    self,
+    repo
+  ), err, fields(repo.id = repo.id, repo.owner = repo.owner, repo.name = repo.name
+  ))]
   pub async fn update_package_github_repository(
     &self,
+    actor_id: &Uuid,
+    is_sudo: bool,
     scope: &ScopeName,
     name: &PackageName,
     repo: NewGithubRepository<'_>,
   ) -> Result<(Package, GithubRepository, PackageVersionMeta)> {
     let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "update_package_github_repository",
+      json!({
+        "scope": scope,
+        "name": name,
+        "repo": repo.id,
+      }),
+    )
+    .await?;
+
     let repo = sqlx::query_as!(
       GithubRepository,
       "INSERT INTO github_repositories (id, owner, name)
@@ -437,34 +677,33 @@ impl Database {
     .fetch_one(&mut *tx)
     .await?;
 
-    let (package, meta) = sqlx::query!(
-      r#"UPDATE packages
+    let (package, meta) = query_concat!(
+      "UPDATE packages
       SET github_repository_id = $3
       WHERE scope = $1 AND name = $2
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", when_featured, updated_at, created_at,
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
-        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "latest_version",
-        (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta: PackageVersionMeta""#,
+      RETURNING ", PACKAGE_SELECT_JOINED;
       scope as _,
       name as _,
       repo.id
     )
-      .map(|r| {
-        let package = Package {
-          scope: r.scope,
-          name: r.name,
-          description: r.description,
-          github_repository_id: r.github_repository_id,
-          runtime_compat: r.runtime_compat,
-          updated_at: r.updated_at,
-          created_at: r.created_at,
-          version_count: r.version_count,
-          latest_version: r.latest_version,
-          when_featured: r.when_featured,
-        };
+    .map(|r| {
+      let package = Package {
+        scope: r.package_scope,
+        name: r.package_name,
+        description: r.package_description,
+        github_repository_id: r.package_github_repository_id,
+        runtime_compat: r.package_runtime_compat,
+        updated_at: r.package_updated_at,
+        created_at: r.package_created_at,
+        version_count: r.package_version_count,
+        latest_version: r.package_latest_version,
+        when_featured: r.package_when_featured,
+        is_archived: r.package_is_archived,
+        readme_source: r.package_readme_source,
+      };
 
-        (package, r.package_version_meta.unwrap_or_default())
-      })
+      (package, r.package_version_meta.unwrap_or_default())
+    })
     .fetch_one(&mut *tx)
     .await?;
 
@@ -480,22 +719,40 @@ impl Database {
   )]
   pub async fn delete_package_github_repository(
     &self,
+    actor_id: &Uuid,
+    is_sudo: bool,
     scope: &ScopeName,
     name: &PackageName,
   ) -> Result<Package> {
-    let package = sqlx::query_as!(
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "delete_package_github_repository",
+      json!({
+        "scope": scope,
+        "name": name,
+      }),
+    )
+    .await?;
+
+    let package = query_concat_as!(
       Package,
-      r#"UPDATE packages
+      "UPDATE packages
       SET github_repository_id = NULL
       WHERE scope = $1 AND name = $2
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", when_featured, updated_at, created_at,
+      RETURNING ", PACKAGE_SELECT, r#",
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
-        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#,
+        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#;
       scope as _,
       name as _,
     )
-    .fetch_one(&self.pool)
-    .await?;
+      .fetch_one(&mut *tx)
+      .await?;
+
+    tx.commit().await?;
 
     Ok(package)
   }
@@ -507,98 +764,233 @@ impl Database {
   )]
   pub async fn update_package_runtime_compat(
     &self,
+    actor_id: &Uuid,
+    is_sudo: bool,
     scope: &ScopeName,
     name: &PackageName,
     runtime_compat: &RuntimeCompat,
   ) -> Result<Package> {
-    sqlx::query_as!(
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "update_package_runtime_compat",
+      json!({
+        "scope": scope,
+        "name": name,
+        "runtime_compat": runtime_compat,
+      }),
+    )
+    .await?;
+
+    let package = query_concat_as!(
       Package,
-      r#"UPDATE packages
+      "UPDATE packages
       SET runtime_compat = $3
       WHERE scope = $1 AND name = $2
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", when_featured, updated_at, created_at,
+      RETURNING ", PACKAGE_SELECT, r#",
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
-        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#,
+        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#;
       scope as _,
       name as _,
       runtime_compat as _
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&mut *tx)
+      .await?;
+
+    tx.commit().await?;
+
+    Ok(package)
   }
 
   #[instrument(name = "Database::update_package_is_featured", skip(self), err)]
   pub async fn update_package_is_featured(
     &self,
+    staff_id: &Uuid,
     scope: &ScopeName,
     name: &PackageName,
     is_featured: bool,
   ) -> Result<Package> {
+    let mut tx = self.pool.begin().await?;
+
     let when_featured = if is_featured { Some(Utc::now()) } else { None };
-    sqlx::query_as!(
+
+    audit_log(
+      &mut tx,
+      staff_id,
+      true,
+      "feature_package",
+      json!({
+      "scope": scope,
+      "name": name,
+      "is_featured": when_featured,
+      }),
+    )
+    .await?;
+
+    let package = query_concat_as!(
       Package,
-      r#"UPDATE packages
+      "UPDATE packages
       SET when_featured = $3
       WHERE scope = $1 AND name = $2
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", when_featured, updated_at, created_at,
+      RETURNING ", PACKAGE_SELECT, r#",
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
-        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#,
+        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#;
       scope as _,
       name as _,
       when_featured,
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&mut *tx)
+      .await?;
+
+    tx.commit().await?;
+
+    Ok(package)
+  }
+
+  #[instrument(name = "Database::update_package_is_archived", skip(self), err)]
+  pub async fn update_package_is_archived(
+    &self,
+    actor_id: &Uuid,
+    is_sudo: bool,
+    scope: &ScopeName,
+    name: &PackageName,
+    is_archived: bool,
+  ) -> Result<Package> {
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "archive_package",
+      json!({
+          "scope": scope,
+          "name": name,
+          "is_archived": is_archived,
+      }),
+    )
+    .await?;
+
+    let package = query_concat_as!(
+      Package,
+      "UPDATE packages
+      SET is_archived = $3
+      WHERE scope = $1 AND name = $2
+      RETURNING ", PACKAGE_SELECT, r#",
+        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
+        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#;
+      scope as _,
+      name as _,
+      is_archived,
+    )
+      .fetch_one(&mut *tx)
+      .await?;
+
+    tx.commit().await?;
+
+    Ok(package)
+  }
+
+  #[instrument(name = "Database::update_package_source", skip(self), err)]
+  pub async fn update_package_source(
+    &self,
+    actor_id: &Uuid,
+    is_sudo: bool,
+    scope: &ScopeName,
+    name: &PackageName,
+    source: ReadmeSource,
+  ) -> Result<Package> {
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "package_update_source",
+      json!({
+          "scope": scope,
+          "name": name,
+          "source": source,
+      }),
+    )
+    .await?;
+
+    let package = query_concat_as!(
+      Package,
+      "UPDATE packages
+      SET readme_source = $3
+      WHERE scope = $1 AND name = $2
+      RETURNING ", PACKAGE_SELECT, r#",
+        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
+        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#;
+      scope as _,
+      name as _,
+      source as _,
+    )
+      .fetch_one(&mut *tx)
+      .await?;
+
+    tx.commit().await?;
+
+    Ok(package)
   }
 
   #[instrument(name = "Database::create_scope", skip(self), err)]
   pub async fn create_scope(
     &self,
-    scope: &ScopeName,
+    actor_id: &Uuid,
+    is_sudo: bool,
+    scope_name: &ScopeName,
     user_id: Uuid,
+    scope_description: &ScopeDescription,
   ) -> Result<Scope> {
-    sqlx::query_as!(
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      if is_sudo {
+        "assign_scope"
+      } else {
+        "create_scope"
+      },
+      json!({
+          "scope": scope_name,
+          "user_id": user_id,
+      }),
+    )
+    .await?;
+
+    let scope = query_concat_as!(
       Scope,
-      r#"
-        WITH ins_scope AS (
+      "WITH ins_scope AS (
             INSERT INTO scopes (scope, creator) VALUES ($1, $2)
-            RETURNING
-            scope,
-            creator,
-            package_limit,
-            new_package_per_week_limit,
-            publish_attempts_per_week_limit,
-            verify_oidc_actor,
-            require_publishing_from_ci,
-            updated_at,
-            created_at
+            RETURNING scope, description, creator, package_limit, new_package_per_week_limit, publish_attempts_per_week_limit, verify_oidc_actor, require_publishing_from_ci, updated_at, created_at
         ),
         ins_member AS (
             INSERT INTO scope_members (scope, user_id, is_admin)
             VALUES ($1, $2, true)
         )
-        SELECT
-        scope as "scope: ScopeName",
-        creator,
-        package_limit,
-        new_package_per_week_limit,
-        publish_attempts_per_week_limit,
-        verify_oidc_actor,
-        require_publishing_from_ci,
-        updated_at,
-        created_at
-        FROM ins_scope
-        "#,
-      scope as _,
-      user_id
+        SELECT ", SCOPE_SELECT, " FROM ins_scope";
+      scope_name,
+      user_id,
     )
-    .fetch_one(&self.pool)
-    .await
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(scope)
   }
 
   #[instrument(name = "Database::update_scope_limits", skip(self), err)]
   pub async fn update_scope_limits(
     &self,
+    staff_id: &Uuid,
     scope: &ScopeName,
     package_limit: Option<i32>,
     new_package_per_week_limit: Option<i32>,
@@ -607,6 +999,18 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     if let Some(package_limit) = package_limit {
+      audit_log(
+        &mut tx,
+        staff_id,
+        true,
+        "scope_set_package_limit",
+        json!({
+          "scope": scope,
+          "package_limit": package_limit,
+        }),
+      )
+      .await?;
+
       sqlx::query!(
         r#"UPDATE scopes SET package_limit = $1 WHERE scope = $2"#,
         package_limit,
@@ -617,6 +1021,18 @@ impl Database {
     }
 
     if let Some(new_package_per_week_limit) = new_package_per_week_limit {
+      audit_log(
+        &mut tx,
+        staff_id,
+        true,
+        "scope_set_package_per_week_limit",
+        json!({
+          "scope": scope,
+          "new_package_per_week_limit": new_package_per_week_limit,
+        }),
+      )
+      .await?;
+
       sqlx::query!(
         r#"UPDATE scopes SET new_package_per_week_limit = $1 WHERE scope = $2"#,
         new_package_per_week_limit,
@@ -629,13 +1045,25 @@ impl Database {
     if let Some(publish_attempts_per_week_limit) =
       publish_attempts_per_week_limit
     {
+      audit_log(
+        &mut tx,
+        staff_id,
+        true,
+        "scope_set_publish_attempts_per_week_limit",
+        json!({
+          "scope": scope,
+          "publish_attempts_per_week_limit": publish_attempts_per_week_limit,
+        }),
+      )
+      .await?;
+
       sqlx::query!(
         r#"UPDATE scopes SET publish_attempts_per_week_limit = $1 WHERE scope = $2"#,
         publish_attempts_per_week_limit,
         scope as _
       )
-      .execute(&mut *tx)
-      .await?;
+        .execute(&mut *tx)
+        .await?;
     }
 
     let res = sqlx::query!(
@@ -648,6 +1076,7 @@ impl Database {
       )
       SELECT
       scopes.scope as "scope_scope: ScopeName",
+      scopes.description as "scope_description: ScopeDescription",
       scopes.creator as "scope_creator",
       scopes.package_limit as "scope_package_limit",
       scopes.new_package_per_week_limit as "scope_new_package_per_week_limit",
@@ -656,7 +1085,8 @@ impl Database {
       scopes.require_publishing_from_ci as "scope_require_publishing_from_ci",
       scopes.updated_at as "scope_updated_at",
       scopes.created_at as "scope_created_at",
-      users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
+      users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id",
+users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
       usage.package as "usage_package", usage.new_package_per_week as "usage_new_package_per_week", usage.publish_attempts_per_week as "usage_publish_attempts_per_week"
       FROM scopes
       LEFT JOIN users ON scopes.creator = users.id
@@ -668,6 +1098,7 @@ impl Database {
       .map(|r| {
         let scope = Scope {
           scope: r.scope_scope,
+          description: r.scope_description,
           creator: r.scope_creator,
           updated_at: r.scope_updated_at,
           created_at: r.scope_created_at,
@@ -687,6 +1118,7 @@ impl Database {
           name: r.user_name,
           avatar_url: r.user_avatar_url,
           github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
           updated_at: r.user_updated_at,
           created_at: r.user_created_at,
         };
@@ -707,103 +1139,68 @@ impl Database {
     start: i64,
     limit: i64,
     maybe_search_query: Option<&str>,
+    maybe_sort: Option<&str>,
   ) -> Result<(usize, Vec<(Scope, ScopeUsage, UserPublic)>)> {
     let mut tx = self.pool.begin().await?;
+
     let search = format!("%{}%", maybe_search_query.unwrap_or(""));
-    let scopes = sqlx::query!(
-      r#" WITH usage AS (
-        SELECT
-          (SELECT COUNT(created_at) FROM packages WHERE scope = $2) AS package,
-          (SELECT COUNT(created_at) FROM packages WHERE scope = $2 AND created_at > now() - '1 week'::interval) AS new_package_per_week,
-          (SELECT COUNT(created_at) FROM publishing_tasks WHERE package_scope = $2 AND created_at > now() - '1 week'::interval) AS publish_attempts_per_week
-      )
-      SELECT
-      scopes.scope as "scope_scope: ScopeName",
-      scopes.creator as "scope_creator",
-      scopes.package_limit as "scope_package_limit",
-      scopes.new_package_per_week_limit as "scope_new_package_per_week_limit",
-      scopes.publish_attempts_per_week_limit as "scope_publish_attempts_per_week_limit",
-      scopes.updated_at as "scope_updated_at",
-      scopes.verify_oidc_actor as "scope_verify_oidc_actor",
-      scopes.require_publishing_from_ci as "scope_require_publishing_from_ci",
-      scopes.created_at as "scope_created_at",
-      users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
-      usage.package as "usage_package", usage.new_package_per_week as "usage_new_package_per_week", usage.publish_attempts_per_week as "usage_publish_attempts_per_week"
+    let sort = sort_by!(maybe_sort => {
+      @timestamps "created_at";
+      "scope" => "scopes.scope",
+      "creator" => "users.name",
+      "package_limit" => "scopes.package_limit",
+      "new_package_per_week_limit" => "scopes.new_package_per_week_limit",
+      "publish_attempts_per_week_limit" => "scopes.publish_attempts_per_week_limit",
+      "created_at" => "scopes.created_at",
+    } || "scopes.created_at DESC");
+
+    let scopes = sqlx::query(&format!(
+      r#"SELECT {}, {}, {}
       FROM scopes
       LEFT JOIN users ON scopes.creator = users.id
-      CROSS JOIN usage
-      WHERE scopes.scope ILIKE $1 OR users.name ILIKE $2
-      ORDER BY scopes.created_at DESC
-      OFFSET $3 LIMIT $4
+      WHERE scopes.scope ILIKE $1 OR users.name ILIKE $1
+      ORDER BY {sort}
+      OFFSET $2 LIMIT $3
       "#,
-      search,
-      search,
-      start,
-      limit,
-    )
-      .map(|r| {
-        let scope = Scope {
-          scope: r.scope_scope,
-          creator: r.scope_creator,
-          updated_at: r.scope_updated_at,
-          created_at: r.scope_created_at,
-          package_limit: r.scope_package_limit,
-          new_package_per_week_limit: r.scope_new_package_per_week_limit,
-          publish_attempts_per_week_limit: r.scope_publish_attempts_per_week_limit,
-          verify_oidc_actor: r.scope_verify_oidc_actor,
-          require_publishing_from_ci: r.scope_require_publishing_from_ci,
-        };
-        let usage = ScopeUsage {
-          package: r.usage_package.unwrap().try_into().unwrap(),
-          new_package_per_week: r.usage_new_package_per_week.unwrap().try_into().unwrap(),
-          publish_attempts_per_week: r.usage_publish_attempts_per_week.unwrap().try_into().unwrap(),
-        };
-        let user = UserPublic {
-          id: r.user_id,
-          name: r.user_name,
-          avatar_url: r.user_avatar_url,
-          github_id: r.user_github_id,
-          updated_at: r.user_updated_at,
-          created_at: r.user_created_at,
-        };
-        (scope,usage, user)
-      })
+      crate::db::sql_fragments::SCOPE_SELECT_JOINED_RT,
+      crate::db::sql_fragments::USER_PUBLIC_SELECT_JOINED_RT,
+      crate::db::sql_fragments::SCOPE_USAGE_SELECT_RT,
+    ))
+    .bind(&search)
+    .bind(start)
+    .bind(limit)
+    .try_map(|r| {
+      let scope = Scope::from_row(&r)?;
+      let usage = ScopeUsage::from_row(&r)?;
+      let user = UserPublic::from_row(&r)?;
+
+      Ok((scope, usage, user))
+    })
     .fetch_all(&mut *tx)
     .await?;
 
     let total_scopes = sqlx::query!(
-      r#"SELECT COUNT(scopes.created_at) FROM scopes LEFT JOIN users ON scopes.creator = users.id WHERE scopes.scope ILIKE $1 OR users.name ILIKE $2;"#,
-      search,
+      r#"SELECT COUNT(scopes.created_at) FROM scopes LEFT JOIN users ON scopes.creator = users.id WHERE scopes.scope ILIKE $1 OR users.name ILIKE $1;"#,
       search,
     )
-    .map(|r| r.count.unwrap())
-    .fetch_one(&mut *tx)
-    .await?;
+      .map(|r| r.count.unwrap())
+      .fetch_one(&mut *tx)
+      .await?;
 
     tx.commit().await?;
 
     Ok((total_scopes as usize, scopes))
   }
 
+  #[cfg(test)]
   #[instrument(name = "Database::list_scopes_created_by_user", skip(self), err)]
   pub async fn list_scopes_created_by_user(
     &self,
     user_id: Uuid,
   ) -> Result<Vec<Scope>> {
-    sqlx::query_as!(
+    query_concat_as!(
       Scope,
-      r#"SELECT
-      scope as "scope: ScopeName",
-      creator,
-      package_limit,
-      new_package_per_week_limit,
-      publish_attempts_per_week_limit,
-      verify_oidc_actor,
-      require_publishing_from_ci,
-      updated_at,
-      created_at
-      FROM scopes WHERE creator = $1
-      ORDER BY scope ASC"#,
+      "SELECT ", SCOPE_SELECT, " FROM scopes WHERE creator = $1 ORDER BY scope ASC";
       user_id
     )
     .fetch_all(&self.pool)
@@ -812,20 +1209,10 @@ impl Database {
 
   #[instrument(name = "Database::get_scope", skip(self), err)]
   pub async fn get_scope(&self, scope: &ScopeName) -> Result<Option<Scope>> {
-    sqlx::query_as!(
+    query_concat_as!(
       Scope,
-      r#"SELECT
-      scope as "scope: ScopeName",
-      creator,
-      package_limit,
-      new_package_per_week_limit,
-      publish_attempts_per_week_limit,
-      verify_oidc_actor,
-      require_publishing_from_ci,
-      updated_at,
-      created_at
-      FROM scopes WHERE scope = $1"#,
-      scope as _
+      "SELECT ", SCOPE_SELECT, " FROM scopes WHERE scope = $1";
+      scope
     )
     .fetch_optional(&self.pool)
     .await
@@ -854,30 +1241,38 @@ impl Database {
   #[instrument(name = "Database::scope_set_verify_oidc_actor", skip(self), err)]
   pub async fn scope_set_verify_oidc_actor(
     &self,
+    actor_id: &Uuid,
+    is_sudo: bool,
     scope: &ScopeName,
     verify_oidc_actor: bool,
   ) -> Result<Scope> {
-    sqlx::query_as!(
-      Scope,
-      r#"
-        UPDATE scopes SET verify_oidc_actor = $1 WHERE scope = $2
-        RETURNING
-          scope as "scope: ScopeName",
-          creator,
-          package_limit,
-          new_package_per_week_limit,
-          publish_attempts_per_week_limit,
-          verify_oidc_actor,
-          require_publishing_from_ci,
-          updated_at,
-          created_at
+    let mut tx = self.pool.begin().await?;
 
-      "#,
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "scope_set_verify_oidc_actor",
+      json!({
+        "scope": scope,
+        "verify_oidc_actor": verify_oidc_actor,
+      }),
+    )
+    .await?;
+
+    let scope = query_concat_as!(
+      Scope,
+      "UPDATE scopes SET verify_oidc_actor = $1 WHERE scope = $2
+        RETURNING ", SCOPE_SELECT;
       verify_oidc_actor,
       scope as _
     )
-    .fetch_one(&self.pool)
-    .await
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(scope)
   }
 
   #[instrument(
@@ -887,95 +1282,144 @@ impl Database {
   )]
   pub async fn scope_set_require_publishing_from_ci(
     &self,
+    actor_id: &Uuid,
+    is_sudo: bool,
     scope: &ScopeName,
     require_publishing_from_ci: bool,
   ) -> Result<Scope> {
-    sqlx::query_as!(
-      Scope,
-      r#"
-        UPDATE scopes SET require_publishing_from_ci = $1 WHERE scope = $2
-        RETURNING
-          scope as "scope: ScopeName",
-          creator,
-          package_limit,
-          new_package_per_week_limit,
-          publish_attempts_per_week_limit,
-          verify_oidc_actor,
-          require_publishing_from_ci,
-          updated_at,
-          created_at
+    let mut tx = self.pool.begin().await?;
 
-      "#,
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "scope_set_require_publishing_from_ci",
+      json!({
+        "scope": scope,
+        "require_publishing_from_ci": require_publishing_from_ci,
+      }),
+    )
+    .await?;
+
+    let scope = query_concat_as!(
+      Scope,
+      "UPDATE scopes SET require_publishing_from_ci = $1 WHERE scope = $2
+        RETURNING ", SCOPE_SELECT;
       require_publishing_from_ci,
       scope as _
     )
-    .fetch_one(&self.pool)
-    .await
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(scope)
+  }
+
+  #[instrument(name = "Database::scope_set_description", skip(self), err)]
+  pub async fn scope_set_description(
+    &self,
+    actor_id: &Uuid,
+    is_sudo: bool,
+    scope: &ScopeName,
+    description: Option<String>,
+  ) -> Result<Scope> {
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "scope_set_description",
+      json!({
+        "scope": scope,
+        "description": description,
+      }),
+    )
+    .await?;
+
+    let scope = query_concat_as!(
+      Scope,
+      "UPDATE scopes SET description = $1 WHERE scope = $2
+        RETURNING ", SCOPE_SELECT;
+      description,
+      scope as _
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(scope)
   }
 
   #[instrument(name = "Database::list_packages_by_scope", skip(self), err)]
   pub async fn list_packages_by_scope(
     &self,
     scope: &ScopeName,
+    show_archived: bool,
     start: i64,
     limit: i64,
   ) -> Result<(usize, Vec<PackageWithGitHubRepoAndMeta>)> {
     let mut tx = self.pool.begin().await?;
 
-    let packages = sqlx::query!(
-      r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat: RuntimeCompat", packages.when_featured "package_when_featured", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count!",
-        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_latest_version",
-        (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta: PackageVersionMeta",
-        github_repositories.id "github_repository_id?", github_repositories.owner "github_repository_owner?", github_repositories.name "github_repository_name?", github_repositories.updated_at "github_repository_updated_at?", github_repositories.created_at "github_repository_created_at?"
+    let packages = query_concat!(
+      "SELECT ", PACKAGE_BASE_SELECT_JOINED, ",
+      ", PACKAGE_VERSION_AGG_SELECT, ",
+      ", GITHUB_REPOSITORY_SELECT_JOINED, "
       FROM packages
       LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
-      WHERE packages.scope = $1
-      ORDER BY packages.name
-      OFFSET $2 LIMIT $3"#,
+      ", PACKAGE_VERSION_LATERAL_JOINS, "
+      WHERE packages.scope = $1 AND ($2 = true OR packages.is_archived = false)
+      ORDER BY packages.is_archived ASC, packages.name
+      OFFSET $3 LIMIT $4";
       scope as _,
+      show_archived,
       start,
       limit
     )
-    .map(|r| {
-      let package = Package {
-        scope: r.package_scope,
-        name: r.package_name,
-        description: r.package_description,
-        github_repository_id: r.package_github_repository_id,
-        runtime_compat: r.package_runtime_compat,
-        created_at: r.package_created_at,
-        updated_at: r.package_updated_at,
-        version_count: r.package_version_count,
-        latest_version: r.package_latest_version,
-        when_featured: r.package_when_featured,
-      };
-      let github_repository = if r.package_github_repository_id.is_some() {
-        Some(GithubRepository {
-          id: r.github_repository_id.unwrap(),
-          owner: r.github_repository_owner.unwrap(),
-          name: r.github_repository_name.unwrap(),
-          created_at: r.github_repository_created_at.unwrap(),
-          updated_at: r.github_repository_updated_at.unwrap(),
-        })
-      } else {
-        None
-      };
+      .map(|r| {
+        let package = Package {
+          scope: r.package_scope,
+          name: r.package_name,
+          description: r.package_description,
+          github_repository_id: r.package_github_repository_id,
+          runtime_compat: r.package_runtime_compat,
+          created_at: r.package_created_at,
+          updated_at: r.package_updated_at,
+          version_count: r.package_version_count,
+          latest_version: r.package_latest_version,
+          when_featured: r.package_when_featured,
+          is_archived: r.package_is_archived,
+          readme_source: r.package_readme_source,
+        };
+        let github_repository = if r.package_github_repository_id.is_some() {
+          Some(GithubRepository {
+            id: r.github_repository_id.unwrap(),
+            owner: r.github_repository_owner.unwrap(),
+            name: r.github_repository_name.unwrap(),
+            created_at: r.github_repository_created_at.unwrap(),
+            updated_at: r.github_repository_updated_at.unwrap(),
+          })
+        } else {
+          None
+        };
 
-      let meta = r.package_version_meta.unwrap_or_default();
+        let meta = r.package_version_meta.unwrap_or_default();
 
-      (package, github_repository, meta)
-    })
-    .fetch_all(&mut *tx)
-    .await?;
+        (package, github_repository, meta)
+      })
+      .fetch_all(&mut *tx)
+      .await?;
 
     let total_packages = sqlx::query!(
-      r#"SELECT COUNT(created_at) FROM packages WHERE scope = $1;"#,
+      r#"SELECT COUNT(created_at) FROM packages WHERE scope = $1 AND ($2 = true OR packages.is_archived = false);"#,
       scope as _,
+      show_archived,
     )
-    .map(|r| r.count.unwrap())
-    .fetch_one(&mut *tx)
-    .await?;
+      .map(|r| r.count.unwrap())
+      .fetch_one(&mut *tx)
+      .await?;
 
     tx.commit().await?;
 
@@ -989,6 +1433,7 @@ impl Database {
     limit: i64,
     maybe_search_query: Option<&str>,
     maybe_github_repo_id: Option<i64>,
+    maybe_sort: Option<&str>,
   ) -> Result<(usize, Vec<PackageWithGitHubRepoAndMeta>)> {
     let mut tx = self.pool.begin().await?;
 
@@ -1033,60 +1478,58 @@ impl Database {
         "".to_string(),
       )
     };
-    let packages = sqlx::query!(
-      r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat: RuntimeCompat", packages.when_featured "package_when_featured", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count!",
-        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_latest_version",
-        (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta: PackageVersionMeta",
-        github_repositories.id "github_repository_id?", github_repositories.owner "github_repository_owner?", github_repositories.name "github_repository_name?", github_repositories.updated_at "github_repository_updated_at?", github_repositories.created_at "github_repository_created_at?"
+    let sort = sort_by!(maybe_sort => {
+      @timestamps "when_featured", "updated_at", "created_at";
+      "scope" => "packages.scope",
+      "name" => "packages.name",
+      // "repository",
+      "is_archived" => "packages.is_archived",
+      "when_featured" => "packages.when_featured",
+      "updated_at" => "packages.updated_at",
+      "created_at" => "packages.created_at",
+    } || "packages.name ASC, packages.scope ASC");
+
+    let packages = sqlx::query(
+      &format!(r#"SELECT {}, {}, {}
        FROM packages
        LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
-       WHERE (packages.scope ILIKE $1 OR packages.name ILIKE $2) AND (packages.github_repository_id = $5 OR $5 IS NULL)
+       {}
+       WHERE (packages.scope ILIKE $1 OR packages.name ILIKE $2) AND (packages.github_repository_id = $5 OR $5 IS NULL) AND NOT packages.is_archived
        ORDER BY
          CASE
            WHEN packages.name ILIKE $3 THEN 1 -- Exact match for package name
            WHEN packages.scope ILIKE $4 THEN 2 -- Exact match for scope name
            ELSE 3 -- Fuzzy matches will be ordered by package name and then scope name below
         END,
-        packages.name ASC, packages.scope ASC
+        {sort}
        OFFSET $6 LIMIT $7"#,
-      scope_ilike_query,
-      package_ilike_query,
-      package_exact_query,
-      scope_exact_query,
-      maybe_github_repo_id,
-      start,
-      limit
+        crate::db::sql_fragments::PACKAGE_BASE_SELECT_JOINED_RT,
+        crate::db::sql_fragments::PACKAGE_VERSION_AGG_SELECT_RT,
+        crate::db::sql_fragments::GITHUB_REPOSITORY_SELECT_JOINED_RT,
+        crate::db::sql_fragments::PACKAGE_VERSION_LATERAL_JOINS_RT,
+      ),
     )
-    .map(|r| {
-      let package = Package {
-        scope: r.package_scope,
-        name: r.package_name,
-        description: r.package_description,
-        github_repository_id: r.package_github_repository_id,
-        runtime_compat: r.package_runtime_compat,
-        created_at: r.package_created_at,
-        updated_at: r.package_updated_at,
-        version_count: r.package_version_count,
-        latest_version: r.package_latest_version,
-        when_featured: r.package_when_featured,
-      };
-      let github_repository = if r.package_github_repository_id.is_some() {
-        Some(GithubRepository {
-          id: r.github_repository_id.unwrap(),
-          owner: r.github_repository_owner.unwrap(),
-          name: r.github_repository_name.unwrap(),
-          created_at: r.github_repository_created_at.unwrap(),
-          updated_at: r.github_repository_updated_at.unwrap(),
-        })
-      } else {
-        None
-      };
-      let meta = r.package_version_meta.unwrap_or_default();
-      (package, github_repository, meta)
-    })
-    .fetch_all(&mut *tx)
-    .await?;
+      .bind(&scope_ilike_query)
+      .bind(&package_ilike_query)
+      .bind(package_exact_query)
+      .bind(scope_exact_query)
+      .bind(maybe_github_repo_id)
+      .bind(start)
+      .bind(limit)
+      .try_map(|r| {
+        let package = Package::from_row(&r)?;
+
+        let github_repository = if r.try_get::<Option<i64>, &str>("github_repository_id")?.is_some() {
+          Some(GithubRepository::from_row(&r)?)
+        } else {
+          None
+        };
+
+        let meta: Option<PackageVersionMeta> = r.try_get("package_version_meta")?;
+        Ok((package, github_repository, meta.unwrap_or_default()))
+      })
+      .fetch_all(&mut *tx)
+      .await?;
 
     let total_packages = sqlx::query!(
       r#"SELECT COUNT(created_at) FROM packages WHERE (packages.scope ILIKE $1 OR packages.name ILIKE $2) AND (packages.github_repository_id = $3 OR $3 IS NULL);"#,
@@ -1107,112 +1550,58 @@ impl Database {
   pub async fn package_stats(
     &self,
   ) -> Result<(
-    Vec<PackageWithGitHubRepoAndMeta>,
-    Vec<PackageVersion>,
-    Vec<PackageWithGitHubRepoAndMeta>,
+    Vec<StatsPackage>,
+    Vec<StatsPackageVersion>,
+    Vec<StatsPackage>,
   )> {
-    let newest = sqlx::query!(
-      r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat: RuntimeCompat", packages.when_featured "package_when_featured", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count!",
-        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_latest_version",
-        (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta: PackageVersionMeta",
-        github_repositories.id "github_repository_id?", github_repositories.owner "github_repository_owner?", github_repositories.name "github_repository_name?", github_repositories.updated_at "github_repository_updated_at?", github_repositories.created_at "github_repository_created_at?"
+    let newest_fut = sqlx::query!(
+      r#"SELECT packages.scope as "scope: ScopeName", packages.name as "name: PackageName", packages.description
       FROM packages
-      LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
-      WHERE (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND is_yanked = false AND version IS NOT NULL ORDER BY version DESC LIMIT 1) IS NOT NULL
+      WHERE EXISTS (
+        SELECT 1 FROM package_versions
+        WHERE scope = packages.scope AND name = packages.name AND is_yanked = false
+      ) AND NOT packages.is_archived
       ORDER BY packages.created_at DESC
       LIMIT 10"#,
     )
-    .map(|r| {
-      let package = Package {
-        scope: r.package_scope,
-        name: r.package_name,
-        description: r.package_description,
-        github_repository_id: r.package_github_repository_id,
-        runtime_compat: r.package_runtime_compat,
-        created_at: r.package_created_at,
-        updated_at: r.package_updated_at,
-        version_count: r.package_version_count,
-        latest_version: r.package_latest_version,
-        when_featured: r.package_when_featured,
-      };
-      let github_repository = if r.package_github_repository_id.is_some() {
-        Some(GithubRepository {
-          id: r.github_repository_id.unwrap(),
-          owner: r.github_repository_owner.unwrap(),
-          name: r.github_repository_name.unwrap(),
-          created_at: r.github_repository_created_at.unwrap(),
-          updated_at: r.github_repository_updated_at.unwrap(),
-        })
-      } else {
-        None
-      };
-      let meta = r.package_version_meta.unwrap_or_default();
-      (package, github_repository, meta)
-    })
-    .fetch_all(&self.pool)
-    .await?;
+      .map(|r| StatsPackage {
+        scope: r.scope,
+        name: r.name,
+        description: r.description,
+      })
+      .fetch_all(&self.pool);
 
-    let updated = sqlx::query_as!(
-      PackageVersion,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id,
-      (SELECT COUNT(*)
-        FROM package_versions AS pv
-        WHERE pv.scope = package_versions.scope
-        AND pv.name = package_versions.name
-        AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "newer_versions_count!"
+    let updated_fut = sqlx::query!(
+      r#"SELECT package_versions.scope as "scope: ScopeName", package_versions.name as "name: PackageName", package_versions.version as "version: Version", packages.description
       FROM package_versions
+      JOIN packages ON packages.scope = package_versions.scope AND packages.name = package_versions.name
+      WHERE NOT packages.is_archived
       ORDER BY package_versions.created_at DESC
       LIMIT 10"#,
     )
-    .fetch_all(&self.pool)
-    .await?;
+      .map(|r| StatsPackageVersion {
+        scope: r.scope,
+        name: r.name,
+        version: r.version,
+        description: r.description,
+      })
+      .fetch_all(&self.pool);
 
-    let featured = sqlx::query!(
-      r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat: RuntimeCompat", packages.when_featured "package_when_featured", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count!",
-        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_latest_version",
-        (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta: PackageVersionMeta",
-        github_repositories.id "github_repository_id?", github_repositories.owner "github_repository_owner?", github_repositories.name "github_repository_name?", github_repositories.updated_at "github_repository_updated_at?", github_repositories.created_at "github_repository_created_at?"
+    let featured_fut = sqlx::query!(
+      r#"SELECT packages.scope as "scope: ScopeName", packages.name as "name: PackageName", packages.description
       FROM packages
-      LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
-      WHERE packages.when_featured IS NOT NULL
+      WHERE packages.when_featured IS NOT NULL AND NOT packages.is_archived
       ORDER BY packages.when_featured DESC
       LIMIT 10"#,
     )
-    .map(|r| {
-      let package = Package {
-        scope: r.package_scope,
-        name: r.package_name,
-        description: r.package_description,
-        github_repository_id: r.package_github_repository_id,
-        runtime_compat: r.package_runtime_compat,
-        created_at: r.package_created_at,
-        updated_at: r.package_updated_at,
-        version_count: r.package_version_count,
-        latest_version: r.package_latest_version,
-        when_featured: r.package_when_featured,
-      };
-      let github_repository = if r.package_github_repository_id.is_some() {
-        Some(GithubRepository {
-          id: r.github_repository_id.unwrap(),
-          owner: r.github_repository_owner.unwrap(),
-          name: r.github_repository_name.unwrap(),
-          created_at: r.github_repository_created_at.unwrap(),
-          updated_at: r.github_repository_updated_at.unwrap(),
-        })
-      } else {
-        None
-      };
-      let meta = r.package_version_meta.unwrap_or_default();
-      (package, github_repository, meta)
-    })
-    .fetch_all(&self.pool)
-    .await?;
+      .map(|r| StatsPackage {
+        scope: r.scope,
+        name: r.name,
+        description: r.description,
+      })
+      .fetch_all(&self.pool);
 
-    Ok((newest, updated, featured))
+    Ok(tokio::try_join!(newest_fut, updated_fut, featured_fut)?)
   }
 
   #[instrument(name = "Database::metrics", skip(self), err)]
@@ -1291,28 +1680,56 @@ impl Database {
     })
   }
 
-  #[instrument(name = "Database::list_package_versions", skip(self), err)]
-  pub async fn list_package_versions(
+  #[instrument(
+    name = "Database::list_package_versions_for_metadata",
+    skip(self),
+    err
+  )]
+  pub async fn list_package_versions_for_metadata(
     &self,
     scope: &ScopeName,
     name: &PackageName,
-  ) -> Result<Vec<(PackageVersion, Option<UserPublic>)>> {
-    sqlx::query!(
-      r#"SELECT package_versions.scope as "package_version_scope: ScopeName", package_versions.name as "package_version_name: PackageName", package_versions.version as "package_version_version: Version", package_versions.user_id as "package_version_user_id", package_versions.readme_path as "package_version_readme_path: PackagePath", package_versions.exports as "package_version_exports: ExportsMap", package_versions.is_yanked as "package_version_is_yanked", package_versions.uses_npm as "package_version_uses_npm", package_versions.meta as "package_version_meta: PackageVersionMeta", package_versions.updated_at as "package_version_updated_at", package_versions.created_at as "package_version_created_at", package_versions.rekor_log_id as "package_version_rekor_log_id",
-      (SELECT COUNT(*)
-        FROM package_versions AS pv
-        WHERE pv.scope = package_versions.scope
-        AND pv.name = package_versions.name
-        AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "package_version_newer_versions_count!",
-      users.id as "user_id?", users.name as "user_name?", users.avatar_url as "user_avatar_url?", users.github_id as "user_github_id", users.updated_at as "user_updated_at?", users.created_at as "user_created_at?"
+  ) -> Result<Vec<PackageVersionForMetadata>> {
+    sqlx::query_as!(
+      PackageVersionForMetadata,
+      r#"SELECT version as "version: Version", is_yanked, created_at
+      FROM package_versions
+      WHERE scope = $1 AND name = $2
+      ORDER BY version DESC"#,
+      scope as _,
+      name as _,
+    )
+    .fetch_all(&self.pool)
+    .await
+  }
+
+  #[allow(clippy::type_complexity)]
+  #[instrument(
+    name = "Database::list_package_versions_paginated",
+    skip(self),
+    err
+  )]
+  pub async fn list_package_versions_paginated(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+    start: i64,
+    limit: i64,
+  ) -> Result<(usize, Vec<(PackageVersion, Option<UserPublic>)>)> {
+    let mut tx = self.pool.begin().await?;
+
+    let versions = query_concat!(
+      "SELECT ", PACKAGE_VERSION_SELECT_JOINED, ",
+      ", USER_PUBLIC_SELECT_JOINED, "
       FROM package_versions
       LEFT JOIN users ON package_versions.user_id = users.id
       WHERE package_versions.scope = $1 AND package_versions.name = $2
-      ORDER BY package_versions.version DESC"#,
+      ORDER BY package_versions.version DESC
+      OFFSET $3 LIMIT $4";
       scope as _,
       name as _,
+      start,
+      limit,
     )
     .map(|r| {
       let package_version = PackageVersion {
@@ -1324,11 +1741,11 @@ impl Database {
         is_yanked: r.package_version_is_yanked,
         readme_path: r.package_version_readme_path,
         uses_npm: r.package_version_uses_npm,
-        newer_versions_count: r.package_version_newer_versions_count,
         meta: r.package_version_meta,
         updated_at: r.package_version_updated_at,
         created_at: r.package_version_created_at,
         rekor_log_id: r.package_version_rekor_log_id,
+        license: r.package_version_license,
       };
 
       let user = if r.package_version_user_id.is_some() {
@@ -1337,6 +1754,7 @@ impl Database {
           name: r.user_name.unwrap(),
           avatar_url: r.user_avatar_url.unwrap(),
           github_id: r.user_github_id,
+          gitlab_id: r.user_gitlab_id,
           updated_at: r.user_updated_at.unwrap(),
           created_at: r.user_created_at.unwrap(),
         };
@@ -1348,8 +1766,77 @@ impl Database {
 
       (package_version, user)
     })
+    .fetch_all(&mut *tx)
+    .await?;
+
+    let total = sqlx::query!(
+      r#"SELECT COUNT(*) FROM package_versions WHERE scope = $1 AND name = $2"#,
+      scope as _,
+      name as _,
+    )
+    .map(|r| r.count.unwrap())
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok((total as usize, versions))
+  }
+
+  #[instrument(
+    name = "Database::list_package_versions_for_resolution",
+    skip(self),
+    err
+  )]
+  pub async fn list_package_versions_for_resolution(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<Vec<PackageVersionForResolution>> {
+    sqlx::query_as!(
+      PackageVersionForResolution,
+      r#"SELECT package_versions.version as "version: Version", package_versions.exports as "exports: ExportsMap"
+      FROM package_versions
+      WHERE package_versions.scope = $1 AND package_versions.name = $2
+      ORDER BY package_versions.version DESC"#,
+      scope as _,
+      name as _,
+    )
     .fetch_all(&self.pool)
     .await
+  }
+
+  #[instrument(
+    name = "Database::list_package_versions_for_npm_version_manifest",
+    skip(self),
+    err
+  )]
+  pub async fn list_package_versions_for_npm_version_manifest(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<Vec<PackageVersionForNpmVersionManifest>> {
+    sqlx::query_as!(
+      PackageVersionForNpmVersionManifest,
+      r#"SELECT package_versions.version as "version: Version", package_versions.is_yanked as "is_yanked", package_versions.created_at as "created_at",
+      npm_tarballs.revision as "npm_tarball_revision", npm_tarballs.sha1 as "npm_tarball_sha1", npm_tarballs.sha512 as "npm_tarball_sha512"
+      FROM package_versions
+      INNER JOIN LATERAL (
+        SELECT revision, sha1, sha512
+        FROM npm_tarballs
+        WHERE npm_tarballs.scope = package_versions.scope
+        AND npm_tarballs.name = package_versions.name
+        AND npm_tarballs.version = package_versions.version
+        ORDER BY revision DESC
+        LIMIT 1
+      ) npm_tarballs ON true
+      WHERE package_versions.scope = $1 AND package_versions.name = $2
+      ORDER BY package_versions.version DESC"#,
+      scope as _,
+      name as _,
+    )
+      .fetch_all(&self.pool)
+      .await
   }
 
   #[instrument(
@@ -1362,25 +1849,101 @@ impl Database {
     scope: &ScopeName,
     name: &PackageName,
   ) -> Result<Option<PackageVersion>> {
-    sqlx::query_as!(
+    query_concat_as!(
       PackageVersion,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id,
-      (SELECT COUNT(*)
-        FROM package_versions AS pv
-        WHERE pv.scope = package_versions.scope
-        AND pv.name = package_versions.name
-        AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "newer_versions_count!"
+      "SELECT ", PACKAGE_VERSION_SELECT, "
       FROM package_versions
       WHERE scope = $1 AND name = $2 AND version NOT LIKE '%-%' AND is_yanked = false
       ORDER BY version DESC
-      LIMIT 1"#,
+      LIMIT 1";
+      scope as _,
+      name as _,
+    )
+      .fetch_optional(&self.pool)
+      .await
+  }
+
+  /// Resolves the version whose docs are served for a package. This is the
+  /// latest unyanked stable version, or - for packages that only have
+  /// prerelease versions - the latest unyanked prerelease version. Ordering
+  /// stable releases ahead of prereleases keeps the result identical to
+  /// `get_latest_unyanked_version_for_package` whenever a stable release
+  /// exists.
+  #[instrument(
+    name = "Database::get_latest_unyanked_version_for_package_for_docs",
+    skip(self),
+    err
+  )]
+  pub async fn get_latest_unyanked_version_for_package_for_docs(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<Option<PackageVersion>> {
+    query_concat_as!(
+      PackageVersion,
+      "SELECT ", PACKAGE_VERSION_SELECT, "
+      FROM package_versions
+      WHERE scope = $1 AND name = $2 AND is_yanked = false
+      ORDER BY (version NOT LIKE '%-%') DESC, version DESC
+      LIMIT 1";
       scope as _,
       name as _,
     )
     .fetch_optional(&self.pool)
     .await
+  }
+
+  #[instrument(
+    name = "Database::get_latest_unyanked_version_for_package_with_newer_versions_count",
+    skip(self),
+    err
+  )]
+  pub async fn get_latest_unyanked_version_for_package_with_newer_versions_count(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<Option<PackageVersionWithNewerVersionsCount>> {
+    query_concat_as!(
+      PackageVersionWithNewerVersionsCount,
+      "SELECT ", PACKAGE_VERSION_SELECT, ",
+      ", NEWER_VERSIONS_COUNT_SUBQUERY, "
+      FROM package_versions
+      WHERE scope = $1 AND name = $2 AND version NOT LIKE '%-%' AND is_yanked = false
+      ORDER BY version DESC
+      LIMIT 1";
+      scope as _,
+      name as _,
+    )
+      .fetch_optional(&self.pool)
+      .await
+  }
+
+  #[instrument(
+    name = "Database::list_latest_unyanked_versions_for_package",
+    skip(self),
+    err
+  )]
+  pub async fn list_latest_unyanked_versions_for_package(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+    limit: u32,
+  ) -> Result<Vec<Version>> {
+    sqlx::query!(
+      r#"
+      SELECT version as "version: Version"
+      FROM package_versions
+      WHERE scope = $1 AND name = $2 AND version NOT LIKE '%-%' AND is_yanked = false
+      ORDER BY version DESC
+      LIMIT $3
+      "#,
+      scope as _,
+      name as _,
+      limit as i32,
+    )
+      .map(|r| r.version)
+      .fetch_all(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::get_package_version", skip(self), err)]
@@ -1390,18 +1953,11 @@ impl Database {
     name: &PackageName,
     version: &Version,
   ) -> Result<Option<PackageVersion>> {
-    sqlx::query_as!(
+    query_concat_as!(
       PackageVersion,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id,
-      (SELECT COUNT(*)
-        FROM package_versions AS pv
-        WHERE pv.scope = package_versions.scope
-        AND pv.name = package_versions.name
-        AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "newer_versions_count!"
+      "SELECT ", PACKAGE_VERSION_SELECT, "
       FROM package_versions
-      WHERE scope = $1 AND name = $2 AND version = $3"#,
+      WHERE scope = $1 AND name = $2 AND version = $3";
       scope as _,
       name as _,
       version as _
@@ -1410,7 +1966,38 @@ impl Database {
     .await
   }
 
-  #[instrument(name = "Database::create_package_version_and_npm_tarball_and_finalize_publishing_task", skip(self, new_package_version, new_package_files), err, fields(package_version.scope = %new_package_version.scope, package_version.name = %new_package_version.name, package_version.version = %new_package_version.version, package_version.exports = ?new_package_version.exports, package_files = new_package_files.len()))]
+  #[instrument(
+    name = "Database::get_package_version_with_newer_versions_count",
+    skip(self),
+    err
+  )]
+  pub async fn get_package_version_with_newer_versions_count(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+    version: &Version,
+  ) -> Result<Option<PackageVersionWithNewerVersionsCount>> {
+    query_concat_as!(
+      PackageVersionWithNewerVersionsCount,
+      "SELECT ", PACKAGE_VERSION_SELECT, ",
+      ", NEWER_VERSIONS_COUNT_SUBQUERY, "
+      FROM package_versions
+      WHERE scope = $1 AND name = $2 AND version = $3";
+      scope as _,
+      name as _,
+      version as _
+    )
+    .fetch_optional(&self.pool)
+    .await
+  }
+
+  #[instrument(
+    name = "Database::create_package_version_and_npm_tarball_and_finalize_publishing_task",
+    skip(self, new_package_version, new_package_files),
+    err,
+    fields(package_version.scope = %new_package_version.scope, package_version.name = %new_package_version.name, package_version.version = %new_package_version.version, package_version.exports = ?new_package_version.exports, package_files = new_package_files.len()
+    )
+  )]
   pub async fn create_package_version_and_npm_tarball_and_finalize_publishing_task(
     &self,
     publishing_task_id: Uuid,
@@ -1422,8 +2009,8 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     sqlx::query!(
-      r#"INSERT INTO package_versions (scope, name, version, user_id, readme_path, exports, uses_npm, meta)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"#,
+      r#"INSERT INTO package_versions (scope, name, version, user_id, readme_path, exports, uses_npm, meta, license)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"#,
       new_package_version.scope as _,
       new_package_version.name as _,
       new_package_version.version as _,
@@ -1432,9 +2019,10 @@ impl Database {
       new_package_version.exports as _,
       new_package_version.uses_npm as _,
       new_package_version.meta as _,
+      new_package_version.license as _,
     )
-    .execute(&mut *tx)
-    .await?;
+      .execute(&mut *tx)
+      .await?;
 
     for new_package_file in new_package_files {
       sqlx::query!(
@@ -1447,14 +2035,14 @@ impl Database {
         new_package_file.size,
         new_package_file.checksum,
       )
-      .execute(&mut *tx)
-      .await?;
+        .execute(&mut *tx)
+        .await?;
     }
 
     for new_package_version_dependency in new_package_version_dependencies {
       sqlx::query!(
-        r#"INSERT INTO package_version_dependencies (package_scope, package_name, package_version, dependency_kind, dependency_name, dependency_constraint, dependency_path)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
+        r#"INSERT INTO package_version_dependencies (package_scope, package_name, package_version, dependency_kind, dependency_name, dependency_constraint, dependency_path, dependency_fallback_url)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"#,
         new_package_version_dependency.package_scope as _,
         new_package_version_dependency.package_name as _,
         new_package_version_dependency.package_version as _,
@@ -1462,9 +2050,10 @@ impl Database {
         new_package_version_dependency.dependency_name as _,
         new_package_version_dependency.dependency_constraint as _,
         new_package_version_dependency.dependency_path as _,
+        new_package_version_dependency.dependency_fallback_url as _,
       )
-      .execute(&mut *tx)
-      .await?;
+        .execute(&mut *tx)
+        .await?;
     }
 
     sqlx::query!(
@@ -1478,15 +2067,15 @@ impl Database {
       new_npm_tarball.sha512,
       new_npm_tarball.size,
     )
-    .execute(&mut *tx)
-    .await?;
+      .execute(&mut *tx)
+      .await?;
 
-    let task = sqlx::query_as!(
+    let task = query_concat_as!(
       PublishingTask,
-      r#"UPDATE publishing_tasks
+      "UPDATE publishing_tasks
       SET status = 'processed'
       WHERE id = $1 AND status = 'processing'
-      RETURNING id, status as "status: PublishingTaskStatus", error as "error: PublishingTaskError", user_id, package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", config_file as "config_file: PackagePath", created_at, updated_at"#,
+      RETURNING ", PUBLISHING_TASK_SELECT;
       publishing_task_id,
     )
     .fetch_one(&mut *tx)
@@ -1497,23 +2086,22 @@ impl Database {
     Ok(task)
   }
 
-  #[instrument(name = "Database::create_package_version_for_test", skip(self, new_package_version), err, fields(package_version.scope = %new_package_version.scope, package_version.name = %new_package_version.name, package_version.version = %new_package_version.version, package_version.exports = ?new_package_version.exports))]
+  #[cfg(test)]
+  #[instrument(name = "Database::create_package_version_for_test", skip(
+    self,
+    new_package_version
+  ), err, fields(package_version.scope = %new_package_version.scope, package_version.name = %new_package_version.name, package_version.version = %new_package_version.version, package_version.exports = ?new_package_version.exports
+  ))]
   pub async fn create_package_version_for_test(
     &self,
     new_package_version: NewPackageVersion<'_>,
-  ) -> Result<PackageVersion> {
-    sqlx::query_as!(
-      PackageVersion,
-      r#"INSERT INTO package_versions (scope, name, version, user_id, readme_path, exports, uses_npm, meta)
+  ) -> Result<PackageVersionWithNewerVersionsCount> {
+    query_concat_as!(
+      PackageVersionWithNewerVersionsCount,
+      "INSERT INTO package_versions (scope, name, version, user_id, readme_path, exports, uses_npm, meta)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id,
-      (SELECT COUNT(*)
-        FROM package_versions AS pv
-        WHERE pv.scope = package_versions.scope
-        AND pv.name = package_versions.name
-        AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "newer_versions_count!""#,
+      RETURNING ", PACKAGE_VERSION_SELECT, ",
+      ", NEWER_VERSIONS_COUNT_SUBQUERY;
       new_package_version.scope as _,
       new_package_version.name as _,
       new_package_version.version as _,
@@ -1523,60 +2111,91 @@ impl Database {
       new_package_version.uses_npm as _,
       new_package_version.meta as _,
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::yank_package_version", skip(self), err)]
   pub async fn yank_package_version(
     &self,
+    actor_id: &Uuid,
+    is_sudo: bool,
     scope: &ScopeName,
     name: &PackageName,
     version: &Version,
     yank: bool,
   ) -> Result<PackageVersion> {
-    sqlx::query_as!(
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "yank_package_version",
+      json!({
+        "scope": scope,
+        "name": name,
+        "version": version,
+        "yank": yank,
+      }),
+    )
+    .await?;
+
+    let package_version = query_concat_as!(
       PackageVersion,
-      r#"UPDATE package_versions
+      "UPDATE package_versions
       SET is_yanked = $4
       WHERE scope = $1 AND name = $2 AND version = $3
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id,
-      (SELECT COUNT(*)
-        FROM package_versions AS pv
-        WHERE pv.scope = package_versions.scope
-        AND pv.name = package_versions.name
-        AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "newer_versions_count!""#,
+      RETURNING ", PACKAGE_VERSION_SELECT;
       scope as _,
       name as _,
       version as _,
       yank
     )
-    .fetch_one(&self.pool)
-    .await
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(package_version)
   }
 
-  #[instrument(name = "Database::get_package_file", skip(self), err)]
-  pub async fn get_package_file(
+  #[instrument(name = "Database::delete_package_version", skip(self), err)]
+  pub async fn delete_package_version(
     &self,
+    staff_id: &Uuid,
     scope: &ScopeName,
     name: &PackageName,
     version: &Version,
-    path: &PackagePath,
-  ) -> Result<Option<PackageFile>> {
+  ) -> Result<()> {
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      staff_id,
+      true,
+      "delete_package_version",
+      json!({
+      "scope": scope,
+      "name": name,
+      "version": version,
+      }),
+    )
+    .await?;
+
     sqlx::query_as!(
-      PackageFile,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", path as "path: PackagePath", size, checksum, updated_at, created_at
-      FROM package_files
-      WHERE scope = $1 AND name = $2 AND version = $3 AND path = $4"#,
+      PackageVersion,
+      r#"DELETE FROM package_versions WHERE scope = $1 AND name = $2 AND version = $3"#,
       scope as _,
       name as _,
-      version as _,
-      path as _
+      version as _
     )
-    .fetch_optional(&self.pool)
-    .await
+      .execute(&mut *tx)
+      .await?;
+
+    tx.commit().await?;
+
+    Ok(())
   }
 
   #[instrument(name = "Database::list_package_files", skip(self), err)]
@@ -1586,11 +2205,11 @@ impl Database {
     name: &PackageName,
     version: &Version,
   ) -> Result<Vec<PackageFile>> {
-    sqlx::query_as!(
+    query_concat_as!(
       PackageFile,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", path as "path: PackagePath", size, checksum, updated_at, created_at
+      "SELECT ", PACKAGE_FILE_SELECT, "
       FROM package_files
-      WHERE scope = $1 AND name = $2 AND version = $3"#,
+      WHERE scope = $1 AND name = $2 AND version = $3";
       scope as _,
       name as _,
       version as _
@@ -1599,48 +2218,27 @@ impl Database {
     .await
   }
 
-  #[instrument(name = "Database::create_package_file_for_test", skip(self, new_package_file), err, fields(package_file.scope = %new_package_file.scope, package_file.name = %new_package_file.name, package_file.version = %new_package_file.version, package_file.path = %new_package_file.path, package_file.size = new_package_file.size, package_file.checksum = new_package_file.checksum))]
+  #[cfg(test)]
+  #[instrument(name = "Database::create_package_file_for_test", skip(
+    self,
+    new_package_file
+  ), err, fields(package_file.scope = %new_package_file.scope, package_file.name = %new_package_file.name, package_file.version = %new_package_file.version, package_file.path = %new_package_file.path, package_file.size = new_package_file.size, package_file.checksum = new_package_file.checksum
+  ))]
   pub async fn create_package_file_for_test(
     &self,
     new_package_file: NewPackageFile<'_>,
   ) -> Result<PackageFile> {
-    sqlx::query_as!(
+    query_concat_as!(
       PackageFile,
-      r#"INSERT INTO package_files (scope, name, version, path, size, checksum)
+      "INSERT INTO package_files (scope, name, version, path, size, checksum)
       VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", path as "path: PackagePath", size, checksum, updated_at, created_at"#,
+      RETURNING ", PACKAGE_FILE_SELECT;
       new_package_file.scope as _,
       new_package_file.name as _,
       new_package_file.version as _,
       new_package_file.path as _,
       new_package_file.size,
       new_package_file.checksum
-    )
-    .fetch_one(&self.pool)
-    .await
-  }
-
-  #[instrument(
-    name = "Database::create_package_version_dependency",
-    skip(self, new_package_version_dependency),
-    err
-  )]
-  pub async fn create_package_version_dependency_for_test(
-    &self,
-    new_package_version_dependency: NewPackageVersionDependency<'_>,
-  ) -> Result<PackageVersionDependency> {
-    sqlx::query_as!(
-      PackageVersionDependency,
-      r#"INSERT INTO package_version_dependencies (package_scope, package_name, package_version, dependency_kind, dependency_name, dependency_constraint, dependency_path)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", dependency_kind as "dependency_kind: DependencyKind", dependency_name, dependency_constraint, dependency_path, updated_at, created_at"#,
-      new_package_version_dependency.package_scope as _,
-      new_package_version_dependency.package_name as _,
-      new_package_version_dependency.package_version as _,
-      new_package_version_dependency.dependency_kind as _,
-      new_package_version_dependency.dependency_name as _,
-      new_package_version_dependency.dependency_constraint as _,
-      new_package_version_dependency.dependency_path as _
     )
     .fetch_one(&self.pool)
     .await
@@ -1655,11 +2253,11 @@ impl Database {
     &self,
     new_npm_tarball: NewNpmTarball<'_>,
   ) -> Result<NpmTarball> {
-    sqlx::query_as!(
+    query_concat_as!(
       NpmTarball,
-      r#"INSERT INTO npm_tarballs (scope, name, version, revision, sha1, sha512, size)
+      "INSERT INTO npm_tarballs (scope, name, version, revision, sha1, sha512, size)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", revision, sha1, sha512, size, updated_at, created_at"#,
+      RETURNING ", NPM_TARBALL_SELECT;
       new_npm_tarball.scope as _,
       new_npm_tarball.name as _,
       new_npm_tarball.version as _,
@@ -1668,138 +2266,8 @@ impl Database {
       new_npm_tarball.sha512,
       new_npm_tarball.size
     )
-    .fetch_one(&self.pool)
-    .await
-  }
-
-  #[instrument(name = "Database::list_aliases_for_package", skip(self), err)]
-  pub async fn list_aliases_for_package(
-    &self,
-    name: &str,
-  ) -> Result<Vec<Alias>> {
-    let rows = sqlx::query!(
-      r#"SELECT
-      name, major_version,
-      target_jsr_scope as "target_jsr_scope: ScopeName",
-      target_jsr_name as "target_jsr_name: PackageName",
-      target_npm,
-      updated_at,
-      created_at
-      FROM aliases
-      WHERE name = $1"#,
-      name
-    )
-    .map(|row| {
-      let target =
-        match (&row.target_jsr_scope, &row.target_jsr_name, &row.target_npm) {
-          (Some(scope), Some(name), None) => {
-            AliasTarget::Jsr(scope.clone(), name.clone())
-          }
-          (None, None, Some(name)) => AliasTarget::Npm(name.clone()),
-          _ => unreachable!(),
-        };
-      Alias {
-        name: row.name.clone(),
-        major_version: row.major_version,
-        target,
-        updated_at: row.updated_at,
-        created_at: row.created_at,
-      }
-    })
-    .fetch_all(&self.pool)
-    .await?;
-    Ok(rows)
-  }
-
-  #[instrument(name = "Database::list_aliases", skip(self), err)]
-  pub async fn list_aliases(
-    &self,
-    start: i64,
-    limit: i64,
-    maybe_search_query: Option<&str>,
-  ) -> Result<Vec<Alias>> {
-    let search = format!("%{}%", maybe_search_query.unwrap_or(""));
-    let rows = sqlx::query!(
-      r#"SELECT
-      name, major_version,
-      target_jsr_scope as "target_jsr_scope: ScopeName",
-      target_jsr_name as "target_jsr_name: PackageName",
-      target_npm,
-      updated_at,
-      created_at
-      FROM aliases
-      WHERE name ILIKE $1
-      OFFSET $2
-      LIMIT $3"#,
-      search,
-      start,
-      limit
-    )
-    .map(|row| {
-      let target =
-        match (&row.target_jsr_scope, &row.target_jsr_name, &row.target_npm) {
-          (Some(scope), Some(name), None) => {
-            AliasTarget::Jsr(scope.clone(), name.clone())
-          }
-          (None, None, Some(name)) => AliasTarget::Npm(name.clone()),
-          _ => unreachable!(),
-        };
-      Alias {
-        name: row.name.clone(),
-        major_version: row.major_version,
-        target,
-        updated_at: row.updated_at,
-        created_at: row.created_at,
-      }
-    })
-    .fetch_all(&self.pool)
-    .await?;
-    Ok(rows)
-  }
-
-  #[instrument(name = "Database::create_alias", skip(self), err)]
-  pub async fn create_alias(
-    &self,
-    name: &str,
-    major_version: i32,
-    target: AliasTarget,
-  ) -> Result<Alias> {
-    let (target_jsr_scope, target_jsr_name, target_npm) = match target {
-      AliasTarget::Jsr(scope, name) => (Some(scope), Some(name), None),
-      AliasTarget::Npm(name) => (None, None, Some(name)),
-    };
-    let row = sqlx::query!(
-      r#"
-      INSERT INTO aliases (name, major_version, target_jsr_scope, target_jsr_name, target_npm)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING name, major_version,
-      target_jsr_scope as "target_jsr_scope: ScopeName",
-      target_jsr_name as "target_jsr_name: PackageName",
-      target_npm,
-      updated_at,
-      created_at
-      "#,
-      name,
-      major_version,
-      target_jsr_scope as _,
-      target_jsr_name as _,
-      target_npm
-    )
-    .fetch_one(&self.pool)
-    .await?;
-    let target =
-      match (row.target_jsr_scope, row.target_jsr_name, row.target_npm) {
-        (Some(scope), Some(name), None) => AliasTarget::Jsr(scope, name),
-        (None, None, Some(name)) => AliasTarget::Npm(name),
-        _ => unreachable!(),
-      };
-    Ok(Alias {
-      name: row.name,
-      major_version: row.major_version,
-      target,
-      updated_at: row.updated_at,
-      created_at: row.created_at,
-    })
+      .fetch_one(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::get_scope_member", skip(self), err)]
@@ -1808,15 +2276,14 @@ impl Database {
     scope: &ScopeName,
     user_id: Uuid,
   ) -> Result<Option<ScopeMember>> {
-    sqlx::query_as!(
+    query_concat_as!(
       ScopeMember,
-      r#"SELECT scope as "scope: ScopeName", user_id, is_admin, updated_at, created_at
-    FROM scope_members WHERE scope = $1 AND user_id = $2"#,
+      "SELECT ", SCOPE_MEMBER_SELECT, " FROM scope_members WHERE scope = $1 AND user_id = $2";
       scope as _,
       user_id
     )
-    .fetch_optional(&self.pool)
-    .await
+      .fetch_optional(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::list_scope_members", skip(self), err)]
@@ -1824,13 +2291,13 @@ impl Database {
     &self,
     scope: &ScopeName,
   ) -> Result<Vec<(ScopeMember, UserPublic)>> {
-    sqlx::query!(
-      r#"SELECT scope_members.scope as "scope_member_scope: ScopeName", scope_members.user_id as "scope_member_user_id", scope_members.is_admin as "scope_member_is_admin", scope_members.updated_at as "scope_member_updated_at", scope_members.created_at as "scope_member_created_at",
-        users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.updated_at as "user_updated_at", users.created_at as "user_created_at"
+    query_concat!(
+      "SELECT ", SCOPE_MEMBER_SELECT_JOINED, ",
+        ", USER_PUBLIC_SELECT_JOINED_RT, "
       FROM scope_members
       LEFT JOIN users ON scope_members.user_id = users.id
       WHERE scope = $1
-      ORDER BY users.name ASC"#,
+      ORDER BY users.name ASC";
       scope as _
     )
     .map(|r| {
@@ -1846,6 +2313,7 @@ impl Database {
         name: r.user_name,
         avatar_url: r.user_avatar_url,
         github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
         updated_at: r.user_updated_at,
         created_at: r.user_created_at,
       };
@@ -1864,6 +2332,7 @@ impl Database {
       Scope,
       r#"SELECT
       scopes.scope as "scope: ScopeName",
+      scopes.description as "description: ScopeDescription",
       scopes.creator,
       scopes.package_limit,
       scopes.new_package_per_week_limit,
@@ -1884,31 +2353,56 @@ impl Database {
   #[instrument(name = "Database::add_scope_invite", skip(self), err)]
   pub async fn add_scope_invite(
     &self,
+    actor_id: &Uuid,
+    is_sudo: bool,
     new_scope_invite: NewScopeInvite<'_>,
   ) -> Result<ScopeInvite> {
-    sqlx::query_as!(
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "add_scope_invite",
+      json!({
+          "scope": new_scope_invite.scope,
+          "target_user_id": new_scope_invite.target_user_id,
+      }),
+    )
+    .await?;
+
+    let scope_invite = query_concat_as!(
       ScopeInvite,
-      r#"INSERT INTO scope_invites (scope, target_user_id, requesting_user_id)
+      "INSERT INTO scope_invites (scope, target_user_id, requesting_user_id)
       VALUES ($1, $2, $3)
-      RETURNING scope as "scope: ScopeName", target_user_id, requesting_user_id, updated_at, created_at"#,
+      RETURNING ", SCOPE_INVITE_SELECT;
       new_scope_invite.scope as _,
       new_scope_invite.target_user_id,
       new_scope_invite.requesting_user_id,
     )
-    .fetch_one(&self.pool)
-    .await
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(scope_invite)
   }
 
-  #[instrument(name = "Database::add_user_to_scope", skip(self, new_scope_member), err, fields(scope_member.scope = %new_scope_member.scope, scope_member.user_id = %new_scope_member.user_id, scope_member.is_admin = new_scope_member.is_admin))]
+  #[cfg(test)]
+  #[instrument(name = "Database::add_user_to_scope", skip(
+    self,
+    new_scope_member
+  ), err, fields(scope_member.scope = %new_scope_member.scope, scope_member.user_id = %new_scope_member.user_id, scope_member.is_admin = new_scope_member.is_admin
+  ))]
   pub async fn add_user_to_scope(
     &self,
     new_scope_member: NewScopeMember<'_>,
   ) -> Result<ScopeMember> {
-    sqlx::query_as!(
+    query_concat_as!(
       ScopeMember,
-      r#"INSERT INTO scope_members (scope, user_id, is_admin)
+      "INSERT INTO scope_members (scope, user_id, is_admin)
       VALUES ($1, $2, $3)
-      RETURNING scope as "scope: ScopeName", user_id, is_admin, updated_at, created_at"#,
+      RETURNING ", SCOPE_MEMBER_SELECT;
       new_scope_member.scope as _,
       new_scope_member.user_id,
       new_scope_member.is_admin,
@@ -1922,14 +2416,12 @@ impl Database {
     &self,
     target_user: &Uuid,
   ) -> Result<Vec<(ScopeInvite, UserPublic, UserPublic)>> {
-    sqlx::query!(
-      r#"SELECT scope_invites.scope as "scope_invite_scope: ScopeName", scope_invites.target_user_id as "scope_invite_target_user_id", scope_invites.requesting_user_id as "scope_invite_requesting_user_id", scope_invites.updated_at as "scope_invite_updated_at", scope_invites.created_at as "scope_invite_created_at",
-        target_user.id as "target_user_id", target_user.name as "target_user_name", target_user.github_id as "target_user_github_id", target_user.avatar_url as "target_user_avatar_url", target_user.updated_at as "target_user_updated_at", target_user.created_at as "target_user_created_at",
-        requesting_user.id as "requesting_user_id", requesting_user.name as "requesting_user_name", requesting_user.github_id as "requesting_user_github_id", requesting_user.avatar_url as "requesting_user_avatar_url", requesting_user.updated_at as "requesting_user_updated_at", requesting_user.created_at as "requesting_user_created_at"
+    query_concat!(
+      "SELECT ", SCOPE_INVITE_SELECT_JOINED, "
       FROM scope_invites
       LEFT JOIN users AS target_user ON scope_invites.target_user_id = target_user.id
       LEFT JOIN users AS requesting_user ON scope_invites.requesting_user_id = requesting_user.id
-      WHERE target_user_id = $1"#,
+      WHERE target_user_id = $1";
       target_user
     )
       .map(|r| {
@@ -1945,6 +2437,7 @@ impl Database {
           name: r.target_user_name,
           avatar_url: r.target_user_avatar_url,
           github_id: r.target_user_github_id,
+          gitlab_id: r.target_user_gitlab_id,
           updated_at: r.target_user_updated_at,
           created_at: r.target_user_created_at,
         };
@@ -1953,6 +2446,7 @@ impl Database {
           name: r.requesting_user_name,
           avatar_url: r.requesting_user_avatar_url,
           github_id: r.requesting_user_github_id,
+          gitlab_id: r.requesting_user_gitlab_id,
           updated_at: r.requesting_user_updated_at,
           created_at: r.requesting_user_created_at,
         };
@@ -1967,14 +2461,12 @@ impl Database {
     &self,
     scope: &ScopeName,
   ) -> Result<Vec<(ScopeInvite, UserPublic, UserPublic)>> {
-    sqlx::query!(
-      r#"SELECT scope_invites.scope as "scope_invite_scope: ScopeName", scope_invites.target_user_id as "scope_invite_target_user_id", scope_invites.requesting_user_id as "scope_invite_requesting_user_id", scope_invites.updated_at as "scope_invite_updated_at", scope_invites.created_at as "scope_invite_created_at",
-        target_user.id as "target_user_id", target_user.name as "target_user_name", target_user.avatar_url as "target_user_avatar_url", target_user.github_id as "target_user_github_id", target_user.updated_at as "target_user_updated_at", target_user.created_at as "target_user_created_at",
-        requesting_user.id as "requesting_user_id", requesting_user.name as "requesting_user_name", requesting_user.avatar_url as "requesting_user_avatar_url", requesting_user.github_id as "requesting_user_github_id", requesting_user.updated_at as "requesting_user_updated_at", requesting_user.created_at as "requesting_user_created_at"
+    query_concat!(
+      "SELECT ", SCOPE_INVITE_SELECT_JOINED, "
       FROM scope_invites
       LEFT JOIN users AS target_user ON scope_invites.target_user_id = target_user.id
       LEFT JOIN users AS requesting_user ON scope_invites.requesting_user_id = requesting_user.id
-      WHERE scope = $1"#,
+      WHERE scope = $1";
       scope as _
     )
       .map(|r| {
@@ -1990,6 +2482,7 @@ impl Database {
           name: r.target_user_name,
           avatar_url: r.target_user_avatar_url,
           github_id: r.target_user_github_id,
+          gitlab_id: r.target_user_gitlab_id,
           updated_at: r.target_user_updated_at,
           created_at: r.target_user_created_at,
         };
@@ -1998,6 +2491,7 @@ impl Database {
           name: r.requesting_user_name,
           avatar_url: r.requesting_user_avatar_url,
           github_id: r.requesting_user_github_id,
+          gitlab_id: r.requesting_user_gitlab_id,
           updated_at: r.requesting_user_updated_at,
           created_at: r.requesting_user_created_at,
         };
@@ -2026,10 +2520,10 @@ impl Database {
       return Ok(None);
     }
 
-    let member = sqlx::query_as!(
+    let member = query_concat_as!(
       ScopeMember,
-      r#"INSERT INTO scope_members (scope, user_id) VALUES ($1, $2)
-      RETURNING scope as "scope: ScopeName", user_id, is_admin, updated_at, created_at"#,
+      "INSERT INTO scope_members (scope, user_id) VALUES ($1, $2)
+      RETURNING ", SCOPE_MEMBER_SELECT;
       scope as _,
       target_user_id,
     )
@@ -2044,16 +2538,34 @@ impl Database {
   #[instrument(name = "Database::delete_scope_invite", skip(self), err)]
   pub async fn delete_scope_invite(
     &self,
+    actor_id: &Uuid,
+    is_sudo: bool,
     target_user_id: &Uuid,
     scope: &ScopeName,
   ) -> Result<()> {
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "delete_scope_invite",
+      json!({
+          "scope": scope,
+          "target_user_id": target_user_id,
+      }),
+    )
+    .await?;
+
     sqlx::query!(
       r#"DELETE FROM scope_invites WHERE target_user_id = $1 AND scope = $2"#,
       target_user_id,
       scope as _,
     )
-    .execute(&self.pool)
+    .execute(&mut *tx)
     .await?;
+
+    tx.commit().await?;
 
     Ok(())
   }
@@ -2061,18 +2573,31 @@ impl Database {
   #[instrument(name = "Database::delete_package", skip(self), err)]
   pub async fn delete_package(
     &self,
+    actor_id: &Uuid,
+    is_sudo: bool,
     scope: &ScopeName,
     name: &PackageName,
   ) -> Result<bool> {
     let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "delete_package",
+      json!({
+          "scope": scope,
+      }),
+    )
+    .await?;
 
     let status = sqlx::query!(
       r#"SELECT count(*) FROM publishing_tasks WHERE package_scope = $1 AND package_name = $2 AND status != 'failure'"#,
       scope as _,
       name as _,
     )
-    .fetch_one(&mut *tx)
-    .await?;
+      .fetch_one(&mut *tx)
+      .await?;
     if status.count.unwrap() > 0 {
       return Ok(false);
     }
@@ -2094,10 +2619,10 @@ impl Database {
         Ok(success)
       }
       Err(err) => {
-        if let Some(dberr) = err.as_database_error() {
-          if dberr.is_foreign_key_violation() {
-            return Ok(false);
-          }
+        if let Some(dberr) = err.as_database_error()
+          && dberr.is_foreign_key_violation()
+        {
+          return Ok(false);
         }
         Err(err)
       }
@@ -2105,8 +2630,24 @@ impl Database {
   }
 
   #[instrument(name = "Database::delete_scope", skip(self), err)]
-  pub async fn delete_scope(&self, scope: &ScopeName) -> Result<bool> {
+  pub async fn delete_scope(
+    &self,
+    actor_id: &Uuid,
+    is_sudo: bool,
+    scope: &ScopeName,
+  ) -> Result<bool> {
     let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "delete_scope",
+      json!({
+        "scope": scope,
+      }),
+    )
+    .await?;
 
     sqlx::query!(r#"DELETE FROM scope_members WHERE scope = $1"#, scope as _,)
       .execute(&mut *tx)
@@ -2129,10 +2670,10 @@ impl Database {
         Ok(success)
       }
       Err(err) => {
-        if let Some(dberr) = err.as_database_error() {
-          if dberr.is_foreign_key_violation() {
-            return Ok(false);
-          }
+        if let Some(dberr) = err.as_database_error()
+          && dberr.is_foreign_key_violation()
+        {
+          return Ok(false);
         }
         Err(err)
       }
@@ -2193,11 +2734,27 @@ impl Database {
   #[instrument(name = "Database::delete_scope_member", skip(self), err)]
   pub async fn update_scope_member_role(
     &self,
+    actor_id: &Uuid,
+    is_sudo: bool,
     scope: &ScopeName,
     user_id: Uuid,
     is_admin: bool,
   ) -> Result<ScopeMemberUpdateResult> {
     let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "scope_update_scope_member_role",
+      json!({
+        "scope": scope,
+        "user_id": user_id,
+        "is_admin": is_admin,
+      }),
+    )
+    .await?;
+
     let maybe_scope_member = sqlx::query!(
       r#"UPDATE scope_members
       SET is_admin = $1
@@ -2221,18 +2778,17 @@ impl Database {
         )
       })
       .fetch_optional(&mut *tx)
-    .await?;
+      .await?;
 
     let Some((scope_member, is_creator)) = maybe_scope_member else {
       return Ok(ScopeMemberUpdateResult::TargetNotMember);
     };
 
-    if !scope_member.is_admin {
-      if let Some(result) =
+    if !scope_member.is_admin
+      && let Some(result) =
         self.transfer_scope(scope, is_creator, &mut tx).await?
-      {
-        return Ok(result);
-      }
+    {
+      return Ok(result);
     }
 
     tx.commit().await?;
@@ -2255,20 +2811,20 @@ impl Database {
       scope as _,
       user_id,
     )
-    .map(|r| {
-      (
-        ScopeMember {
-          scope: r.scope,
-          user_id: r.user_id,
-          is_admin: r.is_admin,
-          updated_at: r.updated_at,
-          created_at: r.created_at,
-        },
-        r.user_id == r.scope_creator
-      )
-    })
-    .fetch_optional(&mut *tx)
-    .await?;
+      .map(|r| {
+        (
+          ScopeMember {
+            scope: r.scope,
+            user_id: r.user_id,
+            is_admin: r.is_admin,
+            updated_at: r.updated_at,
+            created_at: r.created_at,
+          },
+          r.user_id == r.scope_creator
+        )
+      })
+      .fetch_optional(&mut *tx)
+      .await?;
     let Some((scope_member, is_creator)) = maybe_scope_member else {
       return Ok(ScopeMemberUpdateResult::TargetNotMember);
     };
@@ -2284,7 +2840,13 @@ impl Database {
     Ok(ScopeMemberUpdateResult::Ok(scope_member))
   }
 
-  #[instrument(name = "Database::create_publishing_task", skip(self, task), err, fields(publishing_task.package_scope = %task.package_scope, publishing_task.package_name = %task.package_name, publishing_task.package_version = %task.package_version))]
+  #[instrument(
+    name = "Database::create_publishing_task",
+    skip(self, task),
+    err,
+    fields(publishing_task.package_scope = %task.package_scope, publishing_task.package_name = %task.package_name, publishing_task.package_version = %task.package_version
+    )
+  )]
   pub async fn create_publishing_task(
     &self,
     task: NewPublishingTask<'_>,
@@ -2292,41 +2854,164 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     // only allow insert if no non status==failure tasks exist
-    let already_processing = sqlx::query_as!(
-      PublishingTask,
-      r#"SELECT id, status as "status: PublishingTaskStatus", error as "error: PublishingTaskError", user_id, package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", config_file as "config_file: PackagePath", created_at, updated_at
+    let already_processing = query_concat!(
+      "SELECT
+        ", PUBLISHING_TASK_SELECT_JOINED, ",
+        ", USER_PUBLIC_SELECT_JOINED_OPTIONAL, "
       FROM publishing_tasks
+      LEFT JOIN users on publishing_tasks.user_id = users.id
       WHERE package_scope = $1 AND package_name = $2 AND package_version = $3 AND status != 'failure'
-      LIMIT 1"#,
+      LIMIT 1";
       task.package_scope as _,
       task.package_name as _,
       task.package_version as _
-    )
-    .fetch_optional(&mut *tx)
-    .await?;
-    if let Some(already_processing) = already_processing {
-      return Ok(CreatePublishingTaskResult::Exists(already_processing));
+    ).map(|r| {
+      let task = PublishingTask {
+        id: r.task_id,
+        status: r.task_status,
+        error: r.task_error,
+        package_scope: r.task_package_scope,
+        package_name: r.task_package_name,
+        package_version: r.task_package_version,
+        config_file: r.task_config_file,
+        user_id: r.task_user_id,
+        created_at: r.task_created_at,
+        updated_at: r.task_updated_at,
+      };
+
+      let user = task.user_id.map(|_| {
+        UserPublic {
+          id: r.user_id.unwrap(),
+          name: r.user_name.unwrap(),
+          avatar_url: r.user_avatar_url.unwrap(),
+          github_id: r.user_github_id,
+          gitlab_id: r.user_gitlab_id,
+          updated_at: r.user_updated_at.unwrap(),
+          created_at: r.user_created_at.unwrap(),
+        }
+      });
+
+      (task, user)
+    })
+
+      .fetch_optional(&mut *tx)
+      .await?;
+    if let Some((existing_task, existing_user)) = already_processing {
+      let stale_threshold =
+        Utc::now() - Duration::seconds(STALE_PUBLISHING_TASK_SECS);
+      let is_stale_processing = existing_task.status
+        == PublishingTaskStatus::Processing
+        && existing_task.updated_at < stale_threshold;
+
+      if !is_stale_processing {
+        return Ok(CreatePublishingTaskResult::Exists((
+          existing_task,
+          existing_user,
+        )));
+      }
+
+      // Failing a stranded `processing` task is safe: its version row never
+      // committed (the finalize transaction is atomic). `processed` tasks
+      // have committed data and are left for the requeue reaper.
+      let stale_error = PublishingTaskError {
+        code: "stale".to_string(),
+        message: "task stranded in processing".to_string(),
+      };
+      let res = sqlx::query!(
+        "UPDATE publishing_tasks
+         SET status = $1, error = $2
+         WHERE id = $3 AND status = $4",
+        PublishingTaskStatus::Failure as _,
+        stale_error as _,
+        existing_task.id,
+        PublishingTaskStatus::Processing as _,
+      )
+      .execute(&mut *tx)
+      .await?;
+      // Lost a race: the reaper requeued the task (or a worker advanced it)
+      // between our read and this update. The task is active again, so hand
+      // it back instead of creating a duplicate.
+      if res.rows_affected() == 0 {
+        return Ok(CreatePublishingTaskResult::Exists((
+          existing_task,
+          existing_user,
+        )));
+      }
     }
 
-    let task = sqlx::query_as!(
-      PublishingTask,
-      r#"INSERT INTO publishing_tasks (user_id, package_scope, package_name, package_version, config_file)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, status as "status: PublishingTaskStatus", error as "error: PublishingTaskError", user_id, package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", config_file as "config_file: PackagePath", created_at, updated_at"#,
+    let task = query_concat!(
+      "WITH task AS (
+          INSERT INTO publishing_tasks (user_id, package_scope, package_name, package_version, config_file)
+          VALUES ($1, $2, $3, $4, $5)
+          RETURNING
+            id,
+            status,
+            error,
+            user_id,
+            package_scope,
+            package_name,
+            package_version,
+            config_file,
+            created_at,
+            updated_at
+        )
+        SELECT
+          task.id as \"task_id\",
+          task.status as \"task_status: PublishingTaskStatus\",
+          task.error as \"task_error: PublishingTaskError\",
+          task.user_id as \"task_user_id\",
+          task.package_scope as \"task_package_scope: ScopeName\",
+          task.package_name as \"task_package_name: PackageName\",
+          task.package_version as \"task_package_version: Version\",
+          task.config_file as \"task_config_file: PackagePath\",
+          task.created_at as \"task_created_at\",
+          task.updated_at as \"task_updated_at\",
+        ", USER_PUBLIC_SELECT_JOINED_OPTIONAL, "
+        FROM task
+        LEFT JOIN users ON task.user_id = users.id";
       task.user_id,
       task.package_scope as _,
       task.package_name as _,
       task.package_version as _,
       task.config_file as _,
     )
-    .fetch_one(&mut *tx)
-    .await?;
+      .map(|r| {
+        let task = PublishingTask {
+          id: r.task_id,
+          status: r.task_status,
+          error: r.task_error,
+          package_scope: r.task_package_scope,
+          package_name: r.task_package_name,
+          package_version: r.task_package_version,
+          config_file: r.task_config_file,
+          user_id: r.task_user_id,
+          created_at: r.task_created_at,
+          updated_at: r.task_updated_at,
+        };
+
+        let user = task.user_id.map(|_| {
+          UserPublic {
+            id: r.user_id.unwrap(),
+            name: r.user_name.unwrap(),
+            avatar_url: r.user_avatar_url.unwrap(),
+            github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
+            updated_at: r.user_updated_at.unwrap(),
+            created_at: r.user_created_at.unwrap(),
+          }
+        });
+
+        (task, user)
+      })
+
+      .fetch_one(&mut *tx)
+      .await?;
 
     let publish_attempts_per_week_limit = sqlx::query!(
       r#"
       SELECT publish_attempts_per_week_limit FROM scopes WHERE scope = $1;
       "#,
-      task.package_scope as _,
+      task.0.package_scope as _,
     )
     .map(|r| r.publish_attempts_per_week_limit)
     .fetch_one(&mut *tx)
@@ -2336,13 +3021,13 @@ impl Database {
       r#"
       SELECT COUNT(created_at) FROM publishing_tasks WHERE package_scope = $1 AND created_at > now() - '1 week'::interval;
       "#,
-      task.package_scope as _,
+      task.0.package_scope as _,
     )
-    .map(|r| {
-      r.count.unwrap()
-    })
-    .fetch_one(&mut *tx)
-    .await?;
+      .map(|r| {
+        r.count.unwrap()
+      })
+      .fetch_one(&mut *tx)
+      .await?;
 
     if publish_attempts_from_last_week > publish_attempts_per_week_limit as i64
     {
@@ -2359,39 +3044,117 @@ impl Database {
     Ok(CreatePublishingTaskResult::Created(task))
   }
 
+  #[cfg(test)]
+  pub async fn backdate_publishing_task_updated_at(
+    &self,
+    id: Uuid,
+    secs_ago: i64,
+  ) -> Result<()> {
+    sqlx::query!(
+      "UPDATE publishing_tasks
+       SET updated_at = now() - ($1::bigint * interval '1 second')
+       WHERE id = $2",
+      secs_ago,
+      id,
+    )
+    .execute(&self.pool)
+    .await?;
+    Ok(())
+  }
+
   #[instrument(name = "Database::get_publishing_task", skip(self), err)]
   pub async fn get_publishing_task(
     &self,
     id: Uuid,
-  ) -> Result<Option<PublishingTask>> {
-    sqlx::query_as!(
-      PublishingTask,
-      r#"SELECT id, status as "status: PublishingTaskStatus", error as "error: PublishingTaskError", user_id, package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", config_file as "config_file: PackagePath", created_at, updated_at
+  ) -> Result<Option<(PublishingTask, Option<UserPublic>)>> {
+    query_concat!(
+      "SELECT
+        ", PUBLISHING_TASK_SELECT_JOINED, ",
+        ", USER_PUBLIC_SELECT_JOINED_OPTIONAL, "
       FROM publishing_tasks
-      WHERE id = $1"#,
+      LEFT JOIN users on publishing_tasks.user_id = users.id
+      WHERE publishing_tasks.id = $1";
       id
     )
+    .map(|r| {
+      let task = PublishingTask {
+        id: r.task_id,
+        status: r.task_status,
+        error: r.task_error,
+        package_scope: r.task_package_scope,
+        package_name: r.task_package_name,
+        package_version: r.task_package_version,
+        config_file: r.task_config_file,
+        user_id: r.task_user_id,
+        created_at: r.task_created_at,
+        updated_at: r.task_updated_at,
+      };
+
+      let user = task.user_id.map(|_| UserPublic {
+        id: r.user_id.unwrap(),
+        name: r.user_name.unwrap(),
+        avatar_url: r.user_avatar_url.unwrap(),
+        github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
+        updated_at: r.user_updated_at.unwrap(),
+        created_at: r.user_created_at.unwrap(),
+      });
+
+      (task, user)
+    })
     .fetch_optional(&self.pool)
     .await
   }
 
+  #[allow(clippy::type_complexity)]
   #[instrument(name = "Database::list_publishing_tasks", skip(self), err)]
   pub async fn list_publishing_tasks(
     &self,
     start: i64,
     limit: i64,
     maybe_search_query: Option<&str>,
-  ) -> Result<(usize, Vec<PublishingTask>)> {
+    maybe_sort: Option<&str>,
+  ) -> Result<(usize, Vec<(PublishingTask, Option<UserPublic>)>)> {
     let mut tx = self.pool.begin().await?;
+
     let search = format!("%{}%", maybe_search_query.unwrap_or(""));
-    let publishing_tasks = sqlx::query_as!(
-      PublishingTask,
-      r#"SELECT id, status as "status: PublishingTaskStatus", error as "error: PublishingTaskError", user_id, package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", config_file as "config_file: PackagePath", created_at, updated_at
-      FROM publishing_tasks WHERE package_scope ILIKE $1 OR package_name ILIKE $1 OR package_version ILIKE $1 ORDER BY created_at DESC OFFSET $2 LIMIT $3"#,
-      search,
-      start,
-      limit,
-    )
+    let sort = sort_by!(maybe_sort => {
+      @timestamps "updated_at", "created_at";
+      "status" => "publishing_tasks.status",
+      "user" => "users.name",
+      "scope" => "publishing_tasks.package_scope",
+      "name" => "publishing_tasks.package_name",
+      "version" => "publishing_tasks.package_version",
+      "updated_at" => "publishing_tasks.updated_at",
+      "created_at" => "publishing_tasks.created_at",
+    } || "publishing_tasks.created_at DESC");
+
+    let publishing_tasks = sqlx::query(&format!(
+      r#"SELECT
+        {}, {}
+      FROM publishing_tasks
+      LEFT JOIN users on publishing_tasks.user_id = users.id
+      WHERE publishing_tasks.package_scope ILIKE $1
+         OR publishing_tasks.package_name ILIKE $1
+         OR publishing_tasks.package_version ILIKE $1
+      ORDER BY {sort} OFFSET $2 LIMIT $3"#,
+      crate::db::sql_fragments::PUBLISHING_TASK_SELECT_JOINED_RT,
+      crate::db::sql_fragments::USER_PUBLIC_SELECT_JOINED_RT,
+    ))
+    .bind(&search)
+    .bind(start)
+    .bind(limit)
+    .try_map(|r| {
+      let task = PublishingTask::from_row(&r)?;
+
+      let user = if r.try_get::<Option<Uuid>, &str>("user_id")?.is_some() {
+        Some(UserPublic::from_row(&r)?)
+      } else {
+        None
+      };
+
+      Ok((task, user))
+    })
     .fetch_all(&mut *tx)
     .await?;
 
@@ -2399,9 +3162,9 @@ impl Database {
       r#"SELECT COUNT(created_at) FROM publishing_tasks WHERE package_scope ILIKE $1 OR package_name ILIKE $1 OR package_version ILIKE $1;"#,
       search,
     )
-    .map(|r| r.count.unwrap())
-    .fetch_one(&mut *tx)
-    .await?;
+      .map(|r| r.count.unwrap())
+      .fetch_one(&mut *tx)
+      .await?;
 
     tx.commit().await?;
 
@@ -2417,19 +3180,106 @@ impl Database {
     &self,
     scope_name: &ScopeName,
     package_name: &PackageName,
-  ) -> Result<Vec<PublishingTask>> {
-    sqlx::query_as!(
-      PublishingTask,
-      r#"SELECT publishing_tasks.id, publishing_tasks.status as "status: PublishingTaskStatus", publishing_tasks.error as "error: PublishingTaskError", publishing_tasks.user_id, publishing_tasks.package_scope as "package_scope: ScopeName", publishing_tasks.package_name as "package_name: PackageName", publishing_tasks.package_version as "package_version: Version", publishing_tasks.config_file as "config_file: PackagePath", publishing_tasks.created_at, publishing_tasks.updated_at
+  ) -> Result<Vec<(PublishingTask, Option<UserPublic>)>> {
+    query_concat!(
+      "SELECT
+        ", PUBLISHING_TASK_SELECT_JOINED, ",
+        ", USER_PUBLIC_SELECT_JOINED_OPTIONAL, "
       FROM publishing_tasks
+      LEFT JOIN users on publishing_tasks.user_id = users.id
       JOIN packages ON publishing_tasks.package_scope = packages.scope AND publishing_tasks.package_name = packages.name
       WHERE publishing_tasks.package_scope = $1 AND publishing_tasks.package_name = $2 AND publishing_tasks.created_at >= packages.created_at
-      ORDER BY publishing_tasks.package_version DESC"#,
+      ORDER BY publishing_tasks.package_version DESC";
       scope_name as _,
       package_name as _,
     )
-    .fetch_all(&self.pool)
-    .await
+      .map(|r| {
+        let task = PublishingTask {
+          id: r.task_id,
+          status: r.task_status,
+          error: r.task_error,
+          package_scope: r.task_package_scope,
+          package_name: r.task_package_name,
+          package_version: r.task_package_version,
+          config_file: r.task_config_file,
+          user_id: r.task_user_id,
+          created_at: r.task_created_at,
+          updated_at: r.task_updated_at,
+        };
+
+        let user = task.user_id.map(|_| {
+          UserPublic {
+            id: r.user_id.unwrap(),
+            name: r.user_name.unwrap(),
+            avatar_url: r.user_avatar_url.unwrap(),
+            github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
+            updated_at: r.user_updated_at.unwrap(),
+            created_at: r.user_created_at.unwrap(),
+          }
+        });
+
+        (task, user)
+      })
+      .fetch_all(&self.pool)
+      .await
+  }
+
+  #[instrument(
+    name = "Database::get_publishing_task_for_version",
+    skip(self),
+    err
+  )]
+  pub async fn get_publishing_task_for_version(
+    &self,
+    scope_name: &ScopeName,
+    package_name: &PackageName,
+    version: &Version,
+  ) -> Result<(PublishingTask, Option<UserPublic>)> {
+    query_concat!(
+      "SELECT
+        ", PUBLISHING_TASK_SELECT_JOINED, ",
+        ", USER_PUBLIC_SELECT_JOINED_OPTIONAL, "
+      FROM publishing_tasks
+      LEFT JOIN users on publishing_tasks.user_id = users.id
+      JOIN packages ON publishing_tasks.package_scope = packages.scope AND publishing_tasks.package_name = packages.name
+      WHERE publishing_tasks.package_scope = $1 AND publishing_tasks.package_name = $2 AND publishing_tasks.package_version = $3 AND publishing_tasks.created_at >= packages.created_at
+      ORDER BY publishing_tasks.created_at DESC
+      LIMIT 1";
+      scope_name as _,
+      package_name as _,
+      version as _,
+    )
+      .map(|r| {
+        let task = PublishingTask {
+          id: r.task_id,
+          status: r.task_status,
+          error: r.task_error,
+          package_scope: r.task_package_scope,
+          package_name: r.task_package_name,
+          package_version: r.task_package_version,
+          config_file: r.task_config_file,
+          user_id: r.task_user_id,
+          created_at: r.task_created_at,
+          updated_at: r.task_updated_at,
+        };
+
+        let user = task.user_id.map(|_| {
+          UserPublic {
+            id: r.user_id.unwrap(),
+            name: r.user_name.unwrap(),
+            avatar_url: r.user_avatar_url.unwrap(),
+            github_id: r.user_github_id,
+            gitlab_id: r.user_gitlab_id,
+            updated_at: r.user_updated_at.unwrap(),
+            created_at: r.user_created_at.unwrap(),
+          }
+        });
+
+        (task, user)
+      })
+      .fetch_one(&self.pool)
+      .await
   }
 
   #[instrument(
@@ -2439,6 +3289,7 @@ impl Database {
   )]
   pub async fn update_publishing_task_status(
     &self,
+    staff_id: Option<&Uuid>,
     id: Uuid,
     prev_status: PublishingTaskStatus,
     new_status: PublishingTaskStatus,
@@ -2449,18 +3300,69 @@ impl Database {
       new_status == PublishingTaskStatus::Failure,
       "error must be set if and only if status is failure"
     );
-    sqlx::query_as!(
+
+    let mut tx = self.pool.begin().await?;
+
+    if let Some(staff_id) = staff_id {
+      audit_log(
+        &mut tx,
+        staff_id,
+        true,
+        "requeue_publishing_task",
+        json!({
+          "id": id,
+        }),
+      )
+      .await?;
+    }
+
+    let task = query_concat_as!(
       PublishingTask,
-      r#"UPDATE publishing_tasks
+      "UPDATE publishing_tasks
       SET status = $1, error = $2
       WHERE id = $3 AND status = $4
-      RETURNING id, status as "status: PublishingTaskStatus", error as "error: PublishingTaskError", user_id, package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", config_file as "config_file: PackagePath", created_at, updated_at"#,
+      RETURNING ", PUBLISHING_TASK_SELECT;
       new_status as _,
       new_error as _,
       id,
       prev_status as _,
     )
-    .fetch_one(&self.pool)
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(task)
+  }
+
+  /// List publishing tasks that have been stuck in a non-terminal state
+  /// (`processing` or `processed`) for longer than `stale_after_seconds`.
+  ///
+  /// A task is normally driven from `pending` to `success` within seconds by
+  /// the publish queue. If the queue worker is killed mid-flight (e.g. the
+  /// Cloud Run request times out, or a publish is cancelled) a task can be
+  /// stranded: `processing` means the version row was never committed, while
+  /// `processed` means the version exists but its package-level `meta.json`
+  /// was never regenerated, leaving the version invisible to the resolver.
+  /// Either state also blocks re-publishing that exact version (see the
+  /// `status != 'failure'` guard in `create_publishing_task`). The reaper at
+  /// `POST /tasks/requeue_stuck_publishing_tasks` re-drives these.
+  #[instrument(name = "Database::list_stale_publishing_tasks", skip(self), err)]
+  pub async fn list_stale_publishing_tasks(
+    &self,
+    stale_after_seconds: i64,
+  ) -> Result<Vec<(Uuid, PublishingTaskStatus)>> {
+    sqlx::query!(
+      r#"SELECT id, status as "status: PublishingTaskStatus"
+      FROM publishing_tasks
+      WHERE status IN ('processing', 'processed')
+        AND updated_at < now() - ($1::bigint * interval '1 second')
+      ORDER BY updated_at ASC
+      LIMIT 1000"#,
+      stale_after_seconds,
+    )
+    .map(|r| (r.id, r.status))
+    .fetch_all(&self.pool)
     .await
   }
 
@@ -2469,28 +3371,61 @@ impl Database {
     &self,
     csrf_token: &str,
   ) -> Result<Option<OauthState>> {
-    sqlx::query_as!(
+    query_concat_as!(
       OauthState,
-      "SELECT csrf_token, pkce_code_verifier, redirect_url, updated_at, created_at FROM oauth_states WHERE csrf_token = $1",
+      "SELECT ", OAUTH_STATE_SELECT, " FROM oauth_states WHERE csrf_token = $1";
       csrf_token
     )
     .fetch_optional(&self.pool)
     .await
   }
 
-  #[instrument(name = "Database::insert_oauth_state", skip(self, new_oauth_state), err, fields(oauth_state.csrf_token = %new_oauth_state.csrf_token, oauth_state.redirect_url = %new_oauth_state.redirect_url))]
+  #[instrument(name = "Database::delete_expired_oauth_states", skip(self), err)]
+  pub async fn delete_expired_oauth_states(
+    &self,
+    older_than: DateTime<Utc>,
+  ) -> Result<u64> {
+    let result = sqlx::query!(
+      "DELETE FROM oauth_states WHERE created_at < $1",
+      older_than
+    )
+    .execute(&self.pool)
+    .await?;
+    Ok(result.rows_affected())
+  }
+
+  #[instrument(name = "Database::cleanup_download_counts_4h", skip(self), err)]
+  pub async fn cleanup_download_counts_4h(
+    &self,
+    older_than: DateTime<Utc>,
+  ) -> Result<u64> {
+    let result = sqlx::query!(
+      "DELETE FROM version_download_counts_4h WHERE time_bucket < $1",
+      older_than
+    )
+    .execute(&self.pool)
+    .await?;
+    Ok(result.rows_affected())
+  }
+
+  #[instrument(name = "Database::insert_oauth_state", skip(
+    self,
+    new_oauth_state
+  ), err, fields(oauth_state.csrf_token = %new_oauth_state.csrf_token, oauth_state.redirect_url = %new_oauth_state.redirect_url
+  ))]
   pub async fn insert_oauth_state<'a>(
     &self,
     new_oauth_state: NewOauthState<'a>,
   ) -> Result<OauthState> {
-    sqlx::query_as!(
+    query_concat_as!(
       OauthState,
-      "INSERT INTO oauth_states (csrf_token, pkce_code_verifier, redirect_url)
-      VALUES ($1, $2, $3)
-      RETURNING csrf_token, pkce_code_verifier, redirect_url, updated_at, created_at",
+      "INSERT INTO oauth_states (csrf_token, pkce_code_verifier, redirect_url, user_id)
+      VALUES ($1, $2, $3, $4)
+      RETURNING ", OAUTH_STATE_SELECT;
       new_oauth_state.csrf_token,
       new_oauth_state.pkce_code_verifier,
       new_oauth_state.redirect_url,
+      new_oauth_state.user_id,
     )
     .fetch_one(&self.pool)
     .await
@@ -2501,36 +3436,38 @@ impl Database {
     &self,
     csrf_token: &str,
   ) -> Result<Option<OauthState>> {
-    sqlx::query_as!(
+    query_concat_as!(
       OauthState,
-      "DELETE FROM oauth_states
-      WHERE csrf_token = $1
-      RETURNING csrf_token, pkce_code_verifier, redirect_url, updated_at, created_at",
+      "DELETE FROM oauth_states WHERE csrf_token = $1
+      RETURNING ", OAUTH_STATE_SELECT;
       csrf_token
     )
     .fetch_optional(&self.pool)
     .await
   }
 
-  #[instrument(name = "Database::insert_github_identity", skip(self, new_github_identity), err, fields(github_identity.github_id = new_github_identity.github_id))]
+  #[instrument(name = "Database::insert_github_identity", skip(
+    self,
+    new_github_identity
+  ), err, fields(github_identity.github_id = new_github_identity.github_id))]
   pub async fn upsert_github_identity(
     &self,
     new_github_identity: NewGithubIdentity,
   ) -> Result<GithubIdentity> {
-    sqlx::query_as!(
+    query_concat_as!(
       GithubIdentity,
       "INSERT INTO github_identities (github_id, access_token, access_token_expires_at, refresh_token, refresh_token_expires_at) VALUES ($1, $2, $3, $4, $5)
       ON CONFLICT (github_id) DO
       UPDATE SET access_token = $2, access_token_expires_at = $3, refresh_token = $4, refresh_token_expires_at = $5
-      RETURNING github_id, access_token, access_token_expires_at, refresh_token, refresh_token_expires_at, updated_at, created_at",
+      RETURNING ", GITHUB_IDENTITY_SELECT;
       new_github_identity.github_id,
       new_github_identity.access_token,
       new_github_identity.access_token_expires_at,
       new_github_identity.refresh_token,
       new_github_identity.refresh_token_expires_at,
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::get_github_identity", skip(self), err)]
@@ -2538,24 +3475,97 @@ impl Database {
     &self,
     github_id: i64,
   ) -> Result<GithubIdentity> {
-    sqlx::query_as!(
+    query_concat_as!(
       GithubIdentity,
-      "SELECT github_id, access_token, access_token_expires_at, refresh_token, refresh_token_expires_at, updated_at, created_at
-      FROM github_identities
-      WHERE github_id = $1",
+      "SELECT ", GITHUB_IDENTITY_SELECT, " FROM github_identities WHERE github_id = $1";
       github_id
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
-  #[instrument(name = "Database::insert_token", skip(self, new_token), err, fields(token.r#type = ?new_token.r#type))]
-  pub async fn insert_token(&self, new_token: NewToken) -> Result<Token> {
+  #[instrument(name = "Database::delete_github_identity", skip(self), err)]
+  pub async fn delete_github_identity(
+    &self,
+    github_id: i64,
+  ) -> Result<GithubIdentity> {
     sqlx::query_as!(
+      GithubIdentity,
+      "DELETE FROM github_identities WHERE github_id = $1
+      RETURNING github_id, access_token, access_token_expires_at, refresh_token, refresh_token_expires_at, updated_at, created_at",
+      github_id
+    )
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::insert_gitlab_identity", skip(
+    self,
+    new_gitlab_identity
+  ), err, fields(gitlab_identity.gitlab_id = new_gitlab_identity.gitlab_id))]
+  pub async fn upsert_gitlab_identity(
+    &self,
+    new_gitlab_identity: NewGitlabIdentity,
+  ) -> Result<GitlabIdentity> {
+    sqlx::query_as!(
+      GitlabIdentity,
+      "INSERT INTO gitlab_identities (gitlab_id, access_token, access_token_expires_at, refresh_token) VALUES ($1, $2, $3, $4)
+      ON CONFLICT (gitlab_id) DO
+      UPDATE SET access_token = $2, access_token_expires_at = $3, refresh_token = $4
+      RETURNING gitlab_id, access_token, access_token_expires_at, refresh_token, updated_at, created_at",
+      new_gitlab_identity.gitlab_id,
+      new_gitlab_identity.access_token,
+      new_gitlab_identity.access_token_expires_at,
+      new_gitlab_identity.refresh_token,
+    )
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[cfg(not(test))]
+  #[instrument(name = "Database::get_gitlab_identity", skip(self), err)]
+  pub async fn get_gitlab_identity(
+    &self,
+    gitlab_id: i64,
+  ) -> Result<GitlabIdentity> {
+    sqlx::query_as!(
+      GitlabIdentity,
+      "SELECT gitlab_id, access_token, access_token_expires_at, refresh_token, updated_at, created_at
+      FROM gitlab_identities
+      WHERE gitlab_id = $1",
+      gitlab_id
+    )
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::delete_gitlab_identity", skip(self), err)]
+  pub async fn delete_gitlab_identity(
+    &self,
+    gitlab_id: i64,
+  ) -> Result<GitlabIdentity> {
+    sqlx::query_as!(
+      GitlabIdentity,
+      "DELETE FROM gitlab_identities WHERE gitlab_id = $1
+      RETURNING gitlab_id, access_token, access_token_expires_at, refresh_token, updated_at, created_at",
+      gitlab_id
+    )
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[instrument(
+    name = "Database::insert_token",
+    skip(self, new_token),
+    err,
+    fields(token.r#type = ?new_token.r#type)
+  )]
+  pub async fn insert_token(&self, new_token: NewToken) -> Result<Token> {
+    query_concat_as!(
       Token,
-      r#"INSERT INTO tokens (hash, user_id, type, description, expires_at, permissions)
+      "INSERT INTO tokens (hash, user_id, type, description, expires_at, permissions)
       VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, hash, user_id, type "type: _", description, expires_at, permissions "permissions: _", updated_at, created_at"#,
+      RETURNING ", TOKEN_SELECT;
       new_token.hash,
       new_token.user_id,
       new_token.r#type as _,
@@ -2563,15 +3573,42 @@ impl Database {
       new_token.expires_at,
       new_token.permissions as _,
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
-  #[instrument(name = "Database::get_token", skip(self), err)]
-  pub async fn get_token(&self, hash: &str) -> Result<Option<Token>> {
-    sqlx::query_as!(Token, r#"SELECT id, hash, user_id, type "type: _", description, expires_at, permissions "permissions: _", updated_at, created_at FROM tokens WHERE hash = $1"#, hash)
+  #[instrument(name = "Database::get_token_by_hash", skip(self), err)]
+  pub async fn get_token_by_hash(&self, hash: &str) -> Result<Option<Token>> {
+    query_concat_as!(Token, "SELECT ", TOKEN_SELECT, " FROM tokens WHERE hash = $1"; hash)
       .fetch_optional(&self.pool)
       .await
+  }
+
+  #[instrument(name = "Database::list_token", skip(self), err)]
+  pub async fn list_tokens(&self, user_id: Uuid) -> Result<Vec<Token>> {
+    // list a user's tokens where the expiration date is at most 1 day in the past
+    query_concat_as!(
+      Token,
+      "SELECT ", TOKEN_SELECT, "
+      FROM tokens
+      WHERE user_id = $1 AND (expires_at > now() - interval '1 day' OR expires_at IS NULL)
+      ORDER BY expires_at DESC NULLS FIRST, created_at DESC";
+      user_id
+    )
+      .fetch_all(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::delete_token", skip(self), err)]
+  pub async fn delete_token(&self, user_id: Uuid, id: Uuid) -> Result<bool> {
+    let res = sqlx::query!(
+      r#"DELETE FROM tokens WHERE user_id = $1 ANd id = $2"#,
+      user_id,
+      id
+    )
+    .execute(&self.pool)
+    .await?;
+    Ok(res.rows_affected() > 0)
   }
 
   #[instrument(
@@ -2583,19 +3620,19 @@ impl Database {
     &self,
     new_authorization: NewAuthorization<'_>,
   ) -> Result<Authorization> {
-    sqlx::query_as!(
+    query_concat_as!(
       Authorization,
-      r#"INSERT INTO authorizations (exchange_token, code, challenge, permissions, expires_at)
+      "INSERT INTO authorizations (exchange_token, code, challenge, permissions, expires_at)
       VALUES ($1, $2, $3, $4, $5)
-      RETURNING exchange_token, code, challenge, permissions "permissions: _", approved, user_id, expires_at, created_at, updated_at"#,
+      RETURNING ", AUTHORIZATION_SELECT;
       new_authorization.exchange_token,
       new_authorization.code,
       new_authorization.challenge,
       new_authorization.permissions as _,
       new_authorization.expires_at,
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::get_authorization_by_code", skip(self), err)]
@@ -2603,11 +3640,9 @@ impl Database {
     &self,
     code: &str,
   ) -> Result<Option<Authorization>> {
-    sqlx::query_as!(
+    query_concat_as!(
       Authorization,
-      r#"SELECT exchange_token, code, challenge, permissions "permissions: _", approved, user_id, expires_at, created_at, updated_at
-      FROM authorizations
-      WHERE code = $1"#,
+      "SELECT ", AUTHORIZATION_SELECT, " FROM authorizations WHERE code = $1";
       code
     )
     .fetch_optional(&self.pool)
@@ -2625,20 +3660,19 @@ impl Database {
   ) -> Result<Option<Authorization>> {
     let mut tx = self.pool.begin().await?;
 
-    let maybe_authorization = sqlx::query_as!(
+    let maybe_authorization = query_concat_as!(
       Authorization,
-      r#"DELETE FROM authorizations
-      WHERE exchange_token = $1
-      RETURNING exchange_token, code, challenge, permissions "permissions: _", approved, user_id, expires_at, created_at, updated_at"#,
+      "DELETE FROM authorizations WHERE exchange_token = $1
+      RETURNING ", AUTHORIZATION_SELECT;
       exchange_token
     )
     .fetch_optional(&mut *tx)
     .await?;
 
-    if let Some(authorization) = &maybe_authorization {
-      if authorization.user_id.is_some() {
-        tx.commit().await?;
-      }
+    if let Some(authorization) = &maybe_authorization
+      && authorization.user_id.is_some()
+    {
+      tx.commit().await?;
     }
 
     Ok(maybe_authorization)
@@ -2664,6 +3698,25 @@ impl Database {
     Ok(res.rows_affected() > 0)
   }
 
+  #[instrument(name = "Database::list_package_dependencies", skip(self), err)]
+  pub async fn list_package_dependencies(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<Vec<PackageVersionDependency>> {
+    query_concat_as!(
+      PackageVersionDependency,
+      "SELECT ", PACKAGE_VERSION_DEPENDENCY_SELECT, "
+      FROM package_version_dependencies
+      WHERE package_scope = $1 AND package_name = $2
+      ORDER BY dependency_kind ASC, dependency_name ASC, dependency_constraint ASC, dependency_path ASC";
+      scope as _,
+      name as _,
+    )
+      .fetch_all(&self.pool)
+      .await
+  }
+
   #[instrument(
     name = "Database::list_package_version_dependencies",
     skip(self),
@@ -2675,29 +3728,37 @@ impl Database {
     name: &PackageName,
     version: &Version,
   ) -> Result<Vec<PackageVersionDependency>> {
-    sqlx::query_as!(
+    query_concat_as!(
       PackageVersionDependency,
-      r#"SELECT package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", dependency_kind as "dependency_kind: DependencyKind", dependency_name, dependency_constraint, dependency_path, updated_at, created_at
+      "SELECT ", PACKAGE_VERSION_DEPENDENCY_SELECT, "
       FROM package_version_dependencies
       WHERE package_scope = $1 AND package_name = $2 AND package_version = $3
-      ORDER BY dependency_kind ASC, dependency_name ASC, dependency_constraint ASC, dependency_path ASC"#,
+      ORDER BY dependency_kind ASC, dependency_name ASC, dependency_constraint ASC, dependency_path ASC";
       scope as _,
       name as _,
       version as _
     )
-    .fetch_all(&self.pool)
-    .await
+      .fetch_all(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::list_package_dependents", skip(self), err)]
   pub async fn list_package_dependents(
     &self,
-    kind: DependencyKind,
-    name: &str,
+    scope: &ScopeName,
+    name: &PackageName,
     start: i64,
     limit: i64,
     versions_per_package_limit: i64,
   ) -> Result<(usize, Vec<Dependent>)> {
+    // Dependents may depend on this package either directly via `jsr:`, or
+    // through the npm compatibility layer via `npm:@jsr/scope__name`.
+    let jsr_name = format!("@{scope}/{name}");
+    let npm_name = crate::npm::NpmMappedJsrPackageName {
+      scope,
+      package: name,
+    }
+    .to_string();
     let mut tx = self.pool.begin().await?;
     let dependents = sqlx::query_as!(
       Dependent,
@@ -2710,12 +3771,13 @@ impl Database {
       FROM
         package_version_dependencies
       WHERE
-        dependency_kind = $1 AND dependency_name = $2
+        (dependency_kind = 'jsr' AND dependency_name = $1)
+        OR (dependency_kind = 'npm' AND dependency_name = $2)
       GROUP BY package_scope, package_name
       ORDER BY package_scope ASC, package_name ASC OFFSET $3 LIMIT $4;
       "#,
-      kind as _,
-      name,
+      jsr_name,
+      npm_name,
       start,
       limit,
       versions_per_package_limit as i32,
@@ -2724,10 +3786,14 @@ impl Database {
     .await?;
 
     let total_unique_package_dependents = sqlx::query!(
-      r#"SELECT COUNT(DISTINCT (package_scope, package_name)) FROM package_version_dependencies
-      WHERE dependency_kind = $1 AND dependency_name = $2;"#,
-      kind as _,
-      name,
+      r#"SELECT COUNT(*) FROM (
+        SELECT DISTINCT package_scope, package_name
+        FROM package_version_dependencies
+        WHERE (dependency_kind = 'jsr' AND dependency_name = $1)
+          OR (dependency_kind = 'npm' AND dependency_name = $2)
+      ) t;"#,
+      jsr_name,
+      npm_name,
     )
     .map(|r| r.count.unwrap())
     .fetch_one(&mut *tx)
@@ -2738,6 +3804,58 @@ impl Database {
     Ok((total_unique_package_dependents as usize, dependents))
   }
 
+  #[instrument(name = "Database::count_package_dependents", skip(self), err)]
+  pub async fn count_package_dependents(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<usize> {
+    let jsr_name = format!("@{scope}/{name}");
+    let npm_name = crate::npm::NpmMappedJsrPackageName {
+      scope,
+      package: name,
+    }
+    .to_string();
+    let total_unique_package_dependents = sqlx::query!(
+      r#"SELECT COUNT(*) FROM (
+        SELECT DISTINCT package_scope, package_name
+        FROM package_version_dependencies
+        WHERE (dependency_kind = 'jsr' AND dependency_name = $1)
+          OR (dependency_kind = 'npm' AND dependency_name = $2)
+      ) t;"#,
+      jsr_name,
+      npm_name,
+    )
+    .map(|r| r.count.unwrap())
+    .fetch_one(&self.pool)
+    .await?;
+
+    Ok(total_unique_package_dependents as usize)
+  }
+
+  #[instrument(name = "Database::count_package_dependencies", skip(self), err)]
+  pub async fn count_package_dependencies(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+    version: &Version,
+  ) -> Result<usize> {
+    let total_package_dependencies = sqlx::query!(
+      r#"SELECT COUNT(DISTINCT dependency_name)
+      FROM package_version_dependencies
+      WHERE package_scope = $1 AND package_name = $2 AND package_version = $3"#,
+      scope as _,
+      name as _,
+      version as _
+    )
+    .fetch_one(&self.pool)
+    .await?
+    .count
+    .unwrap();
+
+    Ok(total_package_dependencies as usize)
+  }
+
   #[instrument(name = "Database::check_bad_word", skip(self), err)]
   pub async fn check_is_bad_word(&self, word: &str) -> Result<bool> {
     let res = sqlx::query!("SELECT * FROM bad_words WHERE word = $1", word)
@@ -2746,6 +3864,7 @@ impl Database {
     Ok(res.is_some())
   }
 
+  #[cfg(test)]
   #[instrument(name = "Database::add_bad_word_for_test", skip(self), err)]
   pub async fn add_bad_word_for_test(&self, word: &str) -> Result<()> {
     sqlx::query!("INSERT INTO bad_words (word) VALUES ($1)", word)
@@ -2755,37 +3874,7 @@ impl Database {
     Ok(())
   }
 
-  #[instrument(
-    name = "Database::get_latest_npm_tarball_for_version",
-    skip(self),
-    err
-  )]
-  pub async fn get_latest_npm_tarball_for_version(
-    &self,
-    scope: &ScopeName,
-    name: &PackageName,
-    version: &Version,
-  ) -> Result<Option<NpmTarball>> {
-    sqlx::query_as!(
-      NpmTarball,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", revision, sha1, sha512, size, updated_at, created_at
-      FROM npm_tarballs
-      WHERE scope = $1 AND name = $2 AND version = $3
-      ORDER BY revision DESC
-      LIMIT 1"#,
-      scope as _,
-      name as _,
-      version as _
-    )
-    .fetch_optional(&self.pool)
-    .await
-  }
-
-  #[instrument(
-    name = "Database::get_latest_npm_tarball_for_version",
-    skip(self),
-    err
-  )]
+  #[instrument(name = "Database::get_npm_tarball", skip(self), err)]
   pub async fn get_npm_tarball(
     &self,
     scope: &ScopeName,
@@ -2793,12 +3882,11 @@ impl Database {
     version: &Version,
     revision: i32,
   ) -> Result<Option<NpmTarball>> {
-    sqlx::query_as!(
+    query_concat_as!(
       NpmTarball,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", revision, sha1, sha512, size, updated_at, created_at
-      FROM npm_tarballs
+      "SELECT ", NPM_TARBALL_SELECT, " FROM npm_tarballs
       WHERE scope = $1 AND name = $2 AND version = $3 AND revision = $4
-      LIMIT 1"#,
+      LIMIT 1";
       scope as _,
       name as _,
       version as _,
@@ -2827,13 +3915,15 @@ impl Database {
       "#,
       current_revision,
     )
-    .map(|r| {
-      (r.scope, r.name, r.version)
-    })
-    .fetch_all(&self.pool)
-    .await
+      .map(|r| {
+        (r.scope, r.name, r.version)
+      })
+      .fetch_all(&self.pool)
+      .await
   }
 
+  #[instrument(name = "Database::list_all_scopes_for_sitemap", skip(self), err)]
+  #[allow(clippy::type_complexity)]
   pub async fn list_all_scopes_for_sitemap(
     &self,
   ) -> Result<Vec<(ScopeName, DateTime<Utc>, Option<DateTime<Utc>>)>> {
@@ -2848,11 +3938,17 @@ impl Database {
         LIMIT 50000
       "#
     )
-    .map(|r| (r.scope, r.updated_at, r.latest_package_created_at))
-    .fetch_all(&self.pool)
-    .await
+      .map(|r| (r.scope, r.updated_at, r.latest_package_created_at))
+      .fetch_all(&self.pool)
+      .await
   }
 
+  #[instrument(
+    name = "Database::list_all_packages_for_sitemap",
+    skip(self),
+    err
+  )]
+  #[allow(clippy::type_complexity)]
   pub async fn list_all_packages_for_sitemap(
     &self,
   ) -> Result<Vec<(ScopeName, PackageName, DateTime<Utc>, DateTime<Utc>)>> {
@@ -2865,16 +3961,897 @@ impl Database {
       ORDER BY scope ASC, name ASC
       LIMIT 50000"#
     )
-    .map(|r| {
-      (
-        r.scope,
-        r.name,
-        r.updated_at,
-        r.latest_version_updated_at,
-      )
-    })
+      .map(|r| {
+        (
+          r.scope,
+          r.name,
+          r.updated_at,
+          r.latest_version_updated_at,
+        )
+      })
+      .fetch_all(&self.pool)
+      .await
+  }
+
+  #[instrument(
+    name = "Database::insert_download_entries",
+    skip(self, entries),
+    err
+  )]
+  pub async fn insert_download_entries(
+    &self,
+    entries: Vec<VersionDownloadCount>,
+  ) -> Result<()> {
+    if entries.is_empty() {
+      return Ok(());
+    }
+
+    let mut tx = self.pool.begin().await?;
+
+    let mut scopes = Vec::with_capacity(entries.len());
+    let mut packages = Vec::with_capacity(entries.len());
+    let mut versions = Vec::with_capacity(entries.len());
+    let mut time_buckets = Vec::with_capacity(entries.len());
+    let mut kinds = Vec::with_capacity(entries.len());
+    let mut counts = Vec::with_capacity(entries.len());
+
+    let mut smallest_time_bucket = Utc::now();
+    let mut largest_time_bucket = DateTime::from_timestamp_nanos(0);
+
+    for entry in entries {
+      scopes.push(entry.scope);
+      packages.push(entry.package);
+      versions.push(entry.version);
+      time_buckets.push(entry.time_bucket);
+      kinds.push(entry.kind);
+      counts.push(entry.count);
+
+      if entry.time_bucket < smallest_time_bucket {
+        smallest_time_bucket = entry.time_bucket;
+      }
+      if entry.time_bucket > largest_time_bucket {
+        largest_time_bucket = entry.time_bucket;
+      }
+    }
+
+    // Upsert data into version_download_counts_4h
+    sqlx::query!(
+      r#"
+      INSERT INTO version_download_counts_4h (scope, package, version, time_bucket, kind, count)
+      SELECT * FROM UNNEST($1::TEXT[], $2::TEXT[], $3::TEXT[], $4::TIMESTAMPTZ[], $5::download_kind[], $6::INT[]) as temp(scope, package, version, time_bucket, kind, count)
+      WHERE (SELECT COUNT(*) FROM package_versions WHERE package_versions.scope = temp.scope AND package_versions.name = temp.package AND version = temp.version) > 0
+      ON CONFLICT (scope, package, version, time_bucket, kind) DO UPDATE SET count = EXCLUDED.count
+      "#,
+      &scopes as _,
+      &packages as _,
+      &versions as _,
+      &time_buckets,
+      &kinds as _,
+      &counts as _,
+    )
+      .execute(&mut *tx)
+      .await?;
+
+    // Compute data in version_download_counts_24h from version_download_counts_4h between smallest_timestamp and largest_timestamp.
+    // smallest_timestamp must be truncated down to the nearest day and largest_timestamp must be truncated up to the nearest day.
+    sqlx::query!(
+      r#"
+      INSERT INTO version_download_counts_24h (scope, package, version, time_bucket, kind, count)
+      SELECT scope, package, version, date_trunc('day', time_bucket), kind, SUM(count)
+      FROM version_download_counts_4h
+      WHERE time_bucket >= date_trunc('day', $1::timestamptz) AND time_bucket < date_trunc('day', $2::timestamptz) + interval '1 day'
+      GROUP BY scope, package, version, date_trunc('day', time_bucket), kind
+      ON CONFLICT (scope, package, version, time_bucket, kind) DO UPDATE SET count = EXCLUDED.count
+      "#,
+      smallest_time_bucket,
+      largest_time_bucket,
+    )
+      .execute(&mut *tx)
+      .await?;
+
+    // Aggregate version-level 24h counts into package-level 24h counts.
+    // Derived from version_download_counts_24h (not 4h) so that the
+    // package-level rollup stays correct even after 4h rows are pruned.
+    sqlx::query!(
+      r#"
+      INSERT INTO package_download_counts_24h (scope, package, time_bucket, kind, count)
+      SELECT scope, package, time_bucket, kind, SUM(count)
+      FROM version_download_counts_24h
+      WHERE time_bucket >= date_trunc('day', $1::timestamptz) AND time_bucket < date_trunc('day', $2::timestamptz) + interval '1 day'
+      GROUP BY scope, package, time_bucket, kind
+      ON CONFLICT (scope, package, time_bucket, kind) DO UPDATE SET count = EXCLUDED.count
+      "#,
+      smallest_time_bucket,
+      largest_time_bucket,
+    )
+      .execute(&mut *tx)
+      .await?;
+
+    tx.commit().await?;
+
+    Ok(())
+  }
+
+  #[instrument(
+    name = "Database::get_package_version_downloads_24h",
+    skip(self),
+    err
+  )]
+  pub async fn get_package_versions_downloads_24h(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+    versions: &[Version],
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+  ) -> Result<Vec<VersionDownloadDataPoint>> {
+    sqlx::query_as!(
+      VersionDownloadDataPoint,
+      r#"
+      SELECT version as "version: Version", time_bucket, kind as "kind: DownloadKind", count
+      FROM version_download_counts_24h
+      WHERE scope = $1 AND package = $2 AND version = ANY($3) AND time_bucket >= $4 AND time_bucket < $5
+      ORDER BY time_bucket ASC, version DESC
+      "#,
+      scope as _,
+      name as _,
+      versions as _,
+      start,
+      end,
+    )
+      .fetch_all(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::get_package_downloads_24h", skip(self), err)]
+  pub async fn get_package_downloads_24h(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+  ) -> Result<Vec<DownloadDataPoint>> {
+    sqlx::query_as!(
+      DownloadDataPoint,
+      r#"
+    SELECT time_bucket, kind as "kind: DownloadKind", count as "count!"
+    FROM package_download_counts_24h
+    WHERE scope = $1 AND package = $2 AND time_bucket >= $3 AND time_bucket < $4
+    ORDER BY time_bucket ASC
+    "#,
+      scope as _,
+      name as _,
+      start,
+      end,
+    )
     .fetch_all(&self.pool)
     .await
+  }
+
+  #[instrument(name = "Database::create_ticket", skip(self), err)]
+  pub async fn create_ticket(
+    &self,
+    user_id: Uuid,
+    new_ticket: NewTicket,
+  ) -> Result<(Ticket, User, TicketMessage)> {
+    let mut tx = self.pool.begin().await?;
+
+    let (ticket, user) = query_concat!(
+      "WITH ticket AS (
+          INSERT INTO tickets (kind, creator, meta)
+          VALUES ($1, $2, $3)
+          RETURNING id, kind, creator, meta, closed, updated_at, created_at
+        )
+        SELECT
+            ticket.id as \"ticket_id\",
+            ticket.kind as \"ticket_kind: TicketKind\",
+            ticket.creator as \"ticket_creator\",
+            ticket.meta as \"ticket_meta\",
+            ticket.closed as \"ticket_closed\",
+            ticket.updated_at as \"ticket_updated_at\",
+            ticket.created_at as \"ticket_created_at\",
+            ", USER_SELECT_FULL_JOINED, "
+        FROM ticket
+        INNER JOIN users ON users.id = ticket.creator
+    ";
+      new_ticket.kind as _,
+      user_id as _,
+      new_ticket.meta as _,
+    )
+    .map(|r| {
+      let ticket = Ticket {
+        id: r.ticket_id,
+        kind: r.ticket_kind,
+        creator: r.ticket_creator,
+        meta: r.ticket_meta,
+        closed: r.ticket_closed,
+        updated_at: r.ticket_updated_at,
+        created_at: r.ticket_created_at,
+      };
+
+      let user = User {
+        id: r.user_id,
+        name: r.user_name,
+        email: r.user_email,
+        avatar_url: r.user_avatar_url,
+        github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
+        is_blocked: r.user_is_blocked,
+        is_staff: r.user_is_staff,
+        scope_usage: r.user_scope_usage,
+        scope_limit: r.user_scope_limit,
+        invite_count: r.user_invite_count,
+        newer_ticket_messages_count: r.user_newer_ticket_messages_count,
+        updated_at: r.user_updated_at,
+        created_at: r.user_created_at,
+      };
+
+      (ticket, user)
+    })
+    .fetch_one(&mut *tx)
+    .await?;
+
+    let message = sqlx::query!(
+      r#"INSERT INTO ticket_messages (ticket_id, author, message)
+          VALUES ($1, $2, $3)
+          RETURNING ticket_id, author, message, updated_at, created_at
+    "#,
+      ticket.id as _,
+      user_id as _,
+      new_ticket.message as _,
+    )
+    .map(|r| TicketMessage {
+      ticket_id: r.ticket_id,
+      author: r.author,
+      message: r.message,
+      updated_at: r.updated_at,
+      created_at: r.created_at,
+    })
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok((ticket, user, message))
+  }
+
+  #[instrument(name = "Database::list_tickets", skip(self), err)]
+  pub async fn list_tickets(
+    &self,
+    start: i64,
+    limit: i64,
+    maybe_search_query: Option<&str>,
+    maybe_sort: Option<&str>,
+  ) -> Result<(usize, Vec<FullTicket>)> {
+    let mut tx = self.pool.begin().await?;
+
+    let search = format!("%{}%", maybe_search_query.unwrap_or(""));
+    let sort = sort_by!(maybe_sort => {
+      @timestamps "updated_at", "created_at";
+      "kind" => "tickets.kind",
+      "creator" => "users.name",
+      "closed" => "tickets.closed",
+      "updated_at" => "tickets.updated_at",
+      "created_at" => "tickets.created_at",
+    } || "tickets.closed ASC, tickets.created_at DESC");
+
+    let tickets = sqlx::query(&format!(
+      r#"SELECT {}, {} FROM tickets
+    INNER JOIN users ON users.id = tickets.creator
+    WHERE users.name ILIKE $1
+       OR EXISTS (
+         SELECT 1
+         FROM ticket_messages
+         WHERE ticket_messages.ticket_id = tickets.id
+           AND ticket_messages.message ILIKE $1
+       )
+    ORDER BY {sort} OFFSET $2 LIMIT $3
+"#,
+      crate::db::sql_fragments::TICKET_SELECT_JOINED_RT,
+      crate::db::sql_fragments::USER_SELECT_FULL_JOINED_RT,
+    ))
+    .bind(&search)
+    .bind(start)
+    .bind(limit)
+    .try_map(|r| {
+      let ticket = Ticket::from_row(&r)?;
+      let user = User::from_row(&r)?;
+
+      Ok((ticket, user))
+    })
+    .fetch_all(&mut *tx)
+    .await?;
+
+    let mut out = Vec::with_capacity(tickets.len());
+    for (ticket, user) in tickets {
+      let messages = query_concat!(
+      "SELECT ", TICKET_MESSAGE_SELECT_JOINED, ", ", USER_PUBLIC_SELECT_JOINED_RT, "
+        FROM ticket_messages
+        LEFT JOIN users ON users.id = ticket_messages.author
+        WHERE ticket_messages.ticket_id = $1 ORDER BY ticket_messages.created_at";
+      ticket.id as _,
+    )
+        .map(|r| {
+          let message = TicketMessage {
+            ticket_id: r.message_ticket_id,
+            author: r.message_author,
+            message: r.message_message,
+            updated_at: r.message_updated_at,
+            created_at: r.message_created_at,
+          };
+
+          let user = UserPublic {
+            id: r.user_id,
+            name: r.user_name,
+            avatar_url: r.user_avatar_url,
+            github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
+            updated_at: r.user_updated_at,
+            created_at: r.user_created_at,
+          };
+
+          (message, user)
+        })
+        .fetch_all(&mut *tx)
+        .await?;
+
+      out.push((ticket, user, messages));
+    }
+
+    let total_tickets = sqlx::query!(
+      r#"SELECT COUNT(tickets.created_at) FROM tickets
+    LEFT JOIN users ON users.id = tickets.creator
+    WHERE users.name ILIKE $1
+       OR EXISTS (
+         SELECT 1
+         FROM ticket_messages
+         WHERE ticket_messages.ticket_id = tickets.id
+           AND ticket_messages.message ILIKE $1
+       )"#,
+      search,
+    )
+    .map(|r| r.count.unwrap())
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok((total_tickets as usize, out))
+  }
+
+  #[instrument(name = "Database::list_tickets_for_user", skip(self), err)]
+  pub async fn list_tickets_for_user(
+    &self,
+    user_id: Uuid,
+  ) -> Result<Vec<FullTicket>> {
+    let mut tx = self.pool.begin().await?;
+
+    let tickets = query_concat!(
+      "SELECT ", TICKET_SELECT_JOINED, ", ", USER_SELECT_FULL_JOINED, "
+    FROM tickets
+    INNER JOIN users ON users.id = tickets.creator
+    WHERE tickets.creator = $1
+    ORDER BY tickets.closed ASC, tickets.created_at DESC
+";
+      user_id as _,
+    )
+    .map(|r| {
+      let ticket = Ticket {
+        id: r.ticket_id,
+        kind: r.ticket_kind,
+        creator: r.ticket_creator,
+        meta: r.ticket_meta,
+        closed: r.ticket_closed,
+        updated_at: r.ticket_updated_at,
+        created_at: r.ticket_created_at,
+      };
+
+      let user = User {
+        id: r.user_id,
+        name: r.user_name,
+        email: r.user_email,
+        avatar_url: r.user_avatar_url,
+        github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
+        is_blocked: r.user_is_blocked,
+        is_staff: r.user_is_staff,
+        scope_usage: r.user_scope_usage,
+        scope_limit: r.user_scope_limit,
+        invite_count: r.user_invite_count,
+        newer_ticket_messages_count: r.user_newer_ticket_messages_count,
+        updated_at: r.user_updated_at,
+        created_at: r.user_created_at,
+      };
+
+      (ticket, user)
+    })
+    .fetch_all(&mut *tx)
+    .await?;
+
+    let mut out = Vec::with_capacity(tickets.len());
+    for (ticket, user) in tickets {
+      let messages = query_concat!(
+      "SELECT
+            ", TICKET_MESSAGE_SELECT_JOINED, ",
+            ", USER_PUBLIC_SELECT_JOINED_RT, "
+        FROM ticket_messages
+        INNER JOIN users ON users.id = ticket_messages.author
+        WHERE ticket_messages.ticket_id = $1 ORDER BY ticket_messages.created_at";
+      ticket.id as _,
+    )
+        .map(|r| {
+          let message = TicketMessage {
+            ticket_id: r.message_ticket_id,
+            author: r.message_author,
+            message: r.message_message,
+            updated_at: r.message_updated_at,
+            created_at: r.message_created_at,
+          };
+
+          let user = UserPublic {
+            id: r.user_id,
+            name: r.user_name,
+            avatar_url: r.user_avatar_url,
+            github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
+            updated_at: r.user_updated_at,
+            created_at: r.user_created_at,
+          };
+
+          (message, user)
+        })
+        .fetch_all(&mut *tx)
+        .await?;
+
+      out.push((ticket, user, messages));
+    }
+
+    tx.commit().await?;
+
+    Ok(out)
+  }
+
+  #[instrument(name = "Database::get_ticket", skip(self), err)]
+  pub async fn get_ticket(
+    &self,
+    ticket_id: Uuid,
+  ) -> Result<Option<FullTicket>> {
+    let mut tx = self.pool.begin().await?;
+
+    let Some((ticket, user)) = query_concat!(
+      "SELECT
+            ", TICKET_SELECT_JOINED, ",
+            ", USER_SELECT_FULL_JOINED, "
+        FROM tickets
+        INNER JOIN users ON users.id = tickets.creator
+        WHERE tickets.id = $1";
+      ticket_id as _,
+    )
+    .map(|r| {
+      let ticket = Ticket {
+        id: r.ticket_id,
+        kind: r.ticket_kind,
+        creator: r.ticket_creator,
+        meta: r.ticket_meta,
+        closed: r.ticket_closed,
+        updated_at: r.ticket_updated_at,
+        created_at: r.ticket_created_at,
+      };
+
+      let user = User {
+        id: r.user_id,
+        name: r.user_name,
+        email: r.user_email,
+        avatar_url: r.user_avatar_url,
+        github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
+        is_blocked: r.user_is_blocked,
+        is_staff: r.user_is_staff,
+        scope_usage: r.user_scope_usage,
+        scope_limit: r.user_scope_limit,
+        invite_count: r.user_invite_count,
+        newer_ticket_messages_count: r.user_newer_ticket_messages_count,
+        updated_at: r.user_updated_at,
+        created_at: r.user_created_at,
+      };
+
+      (ticket, user)
+    })
+    .fetch_optional(&mut *tx)
+    .await?
+    else {
+      return Ok(None);
+    };
+
+    let messages = query_concat!(
+      "SELECT
+            ", TICKET_MESSAGE_SELECT_JOINED, ",
+            ", USER_PUBLIC_SELECT_JOINED_RT, "
+        FROM ticket_messages
+        INNER JOIN users ON users.id = ticket_messages.author
+        WHERE ticket_messages.ticket_id = $1 ORDER BY ticket_messages.created_at";
+      ticket_id as _,
+    )
+      .map(|r| {
+        let message = TicketMessage {
+          ticket_id: r.message_ticket_id,
+          author: r.message_author,
+          message: r.message_message,
+          updated_at: r.message_updated_at,
+          created_at: r.message_created_at,
+        };
+
+        let user = UserPublic {
+          id: r.user_id,
+          name: r.user_name,
+          avatar_url: r.user_avatar_url,
+          github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
+          updated_at: r.user_updated_at,
+          created_at: r.user_created_at,
+        };
+
+        (message, user)
+      })
+      .fetch_all(&mut *tx)
+      .await?;
+
+    tx.commit().await?;
+
+    Ok(Some((ticket, user, messages)))
+  }
+
+  #[instrument(name = "Database::get_ticket_audit_logs", skip(self), err)]
+  pub async fn get_ticket_audit_logs(
+    &self,
+    ticket_id: Uuid,
+  ) -> Result<Vec<(AuditLog, UserPublic)>> {
+    let mut tx = self.pool.begin().await?;
+
+    let audit_logs = query_concat!(
+      "SELECT
+          ", AUDIT_LOG_SELECT_JOINED, ",
+          ", USER_PUBLIC_SELECT_JOINED_RT, "
+        FROM
+          audit_logs
+        LEFT JOIN
+          users ON audit_logs.actor_id = users.id
+        WHERE
+          audit_logs.meta::text LIKE $1
+        ORDER BY audit_logs.created_at DESC;
+        ";
+      format!("%\"ticket_id\": \"{}\"%", ticket_id),
+    )
+    .map(|r| {
+      let audit_log = AuditLog {
+        actor_id: r.audit_log_actor_id,
+        is_sudo: r.audit_log_is_sudo,
+        action: r.audit_log_action,
+        meta: r.audit_log_meta,
+        created_at: r.audit_log_created_at,
+      };
+
+      let user = UserPublic {
+        id: r.user_id,
+        name: r.user_name,
+        avatar_url: r.user_avatar_url,
+        github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
+        updated_at: r.user_updated_at,
+        created_at: r.user_created_at,
+      };
+
+      (audit_log, user)
+    })
+    .fetch_all(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(audit_logs)
+  }
+
+  #[instrument(name = "Database::ticket_add_message", skip(self), err)]
+  pub async fn ticket_add_message(
+    &self,
+    id: Uuid,
+    author: Uuid,
+    message: NewTicketMessage,
+  ) -> Result<(TicketMessage, UserPublic)> {
+    let mut tx = self.pool.begin().await?;
+
+    let message = query_concat!(
+      "WITH message AS (
+          INSERT INTO ticket_messages (ticket_id, author, message)
+          VALUES ($1, $2, $3)
+          RETURNING ticket_id, author, message, updated_at, created_at
+        )
+        SELECT
+            message.ticket_id as \"message_ticket_id\",
+            message.author as \"message_author\",
+            message.message as \"message_message\",
+            message.updated_at as \"message_updated_at\",
+            message.created_at as \"message_created_at\",
+            ", USER_PUBLIC_SELECT_JOINED_RT, "
+        FROM message
+        INNER JOIN users ON users.id = message.author
+    ";
+      id as _,
+      author as _,
+      message.message as _,
+    )
+    .map(|r| {
+      let message = TicketMessage {
+        ticket_id: r.message_ticket_id,
+        author: r.message_author,
+        message: r.message_message,
+        updated_at: r.message_updated_at,
+        created_at: r.message_created_at,
+      };
+
+      let user = UserPublic {
+        id: r.user_id,
+        name: r.user_name,
+        avatar_url: r.user_avatar_url,
+        github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
+        updated_at: r.user_updated_at,
+        created_at: r.user_created_at,
+      };
+
+      (message, user)
+    })
+    .fetch_one(&mut *tx)
+    .await?;
+
+    sqlx::query!(
+      r#"UPDATE tickets SET updated_at = now() WHERE id = $1"#,
+      id as _
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(message)
+  }
+
+  #[instrument(name = "Database::update_ticket", skip(self), err)]
+  pub async fn update_ticket_closed(
+    &self,
+    staff_id: &Uuid,
+    ticket_id: Uuid,
+    closed: bool,
+  ) -> Result<FullTicket> {
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      staff_id,
+      true,
+      "update_ticket_status",
+      json!({
+      "ticket_id": ticket_id,
+      "closed": closed,
+      }),
+    )
+    .await?;
+
+    let (ticket, user) = query_concat!(
+      "WITH ticket AS (
+          UPDATE tickets SET closed = $1 WHERE id = $2
+          RETURNING id, kind, creator, meta, closed, updated_at, created_at
+        )
+        SELECT
+            ticket.id as \"ticket_id\",
+            ticket.kind as \"ticket_kind: TicketKind\",
+            ticket.creator as \"ticket_creator\",
+            ticket.meta as \"ticket_meta\",
+            ticket.closed as \"ticket_closed\",
+            ticket.updated_at as \"ticket_updated_at\",
+            ticket.created_at as \"ticket_created_at\",
+            ", USER_SELECT_FULL_JOINED, "
+        FROM ticket
+        INNER JOIN users ON users.id = ticket.creator
+    ";
+      closed as _,
+      ticket_id as _,
+    )
+    .map(|r| {
+      let ticket = Ticket {
+        id: r.ticket_id,
+        kind: r.ticket_kind,
+        creator: r.ticket_creator,
+        meta: r.ticket_meta,
+        closed: r.ticket_closed,
+        updated_at: r.ticket_updated_at,
+        created_at: r.ticket_created_at,
+      };
+
+      let user = User {
+        id: r.user_id,
+        name: r.user_name,
+        email: r.user_email,
+        avatar_url: r.user_avatar_url,
+        github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
+        is_blocked: r.user_is_blocked,
+        is_staff: r.user_is_staff,
+        scope_usage: r.user_scope_usage,
+        scope_limit: r.user_scope_limit,
+        invite_count: r.user_invite_count,
+        newer_ticket_messages_count: r.user_newer_ticket_messages_count,
+        updated_at: r.user_updated_at,
+        created_at: r.user_created_at,
+      };
+
+      (ticket, user)
+    })
+    .fetch_one(&mut *tx)
+    .await?;
+
+    let messages = query_concat!(
+      "SELECT
+            ", TICKET_MESSAGE_SELECT_JOINED, ",
+            ", USER_PUBLIC_SELECT_JOINED_RT, "
+        FROM ticket_messages
+        INNER JOIN users ON users.id = ticket_messages.author
+        WHERE ticket_messages.ticket_id = $1 ORDER BY ticket_messages.created_at";
+      ticket_id as _,
+    )
+      .map(|r| {
+        let message = TicketMessage {
+          ticket_id: r.message_ticket_id,
+          author: r.message_author,
+          message: r.message_message,
+          updated_at: r.message_updated_at,
+          created_at: r.message_created_at,
+        };
+
+        let user = UserPublic {
+          id: r.user_id,
+          name: r.user_name,
+          avatar_url: r.user_avatar_url,
+          github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
+          updated_at: r.user_updated_at,
+          created_at: r.user_created_at,
+        };
+
+        (message, user)
+      })
+      .fetch_all(&mut *tx)
+      .await?;
+
+    tx.commit().await?;
+
+    Ok((ticket, user, messages))
+  }
+
+  #[allow(clippy::type_complexity)]
+  #[instrument(name = "Database::list_audit_logs", skip(self), err)]
+  pub async fn list_audit_logs(
+    &self,
+    start: i64,
+    limit: i64,
+    maybe_search_query: Option<&str>,
+    maybe_sort: Option<&str>,
+    sudo_only: bool,
+  ) -> Result<(usize, Vec<(AuditLog, UserPublic)>)> {
+    let mut tx = self.pool.begin().await?;
+
+    let search = format!("%{}%", maybe_search_query.unwrap_or(""));
+    let sort = sort_by!(maybe_sort => {
+      @timestamps "created_at";
+      "action" => "audit_logs.action",
+      "user" => "users.name",
+      "created_at" => "audit_logs.created_at",
+    } || "audit_logs.created_at DESC");
+
+    let scopes = sqlx::query(&format!(
+      r#"SELECT
+      {}, {}
+      FROM audit_logs
+      LEFT JOIN users ON audit_logs.actor_id = users.id
+      WHERE (audit_logs.action ILIKE $1
+         OR users.name ILIKE $1
+         OR audit_logs.meta::text ILIKE $1)
+         AND ($2 IS NOT TRUE OR audit_logs.is_sudo = TRUE)
+      ORDER BY {sort} OFFSET $3 LIMIT $4
+      "#,
+      crate::db::sql_fragments::AUDIT_LOG_SELECT_JOINED,
+      crate::db::sql_fragments::USER_PUBLIC_SELECT_JOINED_RT,
+    ))
+    .bind(&search)
+    .bind(sudo_only)
+    .bind(start)
+    .bind(limit)
+    .try_map(|r| {
+      let audit_log = AuditLog::from_row(&r)?;
+      let user = UserPublic::from_row(&r)?;
+
+      Ok((audit_log, user))
+    })
+    .fetch_all(&mut *tx)
+    .await?;
+
+    let total_scopes = sqlx::query!(
+      r#"SELECT COUNT(audit_logs.created_at) FROM audit_logs LEFT JOIN users ON audit_logs.actor_id = users.id WHERE audit_logs.action ILIKE $1 OR users.name ILIKE $2 AND ($3 IS NOT TRUE OR audit_logs.is_sudo = TRUE);"#,
+      search,
+      search,
+      sudo_only,
+    )
+      .map(|r| r.count.unwrap())
+      .fetch_one(&mut *tx)
+      .await?;
+
+    tx.commit().await?;
+
+    Ok((total_scopes as usize, scopes))
+  }
+
+  #[instrument(
+    name = "Database::get_recently_published_packages_by_user",
+    skip(self),
+    err
+  )]
+  pub async fn get_recently_published_packages_by_user(
+    &self,
+    user_id: &Uuid,
+  ) -> Result<Vec<PackageWithGitHubRepoAndMeta>> {
+    query_concat!(
+      "SELECT ", PACKAGE_BASE_SELECT_JOINED, ",
+      ", PACKAGE_VERSION_AGG_SELECT, ",
+      ", GITHUB_REPOSITORY_SELECT_JOINED, "
+      FROM (
+        SELECT package_scope, package_name, MAX(created_at) as last_published_at
+        FROM publishing_tasks
+        WHERE user_id = $1 AND status = 'success'
+        GROUP BY package_scope, package_name
+        ORDER BY last_published_at DESC
+        LIMIT 10
+      ) recently_published
+      JOIN packages
+        ON packages.scope = recently_published.package_scope
+        AND packages.name = recently_published.package_name
+      LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
+      ", PACKAGE_VERSION_LATERAL_JOINS, "
+      ORDER BY recently_published.last_published_at DESC";
+      user_id
+    )
+      .map(|r| {
+        let package = Package {
+          scope: r.package_scope,
+          name: r.package_name,
+          description: r.package_description,
+          github_repository_id: r.package_github_repository_id,
+          runtime_compat: r.package_runtime_compat,
+          created_at: r.package_created_at,
+          updated_at: r.package_updated_at,
+          version_count: r.package_version_count,
+          latest_version: r.package_latest_version,
+          when_featured: r.package_when_featured,
+          is_archived: r.package_is_archived,
+          readme_source: r.package_readme_source,
+        };
+        let github_repository = if r.package_github_repository_id.is_some() {
+          Some(GithubRepository {
+            id: r.github_repository_id.unwrap(),
+            owner: r.github_repository_owner.unwrap(),
+            name: r.github_repository_name.unwrap(),
+            created_at: r.github_repository_created_at.unwrap(),
+            updated_at: r.github_repository_updated_at.unwrap(),
+          })
+        } else {
+          None
+        };
+
+        let meta = r.package_version_meta.unwrap_or_default();
+
+        (package, github_repository, meta)
+      })
+      .fetch_all(&self.pool)
+      .await
   }
 }
 
@@ -2888,11 +4865,11 @@ async fn finalize_package_creation(
     "#,
     scope as _,
   )
-  .map(|r| {
-    (r.package_limit, r.new_package_per_week_limit)
-  })
-  .fetch_one(&mut *tx)
-  .await?;
+    .map(|r| {
+      (r.package_limit, r.new_package_per_week_limit)
+    })
+    .fetch_one(&mut *tx)
+    .await?;
 
   let packages_from_last_week = sqlx::query!(
     r#"
@@ -2900,11 +4877,11 @@ async fn finalize_package_creation(
     "#,
     scope as _,
   )
-  .map(|r| {
-    r.count.unwrap()
-  })
-  .fetch_one(&mut *tx)
-  .await?;
+    .map(|r| {
+      r.count.unwrap()
+    })
+    .fetch_one(&mut *tx)
+    .await?;
 
   if packages_from_last_week > new_package_per_week_limit as i64 {
     tx.rollback().await?;
@@ -2934,6 +4911,26 @@ async fn finalize_package_creation(
   Ok(None)
 }
 
+async fn audit_log(
+  tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+  actor_id: &Uuid,
+  is_sudo: bool,
+  action: &'static str,
+  data: serde_json::Value,
+) -> Result<()> {
+  sqlx::query!(
+    r#"INSERT INTO audit_logs (actor_id, is_sudo, action, meta) VALUES ($1, $2, $3, $4)"#,
+    actor_id as _,
+    is_sudo,
+    action,
+    data as _,
+  )
+    .execute(&mut **tx)
+    .await?;
+
+  Ok(())
+}
+
 #[derive(Debug)]
 pub enum ScopeMemberUpdateResult {
   Ok(ScopeMember),
@@ -2952,7 +4949,42 @@ pub enum CreatePackageResult {
 
 #[derive(Debug)]
 pub enum CreatePublishingTaskResult {
-  Created(PublishingTask),
-  Exists(PublishingTask),
+  Created((PublishingTask, Option<UserPublic>)),
+  Exists((PublishingTask, Option<UserPublic>)),
   WeeklyPublishAttemptsLimitExceeded(i32),
+}
+
+/// In-memory cache for `count_package_dependents` results. The dependent count
+/// for a package only changes when someone publishes a new version of a
+/// depending package, so a 15-minute TTL is safe and drastically reduces
+/// database load on package page views.
+#[derive(Clone)]
+pub struct DependentCountCache {
+  cache: moka::future::Cache<String, usize>,
+}
+
+impl DependentCountCache {
+  pub fn new() -> Self {
+    Self {
+      cache: moka::future::Cache::builder()
+        .max_capacity(65536)
+        .time_to_live(std::time::Duration::from_secs(900))
+        .build(),
+    }
+  }
+
+  pub async fn count_package_dependents(
+    &self,
+    db: &Database,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<usize> {
+    let key = format!("@{scope}/{name}");
+    if let Some(count) = self.cache.get(&key).await {
+      return Ok(count);
+    }
+    let count = db.count_package_dependents(scope, name).await?;
+    self.cache.insert(key, count).await;
+    Ok(count)
+  }
 }

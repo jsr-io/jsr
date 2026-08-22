@@ -1,38 +1,33 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
+import { HttpError, RouteConfig } from "fresh";
 import type {
-  Package,
+  List,
   PackageVersionWithUser,
   PublishingTask,
   PublishingTaskStatus,
-  ScopeMember,
 } from "../../utils/api_types.ts";
-import { State } from "../../util.ts";
-import { compare, eq, format, lt, parse, SemVer } from "$std/semver/mod.ts";
-import twas from "$twas";
-import IconTrashX from "$tabler_icons/trash-x.tsx";
+import { define } from "../../util.ts";
+import { compare, equals, format, lessThan, parse, SemVer } from "@std/semver";
+import twas from "twas";
 import { packageData } from "../../utils/data.ts";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
-import { path } from "../../utils/api.ts";
-import { Head } from "$fresh/runtime.ts";
-import { ErrorIcon } from "../../components/icons/Error.tsx";
-import { Check } from "../../components/icons/Check.tsx";
-import { Pending } from "../../components/icons/Pending.tsx";
+import { assertOk, path } from "../../utils/api.ts";
+import TbAlertCircle from "tb-icons/TbAlertCircle";
+import TbCheck from "tb-icons/TbCheck";
+import TbClockHour3 from "tb-icons/TbClockHour3";
+import TbTrashX from "tb-icons/TbTrashX";
 import { ScopeIAM, scopeIAM } from "../../utils/iam.ts";
+import { DownloadChart } from "./(_islands)/DownloadChart.tsx";
+import { Card } from "../../components/Card.tsx";
+import { Pagination } from "../../components/Table.tsx";
 
-interface Data {
-  package: Package;
-  versions: PackageVersionWithUser[];
-  publishingTasks?: PublishingTask[];
-  member: ScopeMember | null;
-}
-
-export default function Versions({
+export default define.page<typeof handler>(function Versions({
   data,
   params,
   state,
-}: PageProps<Data, State>) {
+  url,
+}) {
   const iam = scopeIAM(state, data.member);
 
   const latestVersionInReleaseTrack: Record<string, SemVer> = {};
@@ -60,9 +55,9 @@ export default function Versions({
     });
     if (version.yanked) continue;
     if (
-      semver.prerelease.length === 0 &&
+      (!semver.prerelease || semver.prerelease.length === 0) &&
       (latestVersionInReleaseTrack[releaseTrack] === undefined ||
-        lt(latestVersionInReleaseTrack[releaseTrack], semver))
+        lessThan(latestVersionInReleaseTrack[releaseTrack], semver))
     ) {
       latestVersionInReleaseTrack[releaseTrack] = semver;
     }
@@ -98,32 +93,29 @@ export default function Versions({
 
   return (
     <div class="mb-20">
-      <Head>
-        <title>
-          Versions - @{params.scope}/{params.package} - JSR
-        </title>
-        <meta
-          name="description"
-          content={`@${params.scope}/${params.package} on JSR${
-            data.package.description ? `: ${data.package.description}` : ""
-          }`}
-        />
-      </Head>
-
-      <PackageHeader package={data.package} />
+      <PackageHeader
+        package={data.package}
+        downloads={null}
+      />
 
       <PackageNav
         currentTab="Versions"
         params={params as unknown as Params}
         iam={iam}
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         latestVersion={data.package.latestVersion}
       />
 
-      <div class="space-y-4 mt-8">
+      <div class="mt-4 md:mt-6">
+        <DownloadChart downloads={data.downloads.recentVersions} />
+      </div>
+
+      <div class="space-y-3 mt-8">
         {versionsArray.length === 0
           ? (
-            <div class="text-gray-500 text-center">
+            <div class="text-tertiary text-center">
               This package has not published any versions yet.
             </div>
           )
@@ -131,7 +123,7 @@ export default function Versions({
             const latestVersion =
               latestVersionInReleaseTrack[version.releaseTrack];
             const isLatestInReleaseTrack = latestVersion
-              ? eq(version.semver, latestVersion)
+              ? equals(version.semver, latestVersion)
               : false;
             return (
               <Version
@@ -145,9 +137,17 @@ export default function Versions({
             );
           })}
       </div>
+
+      <div class="mt-4 ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 rounded overflow-hidden">
+        <Pagination
+          pagination={data}
+          itemsCount={data.versions.length}
+          currentUrl={url}
+        />
+      </div>
     </div>
   );
-}
+});
 
 const pluralRule = new Intl.PluralRules("en", { type: "ordinal" });
 const pluralSuffixes = new Map([
@@ -187,20 +187,33 @@ function Version({
 }) {
   const isPublished = version !== null;
   const isFailed = tasks.length > 0 && tasks[0].status === "failure";
+  const isSuccess = tasks.length > 0 &&
+    tasks.some((task) => task.status === "success");
+
+  const isRedState = (!isPublished && (isFailed || isSuccess)) ||
+    version?.yanked;
+  const isBlueState = !isPublished && !isFailed && !isSuccess;
+
+  const variant = isRedState
+    ? "red"
+    : isBlueState
+    ? "blue"
+    : isLatestInReleaseTrack
+    ? "green"
+    : "gray";
+
+  const filled = isRedState || isBlueState || isLatestInReleaseTrack;
+
+  const interactive = isRedState
+    ? (version?.yanked || (!isPublished && isSuccess))
+    : !isBlueState;
 
   return (
-    <div
-      class={`relative py-2 px-2 md:py-4 md:px-6 border rounded ${
-        (!isPublished && isFailed) || version?.yanked
-          ? `bg-red-50 border-red-200 ${
-            version?.yanked ? "hover:bg-red-100 hover:border-red-300" : ""
-          }`
-          : (!isPublished
-            ? "bg-blue-50 border-blue-200"
-            : (isLatestInReleaseTrack
-              ? "bg-green-50 hover:bg-green-100 border-green-200 hover:border-green-300"
-              : "hover:bg-gray-100 border-gray-200 hover:border-gray-400"))
-      }`}
+    <Card
+      variant={variant}
+      filled={filled}
+      interactive={interactive}
+      class="relative py-2 px-2 md:py-3 md:px-6 rounded-lg"
     >
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2 md:gap-6">
@@ -209,44 +222,46 @@ function Version({
               (!isPublished && isFailed) || version?.yanked
                 ? "bg-red-300 border-red-400 text-red-700"
                 : (!isPublished
-                  ? "bg-blue-300 border-blue-400 text-blue-700"
+                  ? isSuccess
+                    ? "bg-red-300 border-red-400 text-red-700"
+                    : "bg-blue-300 border-blue-400 text-blue-700"
                   : (isLatestInReleaseTrack
                     ? "bg-green-300 border-green-400 text-green-700"
-                    : "bg-gray-200 border-gray-300 text-gray-600"))
+                    : "bg-jsr-gray-200 dark:bg-jsr-gray-900 border-jsr-gray-300 dark:border-jsr-gray-800 text-secondary"))
             }`}
             title={version?.yanked
               ? "Yanked"
               : (isFailed
                 ? "Task failed"
                 : !isPublished
-                ? "Publishing..."
+                ? isSuccess ? "Deleted" : "Publishing..."
                 : `Release Track ${releaseTrack}`)}
           >
             {version?.yanked
-              ? <IconTrashX class="size-8" />
+              ? <TbTrashX class="size-8" />
               : (isFailed
-                ? <ErrorIcon class="size-8 stroke-red-500 stroke-2" />
+                ? <TbAlertCircle class="size-8 stroke-red-500 stroke-2" />
                 : !isPublished
-                ? "..."
+                ? isSuccess ? <TbTrashX class="size-8" /> : "..."
                 : releaseTrack)}
           </div>
           <div>
             {isPublished
               ? (
                 <a
-                  class="font-bold z-10 after:absolute after:inset-0 after:content-empty"
+                  class="font-bold relative z-10 after:absolute after:inset-0 after:content-empty"
                   href={`/@${version.scope}/${version.package}@${version.version}`}
                 >
                   {format(semver)}
                 </a>
               )
               : (
-                <span class="font-bold z-10 after:absolute after:inset-0 after:content-empty">
+                <span class="font-bold relative z-10 after:absolute after:inset-0 after:content-empty dark:text-gray-200">
                   {format(semver)}
                 </span>
               )}
             {isPublished && (
-              <div class="text-sm select-none text-gray-500 z-0">
+              <div class="text-sm select-none text-tertiary z-0">
                 Released {version?.user && (
                   <>
                     {"by "}
@@ -259,7 +274,7 @@ function Version({
                     {" "}
                   </>
                 )}
-                {twas(new Date(version.createdAt))}
+                {twas(new Date(version.createdAt).getTime())}
               </div>
             )}
           </div>
@@ -268,6 +283,7 @@ function Version({
           <form method="POST" class="z-20">
             <input type="hidden" name="version" value={version.version} />
             <button
+              type="submit"
               class="button-danger"
               name="action"
               value={version.yanked ? "unyank" : "yank"}
@@ -276,18 +292,32 @@ function Version({
             </button>
           </form>
         )}
+        {isPublished && iam.hasSudo && (
+          <form method="POST" class="z-20">
+            <input type="hidden" name="version" value={version.version} />
+            <button
+              type="submit"
+              class="button-danger"
+              name="action"
+              value="delete"
+            >
+              Delete
+            </button>
+          </form>
+        )}
       </div>
       <ul>
         {tasks.map((task, i) => (
-          <li class="first:mt-3 mt-1 text-sm flex items-center gap-1 text-gray-500 w-full">
+          <li class="first:mt-3 mt-1 text-sm flex items-center gap-1 text-tertiary w-full">
             {task.status === "failure"
-              ? <ErrorIcon class="size-3 stroke-red-500 stroke-2" />
+              ? <TbAlertCircle class="size-4 stroke-red-500 stroke-2" />
               : task.status === "success"
-              ? <Check class="size-3 stroke-green-500 stroke-2" />
-              : <Pending class="size-3 stroke-blue-500 stroke-2" />}
+              ? <TbCheck class="size-4 stroke-green-500 stroke-2" />
+              : <TbClockHour3 class="size-4 stroke-blue-500 stroke-2" />}
             <span>
               {ordinalNumber(tasks.length - i)} publishing attempt{" "}
-              {statusVerb[task.status]} {twas(new Date(task.updatedAt))}
+              {statusVerb[task.status]}{" "}
+              {twas(new Date(task.updatedAt).getTime())}
             </span>
             <a href={`/status/${task.id}`} class="link justify-self-end z-20">
               Details
@@ -295,16 +325,20 @@ function Version({
           </li>
         ))}
       </ul>
-    </div>
+    </Card>
   );
 }
 
-export const handler: Handlers<Data, State> = {
-  async GET(_, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
+    const page = +(ctx.url.searchParams.get("page") || 1);
+    const limit = +(ctx.url.searchParams.get("limit") || 100);
+
     const [res, versionsResp, tasksResp] = await Promise.all([
       packageData(ctx.state, ctx.params.scope, ctx.params.package),
-      ctx.state.api.get<PackageVersionWithUser[]>(
+      ctx.state.api.get<List<PackageVersionWithUser>>(
         path`/scopes/${ctx.params.scope}/packages/${ctx.params.package}/versions`,
+        { page, limit },
       ),
       ctx.state.api.hasToken()
         ? ctx.state.api.get<PublishingTask[]>(
@@ -312,28 +346,45 @@ export const handler: Handlers<Data, State> = {
         )
         : Promise.resolve(null),
     ]);
-    if (res === null) return ctx.renderNotFound();
-    if (!versionsResp.ok) throw versionsResp; // TODO: handle errors gracefully
+    if (res === null) throw new HttpError(404, "This package was not found.");
+
+    assertOk(versionsResp);
     let publishingTasks;
     if (tasksResp) {
       if (!tasksResp.ok) {
         if (tasksResp.code !== "actorNotScopeMember") {
-          throw tasksResp; // TODO: handle errors gracefully
+          assertOk(tasksResp);
         }
       } else {
         publishingTasks = tasksResp.data;
       }
     }
 
-    return ctx.render({
-      package: res.pkg,
-      versions: versionsResp.data,
-      publishingTasks,
-      member: res.scopeMember,
-    });
+    ctx.state.meta = {
+      title: `Versions - @${res.pkg.scope}/${res.pkg.name} - JSR`,
+      description: `@${res.pkg.scope}/${res.pkg.name} on JSR${
+        res.pkg.description ? `: ${res.pkg.description}` : ""
+      }`,
+    };
+    ctx.state.cacheControl =
+      "public, max-age=30, s-maxage=120, stale-while-revalidate=360";
+
+    return {
+      data: {
+        package: res.pkg,
+        versions: versionsResp.data.items,
+        total: versionsResp.data.total,
+        page,
+        limit,
+        publishingTasks,
+        member: res.scopeMember,
+        downloads: res.downloads,
+      },
+    };
   },
 
-  async POST(req, ctx) {
+  async POST(ctx) {
+    const req = ctx.req;
     const {
       scope,
       package: packageName,
@@ -350,7 +401,7 @@ export const handler: Handlers<Data, State> = {
           path`/scopes/${scope}/packages/${packageName}/versions/${version}`,
           { yanked: true },
         );
-        if (!res.ok) throw res;
+        assertOk(res);
         return new Response(null, {
           status: 303,
           headers: { Location: `/@${scope}/${packageName}/versions` },
@@ -362,7 +413,18 @@ export const handler: Handlers<Data, State> = {
           path`/scopes/${scope}/packages/${packageName}/versions/${version}`,
           { yanked: false },
         );
-        if (!res.ok) throw res;
+        assertOk(res);
+        return new Response(null, {
+          status: 303,
+          headers: { Location: `/@${scope}/${packageName}/versions` },
+        });
+      }
+      case "delete": {
+        const version = String(data.get("version"));
+        const res = await api.delete(
+          path`/scopes/${scope}/packages/${packageName}/versions/${version}`,
+        );
+        assertOk(res);
         return new Response(null, {
           status: 303,
           headers: { Location: `/@${scope}/${packageName}/versions` },
@@ -373,7 +435,7 @@ export const handler: Handlers<Data, State> = {
       }
     }
   },
-};
+});
 
 export const config: RouteConfig = {
   routeOverride: "/@:scope/:package/versions",

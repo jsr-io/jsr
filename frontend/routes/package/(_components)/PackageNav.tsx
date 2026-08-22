@@ -11,6 +11,7 @@ export interface Params {
 type Tab =
   | "Index"
   | "Docs"
+  | "Diff"
   | "Files"
   | "Versions"
   | "Dependencies"
@@ -19,15 +20,25 @@ type Tab =
   | "Publish"
   | "Settings";
 
-export function PackageNav(
-  { currentTab, params, iam, versionCount, latestVersion }: {
-    currentTab: Tab;
-    params: Params;
-    versionCount: number;
-    iam: ScopeIAM;
-    latestVersion: string | null;
-  },
-) {
+interface PackageNavProps {
+  currentTab: Tab;
+  params: Params;
+  versionCount: number;
+  dependencyCount: number;
+  dependentCount: number;
+  iam: ScopeIAM;
+  latestVersion: string | null;
+}
+
+export function PackageNav({
+  currentTab,
+  params,
+  iam,
+  versionCount,
+  dependencyCount,
+  dependentCount,
+  latestVersion,
+}: PackageNavProps) {
   const base = `/@${params.scope}/${params.package}`;
   const versionedBase = `${base}${params.version ? `@${params.version}` : ""}`;
 
@@ -54,18 +65,18 @@ export function PackageNav(
           Files
         </NavItem>
       )}
-      <NavItem href={`${base}/versions`} active={currentTab === "Versions"}>
-        <span class="flex items-center">
-          Versions
-          <span class="chip tabular-nums bg-jsr-cyan-200 ml-2 leading-[0] w-[1.5em] aspect-square flex items-center justify-center">
-            {versionCount}
-          </span>
-        </span>
+      <NavItem
+        href={`${base}/versions`}
+        active={currentTab === "Versions"}
+        chip={versionCount}
+      >
+        Versions
       </NavItem>
       {(latestVersion || params.version) && (
         <NavItem
           href={`${versionedBase}/dependencies`}
           active={currentTab === "Dependencies"}
+          chip={dependencyCount}
         >
           Dependencies
         </NavItem>
@@ -74,6 +85,7 @@ export function PackageNav(
         <NavItem
           href={`${base}/dependents`}
           active={currentTab === "Dependents"}
+          chip={dependentCount}
         >
           Dependents
         </NavItem>

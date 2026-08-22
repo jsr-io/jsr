@@ -1,34 +1,18 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh/server.ts";
-import { Head } from "$fresh/runtime.ts";
-import { OramaPackageHit, PaginationData, State } from "../util.ts";
-import { OramaClient } from "@oramacloud/client";
+import { define } from "../util.ts";
+import { liteClient } from "algoliasearch/lite";
 import type { List, Package } from "../utils/api_types.ts";
-import { path } from "../utils/api.ts";
+import { assertOk, path } from "../utils/api.ts";
 import { ListDisplay } from "../components/List.tsx";
 import { PackageHit } from "../components/PackageHit.tsx";
 import { processFilter } from "../islands/GlobalSearch.tsx";
 
-interface Data extends PaginationData {
-  packages: OramaPackageHit[] | Package[];
-  query: string;
-}
-
-export default function PackageListPage({
+export default define.page<typeof handler>(function PackageListPage({
   data,
   url,
-}: PageProps<Data>) {
+}) {
   return (
     <div class="mb-24 space-y-16">
-      <Head>
-        <title>
-          {data.query ? `${data.query} - Packages` : "Explore Packages"} - JSR
-        </title>
-        <meta
-          name="description"
-          content="JSR is the open-source package registry for modern JavaScript. JSR natively supports TypeScript, and works with all JS runtimes and package managers."
-        />
-      </Head>
       <div>
         <ListDisplay
           title={`${data.query ? "Search" : "Explore"} Packages`}
@@ -39,49 +23,57 @@ export default function PackageListPage({
         </ListDisplay>
 
         <div className="mt-2 flex flex-wrap items-start justify-between px-2">
-          <span className="text-sm text-gray-400 block">
-            Changes made in the last 15 minutes may not be visible yet.
+          <span className="text-sm text-jsr-gray-400 dark:text-jsr-gray-400 block">
+            Changes made in the last 15 minutes may not be visible yet. Packages
+            with no published versions are not shown.
           </span>
           <div class="flex items-center gap-1">
-            <span className="text-sm text-gray-500">powered by</span>
-            <img className="h-4" src="/logos/orama-dark.svg" />
+            <span className="text-sm text-tertiary">powered by</span>
+            <a
+              href="https://www.algolia.com/?utm_medium=AOS-referral"
+              target="_blank"
+              aria-label="Algolia"
+            >
+              <img class="h-4" src="/logos/algolia.svg" alt="Algolia" />
+            </a>
           </div>
         </div>
       </div>
     </div>
   );
-}
+});
 
-const apiKey = Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY");
-const indexId = Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID");
+const appId = process.env.ALGOLIA_APP_ID;
+const apiKey = process.env.ALGOLIA_PACKAGES_SEARCH_API_KEY;
+const indexName = process.env.ALGOLIA_PACKAGES_INDEX;
 
-export const handler: Handlers<Data, State> = {
-  async GET(req, ctx) {
-    const reqUrl = new URL(req.url);
-    const search = reqUrl.searchParams.get("search") || "";
-    const page = +(reqUrl.searchParams.get("page") || 1);
-    const limit = +(reqUrl.searchParams.get("limit") || 20);
+export const handler = define.handlers({
+  async GET(ctx) {
+    const search = ctx.url.searchParams.get("search") || "";
+    const page = +(ctx.url.searchParams.get("page") || 1);
+    const limit = +(ctx.url.searchParams.get("limit") || 20);
 
-    let packages;
+    let packages: Package[];
     let total;
-    if (apiKey) {
-      const orama = new OramaClient({
-        endpoint: `https://cloud.orama.run/v1/indexes/${indexId!}`,
-        api_key: apiKey,
+    if (appId && apiKey && indexName) {
+      const algolia = liteClient(appId, apiKey);
+
+      const { query, filters } = processFilter(search);
+
+      const { results } = await algolia.search({
+        requests: [{
+          indexName,
+          query,
+          filters,
+          hitsPerPage: limit,
+          page: page - 1,
+        }],
       });
 
-      const { query, where } = processFilter(search);
-
-      const res = await orama.search({
-        term: query,
-        where,
-        limit,
-        offset: (page - 1) * limit,
-        mode: "fulltext",
-      });
-
-      packages = res?.hits.map((hit) => hit.document) ?? [];
-      total = res?.count ?? 0;
+      // deno-lint-ignore no-explicit-any
+      const result = results[0] as any;
+      packages = result?.hits ?? [];
+      total = result?.nbHits ?? 0;
     } else {
       const packagesResp = await ctx.state.api.get<List<Package>>(
         path`/packages`,
@@ -91,18 +83,25 @@ export const handler: Handlers<Data, State> = {
           limit,
         },
       );
-      if (!packagesResp.ok) throw packagesResp; // gracefully handle this
+      assertOk(packagesResp);
 
       packages = packagesResp.data.items;
       total = packagesResp.data.total;
     }
 
-    return ctx.render({
-      packages,
-      query: search,
-      page,
-      limit,
-      total,
-    });
+    ctx.state.meta = {
+      title: search ? `${search} - Packages` : "Explore Packages",
+      description:
+        "JSR is the open-source package registry for modern JavaScript. JSR natively supports TypeScript, and works with all JS runtimes and package managers.",
+    };
+    return {
+      data: {
+        packages,
+        query: search,
+        page,
+        limit,
+        total,
+      },
+    };
   },
-};
+});

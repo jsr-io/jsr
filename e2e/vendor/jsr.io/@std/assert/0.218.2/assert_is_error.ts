@@ -1,6 +1,6 @@
 // Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.
 import { AssertionError } from "./assertion_error.ts";
-import { stripAnsiCode } from  "../../fmt/0.218.2/colors.ts";
+import { stripAnsiCode } from "../../fmt/0.218.2/colors.ts";
 
 /**
  * Make an assertion that `error` is an `Error`.

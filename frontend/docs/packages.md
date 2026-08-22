@@ -13,7 +13,7 @@ by an author to the JSR site. Scopes are similar to npm organizations or GitHub
 accounts. [Learn more about scopes.](/docs/scopes)
 
 Packages have a name. Package names are unique within a scope - no two packages
-in the same scope can have the same name. Package names must be between 2 and 20
+in the same scope can have the same name. Package names must be between 2 and 58
 characters long, and can only contain lowercase letters, numbers, and hyphens.
 They cannot start with a hyphen.
 
@@ -59,14 +59,41 @@ Linking a GitHub repository also enables tokenless publishing from GitHub
 Actions using OIDC.
 [Learn more about publishing from GitHub Actions.](/docs/publishing-packages#publishing-from-github-actions)
 
+## Archiving a package
+
+A package can be archived from the "Settings" tab on the package page. Only
+scope admins can archive a package.
+
+Archiving a package does multiple things:
+
+- It prevents new versions of the package from being published.
+- It shows a warning on the package page that the package has been archived.
+- It prevents the package from being shown in search results.
+- It prevents the package from being shown in the package list on the scope
+  page.
+
+Archiving a package does not prevent users from downloading the package. If a
+user has already downloaded the package, have it in their lock file, or are
+explicitly specifying the package in their import, they can still use it.
+
+Archived packages can be unarchived by clicking the "Unarchive" button on the
+package page. Only scope admins can unarchive a package. This restores the
+package back to its regular behaviour.
+
 ## Deleting a package
 
 A package can be deleted from the "Settings" tab on the package page. Only scope
 admins can delete a package.
 
 Packages can only be deleted if they have no published versions. If a package
-has published versions, it can not be deleted.
+has published versions, it cannot be deleted.
 [Learn more about registry immutability.](/docs/immutability)
+
+When you have a package that you no longer want to maintain, we recommend
+[archiving it](#archiving-a-package). Archiving a package prevents new versions
+from being published and hides the package from search results and the scope
+page, but still allows users to download the package if they already know about
+the package.
 
 ## Versions
 
@@ -89,9 +116,45 @@ packages follow semantic versioning policies. These work as follows:
 To publish a new version of a package, you must bump the version in your config
 file before running `jsr publish` or `deno publish`.
 
+### Pre-release versions
+
+JSR supports SemVer pre-release versions. A pre-release version is any version
+that contains a hyphen after the patch number, such as `1.0.0-alpha.1`,
+`2.0.0-beta.3`, or `3.0.0-rc.1`.
+
+Pre-release versions are treated specially by JSR:
+
+- Pre-release versions are **not** considered when determining the latest
+  version of a package. For example, if a package has versions `1.0.0` and
+  `2.0.0-beta.1`, the latest version shown on the package page will be `1.0.0`.
+- Semver resolution **excludes** pre-release versions by default. A version
+  range like `^2.0.0` will not match `2.0.0-beta.1`. Users must explicitly
+  specify the pre-release version to use it (e.g. `2.0.0-beta.1`).
+- Pre-release versions are visible in the version list on the package page, but
+  are not highlighted as the latest version.
+
+This makes pre-release versions useful for testing new features or breaking
+changes before a stable release. To publish a pre-release version, set the
+version in your config file to a pre-release version:
+
+```json
+{
+  "name": "@scope/my-package",
+  "version": "2.0.0-beta.1",
+  "exports": "./mod.ts"
+}
+```
+
+Then run `jsr publish` or `deno publish` as normal. Users can install the
+pre-release version by specifying it explicitly:
+
+```ts
+import { foo } from "jsr:@scope/my-package@2.0.0-beta.1";
+```
+
 ### Yanking versions
 
-Package versions can not be deleted. However, sometimes you may want to prevent
+Package versions cannot be deleted. However, sometimes you may want to prevent
 users from using a specific version of your package, for example because it
 contains a critical bug. In this case you can "yank" the version.
 
@@ -151,11 +214,18 @@ how a package's documentation will look on JSR, by running `deno doc --html`
 locally. This will generate HTML files with very similar looking documentation
 to what is shown on the JSR site.
 
-The "Overview" tab on the package page shows the module doc of the default
-entrypoint of the package. If the package does not have a default entrypoint, or
-the default entrypoint does not have a module doc, then the "Overview" tab will
-show the README of the package instead. If no README is present, then the
-"Overview" tab will only show the package outline in the sidebar.
+The content shown on the "Overview" tab is controlled by the **Readme Source**
+setting on the package's "Settings" tab. There are two options:
+
+- **JSDoc (with Readme fallback)** (default): Shows the module doc of the
+  default entrypoint (the `.` export). A module doc is a JSDoc comment at the
+  top of the file that includes the `@module` tag. If the default entrypoint
+  does not have a module doc, the README is shown instead.
+- **Readme**: Always shows the README file, ignoring any module doc on the
+  default entrypoint.
+
+If neither a module doc nor a README is present, the "Overview" tab will only
+show the package outline in the sidebar.
 
 The sidebar at the base of the package page contains links to all exports from
 the default entrypoint of the package, and links to all other entrypoints in the

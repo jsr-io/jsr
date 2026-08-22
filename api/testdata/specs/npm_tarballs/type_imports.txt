@@ -76,16 +76,6 @@ export declare function createAdd(): Add;
 == /_dist/main.d.ts.map ==
 {"version":3,"file":"main.d.ts","sources":["../main.ts"],"names":[],"mappings":"AAAA,SAAS,KAAK,OAAO,IAAI,QAAQ,aAAW;AAC5C,cAAc,OAAO,IAAI,QAAQ,aAAW;AAC5C,mBAAmB,aAAW;AAC9B,YAAO,KAAU,GAAG,MAAM,aAAW;AACrC,SAAc,GAAG,QAAQ,aAAW;AAEpC,OAAO,iBAAS,aAAa"}
 
-== /_dist/main.js ==
-import { add } from "./foo.js";
-export function createAdd() {
-  return add;
-}
-//# sourceMappingURL=main.js.map
-
-== /_dist/main.js.map ==
-{"version":3,"file":"main.js","sources":["../main.ts"],"names":[],"mappings":"AAIA,SAAS,GAAG,QAAa,WAAW;AAEpC,OAAO,SAAS;EACd,OAAO;AACT"}
-
 == /adder.d.ts ==
 export interface Adder {
   add(a: number, b: number): number;
@@ -119,6 +109,16 @@ export function add(a, b) {
     "./main2": "./main2.js"
   }
 }
+
+== /main.js ==
+import { add } from "./foo.js";
+export function createAdd() {
+  return add;
+}
+//# sourceMappingURL=main.js.map
+
+== /main.js.map ==
+{"version":3,"file":"main.js","sources":["./main.ts"],"names":[],"mappings":"AAIA,SAAS,GAAG,QAAa,WAAW;AAEpC,OAAO,SAAS;EACd,OAAO;AACT"}
 
 == /main.ts ==
 export { type Add as Add2 } from "./foo.js";
@@ -161,7 +161,7 @@ export function createAdd() {
   "exports": {
     ".": {
       "types": "./_dist/main.d.ts",
-      "default": "./_dist/main.js"
+      "default": "./main.js"
     },
     "./main2": {
       "types": "./main2.d.ts",

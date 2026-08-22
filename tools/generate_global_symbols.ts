@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { doc } from "https://deno.land/x/deno_doc@0.100.0/mod.ts";
-import type { DocNode } from "https://deno.land/x/deno_doc@0.100.0/types.d.ts";
+import { doc } from "@deno/doc";
+import type { DocNode } from "@deno/doc";
 
 const symbols: Set<string> = new Set();
 
@@ -8,8 +8,9 @@ const output = await (new Deno.Command(Deno.execPath(), {
   args: ["types", "--unstable"],
 })).output();
 
-const docNodes = await doc("asset:types.ts", {
-  async load(specifier) {
+const docNodesMap = await doc(["asset:types.ts"], {
+  // deno-lint-ignore require-await
+  async load(specifier: string) {
     return {
       kind: "module",
       specifier,
@@ -17,6 +18,7 @@ const docNodes = await doc("asset:types.ts", {
     };
   },
 });
+const docNodes = docNodesMap["asset:types.ts"];
 
 function getNodeName(docNode: DocNode, base?: string) {
   const name = base ? `${base}.${docNode.name}` : docNode.name;

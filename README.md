@@ -13,6 +13,8 @@ This is the source code for https://jsr.io, the new JavaScript registry.
 
 ## Project Information
 
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/jsr-io/jsr/badge)](https://scorecard.dev/viewer/?uri=github.com/jsr-io/jsr)
+
 **Goals**
 
 - Robust
@@ -22,20 +24,24 @@ This is the source code for https://jsr.io, the new JavaScript registry.
 
 **Implementation details**
 
-- Modules and package metadata are stored on Google Cloud Storage (GCS)
-- npm compatibility tarballs are stored on Google Cloud Storage (GCS)
+- Modules and package metadata are stored on Cloudflare R2
+- npm compatibility tarballs are stored on Cloudflare R2
 - Management API is implemented in Rust and runs on Google Cloud Run
-- Frontend uses Fresh and is running on Google Cloud Run in 6 regions
+- Frontend uses Fresh and runs as a Cloudflare Worker
 - https://jsr.io, https://api.jsr.io, and https://npm.jsr.io are served by a
-  Google Cloud Load Balancer
-  - Google Cloud CDN is used for caching
-  - Module, package metadata, and npm tarballs is served directly from GCS
+  Cloudflare Workers worker (the LB)
+  - Module, package metadata, and npm tarballs are served directly from R2
   - /api requests are proxied to the management API
-  - All other requests are proxied to the frontend
+  - All other requests are proxied to the frontend Worker via a service binding
+    (no public URL hop)
 - Data is stored in PostgreSQL (using Google Cloud SQL)
   - The database is highly available
   - Not used for serving registry requests
+- Search powered by Algolia
 - Distributed tracing using Google Cloud Trace (and Jaeger in development)
+
+For a detailed breakdown of the system, see
+[architecture.md](./architecture.md).
 
 ## Getting started (frontend only)
 
@@ -45,13 +51,15 @@ frontend in a development mode that connects to the production API.
 ### Prerequisites
 
 - Clone this repo
-- Install Deno (https://deno.land/#installation)
-- Add the following to your `/etc/hosts`
-  ```
-  127.0.0.1       jsr.test
-  127.0.0.1       api.jsr.test
-  127.0.0.1       npm.jsr.test
-  ```
+- Install Deno (https://deno.com)
+
+### Setup
+
+Run the frontend setup to add the required `/etc/hosts` entries:
+
+```sh
+deno task dev setup frontend
+```
 
 ### Running jsr
 
@@ -69,14 +77,11 @@ making changes to the API.
 ### Prerequisites
 
 - Clone this repo
-- Install Deno (https://deno.land/#installation)
+- Install Deno (https://deno.com)
 - Install Rust (https://rustup.rs/)
-- Add the following to your `/etc/hosts`
-  ```
-  127.0.0.1       jsr.test
-  127.0.0.1       api.jsr.test
-  127.0.0.1       npm.jsr.test
-  ```
+- On Linux: install `docker` & `docker-compose`
+- On macOS: install PostgreSQL (`brew install postgresql`)
+- Install `sqlx` by running `cargo install sqlx-cli`
 
 - Set up `api/.env` file:
   - For **@denoland employees**: Download the `.env` file from 1Password (it's
@@ -91,27 +96,52 @@ making changes to the API.
     2. Copy `api/.env.example` to `api/.env`
     3. Set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` to the values from the
        GitHub App you created in step 1.
-- Install `sqlx` by running `cargo install sqlx-cli`
+    4. Set `DATABASE_URL` to point to your local Postgres database.
 
-**macOS**
+### Setup
 
-- Postgres installed and running: `brew install postgresql`
-- Postgres database created with `createdb registry`
-- Postgres user created and granted access to the database
-- Run `cd api`
-- Run `cargo sqlx migrate run`
-  - If you get the error `role "postgres" does not exist`, run
-    `createuser -s postgres`.
+Run the setup command to verify prerequisites, configure `/etc/hosts`, create
+the database, and run migrations:
 
-**Linux**
+```sh
+deno task dev setup
+```
 
-- `docker` & `docker-compose` installed and running
+This will:
+
+- Check that all required tools are installed (Deno, Cargo, sqlx,
+  Docker/Postgres)
+- Add `jsr.test`, `api.jsr.test`, and `npm.jsr.test` to `/etc/hosts` (and the
+  Windows hosts file if running under WSL)
+- Install frontend dependencies
+- Copy `api/.env.example` to `api/.env` if it doesn't exist
+- Create the `registry` database and run migrations
 
 ### Running jsr
 
-1. `deno task services:macos` or `deno task services:linux` in one terminal
-2. `deno task dev:api` in another terminal
-3. `deno task dev:frontend` in another terminal
+Start all services, the API, and the frontend in a single terminal:
+
+```sh
+deno task dev
+```
+
+On Linux, if you manage PostgreSQL outside of Docker:
+
+```sh
+deno task dev --no-docker-postgres
+```
+
+While running, type commands into the prompt at the bottom:
+
+- `restart <name|all>` - restart a process (or all)
+- `help` - show available commands
+- `quit` / Ctrl+C - shutdown all and exit
+
+You can also run a single service standalone:
+
+```sh
+deno task dev start <name> [args...]
+```
 
 You can view the registry at `http://jsr.test`. The API can be found at
 `http://api.jsr.test`.
@@ -130,16 +160,21 @@ registry with data is to publish
 [deno_std](https://github.com/denoland/deno_std) to the registry. This can be
 done via the following steps:
 
-1. Clone https://github.com/denoland/deno_std in the same parent folder as the
-   `jsr` project
-2. In the `deno_std` folder, run `deno run -A _tools/convert_to_workspace.ts`.
-3. Run `JSR_URL=http://jsr.test deno publish` to publish all of the @std
+1. Make sure to
+   [make yourself a staff user/admin](#making-yourself-a-staff-useradmin).
+2. Navigate to your profile page and copy the UUID from the URL.
+3. Assign the `std` scope to your user through the
+   [admin panel](http://jsr.test/admin/scopes/assign) by using the UUID from the
+   previous step.
+4. Clone https://github.com/denoland/deno_std in the same parent folder as the
+   `jsr` project.
+5. Run `JSR_URL=http://jsr.test deno publish` to publish all of the @std
    packages to your local dev environment.
 
 ### Making yourself a staff user/admin
 
 1. Run `psql registry`
-2. Run `SELECT name,github_id from users;`
+2. Run `SELECT name, github_id FROM users;`
 3. You should see a table with your name and GitHub ID. Copy your GitHub ID.
 4. Run `UPDATE users SET is_staff = true WHERE github_id = xxxxxxx;`, replacing
    `xxxxxxx` with your copied GitHub ID from the previous step.
@@ -151,7 +186,7 @@ When the database schema has been changed, you can migrate the local database by
 running this command:
 
 ```sh
-cd api; sqlx migrate run
+deno task db:migrate
 ```
 
 ### Loading bad words
@@ -172,6 +207,50 @@ INSERT INTO bad_words (word) VALUES
 4. In a separate terminal window run
    `psql postgres://127.0.0.1:5433/registry --user [your username] -f bad_words.sql`,
    and provide the password for the provided username.
+
+### Contributing to documentation generation
+
+The documentation generation is done via
+[`deno_doc`](https://github.com/denoland/deno_doc).
+
+To be able to use a local `deno_doc` clone in jsr, you need to add this to the
+root `Cargo.toml` in this repository:
+
+```toml
+[patch.crates-io]
+deno_doc = { path = "../deno_doc" }
+```
+
+Please make sure that the version of `deno_doc` you have locally is the same
+version as the one referenced in `api/Cargo.toml`, else the patching will not
+work.
+
+Please open PRs in the `deno_doc` repository when it is changes that should
+affect the overall documentation generation system, even if it is only for css
+changes, with a few minor exceptions when the css changes are related to the
+integration and layouting specific for jsr alone.
+
+For more information on how the HTML documentation generation works and how to
+locally work on it, please see the
+[HTML development section](https://github.com/denoland/deno_doc?tab=readme-ov-file#html-generation)
+of `deno_doc`.
+
+### Per-branch databases
+
+The `db:switch` tool lets you work on multiple branches without clobbering your
+main development database. Each branch gets its own PostgreSQL database.
+
+```sh
+deno task db:switch switch     # switch to branch db copied from main
+deno task db:switch empty      # switch to an empty branch db
+deno task db:switch main       # switch back to the main database
+deno task db:switch current    # show which database is active
+deno task db:switch list       # list all branch databases
+deno task db:switch clean      # drop all branch databases
+```
+
+The `switch` and `empty` commands write an `api/.env.local` override file. Use
+`--method=export` to print an `export` command instead.
 
 ### Other
 

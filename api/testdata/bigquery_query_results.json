@@ -1,0 +1,120 @@
+{
+  "kind": "bigquery#getQueryResultsResponse",
+  "etag": "NJ3DjKo1nGvjvipJlDs62Q==",
+  "schema": {
+    "fields": [
+      {
+        "name": "time_bucket",
+        "type": "TIMESTAMP",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "scope",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "package",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "version",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "count",
+        "type": "INTEGER",
+        "mode": "NULLABLE"
+      }
+    ]
+  },
+  "jobReference": {
+    "projectId": "deno-registry3-staging",
+    "jobId": "job_5FZFYCt2rUWOn_XQlcPEsD_-4jz7",
+    "location": "US"
+  },
+  "totalRows": "4",
+  "rows": [
+    {
+      "f": [
+        {
+          "v": "1721131200000000"
+        },
+        {
+          "v": "luca"
+        },
+        {
+          "v": "flag"
+        },
+        {
+          "v": "1.0.0"
+        },
+        {
+          "v": "196"
+        }
+      ]
+    },
+    {
+      "f": [
+        {
+          "v": "1721131200000000"
+        },
+        {
+          "v": "std"
+        },
+        {
+          "v": "fs"
+        },
+        {
+          "v": "0.215.0"
+        },
+        {
+          "v": "13"
+        }
+      ]
+    },
+    {
+      "f": [
+        {
+          "v": "1721131200000000"
+        },
+        {
+          "v": "std"
+        },
+        {
+          "v": "fs"
+        },
+        {
+          "v": "0.229.3"
+        },
+        {
+          "v": "2"
+        }
+      ]
+    },
+    {
+      "f": [
+        {
+          "v": "1721145600000000"
+        },
+        {
+          "v": "luca"
+        },
+        {
+          "v": "flag"
+        },
+        {
+          "v": "1.0.0"
+        },
+        {
+          "v": "42"
+        }
+      ]
+    }
+  ],
+  "totalBytesProcessed": "1470692",
+  "jobComplete": true,
+  "cacheHit": false
+}

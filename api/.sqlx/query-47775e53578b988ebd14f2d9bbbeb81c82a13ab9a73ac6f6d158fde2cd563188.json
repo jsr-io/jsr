@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n      SELECT version as \"version: Version\"\n      FROM package_versions\n      WHERE scope = $1 AND name = $2 AND version NOT LIKE '%-%' AND is_yanked = false\n      ORDER BY version DESC\n      LIMIT $3\n      ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "version: Version",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "47775e53578b988ebd14f2d9bbbeb81c82a13ab9a73ac6f6d158fde2cd563188"
+}

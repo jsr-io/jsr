@@ -101,7 +101,7 @@ export * from "./greet.ts";
 ### Importing npm packages
 
 You may import npm packages specified in the `"dependencies"` of a
-`package.json`, ones specified in an import map or `deno.json`, or ones
+`package.json`, ones specified in an import map or `deno.json(c)`, or ones
 specified in source code using `npm:` specifiers.
 
 ```json
@@ -123,7 +123,7 @@ import * as express from "npm:express@4";
 ### Importing JSR packages
 
 You may import JSR packages specified in the `"dependencies"` of a
-`package.json`, ones specified in an import map or `deno.json`, or ones
+`package.json`, ones specified in an import map or `deno.json(c)`, or ones
 specified in source code using `jsr:` specifiers.
 [Learn more about using packages.](/docs/using-packages)
 
@@ -161,13 +161,13 @@ export function readJsonFile(path: string) {
 
 You may use a dependency manifest like a `package.json`, or an
 [import map](https://docs.deno.com/runtime/manual/basics/import_maps) (like the
-`deno.json` file) to simplify your imports. During publishing, `jsr publish` /
-`deno publish` will automatically rewrite the specifiers in your source code to
-fully qualified specifiers that do not require an import map / `package.json`
+`deno.json(c)` file) to simplify your imports. During publishing, `jsr publish`
+/ `deno publish` will automatically rewrite the specifiers in your source code
+to fully qualified specifiers that do not require an import map / `package.json`
 anymore.
 
 ```json
-// import_map.json / deno.json
+// import_map.json / deno.json(c)
 {
   "imports": {
     "@luca/greet": "jsr:@luca/greet@1",
@@ -201,15 +201,40 @@ consumers of your package.
 After you have written your code, you must add a config file to your package.
 This file contains package metadata like the name, version, and entrypoint(s).
 This file should be named `jsr.json`. Deno users can also include the required
-JSR properties in their `deno.json` to avoid having to create another file.
+JSR properties in their `deno.json(c)` to avoid having to create another file.
 
 ```json
-// jsr.json / deno.json
+// jsr.json / deno.json(c)
 {
   "name": "@luca/greet",
   "version": "1.0.0",
   "exports": "./mod.ts"
 }
+```
+
+If your package has multiple entrypoints, use the object syntax for `exports`.
+The `.` key is the default entrypoint (what users get when importing your
+package without a subpath), and other keys define named entrypoints:
+
+```json
+// jsr.json / deno.json(c)
+{
+  "name": "@luca/greet",
+  "version": "1.0.0",
+  "exports": {
+    ".": "./mod.ts",
+    "./greet": "./greet.ts",
+    "./farewell": "./farewell.ts"
+  }
+}
+```
+
+With this configuration, users can import your package as follows:
+
+```ts
+import { greet } from "@luca/greet"; // imports from ./mod.ts
+import { greet } from "@luca/greet/greet"; // imports from ./greet.ts
+import { farewell } from "@luca/greet/farewell"; // imports from ./farewell.ts
 ```
 
 Read more about the [configuring JSR packages.](/docs/package-configuration)
@@ -260,9 +285,9 @@ registry.
 
 ```shell
 # deno
-$ deno publish --dry-run
+deno publish --dry-run
 # npm
-$ npx jsr publish --dry-run
+npx jsr publish --dry-run
 # yarn
 yarn dlx jsr publish --dry-run
 # pnpm
@@ -282,9 +307,9 @@ Enter the root directory of your package (containing the `jsr.json` /
 
 ```shell
 # deno
-$ deno publish
+deno publish
 # npm
-$ npx jsr publish
+npx jsr publish
 # yarn
 yarn dlx jsr publish
 # pnpm
@@ -338,24 +363,67 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # The OIDC ID token is used for authentication with JSR.    
+      id-token: write # The OIDC ID token is used for authentication with JSR.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - run: npx jsr publish
 ```
 
 This workflow will run every time you push to the `main` branch of your
 repository. It will publish your package to JSR, and will automatically use the
-correct version number based on the version in your `jsr.json` file.
-`jsr publish` will not attempt to publish if the version specified in your
-`jsr.json` file is already published to JSR.
+correct version number based on the version in your `jsr.json`/`deno.json(c)`
+file. `jsr publish` will not attempt to publish if the version specified in your
+`jsr.json`/`deno.json(c)` file is already published to JSR.
+
+## Publishing from other CI providers
+
+You can publish to JSR from any CI provider (GitLab CI, CircleCI, etc.) by using
+a personal access token for authentication. Tokenless OIDC publishing is only
+available from GitHub Actions, but token-based publishing works everywhere.
+
+### Creating an access token
+
+1. Go to your [account settings](https://jsr.io/account/tokens) on jsr.io.
+2. Create a new access token with the "Publish" permission for the appropriate
+   scope(s).
+3. Store the token as a secret in your CI provider (e.g. `JSR_TOKEN`).
+
+### GitLab CI
+
+```yaml
+# .gitlab-ci.yml
+
+publish:
+  image: denoland/deno:latest
+  stage: deploy
+  script:
+    - deno publish --token $JSR_TOKEN
+  only:
+    - main
+```
+
+### Other CI providers
+
+For any CI environment, pass the token using the `--token` flag:
+
+```shell
+# Using Deno
+deno publish --token $JSR_TOKEN
+
+# Using npx
+npx jsr publish --token $JSR_TOKEN
+```
+
+> Note: Token-based publishing does not generate
+> [provenance attestations](/docs/trust). Provenance is only available when
+> publishing from GitHub Actions using OIDC.
 
 ## Filtering files
 
 `jsr publish` will ignore files that are listed in a `.gitignore` file in the
 root of your package. Additionally, you can specify the `include` and `exclude`
-fields in your `jsr.json` / `deno.json` file to include, ignore, or un-gitignore
-specific files.
+fields in your `jsr.json` / `deno.json(c)` file to include, ignore, or
+un-gitignore specific files.
 
 For example, to only selectively include certain files, you can specify a glob
 that matches all files by using the `include` option:
@@ -398,13 +466,13 @@ You may also exclude certain files via the `exclude` option:
 }
 ```
 
-When using Deno, the `include` and `exclude` options in `deno.json` are used for
-many other Deno subcommands as well, such as `deno test` and `deno bundle`. You
-can use `publish.include` and `publish.exclude` in your `deno.json` file to
-specify options that only apply to `deno publish`.
+When using Deno, the `include` and `exclude` options in `deno.json(c)` are used
+for many other Deno subcommands as well, such as `deno test`, `deno lint` and
+`deno fmt`. You can use `publish.include` and `publish.exclude` in your
+`deno.json(c)` file to specify options that only apply to `deno publish`.
 
 ```json
-// deno.json
+// deno.json(c)
 {
   "name": "@luca/greet",
   "version": "1.0.0",
@@ -431,9 +499,9 @@ be ignored when publishing.
 This may however be inconvenient if you want to publish the `dist/` directory,
 because you have `"exports"` pointing to it (or a subdirectory of it). In this
 case, you can un-ignore the `dist/` directory by using a negation in the
-`exclude` field in your `jsr.json` / `deno.json` file.
+`exclude` field in your `jsr.json` / `deno.json(c)` file.
 
-```jsonc
+```json
 // jsr.json
 {
   "name": "@luca/greet",

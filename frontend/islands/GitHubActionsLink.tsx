@@ -15,7 +15,7 @@ export function GitHubActionsLink(
   const error = useSignal("");
 
   useEffect(() => {
-    if (user) {
+    if (user && user.githubId) {
       cachedGitHubLogin(user)
         .then((login) => {
           if (owner.value == "") owner.value = login;
@@ -51,14 +51,14 @@ export function GitHubActionsLink(
           owner={owner}
           repo={repo}
           error={error}
-          required={true}
+          required
           disabled={linking}
         />
-        <button class="button-primary" disabled={linking}>
+        <button type="submit" class="button-primary" disabled={linking}>
           {linking.value ? "Linking..." : "Link"}
         </button>
       </form>
-      {error.value && <p class="text-sm text-yellow-600">{error}</p>}
+      {error.value && <p class="text-sm text-jsr-yellow-600">{error}</p>}
     </>
   );
 }

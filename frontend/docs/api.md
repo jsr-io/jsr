@@ -72,12 +72,20 @@ Each version in the metadata contains information about the version, such as the
 yanked status, and the `exports` field for the package version. The `exports`
 field is normalized to simple object form.
 
+If the package has a linked GitHub repository, the metadata additionally
+contains a `githubRepository` field with the `owner` and `name` of the linked
+repository.
+
 For the above `@luca/flag` package, the metadata would look like this:
 
 ```json
 {
   "scope": "luca",
   "name": "flag",
+  "githubRepository": {
+    "owner": "lucacasonato",
+    "name": "flag"
+  },
   "versions": {
     "1.0.0": {
       "yanked": true
@@ -169,6 +177,9 @@ fields:
 
 - `name`: The npm compatibility name of the package.
 - `description`: The package description.
+- `repository`: The linked GitHub repository of the package, in npm's
+  `repository` format. Only present if the package has a linked GitHub
+  repository.
 - `dist-tags`: The `latest` version of the package.
 - `versions`: A map of versions to version metadata.
 - `time`: A map of versions to publish timestamps.
@@ -180,6 +191,9 @@ fields:
 - `name`: The npm compatibility name of the package.
 - `version`: The version of the package.
 - `description`: The package description.
+- `repository`: The linked GitHub repository of the package, in npm's
+  `repository` format. Only present if the package has a linked GitHub
+  repository.
 - `dist`: The `dist` field for the package version. This contains the tarball
   URL for the package version, and the checksums / integrity hashes for the
   tarball.
@@ -214,11 +228,8 @@ JSR supports authenticating with three types of tokens:
 
 - Long-lived personal access tokens, which are used to authenticate as a user.
   Personal access tokens may have an expiration date, and may grant only limited
-  permissions.
-
-  > A user will be able to create personal access tokens in the user in their
-  > account settings page. This is not yet implemented. See
-  > [issue #393](https://github.com/jsr-io/jsr/issues/393).
+  permissions. Personal access tokens can be created on the JSR account settings
+  page in the "Tokens" tab.
 
 - GitHub Actions OIDC tokens, which are used to authenticate as a GitHub Actions
   runner. These tokens are created from within GitHub Actions, and are only
@@ -252,7 +263,7 @@ An OpenAPI 3.0 specification for the management API is available at
 https://api.jsr.io/.well-known/openapi.
 
 A rendered version of the OpenAPI specification is available at
-https://jsr.redoc.ly/.
+[/docs/api-reference](/docs/api-reference).
 
 ### Usage restrictions
 

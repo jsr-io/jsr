@@ -13,3 +13,7 @@ resource "google_logging_linked_dataset" "default" {
   link_id = "logs"
   bucket  = google_logging_project_bucket_config.default.id
 }
+
+data "google_bigquery_dataset" "default" {
+  dataset_id = google_logging_linked_dataset.default.link_id
+}

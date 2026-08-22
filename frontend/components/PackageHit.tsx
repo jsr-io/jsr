@@ -1,46 +1,79 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import type { OramaPackageHit } from "../util.ts";
-import type { Package } from "../utils/api_types.ts";
+import type { AlgoliaPackageHit } from "../util.ts";
+import type { Package, RuntimeCompat } from "../utils/api_types.ts";
 import { getScoreBgColorClass } from "../utils/score_ring_color.ts";
 import type { ListDisplayItem } from "./List.tsx";
 import { RuntimeCompatIndicator } from "./RuntimeCompatIndicator.tsx";
+import TbArchive from "tb-icons/TbArchive";
+import TbFileDescription from "tb-icons/TbFileDescription";
 
-export function PackageHit(pkg: OramaPackageHit | Package): ListDisplayItem {
+const runtimeCompatExists = (compat: RuntimeCompat) => {
+  return compat?.browser || compat?.deno || compat?.node || compat?.workerd ||
+    compat?.bun;
+};
+
+export function PackageHit(pkg: AlgoliaPackageHit | Package): ListDisplayItem {
   return {
     href: `/@${pkg.scope}/${pkg.name}`,
     content: (
-      <div class="grow-1 w-full flex flex-col md:flex-row gap-2 justify-between">
-        <div class="grow-1">
-          <div class="text-cyan-700 font-semibold">
-            {`@${pkg.scope}/${pkg.name}`}
+      <div class="grow w-full flex flex-col md:flex-row gap-2 justify-between">
+        <div class="grow">
+          <div class="flex flex-wrap items-baseline gap-x-2 mb-2 md:mb-0">
+            <span class="text-jsr-cyan-700 dark:text-cyan-400 font-semibold">
+              {`@${pkg.scope}/${pkg.name}`}
+            </span>
+            {(pkg as Package).latestVersion && (
+              <div class="text-tertiary max-w-20 truncate font-semibold text-sm">
+                {`v${(pkg as Package).latestVersion}`}
+              </div>
+            )}
+            {(pkg as Package).isArchived && (
+              <div class="text-xs flex items-center gap-1 bg-jsr-yellow-600 text-white px-2 py-0.5 rounded-full">
+                <TbArchive class="size-3" />
+                Archived
+              </div>
+            )}
           </div>
-          <div class="text-sm text-gray-600">
+          <div class="text-sm text-tertiary">
             {pkg.description}
           </div>
         </div>
 
-        <div class="flex items-center gap-4">
-          <RuntimeCompatIndicator
-            runtimeCompat={pkg.runtimeCompat}
-            hideUnknown
-            compact
-          />
+        {(runtimeCompatExists(pkg.runtimeCompat) || pkg.score !== null) && (
+          <div class="flex items-center gap-4">
+            <RuntimeCompatIndicator
+              runtimeCompat={pkg.runtimeCompat}
+              hideUnknown
+              compact
+            />
 
-          {pkg.score !== null && (
-            <div
-              class={`rounded-full aspect-square p-0.5 ${
-                getScoreBgColorClass(pkg.score)
-              }`}
-              style={`background-image: conic-gradient(transparent, transparent ${pkg.score}%, #e7e8e8 ${pkg.score}%)`}
-              title="Package score"
-            >
-              <div class="rounded-full aspect-square bg-white text-xs flex items-center justify-center font-semibold min-w-6">
-                {pkg.score}
+            {pkg.score !== null && (
+              <div
+                class={`score-circle rounded-full aspect-square p-0.5 ${
+                  getScoreBgColorClass(pkg.score)
+                }`}
+                style={`--pct: ${pkg.score}%`}
+                title="Package score"
+              >
+                <div class="rounded-full aspect-square bg-white dark:bg-jsr-gray-950 text-xs flex items-center justify-center font-semibold min-w-6">
+                  {pkg.score}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
+    ),
+    actions: (
+      <a
+        href={`/@${pkg.scope}/${pkg.name}/doc`}
+        class="flex items-center gap-1 text-sm text-secondary hover:text-jsr-cyan-700 dark:hover:text-jsr-cyan-400 px-2 py-1 rounded hover:bg-jsr-cyan-100 dark:hover:bg-jsr-cyan-900 transition-colors"
+        aria-label="Documentation"
+        title="Documentation"
+      >
+        <TbFileDescription class="size-5" />
+        <span class="hidden sm:inline">Docs</span>
+      </a>
     ),
   };
 }

@@ -4,6 +4,10 @@
 
 const staticRedirects = new Map([
   ["moderator", "https://forms.gle/MWLEi7Qj4cjvXoLb8"],
+  [
+    "meetings",
+    "https://calendar.google.com/calendar/u/0/embed?src=c_f678f0a1d6579ed92b162f756e928294efe657ba79d90bd864d048f0e2f70669@group.calendar.google.com",
+  ],
   ["use", "/docs/using-packages"],
   ["publish", "/docs/publishing-packages"],
   ["deno", "/docs/with/deno"],
@@ -22,6 +26,8 @@ const staticRedirects = new Map([
   ],
   ["unsupported-file-type", "/docs/troubleshooting#invalidentrytype"],
   ["invalid-external-import", "/docs/troubleshooting#invalidexternalimport"],
+  ["missing-license", "/docs/troubleshooting#missinglicense"],
+  ["invalid-license", "/docs/troubleshooting#invalidlicense"],
   ["slow-type", "/docs/about-slow-types"],
 ]);
 
@@ -50,6 +56,10 @@ const slowTypesRedirects = new Map([
   ],
   ["unsupported-ts-export-assignment", "#commonjs-features"],
   ["unsupported-ts-namespace-export", "#global-augmentation"],
+  ["unsupported-javascript-entrypoint", "#javascript-entrypoints"],
+  ["unsupported-nested-javascript", "#nested-javascript-modules"],
+  ["export-not-found", "#export-not-found"],
+  ["unsupported-expando-property", "#expando-properties"],
 ]);
 
 export function go(id: string): string | null {

@@ -50,8 +50,8 @@ build for your platform with:
 deno upgrade --canary
 ```
 
-Then, from within your package folder (probably the one with your `deno.json` or
-`mod.ts`), execute the following command:
+Then, from within your package folder (probably the one with your `deno.json(c)`
+or `mod.ts`), execute the following command:
 
 ```bash
 deno run -Ar jsr:@deno/x-to-jsr
@@ -80,16 +80,28 @@ If you are using HTTPS modules from the standard library, we recommend updating
 those dependencies to use the newer [@std scope on JSR](https://jsr.io/@std).
 This will be the place to get the latest version of these modules going forward.
 
-_Use `deno vendor` for other dependencies on deno.land/x_
+```diff
+- import { copy } from "https://deno.land/std@0.224.0/fs/copy.ts";
++ import { copy } from "jsr:@std/fs@1/copy";
+```
+
+_Replace dependencies with equivalent npm or JSR ones_
 
 For other dependencies in your project, you can also replace them one by one
 with equivalent dependencies on npm or JSR as described above.
 
-If you find that this process would be prohibitively difficult, you also have
-the option of using the
-[`deno vendor`](https://docs.deno.com/runtime/manual/tools/vendor) command to
-download local versions of all your HTTPS dependencies, and store them alongside
-your package in source control.
+```diff
+- import * as Hono from "https://deno.land/x/hono@v4.3.11/mod.ts";
++ import { Hono } from "npm:hono";
+```
+
+_Vendor dependencies_
+
+You can also
+[vendor your dependencies](https://docs.deno.com/runtime/manual/basics/vendoring/)
+by adding `"vendor": true` to your `deno.json(c)` file. This will download local
+versions of your HTTPS dependencies to a `vendor` directory when the project is
+ran.
 
 #### 2.) Ensure your library does not contain slow types
 

@@ -4,8 +4,8 @@ description: Scopes are groups that jointly administer a set of packages. Learn 
 ---
 
 On JSR, all packages are contained within a scope. A scope is a group that
-jointly administers a set of packages. Scopes are owned by a single user, and
-can have multiple members.
+jointly administers a set of packages. Scopes have no single owner, and are
+instead managed by one or more admins.
 
 Scopes on JSR are similar to npm organizations. Scopes are prefixed with an `@`
 symbol. Scope names must be between 2 and 20 characters long, and can only
@@ -60,7 +60,7 @@ can also see all pending invitations on their
 Admins can change the role of other members. To change the role of a member,
 head to the "Members" tab of your scope, click the dropdown next to the member
 you want to change the role of, and select the new role. The new role will take
-effect immediately. Note that you can not demote the last admin of a scope to a
+effect immediately. Note that you cannot demote the last admin of a scope to a
 member. If you want to demote the last admin of a scope to a member, you must
 first promote another member to an admin. A scope must always have at least one
 admin.

@@ -75,7 +75,7 @@ the Azure DevOps Artifacts feed.
 
 ### Configuring a JSR upstream with Google Artifact Registry
 
-JSR can not yet be used as an upstream for Google Artifact Registry due to a
+JSR cannot yet be used as an upstream for Google Artifact Registry due to a
 differing layout of package tarball URLs between JSR and the layout that is
 expected by Google Artifact Registry.
 
@@ -84,7 +84,7 @@ Aligning JSRs package tarball URLs with the NPM upstream is being tracked in
 
 ### Configuring a JSR upstream with JFrog Artifactory
 
-JSR can not yet be used as an upstream for JFrog Artifactory due to a differing
+JSR cannot yet be used as an upstream for JFrog Artifactory due to a differing
 layout of package tarball URLs between JSR and the layout that is expected by
 JFrog Artifactory.
 

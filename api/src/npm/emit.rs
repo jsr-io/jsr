@@ -1,13 +1,13 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
-use deno_ast::emit;
-use deno_ast::fold_program;
-use deno_ast::swc::visit::VisitMutWith;
-use deno_ast::EmittedSource;
 use deno_ast::ParsedSource;
 use deno_ast::SourceMap;
 use deno_ast::SourceMapOption;
 use deno_ast::TranspileOptions;
+use deno_ast::emit;
+use deno_ast::fold_program;
+use deno_ast::swc::ecma_visit::VisitMutWith;
+use deno_ast::{DecoratorsTranspileOption, EmittedSourceText};
 use deno_graph::FastCheckTypeModule;
 use url::Url;
 
@@ -21,24 +21,24 @@ pub fn transpile_to_js(
   source: &ParsedSource,
   specifier_rewriter: SpecifierRewriter,
   target_specifier: &Url,
-) -> Result<(String, String), anyhow::Error> {
+) -> Result<(Vec<u8>, Vec<u8>), anyhow::Error> {
   let basename = target_specifier.path().rsplit_once('/').unwrap().1;
   let emit_options = deno_ast::EmitOptions {
     source_map: SourceMapOption::Separate,
     source_map_file: Some(basename.to_owned()),
+    source_map_base: None,
     inline_sources: false,
-    keep_comments: true,
+    remove_comments: false,
   };
 
   let file_name =
     relative_import_specifier(target_specifier, source.specifier());
-  let source_map =
-    SourceMap::single(file_name, source.text_info().text_str().to_owned());
+  let source_map = SourceMap::single(file_name, source.text().to_string());
 
-  let mut program = source.program_ref().clone();
+  let mut program = source.program_ref().to_owned();
 
   // needs to align with what's done internally in source map
-  assert_eq!(1, source.text_info().range().start.as_byte_pos().0);
+  assert_eq!(1, source.range().start.as_byte_pos().0);
   // we need the comments to be mutable, so make it single threaded
   let comments = source.comments().as_single_threaded();
   source.globals().with(|marks| {
@@ -49,8 +49,7 @@ pub fn transpile_to_js(
     program.visit_mut_with(&mut import_rewrite_transformer);
 
     let transpile_options = TranspileOptions {
-      use_decorators_proposal: true,
-      use_ts_decorators: false,
+      decorators: DecoratorsTranspileOption::Ecma,
 
       // TODO: JSX
       ..Default::default()
@@ -62,19 +61,23 @@ pub fn transpile_to_js(
       &source_map,
       &comments,
       marks,
-      source.diagnostics(),
+      Box::new(source.diagnostics().iter()),
     )?;
 
-    let EmittedSource {
-      mut text,
-      source_map,
-    } = emit(&program, &comments, &source_map, &emit_options)?;
-    if !text.ends_with('\n') {
-      text.push('\n');
-    }
-    text.push_str(format!("//# sourceMappingURL={}.map", basename).as_str());
+    let EmittedSourceText { text, source_map } =
+      emit((&program).into(), &comments, &source_map, &emit_options)?;
+    let mut source = text.into_bytes();
 
-    Ok((text, source_map.unwrap()))
+    if let Some(last) = source.last()
+      && *last != b'\n'
+    {
+      source.push(b'\n');
+    }
+
+    source
+      .extend(format!("//# sourceMappingURL={}.map", basename).into_bytes());
+
+    Ok((source, source_map.unwrap().into_bytes()))
   })
 }
 
@@ -83,21 +86,21 @@ pub fn transpile_to_dts(
   fast_check_module: &FastCheckTypeModule,
   specifier_rewriter: SpecifierRewriter,
   target_specifier: &Url,
-) -> Result<(String, String), anyhow::Error> {
+) -> Result<(Vec<u8>, Vec<u8>), anyhow::Error> {
   let dts = fast_check_module.dts.as_ref().unwrap();
 
   let basename = target_specifier.path().rsplit_once('/').unwrap().1;
   let emit_options = deno_ast::EmitOptions {
     source_map: SourceMapOption::Separate,
     source_map_file: Some(basename.to_owned()),
+    source_map_base: None,
     inline_sources: false,
-    keep_comments: true,
+    remove_comments: false,
   };
 
   let file_name =
     relative_import_specifier(target_specifier, source.specifier());
-  let source_map =
-    SourceMap::single(file_name, source.text_info().text_str().to_owned());
+  let source_map = SourceMap::single(file_name, source.text().to_string());
 
   let comments = dts.comments.as_single_threaded();
 
@@ -109,14 +112,17 @@ pub fn transpile_to_dts(
   };
   program.visit_mut_with(&mut import_rewrite_transformer);
 
-  let EmittedSource {
-    mut text,
-    source_map,
-  } = emit(&program, &comments, &source_map, &emit_options)?;
-  if !text.ends_with('\n') {
-    text.push('\n');
-  }
-  text.push_str(format!("//# sourceMappingURL={}.map", basename).as_str());
+  let EmittedSourceText { text, source_map } =
+    emit((&program).into(), &comments, &source_map, &emit_options)?;
+  let mut source = text.into_bytes();
 
-  Ok((text, source_map.unwrap()))
+  if let Some(last) = source.last()
+    && *last != b'\n'
+  {
+    source.push(b'\n');
+  }
+
+  source.extend(format!("//# sourceMappingURL={}.map", basename).into_bytes());
+
+  Ok((source, source_map.unwrap().into_bytes()))
 }

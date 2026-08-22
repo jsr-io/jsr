@@ -1,43 +1,78 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { PaginationData } from "../util.ts";
-import { Head } from "$fresh/src/runtime/head.ts";
-import { ChevronRight } from "./icons/ChevronRight.tsx";
+import TbChevronRight from "tb-icons/TbChevronRight";
 import { ComponentChildren } from "preact";
 
 export interface ListDisplayItem {
   href: string;
   content: ComponentChildren;
+  actions?: ComponentChildren;
+  parentClass?: string;
 }
 
 export function ListDisplay(
-  { title, pagination, currentUrl, children }: {
+  { title, pagination, currentUrl, children, hasHeader }: {
     title?: string;
     pagination?: PaginationData;
     currentUrl?: URL;
     children: ListDisplayItem[];
+    hasHeader?: boolean;
   },
 ) {
   return (
-    <div class="mt-8 border-1.5 border-jsr-cyan-950 rounded overflow-hidden">
+    <div
+      class={hasHeader
+        ? ""
+        : "mt-8 ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 rounded overflow-hidden"}
+    >
       {title &&
         (
-          <div class="px-5 py-4 flex items-center justify-between border-b border-jsr-cyan-300 bg-slate-100 leading-none">
+          <div class="px-5 py-4 border-b border-jsr-cyan-100 dark:border-jsr-cyan-900 bg-jsr-cyan-50 dark:bg-jsr-cyan-950 leading-none">
             <span class="font-semibold">{title}</span>
-            <div />
           </div>
         )}
 
-      <ul class="divide-y">
+      <ul class="divide-y divide-jsr-cyan-50 dark:divide-jsr-cyan-950">
         {children.map((item) => (
-          <li class="border-jsr-cyan-900/10">
-            <a
-              href={item.href}
-              class="flex items-center px-5 py-3 gap-2 hover:bg-jsr-yellow-200 focus:bg-jsr-yellow-200 focus:ring-2 ring-jsr-cyan-700 ring-inset outline-none"
-            >
-              {item.content}
+          <li>
+            {item.actions
+              ? (
+                <div
+                  class={`flex items-center px-5 py-3 gap-2 hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-950 ${
+                    item.parentClass ?? ""
+                  }`}
+                >
+                  <a
+                    href={item.href}
+                    class="flex-1 flex items-center gap-2 min-w-0 outline-none focus:ring-2 ring-jsr-cyan-700 dark:ring-jsr-cyan-500 ring-inset rounded"
+                  >
+                    {item.content}
+                  </a>
+                  <div class="flex items-center gap-2 shrink-0">
+                    {item.actions}
+                  </div>
+                  <a
+                    href={item.href}
+                    class="shrink-0"
+                    aria-hidden="true"
+                    tabindex={-1}
+                  >
+                    <TbChevronRight class="text-jsr-cyan-800 dark:text-jsr-cyan-400 size-6" />
+                  </a>
+                </div>
+              )
+              : (
+                <a
+                  href={item.href}
+                  class={`flex items-center px-5 py-3 gap-2 hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-950 focus:ring-2 ring-jsr-cyan-700 dark:ring-jsr-cyan-500 ring-inset outline-none ${
+                    item.parentClass ?? ""
+                  }`}
+                >
+                  {item.content}
 
-              <ChevronRight class="text-jsr-cyan-800 flex-shrink-0" />
-            </a>
+                  <TbChevronRight class="text-jsr-cyan-800 dark:text-jsr-cyan-400 shrink-0 size-6" />
+                </a>
+              )}
           </li>
         ))}
       </ul>
@@ -52,6 +87,9 @@ export function ListDisplay(
     </div>
   );
 }
+
+const PAGINATION_BUTTON_STYLE =
+  "relative inline-flex items-center rounded-md px-3 py-2 text-sm font-semibold text-primary ring-1 ring-inset ring-jsr-gray-300 dark:ring-jsr-cyan-800 hover:bg-jsr-gray-50 dark:hover:bg-jsr-gray-900 focus-visible:outline-offset-0 select-none";
 
 function Pagination(
   { currentUrl, itemsCount, pagination }: {
@@ -72,23 +110,11 @@ function Pagination(
 
   return (
     <nav
-      class="flex items-center justify-between border-t border-jsr-cyan-900/10 bg-white px-4 py-3 sm:px-6"
+      class="flex items-center justify-between border-t border-jsr-cyan-900/10 dark:border-jsr-cyan-900 px-4 py-3 sm:px-6"
       aria-label="Pagination"
     >
-      <Head>
-        {hasPrevious && (
-          <link rel="prev" href={prevURL.pathname + prevURL.search} />
-        )}
-        {hasNext && (
-          <link
-            rel="next"
-            href={nextURL.pathname + nextURL.search}
-          />
-        )}
-      </Head>
-
       <div class="hidden sm:block">
-        <p class="text-sm text-gray-700">
+        <p class="text-sm text-secondary">
           {start + itemsCount === 0 ? "No results found" : (
             <>
               Showing <span class="font-semibold">{start + 1}</span> to{" "}
@@ -99,22 +125,22 @@ function Pagination(
           )}
         </p>
       </div>
-      <div class="flex flex-1 justify-between sm:justify-end">
-        {pagination.page > 1
+      <div class="flex flex-1 gap-3 justify-between sm:justify-end">
+        {hasPrevious
           ? (
             <a
               href={prevURL.pathname + prevURL.search}
-              class="relative inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:outline-offset-0 select-none"
+              class={PAGINATION_BUTTON_STYLE}
             >
               Previous
             </a>
           )
           : <span />}
-        {itemsCount >= pagination.limit
+        {hasNext
           ? (
             <a
               href={nextURL.pathname + nextURL.search}
-              class="relative ml-3 inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:outline-offset-0 select-none"
+              class={PAGINATION_BUTTON_STYLE}
             >
               Next
             </a>

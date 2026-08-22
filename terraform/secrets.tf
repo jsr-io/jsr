@@ -11,6 +11,30 @@ resource "google_secret_manager_secret_version" "github_client_secret" {
   secret_data = var.github_client_secret
 }
 
+resource "google_secret_manager_secret" "gitlab_client_secret" {
+  secret_id = "gitlab-client-secret"
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "gitlab_client_secret" {
+  secret      = google_secret_manager_secret.gitlab_client_secret.id
+  secret_data = var.gitlab_client_secret
+}
+
+resource "google_secret_manager_secret" "turnstile_secret_key" {
+  secret_id = "turnstile-secret-key"
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "turnstile_secret_key" {
+  secret      = google_secret_manager_secret.turnstile_secret_key.id
+  secret_data = cloudflare_turnstile_widget.login.secret
+}
+
 resource "google_secret_manager_secret" "postmark_token" {
   secret_id = "postmark-token"
   replication {
@@ -23,27 +47,28 @@ resource "google_secret_manager_secret_version" "postmark_token" {
   secret_data = var.postmark_token
 }
 
-resource "google_secret_manager_secret" "orama_package_private_api_key" {
-  secret_id = "orama-package-private-api-key"
+resource "google_secret_manager_secret" "algolia_write_api_key" {
+  secret_id = "algolia-write-api-key"
   replication {
     auto {}
   }
 }
 
-resource "google_secret_manager_secret_version" "orama_package_private_api_key" {
-  secret      = google_secret_manager_secret.orama_package_private_api_key.id
-  secret_data = var.orama_package_private_api_key
+resource "google_secret_manager_secret_version" "algolia_write_api_key" {
+  secret      = google_secret_manager_secret.algolia_write_api_key.id
+  secret_data = algolia_api_key.write.key
 }
 
-resource "google_secret_manager_secret" "orama_package_index_id" {
-  secret_id = "orama-package-index-id"
+resource "google_secret_manager_secret" "cloudflare_api_token" {
+  secret_id = "cloudflare-api-token"
   replication {
     auto {}
   }
 }
 
-resource "google_secret_manager_secret_version" "orama_package_index_id" {
-  secret      = google_secret_manager_secret.orama_package_index_id.id
-  secret_data = var.orama_package_index_id
+resource "google_secret_manager_secret_version" "cloudflare_api_token" {
+  secret      = google_secret_manager_secret.cloudflare_api_token.id
+  secret_data = var.cloudflare_api_token
 }
+
 

@@ -1,12 +1,12 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { api, path } from "../utils/api.ts";
-import { useState } from "preact/hooks";
 import { PublishingTask } from "../utils/api_types.ts";
+import { useSignal } from "@preact/signals";
 
 export default function PublishingTaskRequeue(
   { publishingTask }: { publishingTask: PublishingTask },
 ) {
-  const [processing, setProcessing] = useState(false);
+  const processing = useSignal(false);
 
   if (
     publishingTask.status === "failure" || publishingTask.status === "success"
@@ -16,15 +16,16 @@ export default function PublishingTaskRequeue(
 
   return (
     <button
+      type="button"
       disabled={processing}
       onClick={() => {
-        setProcessing(true);
+        processing.value = true;
         api.post(
           path`/admin/publishing_tasks/${publishingTask.id}/requeue`,
           {},
         )
           .then((res) => {
-            setProcessing(false);
+            processing.value = false;
             if (res.ok) {
               location.reload();
             } else {

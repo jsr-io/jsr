@@ -1,48 +1,31 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
-import type { Package, PackageVersionWithUser } from "../../utils/api_types.ts";
-import { Docs, State } from "../../util.ts";
-import { ScopeMember } from "../../utils/api_types.ts";
-import { Head } from "$fresh/src/runtime/head.ts";
+import { HttpError, RouteConfig } from "fresh";
+import { define } from "../../util.ts";
 import { DocsData, packageDataWithDocs } from "../../utils/data.ts";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { DocsView } from "./(_components)/Docs.tsx";
 import { scopeIAM } from "../../utils/iam.ts";
 
-interface Data {
-  package: Package;
-  selectedVersion: PackageVersionWithUser | null;
-  docs: Docs | null;
-  member: ScopeMember | null;
-}
+const FRONTEND_ROOT = process.env.FRONTEND_ROOT ?? "http://jsr.test";
 
-export default function PackagePage(
-  { data, params, state }: PageProps<Data, State>,
+export default define.page<typeof handler>(function PackagePage(
+  { data, params, state },
 ) {
   const iam = scopeIAM(state, data.member);
 
   return (
     <div>
-      <Head>
-        <title>
-          @{params.scope}/{params.package} - JSR
-        </title>
-        <meta
-          name="description"
-          content={`@${params.scope}/${params.package} on JSR${
-            data.package.description ? `: ${data.package.description}` : ""
-          }`}
-        />
-      </Head>
-
       <PackageHeader
         package={data.package}
         selectedVersion={data.selectedVersion ?? undefined}
+        downloads={data.downloads}
       />
       <PackageNav
         currentTab="Index"
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
@@ -52,13 +35,15 @@ export default function PackagePage(
         ? (
           <DocsView
             docs={data.docs}
-            params={params as unknown as Params}
             selectedVersion={data.selectedVersion}
+            user={state.user}
+            scope={data.package.scope}
+            pkg={data.package.name}
             showProvenanceBadge
           />
         )
         : (
-          <div class="mt-8 text-gray-500 text-center">
+          <div class="mt-8 text-tertiary text-center">
             This package has not published{" "}
             {data.package.versionCount > 0
               ? "a stable release"
@@ -67,10 +52,10 @@ export default function PackagePage(
         )}
     </div>
   );
-}
+});
 
-export const handler: Handlers<Data, State> = {
-  async GET(_, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
     const res = await packageDataWithDocs(
       ctx.state,
       ctx.params.scope,
@@ -78,7 +63,12 @@ export const handler: Handlers<Data, State> = {
       ctx.params.version,
       {},
     );
-    if (res === null) return ctx.renderNotFound();
+    if (res === null) {
+      throw new HttpError(
+        404,
+        "This package or this package version was not found.",
+      );
+    }
     if (res instanceof Response) {
       return res;
     }
@@ -88,6 +78,7 @@ export const handler: Handlers<Data, State> = {
       scopeMember,
       selectedVersion,
       docs,
+      downloads,
     } = res as DocsData;
 
     if (scopeMember && pkg.versionCount === 0) {
@@ -99,16 +90,29 @@ export const handler: Handlers<Data, State> = {
       });
     }
 
-    return ctx.render({
-      package: pkg,
-      selectedVersion,
-      docs,
-      member: scopeMember,
-    }, {
+    ctx.state.meta = {
+      title: `@${pkg.scope}/${pkg.name} - JSR`,
+      description: `@${pkg.scope}/${pkg.name} on JSR${
+        pkg.description ? `: ${pkg.description}` : ""
+      }`,
+      ogImage: `${FRONTEND_ROOT}/@${pkg.scope}/${pkg.name}/og`,
+    };
+    ctx.state.cacheControl = ctx.params.version
+      ? "public, max-age=30, s-maxage=3600, stale-while-revalidate=10800"
+      : "public, max-age=30, s-maxage=120, stale-while-revalidate=360";
+
+    return {
+      data: {
+        package: pkg,
+        downloads,
+        selectedVersion,
+        docs,
+        member: scopeMember,
+      },
       headers: { ...(ctx.params.version ? { "X-Robots-Tag": "noindex" } : {}) },
-    });
+    };
   },
-};
+});
 
 export const config: RouteConfig = {
   routeOverride: "/@:scope/:package{@:version}?",

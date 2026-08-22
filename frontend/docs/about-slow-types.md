@@ -20,8 +20,6 @@ a regular basis
 ([read more in this issue](https://github.com/jsr-io/jsr/issues/444#issuecomment-2079772908)).
 Because of this, these kinds of types are not supported in the public API.
 
-<!-- https://github.com/dprint/dprint-plugin-markdown/issues/98 -->
-<!--deno-fmt-ignore-start-->
 > :warning: If JSR discovers "slow types" in a package, certain features will
 > either not work or degrade in quality. These are:
 >
@@ -29,12 +27,11 @@ Because of this, these kinds of types are not supported in the public API.
 >   at least on the order of 1.5-2x for most packages. It may be significantly
 >   higher.
 > - The package will not be able to generate type declarations for the npm
->   compatibility layer, or "slow types" will be omitted or replaced with `any` in
->   the generated type declarations.
+>   compatibility layer, or "slow types" will be omitted or replaced with `any`
+>   in the generated type declarations.
 > - The package will not be able to generate documentation for the package, or
 >   "slow types" will be omitted or missing details in the generated
 >   documentation.
-<!--deno-fmt-ignore-end-->
 
 ## What are slow types?
 
@@ -68,7 +65,7 @@ and consumers of your package. So, if you have a slow type that is not exported,
 you can keep it as is:
 
 ```ts
-export add(a: number, b: number): number {
+export function add(a: number, b: number): number {
   return addInternal(a, b);
 }
 
@@ -97,13 +94,16 @@ imposes on TypeScript code:
    `export =` or `import foo = require("foo")`.
 
 1. All types in exported functions, classes, variables, and types must be simply
-   inferred or explicit. If an expression is too complex to be inferred, it's
+   inferred or explicit. If an expression is too complex to be inferred, its
    type should be explicitly assigned to an intermediate type.
 
 1. Destructuring in exports is not supported. Instead of destructuring, export
    each symbol individually.
 
 1. Types must not reference private fields of classes.
+
+1. Expando properties (dynamically assigned properties on objects or functions)
+   are not supported.
 
 ### Explicit types
 
@@ -142,7 +142,7 @@ Constants should have explicit type annotations:
 ### Global augmentation
 
 Module augmentation and global augmentation must not be used. This means that
-packages can not use `declare global` to introduce new global variables, or
+packages cannot use `declare global` to introduce new global variables, or
 `declare module` to augment other modules.
 
 Here are some examples of unsupported code:
@@ -180,7 +180,7 @@ Use ESM syntax instead:
 
 All types in exported functions, classes, variables, and types must be
 [simply inferred](#simple-inference) or explicit. If an expression is too
-complex to be inferred, it's type should be explicitly assigned to an
+complex to be inferred, its type should be explicitly assigned to an
 intermediate type.
 
 For example, in the following case the type of the default export is too complex
@@ -255,6 +255,153 @@ allowed.
   }
 
 + type MyPrivateMember = string;
+```
+
+## JavaScript entrypoints
+
+If a package has a JavaScript entrypoint, JSR will not be able to create type
+definitions for the package. JSR only generates type definitions for TypeScript,
+and not for JavaScript. Using JavaScript entrypoints is not a fatal error: JSR
+will not be able to generate type definitions for the package, and will not show
+documentation for the package - but the package will still be usable.
+
+There are two ways to fix this:
+
+1. Convert the JavaScript entrypoint to TypeScript. This involves renaming the
+   file from `.js` to `.ts` and adding types.
+2. Reference a `.d.ts` type declaration file from the JavaScript entrypoint, so
+   that JSR can use the type declaration file to generate types. This is useful
+   if you cannot convert the JavaScript entrypoint to TypeScript, or if the code
+   is generated.
+
+To reference a `.d.ts` type declaration file from a JavaScript entrypoint, there
+are two options:
+
+1. In the file itself, add a `/* @ts-self-types="./path/to/types.d.ts" */`
+   directive at the top of the file. This instructs JSR to use the types from
+   the specified file, rather than using the file itself.
+2. Wherever the file is imported (e.g. in an import statement), add a
+   `/* @ts-types="./path/to/types.d.ts" */` directive directly above the import
+   statement. This instructs JSR to use the types from the specified file,
+   rather than using the file itself when generating types or documentation.
+
+> **Note:** Simply placing a `.d.ts` file alongside a `.js` file with the same
+> name (e.g. `mod.js` and `mod.d.ts`) is **not** sufficient. You must explicitly
+> reference the `.d.ts` file using one of the directives below. Without the
+> directive, JSR will attempt to infer types from the JavaScript file itself and
+> report slow type warnings.
+
+```js
+// index.js
+/* @ts-self-types="./index.d.ts" */
+export function foo() {
+  return "foo";
+}
+```
+
+```ts
+// index.d.ts
+
+export function foo(): string;
+```
+
+OR
+
+```js
+// foo.js
+/* @ts-types="./bar.d.ts" */
+import { foo } from "./bar.js";
+
+// bar.js
+export function foo() {
+  return "foo";
+}
+
+// bar.d.ts
+export function foo(): string;
+```
+
+## Nested JavaScript modules
+
+If a TypeScript module in your package imports a JavaScript module that does not
+have type declarations, JSR will not be able to type-check the import. This is
+because fast check avoids type inference, so any JavaScript file referenced from
+TypeScript must have corresponding type declarations.
+
+To fix this, you have two options:
+
+1. Convert the JavaScript module to TypeScript.
+2. Add a `.d.ts` type declaration file for the JavaScript module and reference
+   it using a `/* @ts-types="..." */` directive at the import site:
+
+```diff
+  // main.ts
++ /* @ts-types="./utils.d.ts" */
+  import { helper } from "./utils.js";
+```
+
+```ts
+// utils.d.ts
+export function helper(): string;
+```
+
+If the JavaScript module is an external npm dependency, ensure it ships type
+declarations (a `.d.ts` file), or install a corresponding `@types/` package.
+
+## Export not found
+
+This error occurs when an export listed in the `exports` field of your
+`jsr.json` or `deno.json(c)` cannot be resolved. This is usually caused by a
+typo in the path, or by a mismatch between the `exports` field and the actual
+file structure of your package.
+
+To fix this, verify that all paths in your `exports` field point to files that
+actually exist in your package:
+
+```diff
+  // jsr.json
+  {
+    "name": "@scope/my-package",
+    "version": "1.0.0",
+    "exports": {
+-     ".": "./src/modes.ts",
++     ".": "./src/mod.ts",
+      "./utils": "./src/utils.ts"
+    }
+  }
+```
+
+## Expando properties
+
+Expando properties (dynamically assigned properties on objects or functions) are
+not supported by fast check because their types cannot be statically determined
+without running the code.
+
+For example, the following pattern is not supported:
+
+```ts
+const exports = {};
+exports.foo = "bar"; // Expando property - type cannot be statically determined
+export { exports };
+```
+
+To fix this, use a statically typed object declaration instead:
+
+```diff
+- const exports = {};
+- exports.foo = "bar";
+- export { exports };
++ export const exports: { foo: string } = { foo: "bar" };
+```
+
+Or use a typed interface:
+
+```ts
+interface MyExports {
+  foo: string;
+}
+
+export const exports: MyExports = { foo: "bar" };
 ```
 
 ## Simple inference
@@ -343,3 +490,64 @@ are:
     ```ts
     const x = (a: number, b: number): number => a + b;
     ```
+
+## Ignoring slow types
+
+Due to their nature of affecting _if_ JSR can understand the code, you cannot
+selectively ignore individual diagnostics for slow types. Slow type diagnostics
+can only be ignored for the entire package. Doing this results in incomplete
+documentation and type declarations for the package, and slower type checking
+for consumers of the package.
+
+To ignore slow type diagnostics for a package, add the `--allow-slow-types` flag
+to `jsr publish` or `deno publish`.
+
+When using Deno, one can supress slow type diagnostics from being surfaced in
+`deno lint` by adding an exclude for the `no-slow-types` rule. This can be done
+by specifying `--rules-exclude=no-slow-types` when running `deno lint`, or by
+adding the following to your `deno.json(c)` configuration file:
+
+```json
+{
+  "lint": {
+    "rules": {
+      "exclude": ["no-slow-types"]
+    }
+  }
+}
+```
+
+Note that because slow type diagnostics cannot be individually ignored, one can
+not use an ignore comment like `// deno-lint-ignore no-slow-types` to ignore
+slow type diagnostics.
+
+## Interactions with TypeScript `isolatedDeclarations`
+
+Since TypeScript 5.5, TypeScript has introduced a compiler option called
+`isolatedDeclarations`. When enabled, this option disallows writing types that
+would require type inference to emit a declaration file. This is very similar to
+the "no slow types" policy of JSR.
+
+For example, just like JSR, TypeScript with `isolatedDeclarations` enabled would
+not allow function declarations without an explicit return type:
+
+```ts
+// This is not allowed with `isolatedDeclarations`.
+export function foo() {
+  return Math.random().toString();
+}
+```
+
+However, there are some differences between the two:
+
+- Isolated declarations require that all symbols that are exported from a module
+  follow the "no inference" rules. JSR only requires that symbols that are
+  actually part of the public API of a package follow the "no inference" rules.
+- Isolated declarations is sometimes more strict than JSR. For example, isolated
+  declarations does not support inferring the return type of an empty function
+  body as `void`, while JSR does.
+
+If you are using TypeScript with `isolatedDeclarations`, your code is already
+compliant with the "no slow types" policy of JSR. However, you may still need to
+make some changes to your code to comply with the other restrictions of JSR,
+such as not using module augmentation or global augmentation.

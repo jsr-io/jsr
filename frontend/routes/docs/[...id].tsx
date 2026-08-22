@@ -1,12 +1,13 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh/server.ts";
+import { HttpError } from "fresh";
 import { Markdown } from "../../components/Markdown.tsx";
-import { Head } from "$fresh/src/runtime/head.ts";
-import { State } from "../../util.ts";
+import { define } from "../../util.ts";
 
-import { extract } from "$std/front_matter/yaml.ts";
+import { extract } from "@std/front-matter/yaml";
 
 import TOC, { groupsNames } from "../../docs/toc.ts";
+import TbBrandGithub from "tb-icons/TbBrandGithub";
+import { readAssetText } from "../../utils/assets.ts";
 
 const groups = new Map<string, { id: string; title: string }[]>();
 for (const group of groupsNames) {
@@ -18,23 +19,11 @@ for (const { id, title, group } of TOC) {
   files.set(id, title);
 }
 
-interface Data {
-  id: string;
-  title: string;
-  description: string;
-  content: string;
-}
-
-export default function Page({ data }: PageProps<Data, State>) {
+export default define.page<typeof handler>(function Page({ data }) {
   return (
     <div class="mb-20">
-      <Head>
-        <title>{data.title} - Docs - JSR</title>
-        <meta name="description" content={data.description} />
-      </Head>
-
       <div class="grid grid-cols-1 md:grid-cols-10">
-        <nav class="pb-10 md:border-r-1.5 md:col-span-3 lg:col-span-2 order-2 md:order-1 border-t-1.5 border-cyan-900 md:border-t-0 md:border-slate-300 pt-4 md:pt-0">
+        <nav class="pb-10 md:border-r-1.5 md:col-span-3 lg:col-span-2 order-2 md:order-1 border-t-1.5 border-jsr-cyan-900 dark:border-jsr-cyan-900 md:border-t-0 md:border-slate-300 dark:md:border-jsr-gray-900 pt-4 md:pt-0">
           <div>
             <p class="text-xl font-semibold" id="sidebar">Docs</p>
           </div>
@@ -49,9 +38,9 @@ export default function Page({ data }: PageProps<Data, State>) {
                       href={`/docs/${id}`}
                       class={`${
                         id === data.id
-                          ? "px-4 text-cyan-700 border-l-4 border-cyan-400 bg-cyan-100"
+                          ? "px-4 text-jsr-cyan-700 dark:text-cyan-400 border-l-4 border-jsr-cyan-400 dark:border-cyan-600 bg-jsr-cyan-100 dark:bg-jsr-gray-800"
                           : "pl-5 pr-4"
-                      } py-1.5 block leading-5 hover:text-gray-600 hover:underline`}
+                      } py-1.5 block leading-5 hover:text-secondary hover:underline`}
                     >
                       {title}
                     </a>
@@ -66,17 +55,18 @@ export default function Page({ data }: PageProps<Data, State>) {
           <p class="text-sm mb-6 -mt-2 md:hidden">
             <a href="#sidebar" class="link">View table of contents</a>
           </p>
-          <h1 class="text-4xl lg:text-5xl lg:leading-[1.1] text-balance font-medium mb-8 text-gray-900">
+          <h1 class="text-4xl lg:text-5xl lg:leading-[1.1] text-balance font-medium mb-8 text-primary">
             {data.title}
           </h1>
           <Markdown source={data.content} />
           <p class="mt-6 text-sm">
             <a
-              class="link"
+              class="link inline-flex items-center gap-1"
               href={`https://github.com/jsr-io/jsr/blob/main/frontend/docs/${data.id}.md`}
               target="_blank"
               rel="noopener noreferrer"
             >
+              <TbBrandGithub class="size-4" aria-hidden />
               Edit this page on GitHub
             </a>
           </p>
@@ -84,26 +74,34 @@ export default function Page({ data }: PageProps<Data, State>) {
       </div>
     </div>
   );
-}
+});
 
-export const handler: Handlers<Data, State> = {
-  async GET(_, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
     ctx.state.searchKind = "docs";
 
     const { id } = ctx.params;
-    if (!files.has(id)) return ctx.renderNotFound();
+    if (!files.has(id)) {
+      throw new HttpError(404, "This docs page was not found.");
+    }
 
-    const title = files.get(id)!;
-    const path = new URL(`../../docs/${id}.md`, import.meta.url).pathname;
-    const markdown = await Deno.readTextFile(path);
+    const markdown = await readAssetText(`/_jsr_docs/${id}.md`);
 
-    const { body, attrs } = extract(markdown);
+    const { body, attrs } = extract<{ title: string; description: string }>(
+      markdown,
+    );
+    const title = attrs.title as string ?? files.get(id)!;
 
-    return ctx.render({
-      content: body,
-      id,
-      title: attrs.title as string ?? title,
+    ctx.state.meta = {
+      title: `${title} - Docs - JSR`,
       description: attrs.description as string,
-    });
+    };
+    return {
+      data: {
+        content: body,
+        id,
+        title,
+      },
+    };
   },
-};
+});

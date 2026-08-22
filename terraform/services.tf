@@ -76,3 +76,9 @@ resource "google_project_service" "service_cloudscheduler" {
   service            = "cloudscheduler.googleapis.com"
   disable_on_destroy = false
 }
+
+resource "google_project_service" "service_bigquery" {
+  project            = var.gcp_project
+  service            = "bigquery.googleapis.com"
+  disable_on_destroy = false
+}

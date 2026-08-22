@@ -1,0 +1,17 @@
+{{#*inline "text_inner"}}
+Hey {{ name }},
+
+You have received a reply to your support ticket on {{ registry_name }}:
+
+---
+{{content}}
+---
+
+To view the ticket, you can go to {{ registry_url }}ticket/{{ ticket_id }}. You can reply to the ticket from there.
+
+Please DO NOT reply to this email. Any replies to this email will not be seen by our support team.
+
+Cheers,
+{{ registry_name }}
+{{/inline}}
+{{> base.txt }}

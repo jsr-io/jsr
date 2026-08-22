@@ -6,9 +6,9 @@ import {
   PublishingTask,
   PublishingTaskStatus,
 } from "../../../utils/api_types.ts";
-import { ErrorIcon } from "../../../components/icons/Error.tsx";
-import { Check } from "../../../components/icons/Check.tsx";
-import { Pending } from "../../../components/icons/Pending.tsx";
+import TbAlertCircle from "tb-icons/TbAlertCircle";
+import TbCheck from "tb-icons/TbCheck";
+import TbClockHour3 from "tb-icons/TbClockHour3";
 
 export interface VersionPublishStatus {
   loading: boolean;
@@ -54,12 +54,12 @@ export function PackagePublishStatus(props: {
   const { loading, task } = props.status.value;
 
   if (loading) {
-    return <p class="italic text-gray-600 max-w-2xl">...</p>;
+    return <p class="italic text-secondary max-w-2xl">...</p>;
   }
 
   if (!task) {
     return (
-      <p class="italic text-gray-600 max-w-2xl">
+      <p class="italic text-secondary max-w-2xl">
         Publishing has not started yet...
       </p>
     );
@@ -78,14 +78,14 @@ export function PackagePublishStatus(props: {
       >
         {task.status === "failure"
           ? (
-            <ErrorIcon class="size-5 stroke-red-700 bg-red-200 rounded-full p-0.5 stroke-2" />
+            <TbAlertCircle class="size-5 stroke-red-700 bg-red-200 rounded-full p-0.5 stroke-2" />
           )
           : task.status === "success"
           ? (
-            <Check class="size-5 stroke-green-700 stroke-2 bg-green-200 rounded-full p-0.5" />
+            <TbCheck class="size-5 stroke-green-700 stroke-2 bg-green-200 rounded-full p-0.5" />
           )
           : (
-            <Pending class="size-5 stroke-blue-700 bg-blue-200 rounded-full p-0.5 animate-pulse stroke-2" />
+            <TbClockHour3 class="size-5 stroke-blue-700 bg-blue-200 rounded-full p-0.5 animate-pulse stroke-2" />
           )}
         Publish {statusVerb[task.status]}
       </p>

@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(tickets.created_at) FROM tickets\n    LEFT JOIN users ON users.id = tickets.creator\n    WHERE users.name ILIKE $1\n       OR EXISTS (\n         SELECT 1\n         FROM ticket_messages\n         WHERE ticket_messages.ticket_id = tickets.id\n           AND ticket_messages.message ILIKE $1\n       )",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "51d187f4d5df2ec3b9b4f50d8792344c053096b3f75ee46ab302df241682fd87"
+}

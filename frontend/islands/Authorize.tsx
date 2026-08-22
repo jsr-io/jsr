@@ -18,9 +18,9 @@ export default function Authorize(
 
     if (res.ok) {
       if (props.authorizedVersions.length > 0) {
-        window.location.href = url.href;
+        globalThis.location.href = url.href;
       } else {
-        window.location.href = "/";
+        globalThis.location.href = "/";
       }
     } else {
       console.error(res);
@@ -34,9 +34,9 @@ export default function Authorize(
     );
     if (res.ok) {
       if (props.authorizedVersions.length > 0) {
-        window.location.href = "/publishing/deny";
+        globalThis.location.href = "/publishing/deny";
       } else {
-        window.location.href = "/";
+        globalThis.location.href = "/";
       }
     } else {
       console.error(res);
@@ -46,12 +46,14 @@ export default function Authorize(
   return (
     <div class="flex gap-2 text-lg mt-4">
       <button
+        type="button"
         class="button-primary"
         onClick={approve}
       >
         Approve
       </button>
       <button
+        type="button"
         class="button-danger"
         onClick={deny}
       >

@@ -1,29 +1,18 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh/server.ts";
 import { useSignal } from "@preact/signals";
-import IconFolder from "$tabler_icons/folder.tsx";
-import IconPackage from "$tabler_icons/package.tsx";
+import TbFolder from "tb-icons/TbFolder";
+import TbPackage from "tb-icons/TbPackage";
 import {
   CreatePackage,
   IconCircle,
   PackageName,
   ScopeSelect,
 } from "../islands/new.tsx";
-import { State } from "../util.ts";
 import { Package, Scope } from "../utils/api_types.ts";
-import { path } from "../utils/api.ts";
-import { Head } from "$fresh/runtime.ts";
-import { GitHub } from "../components/icons/GitHub.tsx";
+import { assertOk, path } from "../utils/api.ts";
+import { define } from "../util.ts";
 
-interface Data {
-  scopes: string[];
-  scope: string;
-  initialScope?: string;
-  newPackage?: string;
-  fromCli: boolean;
-}
-
-export default function New(props: PageProps<Data, State>) {
+export default define.page<typeof handler>(function New(props) {
   const scope = useSignal(props.data.scope);
   const name = useSignal(props.data.newPackage ?? "");
   const pkg = useSignal<Package | null | undefined>(undefined);
@@ -32,21 +21,12 @@ export default function New(props: PageProps<Data, State>) {
 
   return (
     <>
-      <Head>
-        <title>
-          Publish a package - JSR
-        </title>
-        <meta
-          name="description"
-          content="Create a package to publish on JSR."
-        />
-      </Head>
       <div class="flex flex-col md:grid md:grid-cols-2 gap-12">
-        <div class="w-full space-y-4 flex-shrink-0">
+        <div class="w-full space-y-4 shrink-0">
           <h1 class="mb-8 font-bold text-3xl leading-none">
             Publish a package
           </h1>
-          <p class="text-gray-900 max-w-screen-md">
+          <p class="max-w-3xl">
             Publish your package to the JSR to share it with the world!
           </p>
           <p>
@@ -61,11 +41,11 @@ export default function New(props: PageProps<Data, State>) {
         <div class="space-y-8">
           <div class="flex items-start gap-4">
             <IconCircle done={scope}>
-              <IconFolder class="h-5 w-5" />
+              <TbFolder class="h-5 w-5" />
             </IconCircle>
             <div class="w-full">
               <h2 class="font-bold text-2xl leading-none">Scope</h2>
-              <p class="mt-2 mb-4 text-gray-500 text-base">
+              <p class="mt-2 mb-4 text-tertiary text-base">
                 Choose which scope your package will be published to. Scopes are
                 namespaces for packages.
               </p>
@@ -77,35 +57,43 @@ export default function New(props: PageProps<Data, State>) {
                     initialScope={props.data.initialScope}
                     scopeUsage={props.state.user.scopeUsage}
                     scopeLimit={props.state.user.scopeLimit}
+                    locked={props.data.fromCli}
+                    user={props.state.user}
                   />
                 )
                 : (
-                  <div class="space-y-4 bg-gray-50 border-gray-100 p-4 rounded-xl">
-                    <p class="text-gray-700">
+                  <div class="space-y-4 bg-jsr-gray-50 dark:bg-jsr-gray-900 border-jsr-gray-900 dark:border-jsr-gray-50 p-4 rounded-xl">
+                    <p class="text-jsr-gray-700 dark:text-white">
                       You must be logged in to publish a package.
                     </p>
-                    <a
-                      href={`/login?redirect=${encodeURIComponent(loginUrl)}`}
-                      class="button-primary"
-                    >
-                      <GitHub /> Sign in with GitHub
-                    </a>
+                    <div class="flex gap-5 flex-col xl:flex-row">
+                      <a
+                        href={`/login?redirect=${encodeURIComponent(loginUrl)}`}
+                        class="button-primary"
+                      >
+                        Sign in to JSR
+                      </a>
+                    </div>
                   </div>
                 )}
             </div>
           </div>
           <div class="flex items-start gap-4">
             <IconCircle done={name}>
-              <IconPackage class="h-5 w-5" />
+              <TbPackage class="h-5 w-5" />
             </IconCircle>
             <div class="w-full">
               <h2 class="font-bold text-2xl leading-none">Package name</h2>
-              <p class="mt-1 mb-4 text-gray-500 text-base">
+              <p class="mt-1 mb-4 text-tertiary text-base">
                 The name of your package must be unique within the scope you
                 selected.
               </p>
-              <PackageName scope={scope} name={name} pkg={pkg} />
-
+              <PackageName
+                scope={scope}
+                name={name}
+                pkg={pkg}
+                locked={props.data.fromCli}
+              />
               <CreatePackage
                 scope={scope}
                 name={name}
@@ -118,37 +106,47 @@ export default function New(props: PageProps<Data, State>) {
       </div>
     </>
   );
-}
+});
 
-export const handler: Handlers<Data, State> = {
-  async GET(req, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
     let newPackage = undefined;
-    const scopesResp =
-      await (ctx.state.api.hasToken()
-        ? ctx.state.api.get<Scope[]>(path`/user/scopes`)
-        : Promise.resolve(null));
-    if (scopesResp && !scopesResp.ok) throw scopesResp; // gracefully handle this
-    const scopes = scopesResp?.data.map((scope) => scope.scope) ?? [];
-    const url = new URL(req.url);
+    const scopesResp = await (ctx.state.api.hasToken()
+      ? ctx.state.api.get<Scope[]>(path`/user/scopes`)
+      : Promise.resolve(null));
+    if (scopesResp) {
+      assertOk(scopesResp);
+    }
+    const scopes = scopesResp?.data.map((scope) =>
+      scope.scope
+    ) ?? [];
     let scope = "";
     let initialScope;
-    if (url.searchParams.has("scope")) {
-      initialScope = url.searchParams.get("scope") ?? undefined;
+    if (ctx.url.searchParams.has("scope")) {
+      initialScope = ctx.url.searchParams.get("scope") ?? undefined;
       if (initialScope && scopes.includes(initialScope)) {
         scope = initialScope;
         initialScope = undefined;
       }
     }
-    if (url.searchParams.has("package")) {
-      newPackage = url.searchParams.get("package")!;
+    if (ctx.url.searchParams.has("package")) {
+      newPackage = ctx.url.searchParams.get("package")!;
     }
-    const fromCli = url.searchParams.get("from") == "cli";
-    return ctx.render({
-      scopes,
-      scope,
-      initialScope,
-      newPackage,
-      fromCli,
-    });
+    const fromCli = ctx.url.searchParams.get("from") == "cli";
+
+    ctx.state.meta = {
+      title: "Publish a package - JSR",
+      description: "Create a package to publish on JSR.",
+    };
+
+    return {
+      data: {
+        scopes,
+        scope,
+        initialScope,
+        newPackage,
+        fromCli,
+      },
+    };
   },
-};
+});

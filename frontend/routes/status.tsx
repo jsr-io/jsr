@@ -1,48 +1,37 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
-import { Head } from "$fresh/runtime.ts";
-import { State } from "../util.ts";
+import { HttpError, RouteConfig } from "fresh";
+import { define } from "../util.ts";
 import type {
-  Package,
   PublishingTask,
   PublishingTaskStatus,
-  ScopeMember,
 } from "../utils/api_types.ts";
-import { path } from "../utils/api.ts";
+import { assertOk, path } from "../utils/api.ts";
 import { packageData } from "../utils/data.ts";
 import { PackageHeader } from "./package/(_components)/PackageHeader.tsx";
 import { PackageNav } from "./package/(_components)/PackageNav.tsx";
-import twas from "$twas";
+import twas from "twas";
 import PublishingTaskRequeue from "../islands/PublishingTaskRequeue.tsx";
-import { Pending } from "../components/icons/Pending.tsx";
-import { Check } from "../components/icons/Check.tsx";
-import { ErrorIcon } from "../components/icons/Error.tsx";
+import TbAlertCircle from "tb-icons/TbAlertCircle";
+import TbCheck from "tb-icons/TbCheck";
+import TbClockHour3 from "tb-icons/TbClockHour3";
 import { scopeIAM } from "../utils/iam.ts";
 
-interface Data {
-  package: Package;
-  publishingTask: PublishingTask;
-  member: ScopeMember | null;
-}
-
-export default function PackageListPage(
-  { data, state }: PageProps<Data, State>,
-) {
+export default define.page<typeof handler>(function PackageListPage({
+  data,
+  state,
+}) {
   const iam = scopeIAM(state, data.member);
 
   return (
     <div class="mb-24 space-y-16">
-      <Head>
-        <title>
-          Publishing Task {data.publishingTask.id} - JSR
-        </title>
-      </Head>
       <div>
-        <PackageHeader package={data.package} />
+        <PackageHeader package={data.package} downloads={data.downloads} />
 
         <PackageNav
           currentTab="Versions"
           versionCount={data.package.versionCount}
+          dependencyCount={data.package.dependencyCount}
+          dependentCount={data.package.dependentCount}
           iam={iam}
           params={{ scope: data.package.scope, package: data.package.name }}
           latestVersion={data.package.latestVersion}
@@ -63,16 +52,16 @@ export default function PackageListPage(
             </p>
             <p>
               <span class="font-semibold">Created:</span>{" "}
-              {twas(new Date(data.publishingTask.createdAt))}
+              {twas(new Date(data.publishingTask.createdAt).getTime())}
             </p>
-            {data.publishingTask.userId && (
+            {data.publishingTask.user && (
               <p>
                 <span class="font-semibold">Submitter:</span>{" "}
                 <a
                   class="link italic"
-                  href={`/user/${data.publishingTask.userId}`}
+                  href={`/user/${data.publishingTask.user.id}`}
                 >
-                  View user
+                  {data.publishingTask.user.name}
                 </a>
               </p>
             )}
@@ -114,42 +103,50 @@ export default function PackageListPage(
       </div>
     </div>
   );
-}
+});
 
 export function StatusToIcon(status: PublishingTaskStatus) {
   switch (status) {
     case "pending":
     case "processing":
     case "processed":
-      return <Pending class="size-6 stroke-blue-500 stroke-2" />;
+      return <TbClockHour3 class="size-6 stroke-blue-500 stroke-2" />;
     case "success":
-      return <Check class="size-6 stroke-green-500 stroke-2" />;
+      return <TbCheck class="size-6 stroke-green-500 stroke-2" />;
     case "failure":
-      return <ErrorIcon class="size-6 stroke-red-500 stroke-2" />;
+      return <TbAlertCircle class="size-6 stroke-red-500 stroke-2" />;
   }
 }
 
-export const handler: Handlers<Data, State> = {
-  async GET(_req, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
     const publishingTaskResp = await ctx.state.api.get<PublishingTask>(
       path`/publishing_tasks/${ctx.params.publishingTask}`,
     );
-    if (!publishingTaskResp.ok) throw publishingTaskResp; // gracefully handle this
+    assertOk(publishingTaskResp);
 
     const res = await packageData(
       ctx.state,
       publishingTaskResp.data.packageScope,
       publishingTaskResp.data.packageName,
     );
-    if (res === null) return ctx.renderNotFound();
+    if (res === null) {
+      throw new HttpError(404, "The package was not found.");
+    }
 
-    return ctx.render({
-      package: res.pkg,
-      member: res.scopeMember,
-      publishingTask: publishingTaskResp.data,
-    });
+    ctx.state.meta = {
+      title: `Publishing Task ${publishingTaskResp.data.id} - JSR`,
+    };
+    return {
+      data: {
+        package: res.pkg,
+        downloads: res.downloads,
+        member: res.scopeMember,
+        publishingTask: publishingTaskResp.data,
+      },
+    };
   },
-};
+});
 
 export const config: RouteConfig = {
   routeOverride: "/status/:publishingTask",

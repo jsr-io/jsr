@@ -1,8 +1,16 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { API } from "./utils/api.ts";
-import type { FullUser, RuntimeCompat } from "./utils/api_types.ts";
+import type { API } from "./utils/api.ts";
+import type {
+  DocsMainContent,
+  FullUser,
+  RuntimeCompat,
+} from "./utils/api_types.ts";
 import type { TraceSpan } from "./utils/tracing.ts";
-import { SourceDir, SourceFile } from "./utils/api_types.ts";
+import type { SourceDir, SourceFile } from "./utils/api_types.ts";
+import { createDefine } from "fresh";
+import type { BreadcrumbsCtx, ToCCtx } from "@deno/doc/html-types";
+
+export const define = createDefine<State>();
 
 export interface State {
   api: API;
@@ -10,28 +18,36 @@ export interface State {
   userPromise: Promise<FullUser | null | Response>;
   user: FullUser | null;
   sudo: boolean;
+  meta: Meta;
+  cacheControl?: string;
   searchKind?: SearchKind;
+}
+
+export interface Meta {
+  title?: string;
+  description?: string;
+  ogImage?: string;
 }
 
 export type SearchKind = "packages" | "docs";
 
 export interface Docs {
-  css: string;
+  comrakCss: string;
   script: string;
   // null only on index page
-  breadcrumbs: string | null;
-  // null only on all symbols page
-  sidepanel: string | null;
-  main: string;
+  breadcrumbs: BreadcrumbsCtx | null;
+  toc: ToCCtx;
+  main: DocsMainContent;
 }
 
 export interface Source {
-  css: string;
+  comrakCss: string;
+  script: string;
   source: SourceDir | SourceFile;
 }
 
-export interface OramaPackageHit {
-  id: string;
+export interface AlgoliaPackageHit {
+  objectID: string;
   scope: string;
   name: string;
   description: string;

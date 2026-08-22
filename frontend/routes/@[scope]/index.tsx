@@ -1,47 +1,23 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh/server.ts";
-import { PaginationData, State } from "../../util.ts";
-import type {
-  FullScope,
-  List,
-  Package,
-  Scope,
-  ScopeInvite,
-  ScopeMember,
-} from "../../utils/api_types.ts";
-import { APIResponse, path } from "../../utils/api.ts";
+import { HttpError } from "fresh";
+import { define } from "../../util.ts";
+import type { List, Package, ScopeInvite } from "../../utils/api_types.ts";
+import { APIResponse, assertOk, path } from "../../utils/api.ts";
 import { ScopeNav } from "./(_components)/ScopeNav.tsx";
 import { ScopeHeader } from "./(_components)/ScopeHeader.tsx";
 import { scopeDataWithMember } from "../../utils/data.ts";
 import { ScopePendingInvite } from "./(_components)/ScopePendingInvite.tsx";
-import { Head } from "$fresh/runtime.ts";
 import { ListDisplay } from "../../components/List.tsx";
 import { PackageHit } from "../../components/PackageHit.tsx";
 import { scopeIAM } from "../../utils/iam.ts";
 
-interface Data extends PaginationData {
-  scope: Scope | FullScope;
-  scopeMember: ScopeMember | null;
-  packages: Package[];
-  userInvites: ScopeInvite[] | null;
-}
-
-export default function ScopePackagesPage(
-  { params, data, url, state }: PageProps<Data, State>,
+export default define.page<typeof handler>(function ScopePackagesPage(
+  { params, data, url, state },
 ) {
   const iam = scopeIAM(state, data.scopeMember);
 
   return (
     <div class="mb-20">
-      <Head>
-        <title>
-          @{params.scope} - JSR
-        </title>
-        <meta
-          name="description"
-          content={`@${params.scope} on JSR`}
-        />
-      </Head>
       <ScopeHeader scope={data.scope} />
       <ScopeNav active="Packages" iam={iam} scope={data.scope.scope} />
       <ScopePendingInvite userInvites={data.userInvites} scope={params.scope} />
@@ -53,14 +29,13 @@ export default function ScopePackagesPage(
       </ListDisplay>
     </div>
   );
-}
+});
 
-export const handler: Handlers<Data, State> = {
-  async GET(req, ctx) {
-    const url = new URL(req.url);
-    const page = +(url.searchParams.get("page") || 1);
+export const handler = define.handlers({
+  async GET(ctx) {
+    const page = +(ctx.url.searchParams.get("page") || 1);
     // Default to large enough to display all of @std.
-    const limit = +(url.searchParams.get("limit") || 50);
+    const limit = +(ctx.url.searchParams.get("limit") || 50);
 
     const [data, packagesResp, userInvitesResp] = await Promise.all([
       scopeDataWithMember(ctx.state, ctx.params.scope),
@@ -72,24 +47,27 @@ export const handler: Handlers<Data, State> = {
         ? ctx.state.api.get<ScopeInvite[]>(path`/user/invites`)
         : Promise.resolve(null),
     ]);
-    if (data === null) return ctx.renderNotFound();
-    if (!packagesResp.ok) {
-      if (packagesResp.code === "scopeNotFound") return ctx.renderNotFound();
-      throw packagesResp; // graceful handle errors
+    if (data === null) throw new HttpError(404, "The scope was not found.");
+    if (!packagesResp.ok && packagesResp.code === "scopeNotFound") {
+      throw new HttpError(404, "The scope was not found.");
     }
-    if (userInvitesResp && !userInvitesResp.ok) throw userInvitesResp;
+    assertOk(packagesResp);
+    if (userInvitesResp) assertOk(userInvitesResp);
 
-    return ctx.render({
-      scope: data.scope,
-      scopeMember: data.scopeMember,
-      packages: packagesResp.data.items,
-      userInvites: userInvitesResp?.data ?? null,
-      page,
-      limit,
-      total: packagesResp.data.total,
-    });
+    return {
+      data: {
+        scope: data.scope,
+        scopeMember: data.scopeMember,
+        packages: packagesResp.data.items,
+        userInvites: userInvitesResp?.data ?? null,
+        page,
+        limit,
+        total: packagesResp.data.total,
+      },
+    };
   },
-  async POST(req, ctx) {
+  async POST(ctx) {
+    const req = ctx.req;
     const scope = ctx.params.scope;
     const form = await req.formData();
     const action = form.get("action");
@@ -101,10 +79,11 @@ export const handler: Handlers<Data, State> = {
     } else {
       throw new Error("invalid action");
     }
-    if (!res.ok) throw res; // graceful handle errors
-    return new Response(null, {
-      status: 303,
-      headers: { location: `/@${scope}` },
-    });
+    assertOk(res);
+    ctx.state.meta = {
+      title: `@${scope} - JSR`,
+      description: `@${scope} on JSR`,
+    };
+    return ctx.redirect(`/@${scope}`, 303);
   },
-};
+});

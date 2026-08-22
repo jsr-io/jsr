@@ -6,15 +6,16 @@ use uuid::Uuid;
 
 use crate::api::ApiError;
 use crate::db::Database;
+use crate::db::PackagePublishPermission;
 use crate::db::Permission;
 use crate::db::Permissions;
 use crate::db::Token;
 use crate::db::TokenType;
 use crate::db::User;
+use crate::external::oidc::OidcProviderKind;
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
 use crate::ids::Version;
-use crate::util::GithubOidcTokenAud;
 
 pub struct IamHandler<'s> {
   db: &'s Database,
@@ -32,7 +33,7 @@ impl<'s> IamHandler<'s> {
   pub async fn check_scope_write_access(
     &self,
     scope: &ScopeName,
-  ) -> Result<(), ApiError> {
+  ) -> Result<(&User, bool), ApiError> {
     if self.permissions.is_some() {
       // There is no specific permission that allows scope write access, so if
       // the permissions are restricted, this action is also restricted.
@@ -40,24 +41,26 @@ impl<'s> IamHandler<'s> {
     }
 
     match &self.principal {
-      Principal::User(user) if user.is_staff && self.sudo => Ok(()),
       Principal::User(user) => {
-        self
-          .db
-          .get_scope_member(scope, user.id)
-          .await?
-          .ok_or(ApiError::ActorNotScopeMember)?;
-        Ok(())
+        if self.db.get_scope_member(scope, user.id).await?.is_some() {
+          Ok((user, false))
+        } else if user.is_staff && self.sudo {
+          Ok((user, true))
+        } else {
+          Err(ApiError::ActorNotScopeMember)
+        }
       }
-      Principal::GitHubActions { .. } => Err(ApiError::ActorNotAuthorized),
+      Principal::OidcCi { .. } => Err(ApiError::ActorNotAuthorized),
       Principal::Anonymous => Err(ApiError::MissingAuthentication),
     }
   }
 
+  /// checks if a user is a scope member of staff using sudo. if it's a staff using
+  /// sudo, then the returned bool is true.
   pub async fn check_scope_admin_access(
     &self,
     scope: &ScopeName,
-  ) -> Result<(), ApiError> {
+  ) -> Result<(&User, bool), ApiError> {
     if self.permissions.is_some() {
       // There is no specific permission that allows scope admin access, so if
       // the permissions are restricted, this action is also restricted.
@@ -65,19 +68,30 @@ impl<'s> IamHandler<'s> {
     }
 
     match &self.principal {
-      Principal::User(user) if user.is_staff && self.sudo => Ok(()),
       Principal::User(user) => {
-        let scope_member = self
-          .db
-          .get_scope_member(scope, user.id)
-          .await?
-          .ok_or(ApiError::ActorNotScopeMember)?;
-        if !scope_member.is_admin {
-          return Err(ApiError::ActorNotScopeAdmin);
+        let err = if let Some(scope_member) =
+          self.db.get_scope_member(scope, user.id).await?
+        {
+          if !scope_member.is_admin {
+            Err(ApiError::ActorNotScopeAdmin)
+          } else {
+            Ok(())
+          }
+        } else {
+          Err(ApiError::ActorNotScopeMember)
+        };
+
+        if let Err(err) = err {
+          if user.is_staff && self.sudo {
+            Ok((user, true))
+          } else {
+            Err(err)
+          }
+        } else {
+          Ok((user, false))
         }
-        Ok(())
       }
-      Principal::GitHubActions { .. } => Err(ApiError::ActorNotAuthorized),
+      Principal::OidcCi { .. } => Err(ApiError::ActorNotAuthorized),
       Principal::Anonymous => Err(ApiError::MissingAuthentication),
     }
   }
@@ -106,7 +120,7 @@ impl<'s> IamHandler<'s> {
         }
         Ok(())
       }
-      Principal::GitHubActions { .. } => Err(ApiError::ActorNotAuthorized),
+      Principal::OidcCi { .. } => Err(ApiError::ActorNotAuthorized),
       Principal::Anonymous => Err(ApiError::MissingAuthentication),
     }
   }
@@ -123,18 +137,29 @@ impl<'s> IamHandler<'s> {
           .0
           .iter()
           .find_map(|permission| match permission {
-            Permission::VersionPublish {
+            Permission::PackagePublish(PackagePublishPermission::Version {
               scope,
               package,
               version,
               tarball_hash,
-            } if scope == scope_
+            }) if scope == scope_
               && package == package_
               && version == version_ =>
             {
               Some(PublishAccessRestriction {
                 tarball_hash: Some(tarball_hash.clone()),
               })
+            }
+            Permission::PackagePublish(PackagePublishPermission::Package {
+              scope,
+              package,
+            }) if scope == scope_ && package == package_ => {
+              Some(PublishAccessRestriction { tarball_hash: None })
+            }
+            Permission::PackagePublish(PackagePublishPermission::Scope {
+              scope,
+            }) if scope == scope_ => {
+              Some(PublishAccessRestriction { tarball_hash: None })
             }
             _ => None,
           });
@@ -162,7 +187,11 @@ impl<'s> IamHandler<'s> {
           .ok_or(ApiError::ActorNotScopeMember)?;
         Ok((access_restriction, Some(user.id)))
       }
-      Principal::GitHubActions { repo_id, user } => {
+      Principal::OidcCi {
+        provider,
+        repository_external_id,
+        user,
+      } => {
         let scope = self
           .db
           .get_scope(scope_)
@@ -181,7 +210,14 @@ impl<'s> IamHandler<'s> {
           .get_package(scope_, package_)
           .await?
           .ok_or(ApiError::PackageNotFound)?;
-        if package.github_repository_id != Some(*repo_id) {
+        let expected_external_id = match provider {
+          OidcProviderKind::GitHub => {
+            package.github_repository_id.map(|id| id.to_string())
+          }
+        };
+        if expected_external_id.as_deref()
+          != Some(repository_external_id.as_str())
+        {
           return Err(ApiError::ActorNotAuthorized);
         }
         Ok((access_restriction, user.as_ref().map(|user| user.id)))
@@ -198,7 +234,7 @@ impl<'s> IamHandler<'s> {
     }
     match &self.principal {
       Principal::User(user) => Ok(user),
-      Principal::GitHubActions { .. } => Err(ApiError::ActorNotUser),
+      Principal::OidcCi { .. } => Err(ApiError::ActorNotUser),
       Principal::Anonymous => Err(ApiError::MissingAuthentication),
     }
   }
@@ -213,16 +249,16 @@ impl<'s> IamHandler<'s> {
     match &self.principal {
       Principal::User(user) if self.interactive => Ok(user),
       Principal::User(_) => Err(ApiError::CredentialNotInteractive),
-      Principal::GitHubActions { .. } => Err(ApiError::ActorNotUser),
+      Principal::OidcCi { .. } => Err(ApiError::ActorNotUser),
       Principal::Anonymous => Err(ApiError::MissingAuthentication),
     }
   }
 
-  pub fn check_admin_access(&self) -> Result<(), ApiError> {
+  pub fn check_admin_access(&self) -> Result<&User, ApiError> {
     match &self.principal {
-      Principal::User(user) if user.is_staff => Ok(()),
+      Principal::User(user) if user.is_staff => Ok(user),
       Principal::User(_) => Err(ApiError::ActorNotAuthorized),
-      Principal::GitHubActions { .. } => Err(ApiError::ActorNotAuthorized),
+      Principal::OidcCi { .. } => Err(ApiError::ActorNotAuthorized),
       Principal::Anonymous => Err(ApiError::MissingAuthentication),
     }
   }
@@ -235,7 +271,15 @@ pub struct PublishAccessRestriction {
 #[derive(Clone)]
 pub enum Principal {
   User(User),
-  GitHubActions { repo_id: i64, user: Option<User> },
+  /// A CI workload that authenticated with an OIDC token. `provider`
+  /// identifies the issuer; `repository_external_id` is the provider-native
+  /// repo identifier (GitHub `repository_id`, GitLab `project_id`, ...)
+  /// stringified for cross-provider compatibility.
+  OidcCi {
+    provider: OidcProviderKind,
+    repository_external_id: String,
+    user: Option<User>,
+  },
   Anonymous,
 }
 
@@ -250,7 +294,8 @@ pub struct IamInfo {
   /// principal is allowed to do.
   pub permissions: Option<Permissions>,
   /// Whether the request comes from an interactive system (web portal), or via
-  /// an automated system (GitHub Actions / cli with device token).
+  /// an automated system (GitHub Actions / cli with device token / personal
+  /// access token).
   pub interactive: bool,
   /// Whether the request is being made with sudo privileges, which allows
   /// staff users to bypass some access restrictions.
@@ -280,25 +325,12 @@ impl From<(Token, User, bool)> for IamInfo {
   }
 }
 
-impl From<(i64, GithubOidcTokenAud, Option<User>)> for IamInfo {
-  fn from(
-    (repo_id, aud, user): (i64, GithubOidcTokenAud, Option<User>),
-  ) -> Self {
-    IamInfo {
-      principal: Principal::GitHubActions { repo_id, user },
-      permissions: Some(aud.permissions),
-      interactive: false,
-      sudo: false,
-    }
-  }
-}
-
 pub trait ReqIamExt {
-  fn iam(&self) -> IamHandler;
+  fn iam(&'_ self) -> IamHandler<'_>;
 }
 
 impl ReqIamExt for Request<Body> {
-  fn iam(&self) -> IamHandler {
+  fn iam(&'_ self) -> IamHandler<'_> {
     let db = self.data().unwrap();
     let IamInfo {
       principal,

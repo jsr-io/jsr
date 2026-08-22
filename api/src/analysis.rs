@@ -4,28 +4,33 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use deno_ast::swc::common::comments::CommentKind;
-use deno_ast::swc::common::Span;
+use bytes::Bytes;
 use deno_ast::LineAndColumnDisplay;
 use deno_ast::MediaType;
 use deno_ast::ModuleSpecifier;
 use deno_ast::ParsedSource;
 use deno_ast::SourceRange;
 use deno_ast::SourceRangedForSpanned;
-use deno_doc::DocNodeKind;
-use deno_graph::source::load_data_url;
-use deno_graph::source::JsrUrlProvider;
-use deno_graph::source::LoadOptions;
-use deno_graph::source::NullFileSystem;
+use deno_ast::swc::common::Span;
+use deno_ast::swc::common::comments::CommentKind;
+use deno_doc::ParseOutput;
+use deno_error::JsErrorBox;
 use deno_graph::BuildFastCheckTypeGraphOptions;
 use deno_graph::BuildOptions;
-use deno_graph::CapturingModuleAnalyzer;
 use deno_graph::GraphKind;
 use deno_graph::ModuleGraph;
-use deno_graph::ModuleInfo;
-use deno_graph::ParsedSourceStore;
 use deno_graph::WorkspaceFastCheckOption;
 use deno_graph::WorkspaceMember;
+use deno_graph::analysis::ModuleInfo;
+use deno_graph::ast::CapturingModuleAnalyzer;
+use deno_graph::ast::DefaultEsParser;
+use deno_graph::ast::ParsedSourceStore;
+use deno_graph::source::JsrUrlProvider;
+use deno_graph::source::LoadError;
+use deno_graph::source::LoadOptions;
+use deno_graph::source::NullFileSystem;
+use deno_graph::source::load_data_url;
+use deno_semver::StackString;
 use deno_semver::jsr::JsrPackageReqReference;
 use deno_semver::npm::NpmPackageReqReference;
 use deno_semver::package::PackageNv;
@@ -33,24 +38,24 @@ use deno_semver::package::PackageReqReference;
 use futures::FutureExt;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use tracing::instrument;
+use regex::bytes::Regex as BytesRegex;
 use tracing::Instrument;
+use tracing::instrument;
 use url::Url;
 
-use crate::buckets::BucketWithQueue;
 use crate::db::DependencyKind;
 use crate::db::ExportsMap;
 use crate::db::PackageVersionMeta;
-use crate::docs::DocNodesByUrl;
-use crate::gcs_paths;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
 use crate::ids::ScopeName;
 use crate::ids::Version;
-use crate::npm::create_npm_tarball;
 use crate::npm::NpmTarball;
 use crate::npm::NpmTarballFiles;
 use crate::npm::NpmTarballOptions;
+use crate::npm::create_npm_tarball;
+use crate::s3::BucketWithQueue;
+use crate::s3_paths;
 use crate::tarball::PublishError;
 
 pub struct PackageAnalysisData {
@@ -61,7 +66,8 @@ pub struct PackageAnalysisData {
 pub struct PackageAnalysisOutput {
   pub data: PackageAnalysisData,
   pub module_graph_2: HashMap<String, ModuleInfo>,
-  pub doc_nodes: DocNodesByUrl,
+  pub doc_nodes_bytes: Bytes,
+  pub doc_search_json: serde_json::Value,
   pub dependencies: HashSet<(DependencyKind, PackageReqReference)>,
   pub npm_tarball: NpmTarball,
   pub readme_path: Option<PackagePath>,
@@ -127,36 +133,43 @@ async fn analyze_package_inner(
 
   let module_analyzer = ModuleAnalyzer::default();
 
-  let workspace_members = vec![WorkspaceMember {
+  let workspace_member = WorkspaceMember {
     base: Url::parse("file:///").unwrap(),
+    name: StackString::from_string(format!("@{}/{}", scope, name)),
+    version: Some(version.0.clone()),
     exports: exports.clone().into_inner(),
-    nv: PackageNv {
-      name: format!("@{}/{}", scope, name),
-      version: version.0.clone(),
-    },
-  }];
-  let mut graph = deno_graph::ModuleGraph::new(GraphKind::All);
-  let diagnostics = graph
+  };
+  let workspace_members = vec![workspace_member.clone()];
+  let mut graph = ModuleGraph::new(GraphKind::All);
+  graph
     .build(
       roots.clone(),
+      vec![],
       &SyncLoader { files: &files },
       BuildOptions {
         is_dynamic: false,
         module_analyzer: &module_analyzer,
-        workspace_members: &workspace_members,
-        imports: Default::default(),
         // todo: use the data in the package for the file system
         file_system: &NullFileSystem,
         jsr_url_provider: &PassthroughJsrUrlProvider,
+        jsr_version_resolver: Default::default(),
         passthrough_jsr_specifiers: true,
-        resolver: None,
+        resolver: Some(&JsrResolver {
+          member: workspace_member,
+        }),
         npm_resolver: None,
         reporter: None,
         executor: Default::default(),
+        locker: None,
+        skip_dynamic_deps: false,
+        module_info_cacher: Default::default(),
+        unstable_bytes_imports: false,
+        unstable_text_imports: false,
+        jsr_metadata_store: None,
+        unstable_css_imports: false,
       },
     )
     .await;
-  assert!(diagnostics.is_empty());
   graph
     .valid()
     .map_err(|e| PublishError::GraphError(Box::new(e)))?;
@@ -164,9 +177,8 @@ async fn analyze_package_inner(
     fast_check_cache: None,
     fast_check_dts: true,
     jsr_url_provider: &PassthroughJsrUrlProvider,
-    module_parser: Some(&module_analyzer.analyzer),
+    es_parser: Some(&module_analyzer.analyzer),
     resolver: Default::default(),
-    npm_resolver: Default::default(),
     workspace_fast_check: WorkspaceFastCheckOption::Enabled(&workspace_members),
   });
 
@@ -182,6 +194,7 @@ async fn analyze_package_inner(
       .analyzer
       .get_parsed_source(module.specifier())
     {
+      check_for_banned_extensions(&parsed_source)?;
       check_for_banned_syntax(&parsed_source)?;
       check_for_banned_triple_slash_directives(&parsed_source)?;
     }
@@ -196,14 +209,15 @@ async fn analyze_package_inner(
         None
       }
     })
-    .all(|js| js.fast_check_module().is_some());
+    .all(|js| {
+      js.maybe_types_dependency.is_some() || js.fast_check_module().is_some()
+    });
 
   let doc_nodes =
     crate::docs::generate_docs(roots, &graph, &module_analyzer.analyzer)
       .map_err(PublishError::DocError)?;
 
   let module_graph_2 = module_analyzer.take_module_graph_2();
-
   let npm_tarball = create_npm_tarball(NpmTarballOptions {
     graph: &graph,
     analyzer: &module_analyzer.analyzer,
@@ -224,15 +238,55 @@ async fn analyze_package_inner(
       .find(|file| file.0.case_insensitive().is_readme());
 
     (
-      generate_score(main_entrypoint, &doc_nodes, &readme, all_fast_check),
+      generate_score(
+        main_entrypoint.clone(),
+        &doc_nodes,
+        &readme,
+        all_fast_check,
+        &exports,
+      ),
       readme.map(|readme| readme.0.clone()),
     )
+  };
+
+  let doc_nodes_bytes = crate::docs::serialize_doc_nodes(&doc_nodes);
+
+  let info = crate::docs::get_docs_info(&exports, None);
+
+  let ctx = crate::docs::get_generate_ctx(
+    "/doc".to_string(),
+    doc_nodes,
+    main_entrypoint,
+    info.rewrite_map,
+    scope,
+    name,
+    version,
+    true,
+    None,
+    false,
+    crate::db::RuntimeCompat {
+      browser: None,
+      deno: None,
+      node: None,
+      workerd: None,
+      bun: None,
+    },
+    registry_url.to_string(),
+    None,
+  );
+  let search_index = deno_doc::html::generate_search_index(&ctx);
+  let doc_search_json = if let serde_json::Value::Object(mut obj) = search_index
+  {
+    obj.remove("nodes").unwrap()
+  } else {
+    unreachable!()
   };
 
   Ok(PackageAnalysisOutput {
     data: PackageAnalysisData { exports, files },
     module_graph_2,
-    doc_nodes,
+    doc_nodes_bytes,
+    doc_search_json,
     dependencies,
     npm_tarball,
     readme_path,
@@ -240,60 +294,87 @@ async fn analyze_package_inner(
   })
 }
 
+static INDENTED_CODE_BLOCK_RE: Lazy<BytesRegex> =
+  Lazy::new(|| BytesRegex::new(r#"\n\s*?\n( {4}|\t)[^\S\n]*\S"#).unwrap());
+
 fn generate_score(
   main_entrypoint: Option<ModuleSpecifier>,
-  doc_nodes_by_url: &DocNodesByUrl,
+  documents_by_url: &ParseOutput,
   readme: &Option<(&PackagePath, &Vec<u8>)>,
   all_fast_check: bool,
+  exports: &ExportsMap,
 ) -> PackageVersionMeta {
-  let main_entrypoint_doc =
-    main_entrypoint.as_ref().and_then(|main_entrypoint| {
-      doc_nodes_by_url
-        .get(main_entrypoint)
-        .unwrap()
-        .iter()
-        .find(|node| node.kind == DocNodeKind::ModuleDoc)
-        .map(|node| &node.js_doc)
-    });
+  let main_entrypoint_doc = main_entrypoint.as_ref().map(|main_entrypoint| {
+    &documents_by_url.get(main_entrypoint).unwrap().module_doc
+  });
 
-  let has_readme_examples = readme
-    .is_some_and(|(_, readme)| readme.windows(3).any(|chars| chars == b"```"))
-    || main_entrypoint_doc.is_some_and(|js_doc| {
-      js_doc.doc.as_ref().is_some_and(|doc| doc.contains("```"))
-        || js_doc
-          .tags
-          .iter()
-          .any(|tag| matches!(tag, deno_doc::js_doc::JsDocTag::Example { .. }))
-    });
+  let has_readme_examples = readme.is_some_and(|(_, readme)| {
+    readme
+      .windows(3)
+      .any(|chars| chars == b"```" || chars == b"~~~")
+      || INDENTED_CODE_BLOCK_RE.is_match(readme)
+  }) || main_entrypoint_doc.is_some_and(|js_doc| {
+    js_doc
+      .doc
+      .as_ref()
+      .is_some_and(|doc| doc.contains("```") || doc.contains("~~~"))
+      || js_doc
+        .tags
+        .iter()
+        .any(|tag| matches!(tag, deno_doc::js_doc::JsDocTag::Example { .. }))
+  });
+
+  let entrypoints_without_docs = entrypoints_missing_module_doc(
+    documents_by_url,
+    main_entrypoint,
+    readme.is_some(),
+    exports,
+  );
 
   PackageVersionMeta {
     has_readme: readme.is_some()
       || main_entrypoint_doc
         .is_some_and(|doc| doc.doc.as_ref().is_some_and(|doc| !doc.is_empty())),
     has_readme_examples,
-    all_entrypoints_docs: all_entrypoints_have_module_doc(
-      doc_nodes_by_url,
-      main_entrypoint,
-      readme.is_some(),
-    ),
+    all_entrypoints_docs: entrypoints_without_docs.is_empty(),
+    entrypoints_without_docs,
     percentage_documented_symbols: percentage_of_symbols_with_docs(
-      doc_nodes_by_url,
+      documents_by_url,
     ),
     all_fast_check,
     has_provenance: false, // Provenance score is updated after version publish
   }
 }
 
-fn all_entrypoints_have_module_doc(
-  doc_nodes_by_url: &DocNodesByUrl,
+fn entrypoints_missing_module_doc(
+  documents_by_url: &ParseOutput,
   main_entrypoint: Option<ModuleSpecifier>,
   has_readme: bool,
-) -> bool {
-  'modules: for (specifier, nodes) in doc_nodes_by_url {
-    for node in nodes {
-      if node.kind == DocNodeKind::ModuleDoc {
-        continue 'modules;
-      }
+  exports: &ExportsMap,
+) -> Vec<String> {
+  // Build a reverse map from file URL to export key. Keys must go through
+  // Url::parse so they match the percent-encoded specifiers in documents_by_url
+  // (see analyze_package_inner above).
+  let url_to_export: HashMap<String, String> = exports
+    .iter()
+    .map(|(key, path)| {
+      let path = path.strip_prefix('.').unwrap_or(path.as_str());
+      let url = Url::parse(&format!("file://{}", path)).unwrap();
+      (url.to_string(), key.clone())
+    })
+    .collect();
+
+  let mut missing = Vec::new();
+
+  for (specifier, document) in documents_by_url {
+    // Skip WASM and JSON modules as their docs are auto-generated or can't have docs
+    if specifier.path().ends_with(".wasm")
+      || specifier.path().ends_with(".json")
+    {
+      continue;
+    }
+    if !document.module_doc.is_empty() {
+      continue;
     }
 
     if main_entrypoint
@@ -301,32 +382,66 @@ fn all_entrypoints_have_module_doc(
       .is_some_and(|main_entrypoint| main_entrypoint == specifier)
       && has_readme
     {
-      continue 'modules;
+      continue;
     }
 
-    return false;
+    let name = url_to_export
+      .get(specifier.as_str())
+      .cloned()
+      .unwrap_or_else(|| specifier.path().to_string());
+    missing.push(name);
   }
 
-  true
+  missing
 }
 
-fn percentage_of_symbols_with_docs(doc_nodes_by_url: &DocNodesByUrl) -> f32 {
+fn percentage_of_symbols_with_docs(documents_by_url: &ParseOutput) -> f32 {
   let mut total_symbols = 0;
   let mut documented_symbols = 0;
 
-  for (_specifier, nodes) in doc_nodes_by_url {
-    for node in nodes {
-      if node.kind == DocNodeKind::ModuleDoc
-        || node.kind == DocNodeKind::Import
-        || node.declaration_kind == deno_doc::node::DeclarationKind::Private
-      {
-        continue;
-      }
+  for (specifier, document) in documents_by_url {
+    // Skip WASM modules as their docs are auto-generated from binary
+    if specifier.path().ends_with(".wasm") {
+      continue;
+    }
 
-      total_symbols += 1;
+    // Skip JSON modules as they can't have JSDoc documentation
+    if specifier.path().ends_with(".json") {
+      continue;
+    }
 
-      if !node.js_doc.is_empty() {
-        documented_symbols += 1;
+    for symbol in &document.symbols {
+      let non_private_decls: Vec<_> = symbol
+        .declarations
+        .iter()
+        .filter(|decl| {
+          decl.declaration_kind != deno_doc::node::DeclarationKind::Private
+        })
+        .collect();
+
+      // For function overloads, skip the implementation signature (has_body: true)
+      // as it is not user-facing and its docs don't appear in generated documentation.
+      // We require *all* non-private decls to be Function variants so that
+      // declaration-merging cases (e.g. `function foo() {}` + `namespace foo {}`)
+      // are not treated as overloads.
+      let has_overloads = non_private_decls.len() > 1
+        && non_private_decls.iter().all(|decl| {
+          matches!(&decl.def, deno_doc::node::DeclarationDef::Function(_))
+        });
+
+      for decl in &non_private_decls {
+        if has_overloads
+          && let deno_doc::node::DeclarationDef::Function(fn_def) = &decl.def
+          && fn_def.has_body
+        {
+          continue;
+        }
+
+        total_symbols += 1;
+
+        if !decl.js_doc.is_empty() {
+          documented_symbols += 1;
+        }
       }
     }
   }
@@ -358,11 +473,51 @@ impl JsrUrlProvider for PassthroughJsrUrlProvider {
   }
 }
 
+#[derive(Debug)]
+pub struct JsrResolver {
+  pub member: WorkspaceMember,
+}
+
+impl deno_graph::source::Resolver for JsrResolver {
+  fn resolve(
+    &self,
+    specifier_text: &str,
+    referrer_range: &deno_graph::Range,
+    _kind: deno_graph::source::ResolutionKind,
+  ) -> Result<ModuleSpecifier, deno_graph::source::ResolveError> {
+    if let Ok(package_ref) = JsrPackageReqReference::from_str(specifier_text)
+      && self.member.name == package_ref.req().name
+      && self
+        .member
+        .version
+        .as_ref()
+        .map(|v| package_ref.req().version_req.matches(v))
+        .unwrap_or(true)
+    {
+      let export_name = package_ref.sub_path().unwrap_or(".");
+      let Some(export) = self.member.exports.get(export_name) else {
+        return Err(deno_graph::source::ResolveError::Other(
+          JsErrorBox::generic(format!(
+            "export '{}' not found in jsr:{}",
+            export_name, self.member.name
+          )),
+        ));
+      };
+      return Ok(self.member.base.join(export).unwrap());
+    }
+
+    Ok(deno_graph::resolve_import(
+      specifier_text,
+      &referrer_range.specifier,
+    )?)
+  }
+}
+
 struct SyncLoader<'a> {
   files: &'a HashMap<PackagePath, Vec<u8>>,
 }
 
-impl<'a> SyncLoader<'a> {
+impl SyncLoader<'_> {
   fn load_sync(
     &self,
     specifier: &ModuleSpecifier,
@@ -377,22 +532,23 @@ impl<'a> SyncLoader<'a> {
         };
         Ok(Some(deno_graph::source::LoadResponse::Module {
           content: bytes.into(),
+          mtime: None,
           specifier: specifier.clone(),
           maybe_headers: None,
         }))
       }
-      "http" | "https" | "node" | "npm" | "jsr" => {
-        Ok(Some(deno_graph::source::LoadResponse::External {
-          specifier: specifier.clone(),
-        }))
-      }
-      "data" => load_data_url(specifier),
+      "http" | "https" | "node" | "npm" | "jsr" | "bun" | "virtual"
+      | "cloudflare" => Ok(Some(deno_graph::source::LoadResponse::External {
+        specifier: specifier.clone(),
+      })),
+      "data" => load_data_url(specifier)
+        .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e)))),
       _ => Ok(None),
     }
   }
 }
 
-impl<'a> deno_graph::source::Loader for SyncLoader<'a> {
+impl deno_graph::source::Loader for SyncLoader<'_> {
   fn load(
     &self,
     specifier: &ModuleSpecifier,
@@ -463,18 +619,18 @@ async fn rebuild_npm_tarball_inner(
   let module_analyzer = ModuleAnalyzer::default();
 
   let mut graph = deno_graph::ModuleGraph::new(GraphKind::All);
-  let workspace_members = vec![WorkspaceMember {
+  let workspace_member = WorkspaceMember {
     base: Url::parse("file:///").unwrap(),
+    name: StackString::from_string(format!("@{}/{}", scope, name)),
+    version: Some(version.0.clone()),
     exports: exports.clone().into_inner(),
-    nv: PackageNv {
-      name: format!("@{}/{}", scope, name),
-      version: version.0.clone(),
-    },
-  }];
-  let diagnostics = graph
+  };
+  let workspace_members = vec![workspace_member.clone()];
+  graph
     .build(
       roots.clone(),
-      &GcsLoader {
+      vec![],
+      &S3Loader {
         files: &files,
         bucket: &modules_bucket,
         scope: &scope,
@@ -484,28 +640,34 @@ async fn rebuild_npm_tarball_inner(
       BuildOptions {
         is_dynamic: false,
         module_analyzer: &module_analyzer,
-        workspace_members: &workspace_members,
-        imports: Default::default(),
         // todo: use the data in the package for the file system
         file_system: &NullFileSystem,
         jsr_url_provider: &PassthroughJsrUrlProvider,
+        jsr_version_resolver: Default::default(),
         passthrough_jsr_specifiers: true,
-        resolver: Default::default(),
+        resolver: Some(&JsrResolver {
+          member: workspace_member,
+        }),
         npm_resolver: Default::default(),
         reporter: Default::default(),
         executor: Default::default(),
+        locker: None,
+        skip_dynamic_deps: false,
+        module_info_cacher: Default::default(),
+        unstable_bytes_imports: false,
+        unstable_text_imports: false,
+        jsr_metadata_store: None,
+        unstable_css_imports: false,
       },
     )
     .await;
-  assert!(diagnostics.is_empty());
   graph.valid()?;
   graph.build_fast_check_type_graph(BuildFastCheckTypeGraphOptions {
     fast_check_cache: Default::default(),
     fast_check_dts: true,
     jsr_url_provider: &PassthroughJsrUrlProvider,
-    module_parser: Some(&module_analyzer.analyzer),
+    es_parser: Some(&module_analyzer.analyzer),
     resolver: None,
-    npm_resolver: None,
     workspace_fast_check: WorkspaceFastCheckOption::Enabled(&workspace_members),
   });
 
@@ -528,7 +690,7 @@ async fn rebuild_npm_tarball_inner(
   Ok(npm_tarball)
 }
 
-struct GcsLoader<'a> {
+struct S3Loader<'a> {
   files: &'a HashSet<PackagePath>,
   bucket: &'a BucketWithQueue,
   scope: &'a ScopeName,
@@ -536,7 +698,7 @@ struct GcsLoader<'a> {
   version: &'a Version,
 }
 
-impl<'a> GcsLoader<'a> {
+impl S3Loader<'_> {
   fn load_inner(
     &self,
     specifier: &ModuleSpecifier,
@@ -550,34 +712,43 @@ impl<'a> GcsLoader<'a> {
         if !self.files.contains(&path) {
           return async move { Ok(None) }.boxed();
         };
-        let gcs_path =
-          gcs_paths::file_path(self.scope, self.name, self.version, &path);
+        let s3_path =
+          s3_paths::file_path(self.scope, self.name, self.version, &path);
         let bucket = self.bucket.clone();
         async move {
-          let Some(bytes) = bucket.download(gcs_path.into()).await? else {
+          let Some(bytes) = bucket
+            .download(s3_path.into())
+            .await
+            .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e))))?
+          else {
             return Ok(None);
           };
           Ok(Some(deno_graph::source::LoadResponse::Module {
             content: bytes.to_vec().into(),
+            mtime: None,
             specifier,
             maybe_headers: None,
           }))
         }
         .boxed()
       }
-      "http" | "https" | "node" | "npm" | "jsr" => async move {
+      "http" | "https" | "node" | "npm" | "jsr" | "bun" => async move {
         Ok(Some(deno_graph::source::LoadResponse::External {
           specifier,
         }))
       }
       .boxed(),
-      "data" => async move { load_data_url(&specifier) }.boxed(),
+      "data" => async move {
+        load_data_url(&specifier)
+          .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e))))
+      }
+      .boxed(),
       _ => async move { Ok(None) }.boxed(),
     }
   }
 }
 
-impl<'a> deno_graph::source::Loader for GcsLoader<'a> {
+impl deno_graph::source::Loader for S3Loader<'_> {
   fn load(
     &self,
     specifier: &ModuleSpecifier,
@@ -588,9 +759,36 @@ impl<'a> deno_graph::source::Loader for GcsLoader<'a> {
 }
 
 #[derive(Default)]
+pub struct ModuleParser(DefaultEsParser);
+
+impl deno_graph::ast::EsParser for ModuleParser {
+  fn parse_program(
+    &self,
+    options: deno_graph::ast::ParseOptions,
+  ) -> Result<ParsedSource, deno_ast::ParseDiagnostic> {
+    let source = self.0.parse_program(options)?;
+    if let Some(err) = source.diagnostics().first() {
+      return Err(err.clone());
+    }
+    Ok(source)
+  }
+}
+
 pub struct ModuleAnalyzer {
   pub analyzer: CapturingModuleAnalyzer,
   pub module_info: RefCell<HashMap<Url, ModuleInfo>>,
+}
+
+impl Default for ModuleAnalyzer {
+  fn default() -> Self {
+    Self {
+      analyzer: CapturingModuleAnalyzer::new(
+        Some(Box::new(ModuleParser::default())),
+        None,
+      ),
+      module_info: Default::default(),
+    }
+  }
 }
 
 impl ModuleAnalyzer {
@@ -609,14 +807,16 @@ impl ModuleAnalyzer {
   }
 }
 
-impl deno_graph::ModuleAnalyzer for ModuleAnalyzer {
-  fn analyze(
+#[async_trait::async_trait(?Send)]
+impl deno_graph::analysis::ModuleAnalyzer for ModuleAnalyzer {
+  async fn analyze(
     &self,
     specifier: &ModuleSpecifier,
     source: Arc<str>,
     media_type: MediaType,
-  ) -> Result<ModuleInfo, deno_ast::ParseDiagnostic> {
-    let module_info = self.analyzer.analyze(specifier, source, media_type)?;
+  ) -> Result<ModuleInfo, JsErrorBox> {
+    let module_info =
+      self.analyzer.analyze(specifier, source, media_type).await?;
     self
       .module_info
       .borrow_mut()
@@ -662,7 +862,7 @@ fn collect_dependencies(
           }
         }
       }
-      "file" | "data" | "node" => {}
+      "file" | "data" | "node" | "bun" | "virtual" | "cloudflare" => {}
       "http" | "https" => {
         return Err(PublishError::InvalidExternalImport {
           specifier: module.specifier().to_string(),
@@ -681,6 +881,21 @@ fn collect_dependencies(
   Ok(dependencies)
 }
 
+fn check_for_banned_extensions(
+  parsed_source: &ParsedSource,
+) -> Result<(), PublishError> {
+  match parsed_source.media_type() {
+    deno_ast::MediaType::Cjs | deno_ast::MediaType::Cts => {
+      Err(PublishError::CommonJs {
+        specifier: parsed_source.specifier().to_string(),
+        line: 0,
+        column: 0,
+      })
+    }
+    _ => Ok(()),
+  }
+}
+
 fn check_for_banned_syntax(
   parsed_source: &ParsedSource,
 ) -> Result<(), PublishError> {
@@ -691,14 +906,14 @@ fn check_for_banned_syntax(
       line_number,
       column_number,
     } = parsed_source
-      .text_info()
+      .text_info_lazy()
       .line_and_column_display(range.start);
     (line_number, column_number)
   };
 
-  for i in parsed_source.module().body.iter() {
+  for i in parsed_source.program_ref().body() {
     match i {
-      ast::ModuleItem::ModuleDecl(n) => match n {
+      deno_ast::ModuleItemRef::ModuleDecl(n) => match n {
         ast::ModuleDecl::TsNamespaceExport(n) => {
           let (line, column) = line_col(&n.range());
           return Err(PublishError::GlobalTypeAugmentation {
@@ -730,10 +945,8 @@ fn check_for_banned_syntax(
         },
         ast::ModuleDecl::Import(n) => {
           if let Some(with) = &n.with {
-            let range =
-              Span::new(n.src.span.hi(), with.span.lo(), n.src.span.ctxt)
-                .range();
-            let keyword = parsed_source.text_info().range_text(&range);
+            let range = Span::new(n.src.span.hi(), with.span.lo()).range();
+            let keyword = parsed_source.text_info_lazy().range_text(&range);
             if keyword.contains("assert") {
               let (line, column) = line_col(&with.span.range());
               return Err(PublishError::BannedImportAssertion {
@@ -747,9 +960,8 @@ fn check_for_banned_syntax(
         ast::ModuleDecl::ExportNamed(n) => {
           if let Some(with) = &n.with {
             let src = n.src.as_ref().unwrap();
-            let range =
-              Span::new(src.span.hi(), with.span.lo(), src.span.ctxt).range();
-            let keyword = parsed_source.text_info().range_text(&range);
+            let range = Span::new(src.span.hi(), with.span.lo()).range();
+            let keyword = parsed_source.text_info_lazy().range_text(&range);
             if keyword.contains("assert") {
               let (line, column) = line_col(&with.span.range());
               return Err(PublishError::BannedImportAssertion {
@@ -762,10 +974,8 @@ fn check_for_banned_syntax(
         }
         ast::ModuleDecl::ExportAll(n) => {
           if let Some(with) = &n.with {
-            let range =
-              Span::new(n.src.span.hi(), with.span.lo(), n.src.span.ctxt)
-                .range();
-            let keyword = parsed_source.text_info().range_text(&range);
+            let range = Span::new(n.src.span.hi(), with.span.lo()).range();
+            let keyword = parsed_source.text_info_lazy().range_text(&range);
             if keyword.contains("assert") {
               let (line, column) = line_col(&with.span.range());
               return Err(PublishError::BannedImportAssertion {
@@ -778,7 +988,7 @@ fn check_for_banned_syntax(
         }
         _ => continue,
       },
-      ast::ModuleItem::Stmt(n) => match n {
+      deno_ast::ModuleItemRef::Stmt(n) => match n {
         ast::Stmt::Decl(ast::Decl::TsModule(n)) => {
           if n.global {
             let (line, column) = line_col(&n.range());
@@ -826,7 +1036,7 @@ fn check_for_banned_triple_slash_directives(
     }
     if TRIPLE_SLASH_RE.is_match(&comment.text) {
       let lc = parsed_source
-        .text_info()
+        .text_info_lazy()
         .line_and_column_display(comment.range().start);
       return Err(PublishError::BannedTripleSlashDirectives {
         specifier: parsed_source.specifier().to_string(),
@@ -841,17 +1051,45 @@ fn check_for_banned_triple_slash_directives(
 #[cfg(test)]
 mod tests {
   fn parse(source: &str) -> deno_ast::ParsedSource {
-    let specifier = deno_ast::ModuleSpecifier::parse("file:///mod.ts").unwrap();
     let media_type = deno_ast::MediaType::TypeScript;
+    parse_with_media_type(source, media_type)
+  }
+
+  fn parse_with_media_type(
+    source: &str,
+    media_type: deno_ast::MediaType,
+  ) -> deno_ast::ParsedSource {
+    let specifier = deno_ast::ModuleSpecifier::parse("file:///mod.ts").unwrap();
     deno_ast::parse_module(deno_ast::ParseParams {
       specifier,
-      text_info: deno_ast::SourceTextInfo::new(source.into()),
+      text: source.into(),
       media_type,
       capture_tokens: false,
       scope_analysis: false,
       maybe_syntax: None,
     })
     .unwrap()
+  }
+
+  #[test]
+  fn banned_extensions() {
+    let x =
+      parse_with_media_type("let x = 1;", deno_ast::MediaType::TypeScript);
+    assert!(super::check_for_banned_extensions(&x).is_ok());
+
+    let x = parse_with_media_type("let x = 1;", deno_ast::MediaType::Cjs);
+    let err = super::check_for_banned_extensions(&x).unwrap_err();
+    assert!(
+      matches!(err, super::PublishError::CommonJs { .. }),
+      "{err:?}",
+    );
+
+    let x = parse_with_media_type("let x = 1;", deno_ast::MediaType::Cts);
+    let err = super::check_for_banned_extensions(&x).unwrap_err();
+    assert!(
+      matches!(err, super::PublishError::CommonJs { .. }),
+      "{err:?}",
+    );
   }
 
   #[test]
@@ -993,5 +1231,205 @@ mod tests {
 
     let x = parse("export * from './data.json' with { type: 'json' }");
     assert!(super::check_for_banned_syntax(&x).is_ok(), "{err:?}",);
+  }
+
+  fn make_location() -> deno_doc::Location {
+    deno_doc::Location {
+      filename: "file:///mod.ts".into(),
+      line: 0,
+      col: 0,
+      byte_index: 0,
+    }
+  }
+
+  fn make_js_doc(doc: Option<&str>) -> deno_doc::js_doc::JsDoc {
+    deno_doc::js_doc::JsDoc {
+      doc: doc.map(|d| d.into()),
+      tags: Box::new([]),
+    }
+  }
+
+  fn make_fn_decl(has_body: bool) -> deno_doc::node::DeclarationDef {
+    deno_doc::node::DeclarationDef::Function(deno_doc::function::FunctionDef {
+      def_name: None,
+      params: vec![],
+      return_type: None,
+      has_body,
+      is_async: false,
+      is_generator: false,
+      type_params: Box::new([]),
+      decorators: Box::new([]),
+    })
+  }
+
+  fn make_var_decl() -> deno_doc::node::DeclarationDef {
+    deno_doc::node::DeclarationDef::Variable(deno_doc::variable::VariableDef {
+      ts_type: None,
+      kind: deno_ast::swc::ast::VarDeclKind::Const,
+    })
+  }
+
+  fn make_declaration(
+    js_doc: deno_doc::js_doc::JsDoc,
+    def: deno_doc::node::DeclarationDef,
+  ) -> deno_doc::node::Declaration {
+    deno_doc::node::Declaration {
+      location: make_location(),
+      declaration_kind: deno_doc::node::DeclarationKind::Export,
+      js_doc,
+      def,
+    }
+  }
+
+  fn make_symbol(
+    name: &str,
+    declarations: Vec<deno_doc::node::Declaration>,
+  ) -> std::sync::Arc<deno_doc::node::Symbol> {
+    std::sync::Arc::new(deno_doc::node::Symbol {
+      name: name.into(),
+      is_default: false,
+      declarations,
+    })
+  }
+
+  fn make_document(
+    module_doc: deno_doc::js_doc::JsDoc,
+    symbols: Vec<std::sync::Arc<deno_doc::node::Symbol>>,
+  ) -> deno_doc::node::Document {
+    deno_doc::node::Document {
+      module_doc,
+      imports: vec![],
+      symbols,
+    }
+  }
+
+  #[test]
+  fn percentage_docs_skips_overload_implementation() {
+    // Overloaded function: two overload signatures (documented) + one implementation (undocumented)
+    let symbol = make_symbol(
+      "func",
+      vec![
+        make_declaration(
+          make_js_doc(Some("String variant.")),
+          make_fn_decl(false),
+        ),
+        make_declaration(
+          make_js_doc(Some("Number variant.")),
+          make_fn_decl(false),
+        ),
+        make_declaration(make_js_doc(None), make_fn_decl(true)),
+      ],
+    );
+    let doc = make_document(make_js_doc(None), vec![symbol]);
+
+    let mut output = indexmap::IndexMap::new();
+    output.insert(
+      deno_ast::ModuleSpecifier::parse("file:///mod.ts").unwrap(),
+      doc,
+    );
+
+    // Should be 100% because the implementation is skipped
+    let pct = super::percentage_of_symbols_with_docs(&output);
+    assert!(
+      (pct - 1.0).abs() < f32::EPSILON,
+      "Expected 100% but got {:.0}%",
+      pct * 100.0,
+    );
+  }
+
+  #[test]
+  fn percentage_docs_counts_single_function_normally() {
+    // A single function (no overloads): implementation counts normally
+    let symbol = make_symbol(
+      "func",
+      vec![make_declaration(make_js_doc(None), make_fn_decl(true))],
+    );
+    let doc = make_document(make_js_doc(None), vec![symbol]);
+
+    let mut output = indexmap::IndexMap::new();
+    output.insert(
+      deno_ast::ModuleSpecifier::parse("file:///mod.ts").unwrap(),
+      doc,
+    );
+
+    let pct = super::percentage_of_symbols_with_docs(&output);
+    assert!(
+      pct.abs() < f32::EPSILON,
+      "Expected 0% but got {:.0}%",
+      pct * 100.0,
+    );
+  }
+
+  #[test]
+  fn percentage_docs_skips_json_modules() {
+    let symbol = make_symbol(
+      "data",
+      vec![make_declaration(make_js_doc(None), make_var_decl())],
+    );
+    let doc = make_document(make_js_doc(None), vec![symbol]);
+
+    let mut output = indexmap::IndexMap::new();
+    output.insert(
+      deno_ast::ModuleSpecifier::parse("file:///data.json").unwrap(),
+      doc,
+    );
+
+    // JSON modules are skipped entirely, so default is 1.0
+    let pct = super::percentage_of_symbols_with_docs(&output);
+    assert!(
+      (pct - 1.0).abs() < f32::EPSILON,
+      "Expected 100% but got {:.0}%",
+      pct * 100.0,
+    );
+  }
+
+  #[test]
+  fn entrypoints_missing_docs_returns_export_names() {
+    let doc_with = make_document(make_js_doc(Some("Module doc")), vec![]);
+    let doc_without = make_document(make_js_doc(None), vec![]);
+
+    let mut output = indexmap::IndexMap::new();
+    output.insert(
+      deno_ast::ModuleSpecifier::parse("file:///mod.ts").unwrap(),
+      doc_with,
+    );
+    output.insert(
+      deno_ast::ModuleSpecifier::parse("file:///utils.ts").unwrap(),
+      doc_without,
+    );
+
+    let exports = crate::db::ExportsMap::new(indexmap::indexmap! {
+      ".".to_string() => "./mod.ts".to_string(),
+      "./utils".to_string() => "./utils.ts".to_string(),
+    });
+
+    let missing = super::entrypoints_missing_module_doc(
+      &output,
+      Some(deno_ast::ModuleSpecifier::parse("file:///mod.ts").unwrap()),
+      false,
+      &exports,
+    );
+
+    assert_eq!(missing, vec!["./utils".to_string()]);
+  }
+
+  #[test]
+  fn entrypoints_missing_docs_skips_json() {
+    let doc_without = make_document(make_js_doc(None), vec![]);
+
+    let mut output = indexmap::IndexMap::new();
+    output.insert(
+      deno_ast::ModuleSpecifier::parse("file:///data.json").unwrap(),
+      doc_without,
+    );
+
+    let exports = crate::db::ExportsMap::new(indexmap::indexmap! {
+      "./data".to_string() => "./data.json".to_string(),
+    });
+
+    let missing =
+      super::entrypoints_missing_module_doc(&output, None, false, &exports);
+
+    assert!(missing.is_empty(), "JSON modules should be skipped");
   }
 }

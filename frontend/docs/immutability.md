@@ -51,6 +51,18 @@ publish a new version of your package and yank the old version.
 Note that yanking does not remove the contents of the package version from the
 registry. It only superficially hides the version from users in some places.
 
+## What if I need to delete a package?
+
+You can't delete a package if it has published versions. However, you can
+archive a package.
+[Learn more about archiving a package.](/docs/packages#archiving-a-package)
+
+Archiving a package prevents new versions from being published, and hides the
+package from search results and the scope page. However, users can still
+download the package if they already know about it.
+
+Archiving does not remove the contents of the package from the registry.
+
 ## I published a secret / personal info by accident, what do I do?
 
 If you accidentally published a secret, you should immediately revoke the

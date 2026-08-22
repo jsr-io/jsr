@@ -1,7 +1,9 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { JSX } from "preact";
-import { computed, Signal, useSignal } from "@preact/signals";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { createPortal } from "preact/compat";
+import { useSignal } from "@preact/signals";
+import { useEffect, useRef } from "preact/hooks";
+import { IS_BROWSER } from "fresh/runtime";
 import {
   components,
   create,
@@ -9,28 +11,71 @@ import {
   type Orama,
   search,
 } from "@orama/orama";
+import { Highlight, type Position } from "@orama/highlight";
 import { api, path } from "../../../utils/api.ts";
 import { useMacLike } from "../../../utils/os.ts";
+import type {
+  AllSymbolsCtx,
+  AllSymbolsItemCtx,
+  SectionContentNamespaceSectionCtx,
+} from "@deno/doc/html-types";
+import { renderToString } from "preact-render-to-string";
+import { AllSymbols } from "../../../components/doc/AllSymbols.tsx";
 
 export interface LocalSymbolSearchProps {
   scope: string;
   pkg: string;
   version: string;
+  content?: AllSymbolsCtx;
 }
 
-interface SearchRecord {
+interface SearchItem {
   name: string;
-  kind: (
-    | "class"
-    | "enum"
-    | "function"
-    | "interface"
-    | "namespace"
-    | "typeAlias"
-    | "variable"
-  )[];
-  file: string;
-  location: { filename: string; line: number; col: number };
+  symbolName: string;
+  description: string;
+}
+
+// deno-lint-ignore no-explicit-any
+async function createOrama(): Promise<Orama<any>> {
+  const tokenizer = await components.tokenizer.createTokenizer();
+
+  return create({
+    schema: {
+      name: "string",
+      description: "string",
+    },
+    components: {
+      tokenizer: {
+        language: "english",
+        normalizationCache: new Map(),
+        tokenize(
+          raw: string,
+          lang: string | undefined,
+          prop: string | undefined,
+        ) {
+          if (prop === "name") {
+            const tokens = raw.split(/(?=[A-Z])/).map((s) => s.toLowerCase());
+            tokens.forEach((token, index) =>
+              tokens[index + 1] &&
+              tokens.push(token + tokens[index + 1])
+            );
+            tokens.push(raw.toLowerCase());
+            return tokens;
+          }
+          return tokenizer.tokenize(raw, lang, prop);
+        },
+      },
+    },
+  });
+}
+
+const highlighter = new Highlight();
+
+function getDocsText(docs: string | null) {
+  if (!docs) return "";
+  const el = document.createElement("template");
+  el.innerHTML = docs;
+  return el.content.textContent.replaceAll("\n", " ");
 }
 
 export function LocalSymbolSearch(
@@ -38,72 +83,66 @@ export function LocalSymbolSearch(
 ) {
   // deno-lint-ignore no-explicit-any
   const db = useSignal<undefined | Orama<any>>(undefined);
-  const results = useSignal<SearchRecord[]>([]);
-  const selectionIdx = useSignal(-1);
+  const showResults = useSignal(false);
+  const hasResults = useSignal(true);
   const macLike = useMacLike();
+  const searchCounter = useSignal(0);
+  const searchContent = useSignal<AllSymbolsCtx | null>(null);
 
   useEffect(() => {
     (async () => {
       const [oramaDb, searchResp] = await Promise.all([
-        (async () => {
-          const tokenizer = await components.tokenizer.createTokenizer();
-
-          return create({
-            schema: {
-              name: "string",
-              kind: "enum[]",
-              file: "string",
-              location: {
-                filename: "string",
-                line: "number",
-                col: "number",
-              },
-            },
-            components: {
-              tokenizer: {
-                language: "english",
-                normalizationCache: new Map(),
-                tokenize(
-                  raw: string,
-                  lang: string | undefined,
-                  prop: string | undefined,
-                ) {
-                  if (prop === "name") {
-                    return raw.split(/(?=[A-Z])/).map((s) => s.toLowerCase());
-                  }
-                  return tokenizer.tokenize(raw, lang, prop);
-                },
-              },
-            },
-          });
-        })(),
-        api.get<{ nodes: SearchRecord[] }>(
-          path`/scopes/${props.scope}/packages/${props.pkg}/versions/${
-            props.version || "latest"
-          }/docs/search`,
-        ),
+        createOrama(),
+        !props.content
+          ? api.get<AllSymbolsCtx>(
+            path`/scopes/${props.scope}/packages/${props.pkg}/versions/${
+              props.version || "latest"
+            }/docs/search_structured`,
+          )
+          : Promise.resolve({ ok: true, data: props.content }),
       ]);
 
       if (searchResp.ok) {
-        // deno-lint-ignore no-explicit-any
-        await insertMultiple(oramaDb, searchResp.data.nodes as any);
-        db.value = oramaDb;
+        searchContent.value = searchResp.data;
       } else {
         console.error(searchResp);
+        return;
       }
+
+      const searchItems: SearchItem[] = [];
+
+      for (const entrypoint of searchContent.value!.entrypoints) {
+        for (const kindGroup of entrypoint.module_doc.sections.sections) {
+          for (
+            const symbol
+              of (kindGroup.content as SectionContentNamespaceSectionCtx)
+                .content
+          ) {
+            searchItems.push({
+              name: symbol.name,
+              symbolName: symbol.name,
+              description: getDocsText(symbol.docs),
+            });
+
+            for (const subitem of symbol.subitems) {
+              searchItems.push({
+                name: subitem.title,
+                symbolName: symbol.name,
+                description: getDocsText(subitem.docs),
+              });
+            }
+          }
+        }
+      }
+
+      const searchResults = document.getElementById("docSearchResults")!;
+      searchResults.innerHTML = renderToString(
+        <AllSymbols items={searchContent.value!.entrypoints} />,
+      );
+
+      await insertMultiple(oramaDb, searchItems);
+      db.value = oramaDb;
     })();
-  }, []);
-
-  const ref = useRef<HTMLDivElement>(null);
-  const showResults = useSignal(true);
-  useEffect(() => {
-    const outsideClick = (e: Event) => {
-      if (!ref.current) return;
-      showResults.value = ref.current.contains(e.target as Element);
-    };
-
-    document.addEventListener("click", outsideClick);
-    return () => document.removeEventListener("click", outsideClick);
   }, []);
 
   useEffect(() => {
@@ -120,148 +159,245 @@ export function LocalSymbolSearch(
     };
   });
 
+  const previousResultNodes = useRef<HTMLElement[]>([]);
+  const previousSections = useRef<Set<HTMLElement>>(new Set());
+  const searchResultsContainer = useRef<HTMLElement | null>(null);
+
+  // Get the search results container on mount
+  useEffect(() => {
+    searchResultsContainer.current = document.getElementById(
+      "docSearchResults",
+    );
+  }, []);
+
   async function onInput(e: JSX.TargetedEvent<HTMLInputElement>) {
     if (e.currentTarget.value) {
+      const term = e.currentTarget.value;
       const searchResult = await search(db.value!, {
-        term: e.currentTarget.value,
-        properties: ["name"],
-        threshold: 0.4,
+        term,
+        properties: ["name", "description"],
+        threshold: 0.2,
+        limit: 50,
       });
-      selectionIdx.value = -1;
-      results.value = searchResult.hits.map((hit) =>
-        // deno-lint-ignore no-explicit-any
-        hit.document as any as SearchRecord
-      );
-    } else {
-      results.value = [];
-    }
-  }
 
-  function onKeyUp(e: KeyboardEvent) {
-    if (e.key === "ArrowDown") {
-      selectionIdx.value = Math.min(
-        results.value.length - 1,
-        selectionIdx.value + 1,
-      );
-    } else if (e.key === "ArrowUp") {
-      selectionIdx.value = Math.max(0, selectionIdx.value - 1);
-    } else if (e.key === "Enter") {
-      if (selectionIdx.value > -1) {
-        const item = results.value[selectionIdx.value];
-        if (item !== undefined) {
-          e.preventDefault();
-          location.href = `/@${props.scope}/${props.pkg}${
-            props.version ? `@${props.version}` : ""
-          }/doc${item.file === "." ? "" : item.file}/~/${item.name}`;
-        }
+      for (const node of previousResultNodes.current) {
+        node.style.setProperty("display", "none");
+        node.querySelectorAll("mark.orama-highlight").forEach((el) => {
+          el.replaceWith(...el.childNodes);
+        });
+        node.normalize();
       }
+      previousResultNodes.current = [];
+
+      for (const section of previousSections.current) {
+        section.hidden = true;
+      }
+      previousSections.current.clear();
+
+      const hitNames = new Set(
+        searchResult.hits.map((hit) => hit.document.name),
+      );
+
+      const out: AllSymbolsItemCtx[] = searchContent.value!.entrypoints
+        .map((entrypoint) => {
+          const filteredSections = entrypoint.module_doc.sections.sections
+            .map((kindGroup) => {
+              const filteredContent =
+                (kindGroup.content as SectionContentNamespaceSectionCtx).content
+                  .map((symbol) => {
+                    const symbolMatches = hitNames.has(symbol.name);
+                    const matchingSubitems = symbol.subitems.filter((subitem) =>
+                      hitNames.has(subitem.title)
+                    );
+
+                    if (!symbolMatches && matchingSubitems.length === 0) {
+                      return null;
+                    }
+
+                    return {
+                      ...symbol,
+                      subitems: symbolMatches
+                        ? symbol.subitems
+                        : matchingSubitems,
+                    };
+                  })
+                  .filter(Boolean);
+
+              if (filteredContent.length === 0) return null;
+
+              return {
+                ...kindGroup,
+                content: { ...kindGroup.content, content: filteredContent },
+              };
+            })
+            .filter(Boolean);
+
+          if (filteredSections.length === 0) return null;
+
+          return {
+            ...entrypoint,
+            module_doc: {
+              ...entrypoint.module_doc,
+              sections: {
+                ...entrypoint.module_doc.sections,
+                sections: filteredSections,
+              },
+            },
+          };
+        })
+        .filter(Boolean) as AllSymbolsItemCtx[];
+
+      const searchResults = document.getElementById("docSearchResults")!;
+      searchResults.innerHTML = highlight(
+        renderToString(
+          <AllSymbols items={out} />,
+        ),
+        term,
+      );
+
+      hasResults.value = searchResult.hits.length > 0;
+      searchCounter.value++;
+      showResults.value = true;
+    } else {
+      hasResults.value = true;
+      showResults.value = false;
     }
   }
 
-  const placeholder = `Search for symbols in @${props.scope}/${props.pkg}${
+  if (IS_BROWSER) {
+    if (showResults.value && searchCounter.value) {
+      document.getElementById("docMain")!.classList.add("hidden");
+      document.getElementById("docSearchResults")!.classList.remove("hidden");
+    } else {
+      document.getElementById("docMain")!.classList.remove("hidden");
+      document.getElementById("docSearchResults")!.classList.add("hidden");
+    }
+  }
+
+  const placeholder = `Search for symbols${
     macLike !== undefined ? ` (${macLike ? "⌘/" : "Ctrl+/"})` : ""
   }`;
+
+  const showNoResults = IS_BROWSER &&
+    searchResultsContainer.current &&
+    showResults.value &&
+    !hasResults.value;
+
   return (
-    <div class="flex-none" ref={ref}>
-      <input
-        type="text"
-        placeholder={placeholder}
-        id="symbol-search-input"
-        class="block text-sm w-full py-1.5 px-2 input-container input border-cyan-900/30"
-        disabled={!db}
-        onInput={onInput}
-        onKeyUp={onKeyUp}
-      />
-      <div role="listbox" tabindex={0} class="relative">
-        {!(!showResults.value || results.value.length == 0) && (
-          <ResultList
-            results={results}
-            searchProps={props}
-            selectionIdx={selectionIdx}
-          />
-        )}
+    <>
+      <div class="flex-none">
+        <input
+          type="search"
+          placeholder={placeholder}
+          id="symbol-search-input"
+          class="block text-sm w-full py-2 px-2 input-container input border border-jsr-cyan-300/50 dark:border-jsr-cyan-800"
+          disabled={!db.value}
+          onInput={onInput}
+        />
       </div>
-    </div>
+      {showNoResults &&
+        createPortal(
+          <div class="text-secondary py-4">No results found</div>,
+          searchResultsContainer.current!,
+        )}
+    </>
   );
 }
 
-function ResultList(
-  { results, searchProps, selectionIdx }: {
-    results: Signal<SearchRecord[]>;
-    searchProps: LocalSymbolSearchProps;
-    selectionIdx: Signal<number>;
-  },
-) {
-  return (
-    <div class="absolute md:right-0 bg-white min-w-full border sibling:bg-red-500 shadow z-40">
-      <ul class="divide-y-1">
-        {results.value.map((result, i) => {
-          const selected = computed(() => selectionIdx.value === i);
-          return (
-            <li
-              key={result.file + result.kind + result.name}
-              class="hover:bg-gray-100 cursor-pointer aria-[selected=true]:bg-cyan-100"
-              aria-selected={selected}
-            >
-              <a
-                href={`/@${searchProps.scope}/${searchProps.pkg}${
-                  searchProps.version ? `@${searchProps.version}` : ""
-                }/doc${
-                  result.file === "." ? "" : result.file
-                }/~/${result.name}`}
-                class="flex gap-4 items-center justify-between py-2 px-3"
-              >
-                <div class="flex items-center gap-2.5 ddoc">
-                  <div class="flex justify-end compound_types w-[2.125rem] shrink-0">
-                    {result.kind.map((kind) => {
-                      const [rustKind, title, symbol] =
-                        docNodeKindToStringVariants(kind);
+function highlight(html: string, term: string): string {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  const fragment = template.content;
 
-                      return (
-                        <div
-                          class={`text-${rustKind} bg-${rustKind}/15 rounded-full size-5 font-medium text-xs leading-5 text-center align-middle shrink-0 select-none font-mono`}
-                          title={title}
-                        >
-                          {symbol}
-                        </div>
-                      );
-                    })}
-                  </div>
+  for (const el of fragment.querySelectorAll(".highlightable")) {
+    const positions = highlighter.highlight(el.textContent!, term).positions;
+    if (positions.length === 0) continue;
+    applyHighlights(el, [...positions]);
+  }
 
-                  <span class="text-sm leading-none">
-                    {result.name}
-                  </span>
-                </div>
+  const div = document.createElement("div");
+  div.appendChild(fragment.cloneNode(true));
+  return div.innerHTML;
+}
 
-                <div class="text-xs italic text-stone-400 px-0.5 overflow-hidden whitespace-nowrap text-ellipsis">
-                  {result.location.filename}
-                </div>
-              </a>
-            </li>
+function applyHighlights(fragment: Element, positions: Position[]) {
+  if (positions.length > 0) {
+    const walker = document.createTreeWalker(
+      fragment,
+      NodeFilter.SHOW_TEXT,
+    );
+
+    let currentPosition = 0;
+    let node = walker.nextNode();
+    while (node && positions.length) {
+      const currentNode = walker.currentNode as Text;
+      const textContent = currentNode.textContent!;
+      const length = textContent.length;
+
+      const fragments = [];
+      let start = 0;
+
+      positionsLoop: for (let i = 0; i < positions.length; i++) {
+        const position = positions[i];
+        const localStart = position.start - currentPosition;
+        const localEnd = position.end - currentPosition;
+
+        if (localStart >= length) {
+          // if the start is after the current node, there cannot be more highlights for this node
+          break positionsLoop;
+        }
+
+        if ((localStart >= 0) && (localEnd < length)) {
+          fragments.push(
+            textContent.slice(start, localStart),
+            textContent.slice(localStart, localEnd + 1),
           );
-        })}
-      </ul>
-    </div>
-  );
-}
+          start = localEnd + 1;
+          positions.shift();
+          i--; // we need to recheck the current position
+        } else if (localStart >= 0) {
+          fragments.push(
+            textContent.slice(start, localStart),
+            textContent.slice(localStart),
+          );
+          start = length;
+          // if the end is not in this node, there cannot be more highlights for this node
+          break positionsLoop;
+        } else if (localEnd < length) {
+          fragments.push(
+            "",
+            textContent.slice(start, localEnd + 1),
+          );
+          start = localEnd + 1;
+          positions.shift();
+          i--; // we need to recheck the current position
+        } else {
+          break positionsLoop;
+        }
+      }
 
-function docNodeKindToStringVariants(kind: string) {
-  switch (kind) {
-    case "function":
-      return ["Function", "Function", "f"];
-    case "variable":
-      return ["Variable", "Variable", "v"];
-    case "class":
-      return ["Class", "Class", "c"];
-    case "enum":
-      return ["Enum", "Enum", "E"];
-    case "interface":
-      return ["Interface", "Interface", "I"];
-    case "typeAlias":
-      return ["TypeAlias", "Type Alias", "T"];
-    case "namespace":
-      return ["Namespace", "Namespace", "N"];
-    default:
-      return [];
+      if (start !== length) {
+        fragments.push(textContent.slice(start));
+      }
+
+      currentPosition += length;
+
+      node = walker.nextNode();
+      if (fragments.length > 1) {
+        currentNode.replaceWith(
+          document.createRange().createContextualFragment(
+            fragments
+              .map((fragment, i) =>
+                i % 2 === 0
+                  ? fragment
+                  : fragment !== ""
+                  ? `<mark class="orama-highlight">${fragment}</mark>`
+                  : ""
+              )
+              .join(""),
+          ),
+        );
+      }
+    }
   }
 }

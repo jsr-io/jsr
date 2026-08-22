@@ -1,47 +1,66 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use std::collections::HashSet;
-
 use bytes::Bytes;
+use chrono::Duration;
+use chrono::Utc;
+use deno_semver::StackString;
+use deno_semver::VersionReq;
 use deno_semver::package::PackageReq;
 use deno_semver::package::PackageReqReference;
-use deno_semver::VersionReq;
-use futures::stream;
+use deno_semver::package::PackageSubPath;
 use futures::StreamExt;
+use futures::stream;
 use hyper::Body;
 use hyper::Request;
-use routerify::ext::RequestExt;
 use routerify::Router;
+use routerify::ext::RequestExt;
+use routerify_query::RequestQueryExt;
 use serde::Deserialize;
 use serde::Serialize;
+use std::collections::HashSet;
+use std::str::FromStr;
+use tracing::Span;
+use tracing::error;
 use tracing::field;
 use tracing::instrument;
-use tracing::Span;
 
-use crate::analysis::rebuild_npm_tarball;
+use crate::NpmUrl;
+use crate::RegistryUrl;
 use crate::analysis::RebuildNpmTarballData;
+use crate::analysis::rebuild_npm_tarball;
 use crate::api::ApiError;
-use crate::buckets::Buckets;
-use crate::buckets::UploadTaskBody;
+use crate::api::PublishQueue;
 use crate::db::Database;
+use crate::db::DownloadKind;
 use crate::db::NewNpmTarball;
+use crate::db::PublishingTaskStatus;
+use crate::db::STALE_PUBLISHING_TASK_SECS;
+use crate::db::VersionDownloadCount;
+use crate::external::cloudflare;
+use crate::external::cloudflare::CachePurge;
 use crate::gcp;
-use crate::gcp::GcsUploadOptions;
-use crate::gcp::CACHE_CONTROL_DO_NOT_CACHE;
-use crate::gcp::CACHE_CONTROL_IMMUTABLE;
-use crate::gcs_paths;
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
 use crate::ids::Version;
-use crate::npm::generate_npm_version_manifest;
 use crate::npm::NPM_TARBALL_REVISION;
+use crate::npm::generate_npm_version_manifest;
 use crate::publish;
+use crate::s3::Buckets;
+use crate::s3::CACHE_CONTROL_IMMUTABLE;
+use crate::s3::CACHE_CONTROL_MANIFEST;
+use crate::s3::S3UploadOptions;
+use crate::s3::UploadTaskBody;
+use crate::s3_paths;
 use crate::util;
-use crate::util::decode_json;
 use crate::util::ApiResult;
-use crate::NpmUrl;
-use crate::RegistryUrl;
+use crate::util::decode_json;
 
 pub struct NpmTarballBuildQueue(pub Option<gcp::Queue>);
+pub struct AnalyticsEngineConfig(
+  pub  Option<(
+    cloudflare::AnalyticsEngineClient,
+    /* dataset name */ String,
+  )>,
+);
 
 pub fn tasks_router() -> Router<Body, ApiError> {
   Router::builder()
@@ -51,8 +70,82 @@ pub fn tasks_router() -> Router<Body, ApiError> {
       "/npm_tarball_enqueue",
       util::json(npm_tarball_enqueue_handler),
     )
+    .post(
+      "/scrape_download_counts",
+      util::json(scrape_download_counts_handler),
+    )
+    .post(
+      "/clean_oauth_states",
+      util::json(clean_oauth_states_handler),
+    )
+    .post(
+      "/clean_download_counts_4h",
+      util::json(clean_download_counts_4h_handler),
+    )
+    .post(
+      "/requeue_stuck_publishing_tasks",
+      util::json(requeue_stuck_publishing_tasks_handler),
+    )
     .build()
     .unwrap()
+}
+
+/// Re-drive publishing tasks that got stranded in a non-terminal state.
+///
+/// This is the self-healing counterpart to the manual admin requeue endpoint.
+/// A queue worker that dies mid-publish (Cloud Run timeout, cancelled CI run,
+/// transient S3/Cloudflare error after the version row was committed) can
+/// leave a task stuck in `processing` or `processed`. Such a task never
+/// finishes regenerating the package-level `meta.json`, so the published
+/// version stays invisible to Deno's resolver, and the version cannot be
+/// re-published because of the `status != 'failure'` guard in
+/// `create_publishing_task`. This handler, run periodically by Cloud
+/// Scheduler, finds those tasks and pushes them back through the publish
+/// queue, which runs `publish_task`'s state machine to completion.
+#[instrument(
+  name = "POST /tasks/requeue_stuck_publishing_tasks",
+  skip(req),
+  err
+)]
+pub async fn requeue_stuck_publishing_tasks_handler(
+  req: Request<Body>,
+) -> ApiResult<()> {
+  let db = req.data::<Database>().unwrap().clone();
+  let queue = req.data::<PublishQueue>().unwrap().0.clone();
+  let queue = queue.ok_or(ApiError::InternalServerError)?;
+
+  let stale = db
+    .list_stale_publishing_tasks(STALE_PUBLISHING_TASK_SECS)
+    .await?;
+
+  for (id, status) in stale {
+    // A `processing` task never committed its version row (the finalize
+    // transaction is atomic), so it is safe to reset it to `pending` and let
+    // the worker reprocess the tarball from scratch. A `processed` task
+    // already has its rows committed and only needs the metadata-upload step
+    // re-driven, so it is requeued as-is.
+    if status == PublishingTaskStatus::Processing
+      && let Err(err) = db
+        .update_publishing_task_status(
+          None,
+          id,
+          PublishingTaskStatus::Processing,
+          PublishingTaskStatus::Pending,
+          None,
+        )
+        .await
+    {
+      // Lost a race (the task changed status concurrently) or a transient DB
+      // error. Skip it — a later run will pick it up again if still stuck.
+      error!("failed to reset stuck publishing task {id}: {err}");
+      continue;
+    }
+
+    let body = serde_json::to_vec(&id)?;
+    queue.task_buffer(None, Some(body.into())).await?;
+  }
+
+  Ok(())
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -78,6 +171,7 @@ pub async fn npm_tarball_build_handler(
   let buckets = req.data::<Buckets>().unwrap().clone();
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
+  let cache_purge = req.data::<CachePurge>().unwrap().clone();
 
   let is_already_built = db
     .get_npm_tarball(
@@ -93,7 +187,7 @@ pub async fn npm_tarball_build_handler(
     let version = db
       .get_package_version(&job.scope, &job.name, &job.version)
       .await?
-      .ok_or_else(|| ApiError::PackageVersionNotFound)?;
+      .ok_or(ApiError::PackageVersionNotFound)?;
     let dependencies = db
       .list_package_version_dependencies(&job.scope, &job.name, &job.version)
       .await?;
@@ -110,12 +204,12 @@ pub async fn npm_tarball_build_handler(
         let sub_path = if dep.dependency_path.is_empty() {
           None
         } else {
-          Some(dep.dependency_path)
+          Some(PackageSubPath::from_string(dep.dependency_path))
         };
         let version_req =
           VersionReq::parse_from_specifier(&dep.dependency_constraint).unwrap();
         let req = PackageReq {
-          name: dep.dependency_name,
+          name: StackString::from_string(dep.dependency_name),
           version_req,
         };
         (dep.dependency_kind, PackageReqReference { req, sub_path })
@@ -147,7 +241,7 @@ pub async fn npm_tarball_build_handler(
       sha512: &npm_tarball.sha512,
     };
 
-    let npm_tarball_path = gcs_paths::npm_tarball_path(
+    let npm_tarball_path = s3_paths::npm_tarball_path(
       &job.scope,
       &job.name,
       &job.version,
@@ -158,7 +252,7 @@ pub async fn npm_tarball_build_handler(
       .upload(
         npm_tarball_path.into(),
         UploadTaskBody::Bytes(Bytes::from(npm_tarball.tarball)),
-        GcsUploadOptions {
+        S3UploadOptions {
           content_type: Some("application/octet-stream".into()),
           cache_control: Some(CACHE_CONTROL_IMMUTABLE.into()),
           gzip_encoded: false,
@@ -170,7 +264,7 @@ pub async fn npm_tarball_build_handler(
   }
 
   let npm_version_manifest_path =
-    crate::gcs_paths::npm_version_manifest_path(&job.scope, &job.name);
+    crate::s3_paths::npm_version_manifest_path(&job.scope, &job.name);
   let npm_version_manifest =
     generate_npm_version_manifest(&db, &npm_url, &job.scope, &job.name).await?;
   let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
@@ -179,13 +273,19 @@ pub async fn npm_tarball_build_handler(
     .upload(
       npm_version_manifest_path.into(),
       UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      S3UploadOptions {
         content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
+        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
         gzip_encoded: false,
       },
     )
     .await?;
+
+  cache_purge
+    .purge(vec![crate::s3_paths::npm_version_manifest_url(
+      &npm_url, &job.scope, &job.name,
+    )])
+    .await;
 
   Ok(())
 }
@@ -197,10 +297,7 @@ pub async fn npm_tarball_enqueue_handler(req: Request<Body>) -> ApiResult<()> {
   let db = req.data::<Database>().unwrap().clone();
   let queue = req.data::<NpmTarballBuildQueue>().unwrap();
 
-  let queue = queue
-    .0
-    .as_ref()
-    .ok_or_else(|| ApiError::InternalServerError)?;
+  let queue = queue.0.as_ref().ok_or(ApiError::InternalServerError)?;
 
   let missing_tarballs = db
     .list_missing_npm_tarballs(NPM_TARBALL_REVISION as i32)
@@ -223,4 +320,159 @@ pub async fn npm_tarball_enqueue_handler(req: Request<Body>) -> ApiResult<()> {
   }
 
   Ok(())
+}
+
+#[instrument(name = "POST /tasks/scrape_download_counts", skip(req), err)]
+pub async fn scrape_download_counts_handler(
+  req: Request<Body>,
+) -> ApiResult<()> {
+  let db = req.data::<Database>().unwrap().clone();
+
+  let time_window: i64 = req
+    .query("intervalHrs")
+    .ok_or_else(|| ApiError::MalformedRequest {
+      msg: "intervalHrs query param is required".into(),
+    })?
+    .parse()
+    .map_err(|_| ApiError::MalformedRequest {
+      msg: "intervalHrs query param must be an integer".into(),
+    })?;
+
+  let analytics_engine = req.data::<AnalyticsEngineConfig>().unwrap();
+  if let Some((analytics_client, dataset_name)) = analytics_engine.0.as_ref() {
+    let jsr_downloads = analytics_client
+      .query_downloads(format!(
+        r#"
+SELECT
+  toStartOfInterval(timestamp, INTERVAL '4' HOUR) as time_bucket,
+  blob2 as scope,
+  blob3 as package,
+  blob4 as ver,
+  intDiv(sum(_sample_interval), 1) as count
+FROM
+  '{dataset_name}'
+WHERE
+  timestamp >= NOW() - INTERVAL '{time_window}' HOUR
+  AND blob1 = 'jsr'
+GROUP BY
+  time_bucket,
+  scope,
+  package,
+  ver
+ORDER BY
+  time_bucket DESC
+      "#
+      ))
+      .await
+      .map_err(|e| {
+        error!("Failed to query JSR downloads from Analytics Engine: {}", e);
+        ApiError::InternalServerError
+      })?;
+
+    insert_analytics_download_entries(
+      &db,
+      jsr_downloads,
+      DownloadKind::JsrMeta,
+    )
+    .await?;
+
+    let npm_downloads = analytics_client
+      .query_downloads(format!(
+        r#"
+SELECT
+  toStartOfInterval(timestamp, INTERVAL '4' HOUR) as time_bucket,
+  blob2 as scope,
+  blob3 as package,
+  blob4 as ver,
+  intDiv(sum(_sample_interval), 1) as count
+FROM
+  '{dataset_name}'
+WHERE
+  timestamp >= NOW() - INTERVAL '{time_window}' HOUR
+  AND blob1 = 'npm'
+GROUP BY
+  time_bucket,
+  scope,
+  package,
+  ver
+ORDER BY
+  time_bucket DESC
+      "#
+      ))
+      .await
+      .map_err(|e| {
+        error!("Failed to query NPM downloads from Analytics Engine: {}", e);
+        ApiError::InternalServerError
+      })?;
+
+    insert_analytics_download_entries(&db, npm_downloads, DownloadKind::NpmTgz)
+      .await?;
+  };
+
+  Ok(())
+}
+
+#[instrument(name = "POST /tasks/clean_oauth_states", skip(req), err)]
+pub async fn clean_oauth_states_handler(req: Request<Body>) -> ApiResult<()> {
+  let db = req.data::<Database>().unwrap().clone();
+  let cutoff = Utc::now() - Duration::hours(1);
+  let deleted = db.delete_expired_oauth_states(cutoff).await?;
+  tracing::info!(deleted, "cleaned up expired oauth states");
+  Ok(())
+}
+
+#[instrument(name = "POST /tasks/clean_download_counts_4h", skip(req), err)]
+pub async fn clean_download_counts_4h_handler(
+  req: Request<Body>,
+) -> ApiResult<()> {
+  let db = req.data::<Database>().unwrap().clone();
+  let cutoff = Utc::now() - Duration::days(7);
+  let deleted = db.cleanup_download_counts_4h(cutoff).await?;
+  tracing::info!(deleted, "cleaned up old 4h download counts");
+  Ok(())
+}
+
+async fn insert_analytics_download_entries(
+  db: &Database,
+  records: Vec<cloudflare::DownloadRecord>,
+  kind: DownloadKind,
+) -> Result<(), ApiError> {
+  let mut entries = Vec::with_capacity(records.len());
+  for record in records {
+    if let Some(entry) =
+      deserialize_version_download_count_from_analytics(record, kind)
+    {
+      entries.push(entry);
+    }
+  }
+
+  db.insert_download_entries(entries).await?;
+
+  Ok(())
+}
+
+fn deserialize_version_download_count_from_analytics(
+  record: cloudflare::DownloadRecord,
+  kind: DownloadKind,
+) -> Option<VersionDownloadCount> {
+  // Cloudflare Analytics Engine (ClickHouse) returns datetimes as
+  // "YYYY-MM-DD HH:MM:SS", not RFC3339.
+  let time_bucket = chrono::NaiveDateTime::parse_from_str(
+    &record.time_bucket,
+    "%Y-%m-%d %H:%M:%S",
+  )
+  .ok()
+  .unwrap()
+  .and_utc();
+  let scope = ScopeName::new(record.scope).ok()?;
+  let package = PackageName::new(record.package).ok()?;
+  let version = Version::new(&record.ver).ok()?;
+  Some(VersionDownloadCount {
+    time_bucket,
+    scope,
+    package,
+    version,
+    kind,
+    count: i64::from_str(&record.count).unwrap(),
+  })
 }

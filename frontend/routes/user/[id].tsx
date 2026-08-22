@@ -1,83 +1,92 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh/server.ts";
-import { State } from "../../util.ts";
-import { path } from "../../utils/api.ts";
-import { FullUser, Scope, User } from "../../utils/api_types.ts";
-import { ListPanel } from "../../components/ListPanel.tsx";
+import { HttpError } from "fresh";
+import { define } from "../../util.ts";
+import { assertOk, path } from "../../utils/api.ts";
+import { FullUser, Package, Scope, User } from "../../utils/api_types.ts";
+import { ScopeCard } from "../../components/ScopeCard.tsx";
+import { ListDisplay } from "../../components/List.tsx";
+import { PackageHit } from "../../components/PackageHit.tsx";
 import { AccountLayout } from "../account/(_components)/AccountLayout.tsx";
-import { Head } from "$fresh/runtime.ts";
 
-interface Data {
-  user: User | FullUser;
-  scopes: Scope[];
-}
-
-export default function UserPage({ data, state }: PageProps<Data, State>) {
+export default define.page<typeof handler>(function UserPage({ data, state }) {
   return (
     <AccountLayout user={data.user} active="Profile">
-      <Head>
-        <title>
-          {data.user.name} - JSR
-        </title>
-      </Head>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
         {data.scopes.length > 0
           ? (
-            <ListPanel
-              title="Scopes"
-              subtitle={state.user?.id === data.user.id
-                ? "Scopes you are a member of."
-                : "Scopes this user belongs to."}
-              children={data.scopes.map((scope) => ({
-                value: `@${scope.scope}`,
-                href: `/@${scope.scope}`,
-              }))}
-            />
+            <div>
+              <h3 class="text-lg md:text-xl font-semibold">Scopes</h3>
+              <p class="text-base text-tertiary mb-4">
+                {state.user?.id === data.user.id
+                  ? "Scopes you are a member of."
+                  : "Scopes this user belongs to."}
+              </p>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {data.scopes.map((scope) => (
+                  <ScopeCard key={scope.scope} scope={scope} />
+                ))}
+              </div>
+            </div>
           )
           : (
-            <div class="p-3 text-gray-500 text-center italic">
+            <div class="p-3 text-tertiary text-center italic">
               {state.user?.id === data.user.id ? "You are" : "This user is"}
               {" "}
               not a member of any scopes.
             </div>
           )}
 
-        {
-          /*<div>
-          <span class="font-semibold">Recently published</span>
-          <div class="text-gray-500 text-base">
-            TODO: all packages recently published by this user
+        {data.packages.length > 0 && (
+          <div class="mt-8">
+            <h3 class="text-lg md:text-xl font-semibold">
+              Recently published
+            </h3>
+            <p class="text-base text-tertiary">
+              {state.user?.id === data.user.id
+                ? "Packages you have recently published."
+                : "Packages this user has recently published."}
+            </p>
+            <ListDisplay>
+              {data.packages.map((entry) => PackageHit(entry))}
+            </ListDisplay>
           </div>
-        </div>*/
-        }
+        )}
       </div>
     </AccountLayout>
   );
-}
+});
 
-export const handler: Handlers<Data, State> = {
-  async GET(_, ctx) {
-    const [currentUser, userRes, scopesRes] = await Promise.all([
+export const handler = define.handlers({
+  async GET(ctx) {
+    const [currentUser, userRes, scopesRes, packagesRes] = await Promise.all([
       ctx.state.userPromise,
       ctx.state.api.get<User>(path`/users/${ctx.params.id}`),
       ctx.state.api.get<Scope[]>(path`/users/${ctx.params.id}/scopes`),
+      ctx.state.api.get<Package[]>(path`/users/${ctx.params.id}/packages`),
     ]);
     if (currentUser instanceof Response) return currentUser;
 
-    if (!userRes.ok) {
-      if (userRes.code == "userNotFound") return ctx.renderNotFound();
-      throw userRes; // gracefully handle errors
+    if (!userRes.ok && userRes.code === "userNotFound") {
+      throw new HttpError(404, "This user was not found.");
     }
-    if (!scopesRes.ok) throw scopesRes; // gracefully handle errors
+    assertOk(userRes);
+    assertOk(scopesRes);
+    assertOk(packagesRes);
 
     let user: User | FullUser = userRes.data;
     if (ctx.params.id === currentUser?.id) {
       user = currentUser;
     }
 
-    return ctx.render({
-      user,
-      scopes: scopesRes.data,
-    });
+    ctx.state.meta = {
+      title: `${user.name} - JSR`,
+    };
+    return {
+      data: {
+        user,
+        scopes: scopesRes.data,
+        packages: packagesRes.data,
+      },
+    };
   },
-};
+});

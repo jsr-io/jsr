@@ -27,8 +27,9 @@ pub struct SpecifierRewriter<'a> {
   pub dependencies: &'a IndexMap<String, Dependency>,
 }
 
-impl<'a> SpecifierRewriter<'a> {
+impl SpecifierRewriter<'_> {
   pub fn rewrite(&self, specifier: &str, kind: RewriteKind) -> Option<String> {
+    let source_text_specifier = specifier;
     let dep = self.dependencies.get(specifier)?;
 
     let specifier = match kind {
@@ -68,17 +69,17 @@ impl<'a> SpecifierRewriter<'a> {
       }
     }
 
-    if *resolved_specifier == *specifier {
-      // No need to rewrite if the specifier is the same as the resolved
-      // specifier.
-      return None;
-    }
-
     let new_specifier = if resolved_specifier.scheme() == "file" {
       relative_import_specifier(self.base_specifier, &resolved_specifier)
     } else {
       resolved_specifier.to_string()
     };
+
+    if new_specifier == source_text_specifier {
+      // No need to rewrite if the specifier is the same as the resolved
+      // specifier.
+      return None;
+    }
 
     Some(new_specifier)
   }
@@ -90,7 +91,10 @@ pub fn relative_import_specifier(
 ) -> String {
   let relative = base_specifier.make_relative(specifier).unwrap();
   if relative.is_empty() {
-    format!("./{}", specifier.path_segments().unwrap().last().unwrap())
+    format!(
+      "./{}",
+      specifier.path_segments().unwrap().next_back().unwrap()
+    )
   } else if relative.starts_with("../") {
     relative.to_string()
   } else {
@@ -122,7 +126,7 @@ pub fn follow_specifier<'a>(
 pub fn rewrite_npm_and_jsr_specifier(specifier: &str) -> Option<String> {
   if let Ok(jsr) = JsrPackageReqReference::from_str(specifier) {
     let req = jsr.into_inner();
-    let jsr_name = ScopedPackageName::new(req.req.name).ok()?;
+    let jsr_name = ScopedPackageName::new(req.req.name.to_string()).ok()?;
     let npm_name = NpmMappedJsrPackageName {
       scope: &jsr_name.scope,
       package: &jsr_name.package,
@@ -158,7 +162,6 @@ pub fn rewrite_npm_and_jsr_specifier(specifier: &str) -> Option<String> {
 
 pub enum Extension {
   Js,
-  #[allow(dead_code)]
   Dts,
 }
 

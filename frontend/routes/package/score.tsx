@@ -1,54 +1,36 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { ComponentChildren } from "preact";
-import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
-import type {
-  Package,
-  PackageScore,
-  ScopeMember,
-} from "../../utils/api_types.ts";
-import { path } from "../../utils/api.ts";
-import { State } from "../../util.ts";
+import { HttpError, RouteConfig } from "fresh";
+import type { PackageScore } from "../../utils/api_types.ts";
+import { assertOk, path } from "../../utils/api.ts";
+import { define } from "../../util.ts";
 import { packageData } from "../../utils/data.ts";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
-import { Head } from "$fresh/runtime.ts";
-import { Check } from "../../components/icons/Check.tsx";
-import { Cross } from "../../components/icons/Cross.tsx";
-import { ErrorIcon } from "../../components/icons/Error.tsx";
+import TbAlertCircle from "tb-icons/TbAlertCircle";
+import TbCheck from "tb-icons/TbCheck";
+import TbX from "tb-icons/TbX";
 import { getScoreBgColorClass } from "../../utils/score_ring_color.ts";
 import { scopeIAM } from "../../utils/iam.ts";
 import { Logo } from "../../components/Logo.tsx";
 
-interface Data {
-  package: Package;
-  score: PackageScore;
-  member: ScopeMember | null;
-}
-
-export default function Score(
-  { data, params, state }: PageProps<Data, State>,
+export default define.page<typeof handler>(function Score(
+  { data, params, state },
 ) {
   const iam = scopeIAM(state, data.member);
 
   return (
     <div class="mb-20">
-      <Head>
-        <title>
-          Score - @{params.scope}/{params.package} - JSR
-        </title>
-        <meta
-          name="description"
-          content={`@${params.scope}/${params.package} on JSR${
-            data.package.description ? `: ${data.package.description}` : ""
-          }`}
-        />
-      </Head>
-
-      <PackageHeader package={data.package} />
+      <PackageHeader
+        package={data.package}
+        downloads={data.downloads}
+      />
 
       <PackageNav
         currentTab="Score"
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
@@ -65,14 +47,14 @@ export default function Score(
           />
         )
         : (
-          <div class="mt-8 text-gray-500 text-center">
+          <div class="mt-8 text-tertiary text-center">
             No score is available for this package, because it does not have a
             stable release.
           </div>
         )}
     </div>
   );
-}
+});
 
 function ScoreInfo(props: {
   scope: string;
@@ -85,7 +67,7 @@ function ScoreInfo(props: {
 
   return (
     <div class="mt-8 grid items-center justify-items-center grid-cols-1 md:grid-cols-3 gap-12">
-      <div class="w-full h-full flex flex-col items-center justify-center border-1.5 border-jsr-cyan-100 rounded-lg p-8">
+      <div class="w-full h-full flex flex-col items-center justify-center border-1.5 border-jsr-cyan-100 dark:border-jsr-gray-700 rounded-lg p-8 dark:bg-jsr-gray-900">
         <div class="flex gap-2 items-center mb-4">
           <h2 class="text-2xl font-semibold">
             <Logo size="medium" class="inline mr-2" />
@@ -96,23 +78,23 @@ function ScoreInfo(props: {
           @{scope}/{name}
         </div>
         <div
-          class={`flex w-full max-w-32 items-center justify-center aspect-square rounded-full p-1.5 ${
+          class={`score-circle flex w-full max-w-32 items-center justify-center aspect-square rounded-full p-1.5 ${
             getScoreBgColorClass(scorePercentage)
           }`}
-          style={`background-image: conic-gradient(transparent, transparent ${scorePercentage}%, #e7e8e8 ${scorePercentage}%)`}
+          style={`--pct: ${scorePercentage}%`}
         >
-          <span class="rounded-full w-full h-full bg-white flex justify-center items-center text-center text-3xl font-bold">
+          <span class="rounded-full w-full h-full bg-white dark:bg-jsr-gray-950 dark:text-gray-200 flex justify-center items-center text-center text-3xl font-bold">
             {scorePercentage}%
           </span>
         </div>
-        <div class="text-gray-500 text-sm text-center mt-6">
-          The JSR score is a measure of the overall quality of a package, based
-          on a number of factors such as documentation and runtime
-          compatibility.
+        <div class="text-tertiary text-sm text-center mt-6">
+          The JSR score is an overall measure of the quality of the latest
+          version of a package, based on on factors such as documentation and
+          runtime compatibility.
         </div>
       </div>
 
-      <ul class="flex flex-col divide-jsr-cyan-100 divide-y-1 md:col-span-2 w-full">
+      <ul class="flex flex-col divide-jsr-cyan-100 dark:divide-jsr-gray-700 divide-y-1 md:col-span-2 w-full">
         <ScoreItem
           value={score.hasReadme}
           scoreValue={2}
@@ -147,18 +129,29 @@ function ScoreInfo(props: {
             module doc
           </a>{" "}
           summarizing what is defined in that module.
+          {score.entrypointsWithoutDocs.length > 0 && (
+            <span>
+              Entrypoints missing module docs:{" "}
+              {score.entrypointsWithoutDocs.map((ep, i) => (
+                <span key={ep}>
+                  {i > 0 && ", "}
+                  <code class="text-xs">{ep}</code>
+                </span>
+              ))}
+            </span>
+          )}
         </ScoreItem>
         <ScoreItem
           value={Math.min(score.percentageDocumentedSymbols / 0.8, 1)}
           scoreValue={5}
           title="Has docs for most symbols"
         >
-          At least 80% of the packages' symbols should have{" "}
+          At least 80% of the packages' exported symbols should have{" "}
           <a class="link" href="/docs/writing-docs#symbol-documentation">
             symbol documentation
           </a>. Currently{" "}
-          {(score.percentageDocumentedSymbols * 100).toFixed(0)}% of symbols are
-          documented.
+          {Math.floor(score.percentageDocumentedSymbols * 100)}% of exported
+          symbols are documented.
         </ScoreItem>
         <ScoreItem
           value={score.allFastCheck}
@@ -189,8 +182,8 @@ function ScoreInfo(props: {
           scoreValue={1}
           title="At least one runtime is marked as compatible"
         >
-          The package should be marked with at least one runtime as "compatible"
-          in {canAdmin
+          The package should be marked with at least one runtime as{" "}
+          <span>"compatible"</span> in {canAdmin
             ? (
               <a class="link" href="settings#runtime_compat">
                 the package settings
@@ -253,17 +246,34 @@ function ScoreItem(
   return (
     <li class="grid grid-cols-[auto_1fr_auto] gap-x-3 py-3 first:pt-0 items-start">
       {status === "complete"
-        ? <Check class="size-6 stroke-green-500 stroke-2 -mt-px" />
+        ? (
+          <>
+            <TbCheck class="size-6 stroke-green-500 stroke-2 -mt-px" />
+            <span class="sr-only">Complete score</span>
+          </>
+        )
         : (status === "partial"
-          ? <ErrorIcon class="size-6 stroke-yellow-500 stroke-2 -mt-px" />
-          : <Cross class="size-6 stroke-red-500 stroke-2 -mt-px" />)}
+          ? (
+            <>
+              <TbAlertCircle class="size-6 stroke-jsr-yellow-500 stroke-2 -mt-px" />
+              <span class="sr-only">Partial score</span>
+            </>
+          )
+          : (
+            <>
+              <TbX class="size-6 stroke-red-500 stroke-2 -mt-px" />
+              <span class="sr-only">Missing score</span>
+            </>
+          ))}
 
       <div class="max-w-xl pr-2">
         <h3 class="leading-tight">{props.title}</h3>
-        <p class="text-gray-500 text-sm leading-tight mt-1">{props.children}</p>
+        <p class="text-tertiary text-sm leading-tight mt-1">
+          {props.children}
+        </p>
       </div>
 
-      <div class="text-sm text-gray-400 pt-[0.2em]">
+      <div class="text-sm text-jsr-gray-400 dark:text-gray-500 pt-[0.2em]">
         {typeof props.value === "number"
           ? (
             <span>
@@ -277,15 +287,15 @@ function ScoreItem(
   );
 }
 
-export const handler: Handlers<Data, State> = {
-  async GET(req, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
     const [res, scoreResp] = await Promise.all([
       packageData(ctx.state, ctx.params.scope, ctx.params.package),
       ctx.state.api.get<PackageScore>(
         path`/scopes/${ctx.params.scope}/packages/${ctx.params.package}/score`,
       ),
     ]);
-    if (res === null) return ctx.renderNotFound();
+    if (res === null) throw new HttpError(404, "This package was not found.");
 
     if (res.pkg.versionCount < 1) {
       return new Response("", {
@@ -294,16 +304,28 @@ export const handler: Handlers<Data, State> = {
       });
     }
 
-    // TODO: handle errors gracefully
-    if (!scoreResp.ok) throw scoreResp;
+    assertOk(scoreResp);
 
-    return ctx.render({
-      package: res.pkg,
-      score: scoreResp.data,
-      member: res.scopeMember,
-    }, { headers: { "X-Robots-Tag": "noindex" } });
+    ctx.state.meta = {
+      title: `Score - @${res.pkg.scope}/${res.pkg.name} - JSR`,
+      description: `@${res.pkg.scope}/${res.pkg.name} on JSR${
+        res.pkg.description ? `: ${res.pkg.description}` : ""
+      }`,
+    };
+    ctx.state.cacheControl =
+      "public, max-age=30, s-maxage=300, stale-while-revalidate=900";
+
+    return {
+      data: {
+        package: res.pkg,
+        downloads: res.downloads,
+        score: scoreResp.data,
+        member: res.scopeMember,
+      },
+      headers: { "X-Robots-Tag": "noindex" },
+    };
   },
-};
+});
 
 export const config: RouteConfig = {
   routeOverride: "/@:scope/:package/score",

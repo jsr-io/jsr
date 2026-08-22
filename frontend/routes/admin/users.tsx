@@ -1,19 +1,15 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh/server.ts";
-import type { PaginationData, State } from "../../util.ts";
-import UserEdit from "../../islands/admin/UserEdit.tsx";
-import { Table } from "../../components/Table.tsx";
-import { path } from "../../utils/api.ts";
+import { Table, TableData, TableRow } from "../../components/Table.tsx";
+import { assertOk, path } from "../../utils/api.ts";
 import { FullUser, List } from "../../utils/api_types.ts";
 import { AdminNav } from "./(_components)/AdminNav.tsx";
-import { URLQuerySearch } from "../../components/URLQuerySearch.tsx";
+import { URLQuerySearch } from "./(_components)/URLQuerySearch.tsx";
+import { define } from "../../util.ts";
+import twas from "twas";
+import { AdminCopyButton } from "./(_islands)/AdminCopyButton.tsx";
+import { EditModal } from "./(_islands)/EditModal.tsx";
 
-interface Data extends PaginationData {
-  users: FullUser[];
-  query: string;
-}
-
-export default function Users({ data, url }: PageProps<Data>) {
+export default define.page<typeof handler>(function Users({ data, url }) {
   return (
     <div class="mb-20">
       <AdminNav currentTab="users" />
@@ -21,44 +17,113 @@ export default function Users({ data, url }: PageProps<Data>) {
       <Table
         class="mt-8"
         columns={[
-          { title: "Name", class: "w-auto" },
-          { title: "E-Mail", class: "w-0" },
-          { title: "GitHub ID", class: "w-0" },
-          { title: "Scope Limit", class: "w-0" },
-          { title: "Is Staff", class: "w-0" },
-          { title: "Is Blocked", class: "w-0" },
-          { title: "Created", class: "w-0" },
-          { title: "", class: "w-0", align: "right" },
+          { title: "Name", class: "w-0", fieldName: "name" },
+          { title: "E-Mail", class: "w-0", fieldName: "email" },
+          { title: "GitHub ID", class: "w-0", fieldName: "github_id" },
+          { title: "Scope Limit", class: "w-0", fieldName: "scope_limit" },
+          { title: "Is Staff", class: "w-0", fieldName: "is_staff" },
+          { title: "Is Blocked", class: "w-0", fieldName: "is_blocked" },
+          {
+            title: "Created",
+            class: "w-0",
+            fieldName: "created_at",
+            align: "right",
+          },
+          { title: "", class: "w-0" },
         ]}
         pagination={data}
+        sortBy={data.sortBy}
         currentUrl={url}
       >
-        {data.users.map((user) => <UserEdit user={user} />)}
+        {data.users.map((user) => (
+          <TableRow key={user.id}>
+            <TableData flex>
+              <AdminCopyButton value={user.id} label="copy user ID">
+                ID
+              </AdminCopyButton>
+              <a href={`/user/${user.id}`} class="underline underline-offset-2">
+                {user.name}
+              </a>
+            </TableData>
+            <TableData>
+              {user.email}
+            </TableData>
+            <TableData>
+              {user.githubId}
+            </TableData>
+            <TableData>
+              {user.scopeLimit}
+            </TableData>
+            <TableData>
+              {String(user.isStaff)}
+            </TableData>
+            <TableData>
+              {String(user.isBlocked)}
+            </TableData>
+            <TableData
+              title={new Date(user.createdAt).toISOString().slice(0, 10)}
+              align="right"
+            >
+              {twas(new Date(user.createdAt).getTime())}
+            </TableData>
+            <TableData align="right">
+              <EditModal
+                style="primary"
+                path={path`/admin/users/${user.id}`}
+                title={`Edit user '${user.name}'`}
+                fields={[
+                  {
+                    name: "scopeLimit",
+                    label: "scope limit",
+                    type: "number",
+                    value: user.scopeLimit,
+                  },
+                  {
+                    name: "isStaff",
+                    label: "is staff",
+                    type: "boolean",
+                    value: user.isStaff,
+                  },
+                  {
+                    name: "isBlocked",
+                    label: "is blocked",
+                    type: "boolean",
+                    value: user.isBlocked,
+                  },
+                ]}
+              />
+            </TableData>
+          </TableRow>
+        ))}
       </Table>
     </div>
   );
-}
+});
 
-export const handler: Handlers<Data, State> = {
-  async GET(req, ctx) {
-    const reqUrl = new URL(req.url);
-    const query = reqUrl.searchParams.get("search") || "";
-    const page = +(reqUrl.searchParams.get("page") || 1);
-    const limit = +(reqUrl.searchParams.get("limit") || 20);
+export const handler = define.handlers({
+  async GET(ctx) {
+    const query = ctx.url.searchParams.get("search") || "";
+    const sortBy = ctx.url.searchParams.get("sortBy") || "";
+    const page = +(ctx.url.searchParams.get("page") || 1);
+    const limit = +(ctx.url.searchParams.get("limit") || 20);
 
     const resp = await ctx.state.api.get<List<FullUser>>(path`/admin/users`, {
       query,
+      sortBy,
       page,
       limit,
     });
-    if (!resp.ok) throw resp; // gracefully handle this
+    assertOk(resp);
 
-    return ctx.render({
-      users: resp.data.items,
-      query,
-      page,
-      limit,
-      total: resp.data.total,
-    });
+    return {
+      data: {
+        users: resp.data.items,
+        query,
+        sortBy,
+        page,
+        limit,
+        total: resp.data.total,
+      },
+    };
   },
-};
+});

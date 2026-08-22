@@ -2,13 +2,20 @@
 mod admin;
 mod authorization;
 mod errors;
-mod package;
+pub mod package;
 mod publishing_task;
 mod scope;
 mod self_user;
+mod tickets;
 mod types;
 mod users;
 
+pub use self::errors::*;
+pub use self::package::PublishQueue;
+use self::publishing_task::publishing_task_router;
+use self::self_user::self_user_router;
+pub use self::types::*;
+use crate::api::tickets::tickets_router;
 use hyper::Body;
 use hyper::Response;
 use package::global_list_handler;
@@ -16,12 +23,6 @@ use package::global_metrics_handler;
 use package::global_stats_handler;
 use routerify::Middleware;
 use routerify::Router;
-
-pub use self::errors::*;
-pub use self::package::PublishQueue;
-use self::publishing_task::publishing_task_router;
-use self::self_user::self_user_router;
-pub use self::types::*;
 
 use self::admin::admin_router;
 use self::authorization::authorization_router;
@@ -47,17 +48,31 @@ pub fn api_router() -> Router<Body, ApiError> {
     .scope("/users", users_router())
     .scope("/authorizations", authorization_router())
     .scope("/publishing_tasks", publishing_task_router())
-    .get("/packages", util::json(global_list_handler))
+    .get(
+      "/packages",
+      util::cache(CacheDuration::FIVE_MINUTES, util::json(global_list_handler)),
+    )
     .get(
       "/stats",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(global_stats_handler)),
+      util::cache(CacheDuration::ONE_HOUR, util::json(global_stats_handler)),
     )
     .get(
       // todo: remove once CLI uses the new endpoint
+      // Never cache: `deno publish` polls this for live status, and a cached
+      // non-terminal status would make it hang until the entry expired.
       "/publish_status/:publishing_task_id",
-      util::json(publishing_task::get_handler),
+      util::no_store(util::json(publishing_task::get_handler)),
     )
+    .scope("/tickets", tickets_router())
     .get("/.well-known/openapi", openapi_handler)
+    .get(
+      "/debug/mem_stats",
+      util::auth(crate::jemalloc_profiling::mem_stats_handler),
+    )
+    .get(
+      "/debug/mem_dump",
+      util::auth(crate::jemalloc_profiling::heap_profile_handler),
+    )
     .build()
     .unwrap()
 }

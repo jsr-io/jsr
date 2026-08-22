@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Signal, useSignal } from "@preact/signals";
+import { useSignal } from "@preact/signals";
 import { GitHubRepoInput } from "../../../components/GitHubRepoInput.tsx";
 import { api, path } from "../../../utils/api.ts";
 import { GithubRepository } from "../../../utils/api_types.ts";
@@ -48,7 +48,7 @@ export function PackageGitHubSettings(
   }
 
   return (
-    <div class="space-y-4 mb-8">
+    <div class="space-y-4">
       <form method="POST" onSubmit={onSubmit} class="flex flex-wrap gap-4">
         <GitHubRepoInput
           id="gh-repo-input"

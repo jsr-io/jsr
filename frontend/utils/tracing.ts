@@ -1,57 +1,15 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { FreshContext } from "$fresh/server.ts";
-import {
-  AttributeValue,
-  CloudTrace,
-  CredentialsClient,
-  Span,
-} from "https://googleapis.deno.dev/v1/cloudtrace:v2.ts";
 
-const CLOUD_TRACE = Deno.env.get("CLOUD_TRACE") === "true";
-let CLOUD_TRACE_AUTH: CredentialsClient | null = null;
-if (CLOUD_TRACE) {
-  const resp = await fetch(
-    "http://metadata.google.internal/computeMetadata/v1/project/project-id",
-    { headers: { "Metadata-Flavor": "Google" } },
-  );
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(
-      `Failed to fetch project id for Cloud Trace: ${resp.status}: ${text}`,
-    );
-  }
-  const projectId = await resp.text();
+// Cloud Trace requires the GCE metadata service, which is only reachable
+// from Google Cloud workloads. On Cloudflare Workers we rely on the OTLP
+// exporter (set `OTLP_ENDPOINT`) or — by default — no exporter at all, in
+// which case spans are silently dropped.
 
-  let token: { token: string; expiresAt: Date } | null = null;
+const OTLP_ENDPOINT = process.env.OTLP_ENDPOINT;
 
-  CLOUD_TRACE_AUTH = {
-    projectId,
-    async getRequestHeaders(): Promise<Record<string, string>> {
-      if (token === null || token.expiresAt.getTime() < Date.now()) {
-        const resp = await fetch(
-          "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
-          { headers: { "Metadata-Flavor": "Google" } },
-        );
-        if (!resp.ok) {
-          const text = await resp.text();
-          throw new Error(
-            `Failed to fetch access token for Cloud Trace: ${resp.status}: ${text}`,
-          );
-        }
-        const json = await resp.json();
-        token = {
-          token: json.access_token,
-          expiresAt: new Date(json.expires_in * 1000),
-        };
-      }
-      return { Authorization: `Bearer ${token.token}` };
-    },
-  };
-}
+const FLUSH_INTERVAL = 1000;
 
-const OTLP_ENDPOINT = Deno.env.get("OTLP_ENDPOINT");
-
-const FLUSH_INTERVAL = 1000; // 5s
+export type SpanKind = "SERVER" | "CLIENT" | "INTERNAL";
 
 interface RecordedSpan {
   traceId: string;
@@ -61,7 +19,14 @@ interface RecordedSpan {
   endTime: Date;
   displayName: string;
   attributes: Record<string, string | bigint | boolean>;
+  spanKind: SpanKind;
 }
+
+const OTLP_SPAN_KIND: Record<SpanKind, number> = {
+  INTERNAL: 1,
+  SERVER: 2,
+  CLIENT: 3,
+};
 
 const BATCH_SPAN_IMMEDIATE_FLUSH_LEN = 100;
 const BATCH_SPAN_OVERFLOW_LEN = 1000;
@@ -72,29 +37,17 @@ export class Tracer {
   #spans: RecordedSpan[] = [];
   #timerId: number | null = null;
 
-  #cloudTrace: CloudTrace | null = null;
-  #otlpEndpoint: string | null = null;
+  #otlpEndpoint: string | null;
 
   constructor() {
-    if (CLOUD_TRACE_AUTH) this.#cloudTrace = new CloudTrace(CLOUD_TRACE_AUTH);
-    if (OTLP_ENDPOINT) this.#otlpEndpoint = OTLP_ENDPOINT;
-    if (this.#cloudTrace !== null && this.#otlpEndpoint !== null) {
-      throw new Error("Cannot use both Cloud Trace and OTLP");
-    }
+    this.#otlpEndpoint = OTLP_ENDPOINT ?? null;
   }
 
-  spanForRequest(
-    req: Request,
-    destination: FreshContext["destination"],
-  ) {
+  spanForRequest(req: Request) {
     let parentSpan: TraceSpan | null = null;
     const traceparent = req.headers.get("traceparent");
     if (traceparent !== null) {
       parentSpan = parseTraceParent(traceparent, this);
-    }
-
-    if (destination !== "route" && destination !== "notFound") {
-      return TraceSpan.root(false, this);
     }
 
     const url = new URL(req.url);
@@ -117,7 +70,10 @@ export class Tracer {
     if (this.#spans.length >= BATCH_SPAN_IMMEDIATE_FLUSH_LEN) {
       this.flush();
     } else if (this.#timerId === null) {
-      this.#timerId = setTimeout(() => this.flush(), FLUSH_INTERVAL);
+      this.#timerId = setTimeout(
+        () => this.flush(),
+        FLUSH_INTERVAL,
+      ) as unknown as number;
     }
   }
 
@@ -129,8 +85,6 @@ export class Tracer {
     try {
       if (this.#otlpEndpoint !== null) {
         await this.#flushOTLP(spans);
-      } else if (this.#cloudTrace !== null) {
-        await this.#flushCloudTrace(spans);
       }
     } catch (err) {
       console.error("Failed to flush spans", err);
@@ -140,44 +94,6 @@ export class Tracer {
     } finally {
       this.#timerId = null;
     }
-  }
-
-  async #flushCloudTrace(spans: RecordedSpan[]) {
-    const projectName = `projects/${CLOUD_TRACE_AUTH?.projectId}`;
-    const cloudTraceSpans = spans.map<Span>((span) => {
-      const attributeMap = Object.fromEntries(
-        Object.entries(span.attributes).map(([key, value]) => {
-          let v: AttributeValue;
-          switch (typeof value) {
-            case "string":
-              v = { stringValue: { value } };
-              break;
-            case "bigint":
-              v = { intValue: value };
-              break;
-            case "boolean":
-              v = { boolValue: value };
-              break;
-            default:
-              throw new Error(`Unsupported attribute type: ${typeof value}`);
-          }
-          return [key, v];
-        }),
-      );
-      return {
-        name: `${projectName}/traces/${span.traceId}/spans/${span.spanId}`,
-        spanId: span.spanId,
-        parentSpanId: span.parentSpanId ?? undefined,
-        displayName: { value: span.displayName },
-        startTime: span.startTime,
-        endTime: span.endTime,
-        attributes: { attributeMap },
-      } satisfies Span;
-    });
-    await this.#cloudTrace!.projectsTracesBatchWrite(
-      `projects/${CLOUD_TRACE_AUTH?.projectId}`,
-      { spans: cloudTraceSpans },
-    );
   }
 
   async #flushOTLP(spans: RecordedSpan[]) {
@@ -206,6 +122,7 @@ export class Tracer {
         parentSpanId: span.parentSpanId,
         spanId: span.spanId,
         name: span.displayName,
+        kind: OTLP_SPAN_KIND[span.spanKind],
         startTimeUnixNano: span.startTime.getTime() * 1e6,
         endTimeUnixNano: span.endTime.getTime() * 1e6,
         attributes,
@@ -333,6 +250,7 @@ export class TraceSpan {
     startTime: Date,
     endTime: Date,
     attributes: Record<string, string | bigint | boolean>,
+    spanKind: SpanKind,
   ) {
     if (!this.isSampled) return;
     this.#tracer.recordSpan({
@@ -343,6 +261,7 @@ export class TraceSpan {
       endTime,
       displayName,
       attributes,
+      spanKind,
     });
   }
 

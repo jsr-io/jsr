@@ -2,6 +2,7 @@
 use crate::db::*;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
+use crate::ids::ScopeDescription;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 use crate::npm::NPM_TARBALL_REVISION;
@@ -18,11 +19,20 @@ async fn publishing_tasks() {
   let version = "1.0.0".try_into().unwrap();
   let config_file = "/jsr.json".try_into().unwrap();
 
-  let _scope = db.create_scope(&scope_name, user_id).await.unwrap();
+  let _scope = db
+    .create_scope(
+      &user_id,
+      false,
+      &scope_name,
+      user_id,
+      &ScopeDescription::default(),
+    )
+    .await
+    .unwrap();
   let res = db.create_package(&scope_name, &package_name).await.unwrap();
   assert!(matches!(res, CreatePackageResult::Ok(_)));
 
-  let CreatePublishingTaskResult::Created(pt) = db
+  let CreatePublishingTaskResult::Created((pt, _)) = db
     .create_publishing_task(NewPublishingTask {
       user_id: Some(user_id),
       package_scope: &scope_name,
@@ -47,13 +57,12 @@ async fn publishing_tasks() {
     })
     .await
     .unwrap();
-  let CreatePublishingTaskResult::Exists(pt_reused) = res else {
+  let CreatePublishingTaskResult::Exists((pt_reused, _)) = res else {
     unreachable!() // does conflict with existing task
   };
   assert_eq!(pt_reused.id, pt.id);
 
-  let pt2: PublishingTask =
-    db.get_publishing_task(pt.id).await.unwrap().unwrap();
+  let (pt2, _) = db.get_publishing_task(pt.id).await.unwrap().unwrap();
   assert_eq!(pt2.id, pt2.id);
   assert_eq!(pt2.package_scope, scope_name);
   assert_eq!(pt2.package_name, package_name);
@@ -65,6 +74,7 @@ async fn publishing_tasks() {
 
   let pt3 = db
     .update_publishing_task_status(
+      None,
       pt.id,
       PublishingTaskStatus::Pending,
       PublishingTaskStatus::Failure,
@@ -79,7 +89,7 @@ async fn publishing_tasks() {
   assert_eq!(error.code, "invalidConfigFile");
   assert_eq!(error.message, "Your config file is invalid.");
 
-  let CreatePublishingTaskResult::Created(pt4) = db
+  let CreatePublishingTaskResult::Created((pt4, _)) = db
     .create_publishing_task(NewPublishingTask {
       user_id: Some(user_id),
       package_scope: &scope_name,
@@ -94,6 +104,7 @@ async fn publishing_tasks() {
   };
 
   db.update_publishing_task_status(
+    None,
     pt4.id,
     PublishingTaskStatus::Pending,
     PublishingTaskStatus::Success,
@@ -102,9 +113,235 @@ async fn publishing_tasks() {
   .await
   .unwrap();
 
-  let pt5 = db.get_publishing_task(pt4.id).await.unwrap().unwrap();
+  let (pt5, _) = db.get_publishing_task(pt4.id).await.unwrap().unwrap();
   assert_eq!(pt5.status, PublishingTaskStatus::Success);
   assert!(pt5.updated_at > pt5.created_at);
+}
+
+#[tokio::test]
+async fn list_stale_publishing_tasks() {
+  let db = EphemeralDatabase::create().await;
+
+  let user_id = uuid::Uuid::default();
+  let scope_name: ScopeName = "scope".try_into().unwrap();
+  let package_name: PackageName = "package".try_into().unwrap();
+  let config_file: PackagePath = "/jsr.json".try_into().unwrap();
+
+  db.create_scope(
+    &user_id,
+    false,
+    &scope_name,
+    user_id,
+    &ScopeDescription::default(),
+  )
+  .await
+  .unwrap();
+  db.create_package(&scope_name, &package_name).await.unwrap();
+
+  // Create one task per terminal/non-terminal status (each on its own version,
+  // since `create_publishing_task` only allows one non-failure task per
+  // version) and drive it to the desired status via direct transitions.
+  let mut ids = std::collections::HashMap::new();
+  for (version_str, target) in [
+    ("1.0.0", PublishingTaskStatus::Pending),
+    ("2.0.0", PublishingTaskStatus::Processing),
+    ("3.0.0", PublishingTaskStatus::Processed),
+    ("4.0.0", PublishingTaskStatus::Success),
+    ("5.0.0", PublishingTaskStatus::Failure),
+  ] {
+    let version: Version = version_str.try_into().unwrap();
+    let CreatePublishingTaskResult::Created((pt, _)) = db
+      .create_publishing_task(NewPublishingTask {
+        user_id: Some(user_id),
+        package_scope: &scope_name,
+        package_name: &package_name,
+        package_version: &version,
+        config_file: &config_file,
+      })
+      .await
+      .unwrap()
+    else {
+      unreachable!()
+    };
+
+    // Walk the status machine from `pending` up to the target status.
+    let path: &[PublishingTaskStatus] = match target {
+      PublishingTaskStatus::Pending => &[],
+      PublishingTaskStatus::Processing => &[PublishingTaskStatus::Processing],
+      PublishingTaskStatus::Processed => &[
+        PublishingTaskStatus::Processing,
+        PublishingTaskStatus::Processed,
+      ],
+      PublishingTaskStatus::Success => &[
+        PublishingTaskStatus::Processing,
+        PublishingTaskStatus::Processed,
+        PublishingTaskStatus::Success,
+      ],
+      PublishingTaskStatus::Failure => &[PublishingTaskStatus::Failure],
+    };
+    let mut prev = PublishingTaskStatus::Pending;
+    for next in path {
+      let error =
+        (*next == PublishingTaskStatus::Failure).then(|| PublishingTaskError {
+          code: "x".to_string(),
+          message: "x".to_string(),
+        });
+      db.update_publishing_task_status(None, pt.id, prev, next.clone(), error)
+        .await
+        .unwrap();
+      prev = next.clone();
+    }
+    ids.insert(version_str, pt.id);
+  }
+
+  // With a zero threshold every already-updated task qualifies on time, so the
+  // result is governed purely by the status filter: only the non-terminal
+  // `processing` and `processed` tasks should be returned.
+  let stale = db.list_stale_publishing_tasks(0).await.unwrap();
+  let stale_ids: std::collections::HashSet<_> =
+    stale.iter().map(|(id, _)| *id).collect();
+  assert_eq!(stale.len(), 2, "{stale:?}");
+  assert!(
+    stale_ids.contains(&ids["2.0.0"]),
+    "processing must be listed"
+  );
+  assert!(
+    stale_ids.contains(&ids["3.0.0"]),
+    "processed must be listed"
+  );
+  assert!(!stale_ids.contains(&ids["1.0.0"]), "pending excluded");
+  assert!(!stale_ids.contains(&ids["4.0.0"]), "success excluded");
+  assert!(!stale_ids.contains(&ids["5.0.0"]), "failure excluded");
+
+  // With a long threshold the freshly-updated tasks are not yet stale.
+  let none_stale = db.list_stale_publishing_tasks(3600).await.unwrap();
+  assert!(none_stale.is_empty(), "{none_stale:?}");
+}
+
+#[tokio::test]
+async fn create_publishing_task_auto_fails_stranded_processing() {
+  let db = EphemeralDatabase::create().await;
+
+  let user_id = uuid::Uuid::default();
+  let scope_name: ScopeName = "scope".try_into().unwrap();
+  let package_name: PackageName = "package".try_into().unwrap();
+  let config_file: PackagePath = "/jsr.json".try_into().unwrap();
+
+  db.create_scope(
+    &user_id,
+    false,
+    &scope_name,
+    user_id,
+    &ScopeDescription::default(),
+  )
+  .await
+  .unwrap();
+  db.create_package(&scope_name, &package_name).await.unwrap();
+
+  // Helper: create a task on `version_str` and walk it up to `target`.
+  let make_task = async |version_str: &str, target: PublishingTaskStatus| {
+    let version: Version = version_str.try_into().unwrap();
+    let CreatePublishingTaskResult::Created((pt, _)) = db
+      .create_publishing_task(NewPublishingTask {
+        user_id: Some(user_id),
+        package_scope: &scope_name,
+        package_name: &package_name,
+        package_version: &version,
+        config_file: &config_file,
+      })
+      .await
+      .unwrap()
+    else {
+      unreachable!()
+    };
+    let path: &[PublishingTaskStatus] = match target {
+      PublishingTaskStatus::Pending => &[],
+      PublishingTaskStatus::Processing => &[PublishingTaskStatus::Processing],
+      PublishingTaskStatus::Processed => &[
+        PublishingTaskStatus::Processing,
+        PublishingTaskStatus::Processed,
+      ],
+      _ => unreachable!(),
+    };
+    let mut prev = PublishingTaskStatus::Pending;
+    for next in path {
+      db.update_publishing_task_status(None, pt.id, prev, next.clone(), None)
+        .await
+        .unwrap();
+      prev = next.clone();
+    }
+    pt.id
+  };
+
+  // 1. Fresh `processing` task: a duplicate publish gets the existing task back.
+  let fresh_id = make_task("1.0.0", PublishingTaskStatus::Processing).await;
+  let v1: Version = "1.0.0".try_into().unwrap();
+  let res = db
+    .create_publishing_task(NewPublishingTask {
+      user_id: Some(user_id),
+      package_scope: &scope_name,
+      package_name: &package_name,
+      package_version: &v1,
+      config_file: &config_file,
+    })
+    .await
+    .unwrap();
+  let CreatePublishingTaskResult::Exists((reused, _)) = res else {
+    panic!("fresh processing task should return Exists")
+  };
+  assert_eq!(reused.id, fresh_id);
+  assert_eq!(reused.status, PublishingTaskStatus::Processing);
+
+  // 2. Stranded `processing` task (>30 min old): inline auto-fail, new task created.
+  let stranded_id = make_task("2.0.0", PublishingTaskStatus::Processing).await;
+  db.backdate_publishing_task_updated_at(stranded_id, 31 * 60)
+    .await
+    .unwrap();
+  let v2: Version = "2.0.0".try_into().unwrap();
+  let res = db
+    .create_publishing_task(NewPublishingTask {
+      user_id: Some(user_id),
+      package_scope: &scope_name,
+      package_name: &package_name,
+      package_version: &v2,
+      config_file: &config_file,
+    })
+    .await
+    .unwrap();
+  let CreatePublishingTaskResult::Created((new_task, _)) = res else {
+    panic!(
+      "stranded processing task should be auto-failed and new task created"
+    )
+  };
+  assert_ne!(new_task.id, stranded_id);
+  assert_eq!(new_task.status, PublishingTaskStatus::Pending);
+  let (old, _) = db.get_publishing_task(stranded_id).await.unwrap().unwrap();
+  assert_eq!(old.status, PublishingTaskStatus::Failure);
+  assert_eq!(old.error.unwrap().code, "stale");
+
+  // 3. Stranded `processed` task: still returns Exists (left to the reaper).
+  let processed_id = make_task("3.0.0", PublishingTaskStatus::Processed).await;
+  db.backdate_publishing_task_updated_at(processed_id, 31 * 60)
+    .await
+    .unwrap();
+  let v3: Version = "3.0.0".try_into().unwrap();
+  let res = db
+    .create_publishing_task(NewPublishingTask {
+      user_id: Some(user_id),
+      package_scope: &scope_name,
+      package_name: &package_name,
+      package_version: &v3,
+      config_file: &config_file,
+    })
+    .await
+    .unwrap();
+  let CreatePublishingTaskResult::Exists((reused, _)) = res else {
+    panic!(
+      "stranded processed task is the reaper's responsibility, not this path"
+    )
+  };
+  assert_eq!(reused.id, processed_id);
+  assert_eq!(reused.status, PublishingTaskStatus::Processed);
 }
 
 #[tokio::test]
@@ -112,10 +349,22 @@ async fn users() {
   let db = EphemeralDatabase::create().await;
 
   let new_user = NewUser {
+    name: "Staff",
+    email: None,
+    avatar_url: "",
+    github_id: None,
+    gitlab_id: None,
+    is_blocked: false,
+    is_staff: true,
+  };
+  let staff_user = db.insert_user(new_user).await.unwrap();
+
+  let new_user = NewUser {
     name: "Alice",
     email: Some("alice@example.com"),
     avatar_url: "https://example.com/alice.png",
     github_id: None,
+    gitlab_id: None,
     is_blocked: false,
     is_staff: true,
   };
@@ -127,16 +376,28 @@ async fn users() {
   assert!(user.is_staff);
   assert!(!user.is_blocked);
 
-  let user_ = db.user_set_staff(user.id, false).await.unwrap();
+  let user_ = db
+    .user_set_staff(&staff_user.id, user.id, false)
+    .await
+    .unwrap();
   assert!(!user_.is_staff);
 
-  let user_ = db.user_set_staff(user.id, true).await.unwrap();
+  let user_ = db
+    .user_set_staff(&staff_user.id, user.id, true)
+    .await
+    .unwrap();
   assert!(user_.is_staff);
 
-  let user_ = db.user_set_blocked(user.id, true).await.unwrap();
+  let user_ = db
+    .user_set_blocked(&staff_user.id, user.id, true)
+    .await
+    .unwrap();
   assert!(user_.is_blocked);
 
-  let user_ = db.user_set_blocked(user.id, false).await.unwrap();
+  let user_ = db
+    .user_set_blocked(&staff_user.id, user.id, false)
+    .await
+    .unwrap();
   assert!(!user_.is_blocked);
 
   let user2 = db.get_user(user.id).await.unwrap().unwrap();
@@ -148,15 +409,15 @@ async fn users() {
   let no_user = db.get_user(uuid::Uuid::new_v4()).await.unwrap();
   assert!(no_user.is_none());
 
-  let (total_users, users) = db.list_users(0, 20, None).await.unwrap();
-  assert_eq!(total_users, 2);
-  assert_eq!(users.len(), 2);
+  let (total_users, users) = db.list_users(0, 20, None, None).await.unwrap();
+  assert_eq!(total_users, 3);
+  assert_eq!(users.len(), 3);
   assert_eq!(users[0].id, user.id);
   assert_eq!(users[0].name, "Alice");
   assert_eq!(users[0].avatar_url, "https://example.com/alice.png");
   assert_eq!(users[0].email, Some("alice@example.com".to_string()));
   assert_eq!(users[0].scope_usage, 0);
-  assert_eq!(users[1].id, uuid::Uuid::default()); // added by migrations
+  assert_eq!(users[2].id, uuid::Uuid::default()); // added by migrations
 
   let user3 = db.delete_user(user.id).await.unwrap().unwrap();
   assert_eq!(user3.id, user.id);
@@ -164,9 +425,9 @@ async fn users() {
   let no_user = db.get_user(user.id).await.unwrap();
   assert!(no_user.is_none());
 
-  let (total_users, users) = db.list_users(0, 20, None).await.unwrap();
-  assert_eq!(total_users, 1);
-  assert_eq!(users.len(), 1); // just the default user added by migrations
+  let (total_users, users) = db.list_users(0, 20, None, None).await.unwrap();
+  assert_eq!(total_users, 2);
+  assert_eq!(users.len(), 2); // just the default user added by migrations
 
   let no_user = db.delete_user(user.id).await.unwrap();
   assert!(no_user.is_none());
@@ -182,6 +443,7 @@ async fn packages() {
       email: None,
       avatar_url: "https://example.com/alice.png",
       github_id: None,
+      gitlab_id: None,
       is_blocked: false,
       is_staff: false,
     })
@@ -191,16 +453,25 @@ async fn packages() {
   let scope_name = "scope".try_into().unwrap();
   let package_name = "testpkg".try_into().unwrap();
 
-  db.create_scope(&scope_name, alice.id).await.unwrap();
+  db.create_scope(
+    &alice.id,
+    false,
+    &scope_name,
+    alice.id,
+    &ScopeDescription::default(),
+  )
+  .await
+  .unwrap();
 
   let alice2 = db.get_user(alice.id).await.unwrap().unwrap();
   assert_eq!(alice2.scope_usage, 1);
 
-  assert!(db
-    .get_scope_member(&scope_name, alice.id)
-    .await
-    .unwrap()
-    .is_some());
+  assert!(
+    db.get_scope_member(&scope_name, alice.id)
+      .await
+      .unwrap()
+      .is_some()
+  );
 
   let CreatePackageResult::Ok(package) =
     db.create_package(&scope_name, &package_name).await.unwrap()
@@ -230,7 +501,7 @@ async fn packages() {
   assert!(no_package.is_none());
 
   let (total, packages) = db
-    .list_packages_by_scope(&scope_name, 0, 100)
+    .list_packages_by_scope(&scope_name, false, 0, 100)
     .await
     .unwrap();
   assert_eq!(total, 1);
@@ -249,6 +520,7 @@ async fn scope_members() {
       email: None,
       avatar_url: "https://example.com/bob.png",
       github_id: None,
+      gitlab_id: None,
       is_blocked: false,
       is_staff: false,
     })
@@ -257,7 +529,15 @@ async fn scope_members() {
 
   let scope_name = "scope".try_into().unwrap();
 
-  db.create_scope(&scope_name, bob.id).await.unwrap();
+  db.create_scope(
+    &bob.id,
+    false,
+    &scope_name,
+    bob.id,
+    &ScopeDescription::default(),
+  )
+  .await
+  .unwrap();
 
   let scope = db
     .get_scope(&ScopeName::try_from("scope").unwrap())
@@ -272,6 +552,7 @@ async fn scope_members() {
       email: None,
       avatar_url: "https://example.com/alice.png",
       github_id: None,
+      gitlab_id: None,
       is_blocked: false,
       is_staff: false,
     })
@@ -313,6 +594,7 @@ async fn create_package_version_and_finalize_publishing_task() {
       name: "Bob",
       email: None,
       github_id: None,
+      gitlab_id: None,
       is_blocked: false,
       is_staff: false,
       avatar_url: "https://example.com/bob.png",
@@ -320,7 +602,9 @@ async fn create_package_version_and_finalize_publishing_task() {
     .await
     .unwrap();
 
-  db.create_scope(&scope, bob.id).await.unwrap();
+  db.create_scope(&bob.id, false, &scope, bob.id, &ScopeDescription::default())
+    .await
+    .unwrap();
 
   let CreatePackageResult::Ok(_package) =
     db.create_package(&scope, &package_name).await.unwrap()
@@ -330,7 +614,7 @@ async fn create_package_version_and_finalize_publishing_task() {
 
   let version = Version::try_from("1.2.3").unwrap();
   let config_file = PackagePath::try_from("/jsr.json").unwrap();
-  let CreatePublishingTaskResult::Created(task) = db
+  let CreatePublishingTaskResult::Created((task, _)) = db
     .create_publishing_task(NewPublishingTask {
       user_id: Some(bob.id),
       package_scope: &scope,
@@ -345,6 +629,7 @@ async fn create_package_version_and_finalize_publishing_task() {
   };
 
   db.update_publishing_task_status(
+    None,
     task.id,
     PublishingTaskStatus::Pending,
     PublishingTaskStatus::Processing,
@@ -377,6 +662,7 @@ async fn create_package_version_and_finalize_publishing_task() {
         uses_npm: true,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       },
       &package_files,
       &package_version_dependencies,
@@ -397,6 +683,7 @@ async fn create_package_version_and_finalize_publishing_task() {
 
   let task = db
     .update_publishing_task_status(
+      None,
       task.id,
       PublishingTaskStatus::Processed,
       PublishingTaskStatus::Success,
@@ -417,6 +704,7 @@ async fn package_files() {
       email: None,
       avatar_url: "https://example.com/alice.png",
       github_id: None,
+      gitlab_id: None,
       is_blocked: false,
       is_staff: false,
     })
@@ -427,7 +715,15 @@ async fn package_files() {
   let package_name = "testpkg".try_into().unwrap();
   let version = "1.2.3".try_into().unwrap();
 
-  db.create_scope(&scope_name, user.id).await.unwrap();
+  db.create_scope(
+    &user.id,
+    false,
+    &scope_name,
+    user.id,
+    &ScopeDescription::default(),
+  )
+  .await
+  .unwrap();
 
   let CreatePackageResult::Ok(package) =
     db.create_package(&scope_name, &package_name).await.unwrap()
@@ -445,6 +741,7 @@ async fn package_files() {
       exports: &ExportsMap::mock(),
       uses_npm: false,
       meta: Default::default(),
+      license: "MIT".to_string(),
     })
     .await
     .unwrap();
@@ -495,11 +792,13 @@ async fn oauth_state() {
     csrf_token: "a",
     pkce_code_verifier: "b",
     redirect_url: "c",
+    user_id: None,
   };
   let oauth_state = db.insert_oauth_state(new_oauth_state).await.unwrap();
   assert_eq!(oauth_state.csrf_token, "a");
   assert_eq!(oauth_state.pkce_code_verifier, "b");
   assert_eq!(oauth_state.redirect_url, "c");
+  assert_eq!(oauth_state.user_id, None);
 
   let oauth_state2 = db
     .get_oauth_state(&oauth_state.csrf_token)
@@ -510,6 +809,25 @@ async fn oauth_state() {
   assert_eq!(oauth_state2.pkce_code_verifier, "b");
   assert_eq!(oauth_state2.redirect_url, "c");
 
+  // A state from the "connect" (account-linking) flow is bound to the user that
+  // initiated it; the binding must round-trip so the callback can enforce it.
+  let user_id: uuid::Uuid =
+    "00000000-0000-0000-0000-000000000000".try_into().unwrap();
+  let bound = db
+    .insert_oauth_state(NewOauthState {
+      csrf_token: "d",
+      pkce_code_verifier: "e",
+      redirect_url: "f",
+      user_id: Some(user_id),
+    })
+    .await
+    .unwrap();
+  assert_eq!(bound.user_id, Some(user_id));
+  assert_eq!(
+    db.get_oauth_state("d").await.unwrap().unwrap().user_id,
+    Some(user_id)
+  );
+
   let oauth_state3 = db
     .delete_oauth_state(&oauth_state.csrf_token)
     .await
@@ -519,11 +837,12 @@ async fn oauth_state() {
   assert_eq!(oauth_state3.pkce_code_verifier, "b");
   assert_eq!(oauth_state3.redirect_url, "c");
 
-  assert!(db
-    .delete_oauth_state(&oauth_state.csrf_token)
-    .await
-    .unwrap()
-    .is_none())
+  assert!(
+    db.delete_oauth_state(&oauth_state.csrf_token)
+      .await
+      .unwrap()
+      .is_none()
+  )
 }
 
 #[tokio::test]
@@ -535,6 +854,7 @@ async fn tokens() {
     email: Some("alice@example.com"),
     avatar_url: "https://example.com/alice.png",
     github_id: None,
+    gitlab_id: None,
     is_blocked: false,
     is_staff: false,
   };
@@ -556,65 +876,9 @@ async fn tokens() {
   assert_eq!(token.description, None);
   assert_eq!(token.expires_at, Some(time));
 
-  let token2 = db.get_token(&token.hash).await.unwrap().unwrap();
+  let token2 = db.get_token_by_hash(&token.hash).await.unwrap().unwrap();
   assert_eq!(token2.id, token.id);
 
-  let no_token = db.get_token("1").await.unwrap();
+  let no_token = db.get_token_by_hash("1").await.unwrap();
   assert!(no_token.is_none());
-}
-
-#[test]
-fn alias_target_parsing() {
-  use std::str::FromStr;
-  assert_eq!(
-    AliasTarget::from_str("npm:express").unwrap(),
-    AliasTarget::Npm("express".to_string())
-  );
-  assert_eq!(
-    AliasTarget::from_str("jsr:@ry/mysql").unwrap(),
-    AliasTarget::Jsr(
-      ScopeName::new("ry".to_string()).unwrap(),
-      PackageName::new("mysql".to_string()).unwrap()
-    )
-  );
-  assert!(AliasTarget::from_str("bad").is_err());
-}
-
-#[tokio::test]
-async fn aliases() {
-  let db = EphemeralDatabase::create().await;
-
-  let aliases = db.list_aliases_for_package("express").await.unwrap();
-  assert_eq!(aliases.len(), 0);
-
-  let alias = db
-    .create_alias("express", 1, AliasTarget::Npm("express".to_string()))
-    .await
-    .unwrap();
-  assert_eq!(alias.name, "express");
-  assert_eq!(alias.major_version, 1);
-  assert_eq!(alias.target, AliasTarget::Npm("express".to_string()));
-
-  let aliases = db.list_aliases_for_package("express").await.unwrap();
-  assert_eq!(aliases.len(), 1);
-  assert_eq!(aliases[0].target, AliasTarget::Npm("express".to_string()));
-
-  // Because there's no such package @badscope/badpackage, this should fail the
-  // foreign key constraint.
-  let err = db
-    .create_alias(
-      "foo",
-      1,
-      AliasTarget::Jsr(
-        "badscope".try_into().unwrap(),
-        "badpackage".try_into().unwrap(),
-      ),
-    )
-    .await
-    .unwrap_err();
-  assert_eq!(
-    err.as_database_error().unwrap().code().unwrap(),
-    "23503",
-    "expected 'violates foreign key constraint'"
-  );
 }

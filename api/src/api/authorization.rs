@@ -5,20 +5,20 @@ use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use rand::Rng;
-use routerify::prelude::RequestExt;
 use routerify::Router;
+use routerify::prelude::RequestExt;
 use sha2::Digest;
 use url::Url;
 
+use crate::RegistryUrl;
 use crate::db::Database;
 use crate::db::NewAuthorization;
 use crate::db::TokenType;
 use crate::iam::ReqIamExt;
 use crate::token::create_token;
 use crate::util;
-use crate::util::decode_json;
 use crate::util::ApiResult;
-use crate::RegistryUrl;
+use crate::util::decode_json;
 
 use super::ApiAuthorization;
 use super::ApiAuthorizationExchangeRequest;
@@ -31,7 +31,11 @@ pub fn authorization_router() -> Router<Body, ApiError> {
   Router::builder()
     .post("/", util::json(create_authorization))
     .post("/exchange", util::json(exchange_authorization))
-    .get("/details/:code", util::json(get_authorization))
+    // Never cache: OAuth authorization details are dynamic and per-flow.
+    .get(
+      "/details/:code",
+      util::no_store(util::json(get_authorization)),
+    )
     .post("/approve/:code", util::auth(approve_authorization))
     .post("/deny/:code", util::auth(decline_authorization))
     .build()
@@ -255,6 +259,7 @@ mod tests {
   use crate::api::ApiAuthorizationExchangeResponse;
   use crate::api::ApiCreateAuthorizationResponse;
   use crate::api::ApiFullUser;
+  use crate::db::PackagePublishPermission;
   use crate::db::Permission;
   use crate::db::Permissions;
   use crate::util::test::ApiResultExt;
@@ -301,7 +306,7 @@ mod tests {
 
   async fn details(t: &mut TestSetup, code: &str) -> Response<Body> {
     t.http()
-      .get(&format!("/api/authorizations/details/{}", code))
+      .get(format!("/api/authorizations/details/{}", code))
       .call()
       .await
       .unwrap()
@@ -334,7 +339,7 @@ mod tests {
 
     let mut resp = t
       .http()
-      .post(&format!("/api/authorizations/approve/{}", auth.code))
+      .post(format!("/api/authorizations/approve/{}", auth.code))
       .call()
       .await
       .unwrap();
@@ -367,12 +372,14 @@ mod tests {
 
     let (verifier, challenge) = new_verifier_and_challenge();
 
-    let permissions = Permissions(vec![Permission::VersionPublish {
-      scope: t.scope.scope.clone(),
-      package: "test".try_into().unwrap(),
-      version: "1.0.0".try_into().unwrap(),
-      tarball_hash: "sha256-1234567890".into(),
-    }]);
+    let permissions = Permissions(vec![Permission::PackagePublish(
+      PackagePublishPermission::Version {
+        scope: t.scope.scope.clone(),
+        package: "test".try_into().unwrap(),
+        version: "1.0.0".try_into().unwrap(),
+        tarball_hash: "sha256-1234567890".into(),
+      },
+    )]);
 
     let mut resp =
       create_authorization(&mut t, &challenge, Some(permissions)).await;
@@ -396,7 +403,7 @@ mod tests {
 
     let mut resp = t
       .http()
-      .post(&format!("/api/authorizations/approve/{}", auth.code))
+      .post(format!("/api/authorizations/approve/{}", auth.code))
       .call()
       .await
       .unwrap();
@@ -451,7 +458,7 @@ mod tests {
 
     let mut resp = t
       .http()
-      .post(&format!("/api/authorizations/deny/{}", auth.code))
+      .post(format!("/api/authorizations/deny/{}", auth.code))
       .call()
       .await
       .unwrap();

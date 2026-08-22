@@ -2,7 +2,12 @@
 import { Nav, NavItem } from "../../../components/Nav.tsx";
 import { FullUser } from "../../../utils/api_types.ts";
 
-export type AccountNavTab = "Profile" | "Invites" | "Settings";
+export type AccountNavTab =
+  | "Profile"
+  | "Invites"
+  | "Tokens"
+  | "Settings"
+  | "Tickets";
 
 export interface AccountNavProps {
   user: FullUser;
@@ -19,27 +24,32 @@ export function AccountNav(props: AccountNavProps) {
         Profile
       </NavItem>
       <NavItem
-        href={"/account/invites"}
+        href="/account/invites"
         active={props.active === "Invites"}
+        chip={props.user.inviteCount}
+        notification
       >
-        <span class="flex items-center">
-          Invites
-          <span
-            class={`chip ml-2 tabular-nums ${
-              props.user.inviteCount > 0
-                ? "bg-orange-600 text-white"
-                : "bg-gray-200"
-            }`}
-          >
-            {props.user.inviteCount}
-          </span>
-        </span>
+        Invites
+      </NavItem>
+      <NavItem
+        href={`/account/tokens`}
+        active={props.active === "Tokens"}
+      >
+        Tokens
       </NavItem>
       <NavItem
         href={`/account/settings`}
         active={props.active === "Settings"}
       >
         Settings
+      </NavItem>
+      <NavItem
+        href={`/account/tickets`}
+        active={props.active === "Tickets"}
+        chip={props.user.newerTicketMessagesCount}
+        notification
+      >
+        Support Tickets
       </NavItem>
     </Nav>
   );
