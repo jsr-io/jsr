@@ -48,6 +48,7 @@ pub struct Buckets {
   pub modules_bucket: BucketWithQueue,
   pub docs_bucket: BucketWithQueue,
   pub npm_bucket: BucketWithQueue,
+  pub ticket_attachments_bucket: BucketWithQueue,
 }
 
 #[derive(Debug, Error, deno_error::JsError)]

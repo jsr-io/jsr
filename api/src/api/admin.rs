@@ -341,8 +341,19 @@ pub async fn list_tickets(req: Request<Body>) -> ApiResult<ApiList<ApiTicket>> {
   let maybe_search = search(&req);
   let maybe_sort = sort(&req);
 
+  // An unrecognised value narrows to nothing rather than being ignored, so a
+  // typo in the filter cannot silently show the unfiltered queue.
+  let maybe_status = match req.query("status").map(String::as_str) {
+    None | Some("") => None,
+    Some(status) => Some(status.parse::<TicketStatus>().map_err(|_| {
+      ApiError::MalformedRequest {
+        msg: "unknown ticket status filter".into(),
+      }
+    })?),
+  };
+
   let (total, tickets) = db
-    .list_tickets(start, limit, maybe_search, maybe_sort)
+    .list_tickets(start, limit, maybe_search, maybe_sort, maybe_status)
     .await?;
   Ok(ApiList {
     items: tickets.into_iter().map(|ticket| ticket.into()).collect(),
@@ -355,18 +366,18 @@ pub async fn patch_ticket(mut req: Request<Body>) -> ApiResult<ApiTicket> {
   let id = req.param_uuid("id")?;
   Span::current().record("id", field::display(id));
 
-  let ApiAdminUpdateTicketRequest { closed } = decode_json(&mut req).await?;
+  let ApiAdminUpdateTicketRequest { status } = decode_json(&mut req).await?;
 
   let iam = req.iam();
   let staff = iam.check_admin_access()?;
 
   let db = req.data::<Database>().unwrap();
 
-  let ticket = if let Some(closed) = closed {
-    db.update_ticket_closed(&staff.id, id, closed).await?
+  let ticket = if let Some(status) = status {
+    db.update_ticket_status(&staff.id, id, status).await?
   } else {
     return Err(ApiError::MalformedRequest {
-      msg: "missing 'closed' parameter".into(),
+      msg: "missing 'status' parameter".into(),
     });
   };
 
