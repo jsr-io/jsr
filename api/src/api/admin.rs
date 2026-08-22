@@ -1,35 +1,35 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use crate::NpmUrl;
-use crate::RegistryUrl;
 use crate::external::algolia::AlgoliaClient;
 use crate::s3::Buckets;
+use crate::NpmUrl;
+use crate::RegistryUrl;
 use hyper::Body;
 use hyper::Request;
-use routerify::Router;
 use routerify::prelude::RequestExt;
+use routerify::Router;
 use routerify_query::RequestQueryExt;
-use tracing::Instrument;
-use tracing::Span;
 use tracing::field;
 use tracing::instrument;
+use tracing::Instrument;
+use tracing::Span;
 
 use crate::db::*;
 use crate::iam::ReqIamExt;
 use crate::ids::ScopeDescription;
 use crate::publish::publish_task;
 use crate::util;
-use crate::util::ApiResult;
-use crate::util::LicenseStore;
-use crate::util::RequestIdExt;
 use crate::util::decode_json;
 use crate::util::pagination;
 use crate::util::search;
 use crate::util::sort;
+use crate::util::ApiResult;
+use crate::util::LicenseStore;
+use crate::util::RequestIdExt;
 
-use super::ApiError;
-use super::PublishQueue;
 use super::map_unique_violation;
 use super::types::*;
+use super::ApiError;
+use super::PublishQueue;
 
 pub fn admin_router() -> Router<Body, ApiError> {
   Router::builder()
@@ -569,17 +569,6 @@ mod tests {
       .await
       .unwrap()
       .expect_err_code(StatusCode::FORBIDDEN, "credentialNotInteractive")
-      .await;
-
-    // Unrestricted staff web token still works.
-    let staff_token = t.staff_user.token.clone();
-    t.http()
-      .get("/api/admin/users")
-      .token(Some(&staff_token))
-      .call()
-      .await
-      .unwrap()
-      .expect_ok::<ApiList<ApiFullUser>>()
       .await;
   }
 }

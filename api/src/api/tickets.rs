@@ -2,14 +2,13 @@
 
 use hyper::Body;
 use hyper::Request;
-use routerify::Router;
 use routerify::prelude::RequestExt;
+use routerify::Router;
 use std::borrow::Cow;
-use tracing::Span;
 use tracing::field;
 use tracing::instrument;
+use tracing::Span;
 
-use crate::RegistryUrl;
 use crate::db::NewTicket;
 use crate::db::NewTicketMessage;
 use crate::db::{Database, UserPublic};
@@ -17,9 +16,10 @@ use crate::emails::EmailArgs;
 use crate::emails::EmailSender;
 use crate::iam::ReqIamExt;
 use crate::util;
+use crate::util::decode_json;
 use crate::util::ApiResult;
 use crate::util::RequestIdExt;
-use crate::util::decode_json;
+use crate::RegistryUrl;
 
 use super::ApiError;
 use super::ApiTicket;
@@ -52,7 +52,7 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiTicketOverview> {
   let iam = req.iam();
   let current_user = iam.check_current_user_access()?;
 
-  if current_user == &creator || iam.check_admin_access().is_ok() {
+  if current_user == &creator || iam.check_staff_access().is_ok() {
     let mut events: Vec<ApiTicketMessageOrAuditLog> = Vec::new();
 
     for message in messages {
@@ -145,7 +145,7 @@ pub async fn post_message_handler(
   let iam = req.iam();
 
   let current_user = iam.check_current_user_access()?;
-  if !(current_user == &creator || iam.check_admin_access().is_ok()) {
+  if !(current_user == &creator || iam.check_staff_access().is_ok()) {
     return Err(ApiError::TicketNotFound);
   }
 
@@ -189,7 +189,12 @@ pub async fn post_message_handler(
 mod test {
   use crate::api::ApiTicket;
   use crate::api::ApiTicketMessage;
+  use crate::db::PackagePublishPermission;
+  use crate::db::Permission;
+  use crate::db::Permissions;
   use crate::db::TicketKind;
+  use crate::db::TokenType;
+  use crate::token::create_token;
   use crate::util::test::ApiResultExt;
   use crate::util::test::TestSetup;
   use hyper::StatusCode;
@@ -290,5 +295,49 @@ mod test {
     );
     assert_eq!(staff_message_contents[0], "test");
     assert_eq!(staff_message_contents[1], "test2");
+
+    // Unrestricted staff PAT is not interactive, so /api/admin rejects it,
+    // but support tickets still work.
+    let staff_pat = create_token(
+      &t.db(),
+      t.staff_user.user.id,
+      TokenType::Personal,
+      Some("staff-pat".into()),
+      Some(chrono::Utc::now() + chrono::Duration::try_days(7).unwrap()),
+      None,
+    )
+    .await
+    .unwrap();
+    t.http()
+      .get(format!("/api/tickets/{}", ticket.id))
+      .token(Some(&staff_pat))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok::<super::ApiTicketOverview>()
+      .await;
+
+    let permission =
+      Permission::PackagePublish(PackagePublishPermission::Scope {
+        scope: t.scope.scope.clone(),
+      });
+    let restricted = create_token(
+      &t.db(),
+      t.staff_user.user.id,
+      TokenType::Personal,
+      Some("publish-only".into()),
+      Some(chrono::Utc::now() + chrono::Duration::try_days(7).unwrap()),
+      Some(Permissions(vec![permission])),
+    )
+    .await
+    .unwrap();
+    t.http()
+      .get(format!("/api/tickets/{}", ticket.id))
+      .token(Some(&restricted))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::FORBIDDEN, "missingPermission")
+      .await;
   }
 }

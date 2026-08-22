@@ -32,9 +32,18 @@ impl<'s> IamHandler<'s> {
 
   /// Restricted credentials (permissions allowlist set) are deny-by-default.
   /// `check_publish_access` is the only check that inspects the allowlist.
+  /// OIDC `IamInfo` always sets `permissions: Some(...)`, so GitHubActions
+  /// principals never pass this helper. No OIDC permission grants admin.
   fn require_unrestricted(&self) -> Result<(), ApiError> {
     if self.permissions.is_some() {
       return Err(ApiError::MissingPermission);
+    }
+    Ok(())
+  }
+
+  fn require_interactive(&self) -> Result<(), ApiError> {
+    if !self.interactive {
+      return Err(ApiError::CredentialNotInteractive);
     }
     Ok(())
   }
@@ -224,8 +233,10 @@ impl<'s> IamHandler<'s> {
   pub fn check_authorization_approve_access(&self) -> Result<&User, ApiError> {
     self.require_unrestricted()?;
     match &self.principal {
-      Principal::User(user) if self.interactive => Ok(user),
-      Principal::User(_) => Err(ApiError::CredentialNotInteractive),
+      Principal::User(user) => {
+        self.require_interactive()?;
+        Ok(user)
+      }
       Principal::GitHubActions { .. } => Err(ApiError::ActorNotUser),
       Principal::Anonymous => Err(ApiError::MissingAuthentication),
     }
@@ -234,13 +245,24 @@ impl<'s> IamHandler<'s> {
   pub fn check_admin_access(&self) -> Result<&User, ApiError> {
     self.require_unrestricted()?;
     match &self.principal {
-      Principal::User(user) if user.is_staff && self.interactive => Ok(user),
       Principal::User(user) if user.is_staff => {
-        Err(ApiError::CredentialNotInteractive)
+        self.require_interactive()?;
+        Ok(user)
       }
       Principal::User(_) => Err(ApiError::ActorNotAuthorized),
-      // OIDC IamInfo always sets permissions: Some(...), so this arm
-      // is unreachable after require_unrestricted. No OIDC perm grants admin.
+      Principal::GitHubActions { .. } => Err(ApiError::ActorNotAuthorized),
+      Principal::Anonymous => Err(ApiError::MissingAuthentication),
+    }
+  }
+
+  /// Staff support-ticket visibility. Restricted tokens still fail.
+  /// Interactive is not required, so an unrestricted staff PAT can still
+  /// see and reply to tickets.
+  pub fn check_staff_access(&self) -> Result<&User, ApiError> {
+    self.require_unrestricted()?;
+    match &self.principal {
+      Principal::User(user) if user.is_staff => Ok(user),
+      Principal::User(_) => Err(ApiError::ActorNotAuthorized),
       Principal::GitHubActions { .. } => Err(ApiError::ActorNotAuthorized),
       Principal::Anonymous => Err(ApiError::MissingAuthentication),
     }
