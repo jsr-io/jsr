@@ -1,12 +1,12 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
+use deno_ast::emit;
+use deno_ast::fold_program;
+use deno_ast::swc::ecma_visit::VisitMutWith;
 use deno_ast::ParsedSource;
 use deno_ast::SourceMap;
 use deno_ast::SourceMapOption;
 use deno_ast::TranspileOptions;
-use deno_ast::emit;
-use deno_ast::fold_program;
-use deno_ast::swc::ecma_visit::VisitMutWith;
 use deno_ast::{DecoratorsTranspileOption, EmittedSourceText};
 use deno_ast::{JsxAutomaticOptions, JsxClassicOptions, JsxRuntime};
 use deno_graph::FastCheckTypeModule;
@@ -18,20 +18,10 @@ use crate::npm::specifiers::relative_import_specifier;
 use super::specifiers::RewriteKind;
 use super::specifiers::SpecifierRewriter;
 
-/// JSX settings taken from the package compilerOptions and file pragmas.
-#[derive(Debug, Clone, Default)]
-pub struct JsxEmitOptions {
-  pub jsx: Option<String>,
-  pub jsx_import_source: Option<String>,
-  pub jsx_factory: Option<String>,
-  pub jsx_fragment_factory: Option<String>,
-}
-
 pub fn transpile_to_js(
   source: &ParsedSource,
   specifier_rewriter: SpecifierRewriter,
   target_specifier: &Url,
-  jsx_options: &JsxEmitOptions,
 ) -> Result<(Vec<u8>, Vec<u8>), anyhow::Error> {
   let basename = target_specifier.path().rsplit_once('/').unwrap().1;
   let emit_options = deno_ast::EmitOptions {
@@ -55,7 +45,7 @@ pub fn transpile_to_js(
   source.globals().with(|marks| {
     let transpile_options = TranspileOptions {
       decorators: DecoratorsTranspileOption::Ecma,
-      jsx: resolve_jsx_runtime(source, jsx_options),
+      jsx: resolve_jsx_runtime(source),
       ..Default::default()
     };
 
@@ -137,10 +127,7 @@ pub fn transpile_to_dts(
   Ok((source, source_map.unwrap().into_bytes()))
 }
 
-fn resolve_jsx_runtime(
-  source: &ParsedSource,
-  jsx_options: &JsxEmitOptions,
-) -> Option<JsxRuntime> {
+fn resolve_jsx_runtime(source: &ParsedSource) -> Option<JsxRuntime> {
   if !matches!(
     source.media_type(),
     deno_ast::MediaType::Jsx | deno_ast::MediaType::Tsx
@@ -148,18 +135,23 @@ fn resolve_jsx_runtime(
     return None;
   }
 
-  let pragma_import_source = jsx_import_source_from_pragma(source.text());
-  let import_source = pragma_import_source
-    .clone()
-    .or_else(|| jsx_options.jsx_import_source.clone());
-  let jsx = jsx_options.jsx.as_deref();
+  let header: String = source
+    .text()
+    .lines()
+    .take(50)
+    .collect::<Vec<_>>()
+    .join("\n");
+  let import_source = pragma_value(&header, "@jsxImportSource");
+  let runtime = pragma_value(&header, "@jsxRuntime");
+  let factory = pragma_value(&header, "@jsxFactory");
+  let fragment_factory = pragma_value(&header, "@jsxFragmentFactory");
 
   let automatic = JsxAutomaticOptions {
-    development: matches!(jsx, Some("react-jsxdev")),
-    import_source,
+    development: matches!(runtime.as_deref(), Some("react-jsxdev")),
+    import_source: import_source.clone(),
   };
 
-  match jsx {
+  match runtime.as_deref() {
     Some("precompile") => {
       Some(JsxRuntime::Precompile(deno_ast::JsxPrecompileOptions {
         automatic,
@@ -167,40 +159,42 @@ fn resolve_jsx_runtime(
         dynamic_props: None,
       }))
     }
-    Some("react-jsx") | Some("react-jsxdev") => {
+    Some("automatic") | Some("react-jsx") | Some("react-jsxdev") => {
       Some(JsxRuntime::Automatic(automatic))
     }
+    Some("classic") => Some(classic_jsx_runtime(factory, fragment_factory)),
     _ => {
-      if pragma_import_source.is_some()
-        || jsx_options.jsx_import_source.is_some()
-      {
+      if import_source.is_some() {
         Some(JsxRuntime::Automatic(automatic))
       } else {
-        Some(classic_jsx_runtime(jsx_options))
+        Some(classic_jsx_runtime(factory, fragment_factory))
       }
     }
   }
 }
 
-fn classic_jsx_runtime(jsx_options: &JsxEmitOptions) -> JsxRuntime {
+fn classic_jsx_runtime(
+  factory: Option<String>,
+  fragment_factory: Option<String>,
+) -> JsxRuntime {
   JsxRuntime::Classic(JsxClassicOptions {
-    factory: jsx_options
-      .jsx_factory
-      .clone()
-      .unwrap_or_else(|| "React.createElement".into()),
-    fragment_factory: jsx_options
-      .jsx_fragment_factory
-      .clone()
+    factory: factory.unwrap_or_else(|| "React.createElement".into()),
+    fragment_factory: fragment_factory
       .unwrap_or_else(|| "React.Fragment".into()),
   })
 }
 
-fn jsx_import_source_from_pragma(text: &str) -> Option<String> {
-  for line in text.lines().take(50) {
-    let Some(idx) = line.find("@jsxImportSource") else {
+/// Value after `@tag`. `@jsxImportSource` must not match `@jsxImportSourceTypes`.
+fn pragma_value(text: &str, tag: &str) -> Option<String> {
+  let mut search_from = 0;
+  while let Some(rel) = text[search_from..].find(tag) {
+    let idx = search_from + rel;
+    let after = &text[idx + tag.len()..];
+    if after.starts_with(|c: char| c.is_ascii_alphanumeric()) {
+      search_from = idx + tag.len();
       continue;
-    };
-    let rest = line[idx + "@jsxImportSource".len()..].trim();
+    }
+    let rest = after.trim_start();
     let value = rest
       .split(|c: char| c.is_whitespace() || c == '*')
       .find(|s| !s.is_empty() && *s != "*/")?;
@@ -208,6 +202,63 @@ fn jsx_import_source_from_pragma(text: &str) -> Option<String> {
     if !value.is_empty() {
       return Some(value.to_string());
     }
+    search_from = idx + tag.len();
   }
   None
+}
+
+#[cfg(test)]
+mod tests {
+  use super::pragma_value;
+
+  #[test]
+  fn pragma_value_skips_import_source_types() {
+    let text = concat!(
+      "/** @jsxRuntime automatic */",
+      "/** @jsxImportSource preact@^10.29.2 */",
+      "/** @jsxImportSourceTypes preact@^10.29.2 */",
+    );
+    assert_eq!(
+      pragma_value(text, "@jsxImportSource").as_deref(),
+      Some("preact@^10.29.2"),
+    );
+    assert_eq!(
+      pragma_value(text, "@jsxImportSourceTypes").as_deref(),
+      Some("preact@^10.29.2"),
+    );
+    assert_eq!(
+      pragma_value(text, "@jsxRuntime").as_deref(),
+      Some("automatic"),
+    );
+  }
+
+  #[test]
+  fn pragma_value_does_not_match_types_as_import_source() {
+    let text = concat!(
+      "/** @jsxImportSourceTypes preact@^10.29.2 */",
+      "/** @jsxImportSource preact@^10.29.2 */",
+    );
+    assert_eq!(
+      pragma_value(text, "@jsxImportSource").as_deref(),
+      Some("preact@^10.29.2"),
+    );
+  }
+
+  #[test]
+  fn pragma_value_classic_factories() {
+    let text = concat!(
+      "/** @jsxRuntime classic */",
+      "/** @jsxFactory h */",
+      "/** @jsxFragmentFactory Fragment */",
+    );
+    assert_eq!(
+      pragma_value(text, "@jsxRuntime").as_deref(),
+      Some("classic"),
+    );
+    assert_eq!(pragma_value(text, "@jsxFactory").as_deref(), Some("h"));
+    assert_eq!(
+      pragma_value(text, "@jsxFragmentFactory").as_deref(),
+      Some("Fragment"),
+    );
+  }
 }
