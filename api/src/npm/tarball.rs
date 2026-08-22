@@ -238,7 +238,8 @@ pub async fn create_npm_tarball<'a>(
           dependencies: &js.dependencies,
         };
         let (source, source_map) =
-          transpile_to_js(&parsed_source, specifier_rewriter, source_target)?;
+          transpile_to_js(&parsed_source, specifier_rewriter, source_target)
+            .unwrap();
         package_files.insert(source_target.path().to_owned(), source);
         package_files
           .insert(format!("{}.map", source_target.path()), source_map);
@@ -275,7 +276,8 @@ pub async fn create_npm_tarball<'a>(
           dependencies: &js.dependencies,
         };
         let (source, source_map) =
-          transpile_to_js(&parsed_source, specifier_rewriter, source_target)?;
+          transpile_to_js(&parsed_source, specifier_rewriter, source_target)
+            .unwrap();
         package_files.insert(source_target.path().to_owned(), source);
         package_files
           .insert(format!("{}.map", source_target.path()), source_map);
