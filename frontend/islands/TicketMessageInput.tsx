@@ -7,7 +7,6 @@ import type {
   NewTicketMessage,
   TicketStatus,
 } from "../utils/api_types.ts";
-import { TICKET_STATUSES } from "../components/TicketStatus.tsx";
 import { api, path } from "../utils/api.ts";
 import { useSignal } from "@preact/signals";
 
@@ -24,6 +23,7 @@ export function TicketMessageInput(
 ) {
   const message = useSignal("");
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (error) {
@@ -49,6 +49,7 @@ export function TicketMessageInput(
           return;
         }
 
+        setBusy(true);
         api.post(
           path`/tickets/${ticketId}`,
           {
@@ -61,6 +62,7 @@ export function TicketMessageInput(
             window.location.reload();
           } else {
             console.error(resp);
+            setBusy(false);
             setError("Could not send your message. Please try again.");
           }
         });
@@ -81,57 +83,52 @@ export function TicketMessageInput(
             </p>
           </div>
         )}
-        <button type="submit" class="button-primary">Send message</button>
+        {
+          /* The common status change, as one button. Anything else (spam, the
+            waiting-on states) is done through the status control at the top of
+            the page, so there is only ever one control per job. */
+        }
         {isStaff && (
-          <>
-            <select
-              class="input-container select"
-              value={status}
-              onChange={(e) => setStatus(ticketId, e.currentTarget.value)}
-            >
-              {TICKET_STATUSES.map((option) => (
-                <option key={option} value={option}>
-                  {option.replaceAll("_", " ")}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              class="button-danger"
-              onClick={(e) => {
-                e.preventDefault();
-                setStatus(ticketId, closed ? "open" : "closed");
-              }}
-            >
-              {closed
-                ? (
-                  <>
-                    <TbClock class="text-white" /> Re-open
-                  </>
-                )
-                : (
-                  <>
-                    <TbCheck class="text-white" /> Close
-                  </>
-                )} ticket
-            </button>
-          </>
+          <button
+            type="button"
+            class={closed ? "button-primary" : "button-danger"}
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              api.patch(
+                path`/admin/tickets/${ticketId}`,
+                {
+                  status: closed ? "open" : "closed",
+                } satisfies AdminUpdateTicketRequest,
+              ).then((resp) => {
+                if (resp.ok) {
+                  // deno-lint-ignore no-window
+                  window.location.reload();
+                } else {
+                  console.error(resp);
+                  setBusy(false);
+                  setError("Could not update the ticket.");
+                }
+              });
+            }}
+          >
+            {closed
+              ? (
+                <>
+                  <TbClock /> Reopen ticket
+                </>
+              )
+              : (
+                <>
+                  <TbCheck /> Close ticket
+                </>
+              )}
+          </button>
         )}
+        <button type="submit" class="button-primary" disabled={busy}>
+          Send message
+        </button>
       </div>
     </form>
   );
-}
-
-function setStatus(ticketId: string, status: string) {
-  api.patch(
-    path`/admin/tickets/${ticketId}`,
-    { status: status as TicketStatus } satisfies AdminUpdateTicketRequest,
-  ).then((resp) => {
-    if (resp.ok) {
-      // deno-lint-ignore no-window
-      window.location.reload();
-    } else {
-      console.error(resp);
-    }
-  });
 }

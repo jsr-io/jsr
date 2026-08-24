@@ -6,7 +6,8 @@ import TbClock from "tb-icons/TbClock";
 import TbMessage from "tb-icons/TbMessage";
 import type { TicketStatus } from "../utils/api_types.ts";
 
-/// The order staff work tickets in, and the order the admin filter offers them.
+/// The order staff work tickets in, and the order the status control offers
+/// them.
 export const TICKET_STATUSES: TicketStatus[] = [
   "open",
   "waiting_on_support",
@@ -68,17 +69,29 @@ function statusStyle(
   }
 }
 
+/// Just the coloured marker, without the label. Used in the timeline, where the
+/// surrounding sentence already names the status.
+export function TicketStatusDot(
+  { status }: { status: TicketStatus },
+): JSX.Element {
+  const { color, icon } = statusStyle(status);
+  return (
+    <div class={`${color} rounded-full p-1 shrink-0`}>
+      {icon}
+    </div>
+  );
+}
+
 export function TicketStatusBadge(
   { status, unread }: { status: TicketStatus; unread?: boolean },
 ): JSX.Element {
-  const { color, icon } = statusStyle(status);
   return (
     <div class="flex items-center gap-1.5">
       {unread
         ? <div class="rounded-full bg-orange-600 h-2.5 w-2.5" />
         // Keeps the badge aligned with rows that do carry an unread dot.
         : <div class="h-2.5 w-2.5" />}
-      <div class={`${color} rounded-full p-1`}>{icon}</div>
+      <TicketStatusDot status={status} />
       <span>{ticketStatusLabel(status)}</span>
     </div>
   );

@@ -44,12 +44,14 @@ export function TicketActor(
           </span>
           {!actor.emailVerified && (
             // The sending domain failed SPF or DKIM, so the address proves
-            // nothing about who actually sent this.
+            // nothing about who actually sent this. Muted rather than alarming:
+            // it sits on most inbound mail, and a warning that is always on
+            // stops being read.
             <span
-              class="rounded-full text-sm px-2 inline-block bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100"
-              title="This email failed SPF or DKIM checks, so the sender address is unverified."
+              class="rounded-full text-sm px-2 inline-block bg-jsr-yellow-100 text-jsr-gray-700 dark:bg-jsr-gray-700 dark:text-jsr-yellow-200"
+              title="This email did not pass SPF and DKIM checks, so the sender address is unverified."
             >
-              unverified sender
+              unverified
             </span>
           )}
         </>
