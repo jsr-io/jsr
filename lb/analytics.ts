@@ -28,7 +28,13 @@ export function trackNPMDownload(
   userAgent: string | null,
   env: WorkerEnv,
 ): void {
+  // Tarballs following the registry.npmjs.org path layout, e.g.
+  // /@jsr/luca__cases/-/luca__cases-1.0.0.tgz, and legacy revisioned
+  // tarballs, e.g. /~/11/@jsr/luca__cases/1.0.0.tgz. Both capture
+  // (scope, packageName, version).
   const match = pathname.match(
+    /^\/@jsr\/([^_/]+)__([^/]+)\/-\/\1__\2-([^/]+)\.tgz$/,
+  ) ?? pathname.match(
     /^\/~\/\d+\/@jsr\/([^_]+)__([^/]+)\/([^/]+)\.tgz$/,
   );
   if (match) {

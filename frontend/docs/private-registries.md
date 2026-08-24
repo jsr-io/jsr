@@ -75,18 +75,19 @@ the Azure DevOps Artifacts feed.
 
 ### Configuring a JSR upstream with Google Artifact Registry
 
-JSR cannot yet be used as an upstream for Google Artifact Registry due to a
-differing layout of package tarball URLs between JSR and the layout that is
-expected by Google Artifact Registry.
+JSR serves package tarballs using the same URL layout as the public npm registry
+at `registry.npmjs.org`, so it can be configured as a custom npm upstream in
+Google Artifact Registry using the registry URL `https://npm.jsr.io`.
 
-Aligning JSRs package tarball URLs with the NPM upstream is being tracked in
-[issue #405](https://github.com/jsr-io/jsr/issues/405).
+If you run into problems using JSR as an upstream for Google Artifact Registry,
+please comment on [issue #405](https://github.com/jsr-io/jsr/issues/405).
 
 ### Configuring a JSR upstream with JFrog Artifactory
 
-JSR cannot yet be used as an upstream for JFrog Artifactory due to a differing
-layout of package tarball URLs between JSR and the layout that is expected by
-JFrog Artifactory.
+JSR serves package tarballs using the same URL layout as the public npm registry
+at `registry.npmjs.org`, so it can be configured as the remote URL of an npm
+remote repository in JFrog Artifactory using the registry URL
+`https://npm.jsr.io`.
 
-Aligning JSRs package tarball URLs with the NPM upstream is being tracked in
-[issue #405](https://github.com/jsr-io/jsr/issues/405).
+If you run into problems using JSR as an upstream for JFrog Artifactory, please
+comment on [issue #405](https://github.com/jsr-io/jsr/issues/405).

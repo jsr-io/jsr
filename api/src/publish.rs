@@ -1746,10 +1746,8 @@ pub mod tests {
     dist.remove("shasum");
     dist.remove("integrity");
 
-    let tarball_url = format!(
-      "http://npm.jsr-tests.test/~/{}/@jsr/scope__foo/1.2.3.tgz",
-      NPM_TARBALL_REVISION
-    );
+    let tarball_url =
+      "http://npm.jsr-tests.test/@jsr/scope__foo/-/scope__foo-1.2.3.tgz";
     assert_eq!(
       json,
       serde_json::json!({
@@ -1772,15 +1770,14 @@ pub mod tests {
       })
     );
 
-    let res_url =
-      format!("~/{}/@jsr/scope__foo/1.2.3.tgz", NPM_TARBALL_REVISION);
+    let res_url = "@jsr/scope__foo/-/scope__foo-1.2.3.tgz";
 
     let response = t
       .buckets
       .npm_bucket
       .bucket
       .bucket
-      .get_object(res_url.as_str())
+      .get_object(res_url)
       .await
       .unwrap();
     assert_eq!(response.status_code(), 200);

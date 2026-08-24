@@ -34,7 +34,12 @@ pub use self::tarball::create_npm_tarball;
 pub use self::types::NpmMappedJsrPackageName;
 use self::types::NpmVersionInfo;
 
-pub const NPM_TARBALL_REVISION: u32 = 11;
+pub const NPM_TARBALL_REVISION: u32 = 12;
+
+/// Tarballs with this revision or later are stored at (and served from) the
+/// path layout used by registry.npmjs.org; see
+/// [`crate::s3_paths::npm_tarball_path`].
+pub const FIRST_NPM_LAYOUT_TARBALL_REVISION: u32 = 12;
 
 pub async fn generate_npm_version_manifest<'a>(
   db: &Database,
@@ -123,18 +128,13 @@ pub async fn generate_npm_version_manifest<'a>(
     });
     let npm_dependencies = create_npm_dependencies(dependencies)?;
 
-    let tarball = Url::options()
-      .base_url(Some(npm_url))
-      .parse(&format!(
-        "./~/{}/{}/{}.tgz",
-        version.npm_tarball_revision,
-        NpmMappedJsrPackageName {
-          scope,
-          package: name,
-        },
-        &version.version,
-      ))
-      .unwrap();
+    let tarball = crate::s3_paths::npm_tarball_url(
+      npm_url,
+      scope,
+      name,
+      &version.version,
+      version.npm_tarball_revision as u32,
+    );
 
     let npm_version_info = NpmVersionInfo {
       name: NpmMappedJsrPackageName {
@@ -145,7 +145,7 @@ pub async fn generate_npm_version_manifest<'a>(
       description: package.description.clone(),
       repository: repository.clone(),
       dist: NpmDistInfo {
-        tarball: tarball.to_string(),
+        tarball,
         shasum: version.npm_tarball_sha1,
         integrity: format!("sha512-{}", version.npm_tarball_sha512),
       },
