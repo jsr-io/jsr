@@ -366,7 +366,7 @@ pub async fn enqueue(
       }
     }
     None => {
-      if let Err(err) = deliver(db, email_sender, id).await {
+      if let Err(err) = deliver(db, Some(email_sender), id).await {
         tracing::error!(
           delivery_id = %id,
           "failed to send email inline: {:?}",
@@ -394,13 +394,35 @@ pub struct SendEmailTask {
 #[instrument(name = "emails::deliver", skip(db, email_sender), err)]
 pub async fn deliver(
   db: &crate::db::Database,
-  email_sender: &EmailSender,
+  email_sender: Option<&EmailSender>,
   id: uuid::Uuid,
 ) -> Result<bool, anyhow::Error> {
   let Some(delivery) = db.get_pending_email_delivery(id).await? else {
     // Already sent or abandoned. Cloud Tasks redelivering a task it has already
     // run must not produce a second email.
     return Ok(true);
+  };
+
+  // A delivery can reach a deployment that has no Postmark credential — most
+  // easily by the queue dispatching to a service that was never given one.
+  // Recorded as an ordinary failure rather than swallowed, so it retries if the
+  // configuration is fixed, and is eventually abandoned with a readable reason
+  // instead of disappearing.
+  let Some(email_sender) = email_sender else {
+    let abandoned = db
+      .record_email_delivery_failure(
+        id,
+        "no email sender is configured on this service",
+        MAX_EMAIL_ATTEMPTS,
+      )
+      .await?;
+    tracing::error!(
+      delivery_id = %id,
+      to = %delivery.to_address,
+      abandoned,
+      "cannot deliver email: no email sender is configured on this service"
+    );
+    return Ok(abandoned);
   };
 
   let thread = delivery

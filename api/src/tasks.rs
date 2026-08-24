@@ -514,20 +514,12 @@ pub async fn send_email_handler(
   let db = req.data::<Database>().unwrap();
   let email_sender = req.data::<Option<EmailSender>>().unwrap();
 
-  let Some(email_sender) = email_sender else {
-    // Nothing can be delivered without a Postmark client. Returning 2xx stops
-    // Cloud Tasks retrying a task that can never succeed in this deployment.
-    error!("received an email delivery task but no email sender is configured");
-    return Ok(util::create_response(StatusCode::OK, "text/plain", "OK"));
-  };
-
-  let done =
-    emails::deliver(db, email_sender, task.id)
-      .await
-      .map_err(|err| {
-        error!("failed to process email delivery: {:?}", err);
-        ApiError::InternalServerError
-      })?;
+  let done = emails::deliver(db, email_sender.as_ref(), task.id)
+    .await
+    .map_err(|err| {
+      error!("failed to process email delivery: {:?}", err);
+      ApiError::InternalServerError
+    })?;
 
   if done {
     Ok(util::create_response(StatusCode::OK, "text/plain", "OK"))
@@ -575,12 +567,11 @@ pub async fn sweep_pending_emails_handler(req: Request<Body>) -> ApiResult<()> {
           error!(delivery_id = %id, "failed to re-drive email delivery: {:?}", err);
         }
       }
-      (None, Some(email_sender)) => {
-        if let Err(err) = emails::deliver(db, email_sender, id).await {
+      (None, _) => {
+        if let Err(err) = emails::deliver(db, email_sender.as_ref(), id).await {
           error!(delivery_id = %id, "failed to re-drive email delivery: {:?}", err);
         }
       }
-      (None, None) => break,
     }
   }
 

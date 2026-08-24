@@ -888,6 +888,43 @@ mod integration {
   }
 
   #[tokio::test]
+  async fn a_delivery_is_not_lost_when_no_sender_is_configured() {
+    let t = TestSetup::new().await;
+    let db = t.ephemeral_database.database.as_ref().unwrap();
+
+    let id = db
+      .enqueue_email(crate::db::NewEmailDelivery {
+        to_address: "someone@example.com".to_owned(),
+        subject: "subject".to_owned(),
+        body_text: "text".to_owned(),
+        body_html: "<p>html</p>".to_owned(),
+        message_id: None,
+        in_reply_to: None,
+        reference_ids: vec![],
+      })
+      .await
+      .unwrap();
+
+    // The queue dispatches to a service that has no Postmark credential. This
+    // used to be swallowed with a 200, which marked the delivery done without
+    // ever sending it. It must be recorded as a failure instead, so the mail is
+    // still there to send once the configuration is fixed.
+    let terminal = crate::emails::deliver(db, None, id).await.unwrap();
+    assert!(!terminal, "a missing sender must not end the delivery");
+
+    let pending = db.get_pending_email_delivery(id).await.unwrap().unwrap();
+    assert_eq!(pending.attempts, 1);
+    assert!(pending.last_error.unwrap().contains("no email sender"));
+    assert!(pending.sent_at.is_none());
+
+    // And it is still visible to the sweeper, so it goes out after a fix.
+    assert_eq!(
+      db.list_stale_email_deliveries(0, 10).await.unwrap(),
+      vec![id]
+    );
+  }
+
+  #[tokio::test]
   async fn a_delivery_is_abandoned_after_too_many_failures() {
     let t = TestSetup::new().await;
     let db = t.ephemeral_database.database.as_ref().unwrap();

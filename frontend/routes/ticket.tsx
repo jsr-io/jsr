@@ -8,12 +8,18 @@ import { assertOk, path } from "../utils/api.ts";
 import { TicketMessageInput } from "../islands/TicketMessageInput.tsx";
 import { ClaimTicket } from "../islands/ClaimTicket.tsx";
 import { TicketActor } from "../components/TicketActor.tsx";
-import { TicketStatusBadge } from "../components/TicketStatus.tsx";
+import { TicketStatusControl } from "../islands/TicketStatusControl.tsx";
+import {
+  TicketStatusDot,
+  ticketStatusLabel,
+} from "../components/TicketStatus.tsx";
 import { TicketTitle } from "../components/TicketTitle.tsx";
 import type {
+  ApiTicketActor,
   ApiTicketAttachment,
   ApiTicketOverview,
   TicketKind,
+  TicketStatus,
 } from "../utils/api_types.ts";
 
 export default define.page<typeof handler>(function Ticket({
@@ -61,11 +67,11 @@ export default define.page<typeof handler>(function Ticket({
                 {value}
               </div>
             ))}
-          <div>
-            <span class="font-semibold">status:</span>
-            <br />
-            <TicketStatusBadge status={ticket.status} />
-          </div>
+          <TicketStatusControl
+            ticketId={ticket.id}
+            status={ticket.status}
+            canEdit={state.user?.isStaff ?? false}
+          />
         </div>
       </div>
 
@@ -81,26 +87,21 @@ export default define.page<typeof handler>(function Ticket({
         {ticket.events.map((event) => {
           if (event.kind === "message") {
             const { message } = event;
-            const fromReporter = message.direction === "inbound";
 
             return (
               <div
                 key={message.id}
                 class="w-full rounded border-1.5 border-current dark:border-cyan-700 px-4 py-3"
               >
-                <div class="flex justify-between mb-2">
-                  <div class="flex items-center gap-3">
+                <div class="flex justify-between items-start gap-4 mb-2">
+                  <div class="flex items-center gap-2 flex-wrap">
                     <TicketActor actor={message.author} />
-                    <span
-                      class={"rounded-full text-sm px-2 inline-block " +
-                        (fromReporter
-                          ? "bg-jsr-cyan-500 text-white"
-                          : "bg-jsr-yellow-400 text-jsr-gray-800")}
-                    >
-                      {fromReporter ? "User" : "Staff"}
-                    </span>
+                    <AuthorRole
+                      author={message.author}
+                      inbound={message.direction === "inbound"}
+                    />
                   </div>
-                  <div>
+                  <div class="text-sm text-gray-600 dark:text-gray-300 shrink-0">
                     {twas(new Date(message.updatedAt).getTime())}
                   </div>
                 </div>
@@ -117,19 +118,13 @@ export default define.page<typeof handler>(function Ticket({
               </div>
             );
           } else {
-            const { user, auditLog } = event;
-            const status = auditLog.meta.status as string | undefined;
-
             return (
-              <div class="flex items-center gap-1.5">
-                <p class="text-sm">
-                  <span class="font-semibold">{user.name}</span>{" "}
-                  set the ticket to{" "}
-                  <span class="font-semibold">{status ?? "a new status"}</span>
-                  {" "}
-                  {twas(new Date(auditLog.createdAt).getTime())}
-                </p>
-              </div>
+              <StatusChange
+                key={event.auditLog.createdAt}
+                actorName={event.user.name}
+                meta={event.auditLog.meta}
+                createdAt={event.auditLog.createdAt}
+              />
             );
           }
         })}
@@ -163,6 +158,66 @@ export default define.page<typeof handler>(function Ticket({
     </div>
   );
 });
+
+/// Which side of the conversation a message came from. Derived from the author
+/// rather than the direction alone: the automatic acknowledgement is outbound
+/// but nobody on the team wrote it, and labelling it "Staff" implies a human
+/// replied.
+function AuthorRole(
+  { author, inbound }: { author: ApiTicketActor; inbound: boolean },
+) {
+  if (author.kind === "system") {
+    return (
+      <span class="rounded-full text-sm px-2 inline-block bg-jsr-gray-200 text-jsr-gray-700 dark:bg-jsr-gray-700 dark:text-jsr-gray-100">
+        Automatic
+      </span>
+    );
+  }
+
+  return (
+    <span
+      class={"rounded-full text-sm px-2 inline-block " +
+        (inbound
+          ? "bg-jsr-cyan-500 text-white"
+          : "bg-jsr-yellow-400 text-jsr-gray-800")}
+    >
+      {inbound ? "User" : "Staff"}
+    </span>
+  );
+}
+
+/// A status change, rendered as a timeline marker rather than a stray line of
+/// prose: same left gutter as the message cards, muted, and carrying the colour
+/// of the status it moved to.
+function StatusChange(
+  { actorName, meta, createdAt }: {
+    actorName: string;
+    meta: Record<string, unknown>;
+    createdAt: string;
+  },
+) {
+  // Audit log entries written before the status enum recorded a `closed`
+  // boolean instead, and those rows are still in the log.
+  const status = (meta.status as TicketStatus | undefined) ??
+    (typeof meta.closed === "boolean"
+      ? (meta.closed ? "closed" : "open")
+      : undefined);
+
+  return (
+    <div class="flex items-center gap-2 pl-4 text-sm text-gray-600 dark:text-gray-300">
+      {status
+        ? <TicketStatusDot status={status} />
+        : <div class="rounded-full bg-jsr-gray-400 p-1 shrink-0" />}
+      <p>
+        <span class="font-semibold">{actorName}</span> set the status to{" "}
+        <span class="font-semibold">
+          {status ? ticketStatusLabel(status) : "a new value"}
+        </span>{" "}
+        · {twas(new Date(createdAt).getTime())}
+      </p>
+    </div>
+  );
+}
 
 function Attachments(
   { ticketId, claimToken, attachments }: {
