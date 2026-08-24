@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM tokens WHERE user_id = $1 AND hash IS DISTINCT FROM $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "70b131ea348d43bb0f785a7700101e3022d83891897a347b45d840e6e290eb0e"
+}

@@ -212,6 +212,12 @@ pub struct Config {
   /// The size of the database connection pool.
   pub database_pool_size: u32,
 
+  #[clap(long = "service_account_token", env = "SERVICE_ACCOUNT_TOKEN")]
+  /// A static bearer token for the system service account
+  /// (00000000-0000-0000-0000-000000000000). When set, a token with this
+  /// value's hash is upserted into the database on startup.
+  pub service_account_token: Option<String>,
+
   #[clap(long = "db_client_cert", env = "DB_CLIENT_CERT")]
   /// PEM client certificate presented when connecting to the database over
   /// TLS. Required once the DB enforces `TRUSTED_CLIENT_CERTIFICATE_REQUIRED`;
@@ -254,6 +260,10 @@ impl std::fmt::Debug for Config {
       )
       .field("email_from", &self.email_from)
       .field("email_from_name", &self.email_from_name)
+      .field(
+        "service_account_token",
+        &self.service_account_token.as_ref().map(|_| "***"),
+      )
       .field(
         "db_client_cert",
         &self.db_client_cert.as_ref().map(|_| "***"),

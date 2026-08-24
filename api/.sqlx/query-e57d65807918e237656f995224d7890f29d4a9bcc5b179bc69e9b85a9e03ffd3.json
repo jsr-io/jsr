@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,\n(SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as \"invite_count!\",\n(SELECT COUNT(created_at) FROM scopes WHERE creator = id) as \"scope_usage!\",\n(CASE WHEN users.is_staff THEN (\n  SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (\n    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (\n      SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id\n    )\n  )\n) ELSE (\n  SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (\n    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (\n      SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id\n    )\n  )\n) END) as \"newer_ticket_messages_count!\"  FROM users WHERE gitlab_id = $1",
+  "query": "UPDATE users SET is_blocked = $1 WHERE id = $2\n      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, deletion_hold, scope_limit as \"scope_limit?\",\n(SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as \"invite_count!\",\n(SELECT COUNT(created_at) FROM scopes WHERE creator = id) as \"scope_usage!\",\n(CASE WHEN users.is_staff THEN (\n  SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (\n    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (\n      SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id\n    )\n  )\n) ELSE (\n  SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (\n    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (\n      SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id\n    )\n  )\n) END) as \"newer_ticket_messages_count!\" ",
   "describe": {
     "columns": [
       {
@@ -55,28 +55,34 @@
       },
       {
         "ordinal": 10,
-        "name": "scope_limit",
-        "type_info": "Int4"
+        "name": "deletion_hold",
+        "type_info": "Bool"
       },
       {
         "ordinal": 11,
+        "name": "scope_limit?",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 12,
         "name": "invite_count!",
         "type_info": "Int8"
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "scope_usage!",
         "type_info": "Int8"
       },
       {
-        "ordinal": 13,
+        "ordinal": 14,
         "name": "newer_ticket_messages_count!",
         "type_info": "Int8"
       }
     ],
     "parameters": {
       "Left": [
-        "Int8"
+        "Bool",
+        "Uuid"
       ]
     },
     "nullable": [
@@ -91,10 +97,11 @@
       false,
       false,
       false,
+      true,
       null,
       null,
       null
     ]
   },
-  "hash": "46a0fbf459113a79eeedbd96d37661024601f05f1bb1c95c4bb51aa75e87a90e"
+  "hash": "e57d65807918e237656f995224d7890f29d4a9bcc5b179bc69e9b85a9e03ffd3"
 }

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE scope_members SET is_admin = true\n          WHERE scope = $1 AND user_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1739d7316b78d6d7eb5d6e3d9397f419507b52aef3e0e265b9a5c3bcdaf97c46"
+}
