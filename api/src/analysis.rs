@@ -427,6 +427,14 @@ fn percentage_of_symbols_with_docs(documents_by_url: &ParseOutput) -> f32 {
         .iter()
         .filter(|decl| {
           decl.declaration_kind != deno_doc::node::DeclarationKind::Private
+            // Skip re-export references: their docs live at the target
+            // declaration, which is counted where it is defined. Counting the
+            // (always doc-less) reference too would double-count every
+            // re-exported symbol as undocumented (jsr-io/jsr#988).
+            && !matches!(
+              &decl.def,
+              deno_doc::node::DeclarationDef::Reference(_)
+            )
         })
         .collect();
 
@@ -1388,6 +1396,61 @@ mod tests {
     );
 
     // JSON modules are skipped entirely, so default is 1.0
+    let pct = super::percentage_of_symbols_with_docs(&output);
+    assert!(
+      (pct - 1.0).abs() < f32::EPSILON,
+      "Expected 100% but got {:.0}%",
+      pct * 100.0,
+    );
+  }
+
+  // Regression test for jsr-io/jsr#988: a symbol re-exported from another
+  // entrypoint appears there as a doc-less `Reference` declaration; it must
+  // not be counted as an undocumented symbol.
+  #[test]
+  fn percentage_docs_skips_reexport_references() {
+    let target_location = deno_doc::Location {
+      filename: "file:///util.ts".into(),
+      line: 1,
+      col: 0,
+      byte_index: 19,
+    };
+
+    // util.ts: the actual (documented) definition.
+    let util_symbol = make_symbol(
+      "hello",
+      vec![make_declaration(
+        make_js_doc(Some("Says hello.")),
+        make_fn_decl(true),
+      )],
+    );
+    let util_doc = make_document(make_js_doc(None), vec![util_symbol]);
+
+    // mod.ts: `export { hello } from "./util.ts"` — a Reference with no docs.
+    let reexport_symbol = make_symbol(
+      "hello",
+      vec![make_declaration(
+        make_js_doc(None),
+        deno_doc::node::DeclarationDef::Reference(
+          deno_doc::node::ReferenceDef {
+            target: target_location,
+          },
+        ),
+      )],
+    );
+    let mod_doc = make_document(make_js_doc(None), vec![reexport_symbol]);
+
+    let mut output = indexmap::IndexMap::new();
+    output.insert(
+      deno_ast::ModuleSpecifier::parse("file:///util.ts").unwrap(),
+      util_doc,
+    );
+    output.insert(
+      deno_ast::ModuleSpecifier::parse("file:///mod.ts").unwrap(),
+      mod_doc,
+    );
+
+    // Only the real declaration in util.ts counts, and it is documented.
     let pct = super::percentage_of_symbols_with_docs(&output);
     assert!(
       (pct - 1.0).abs() < f32::EPSILON,
