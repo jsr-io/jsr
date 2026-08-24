@@ -659,6 +659,14 @@ body .ddoc {
       hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-900 transition duration-75;
   }
 
+  /* Base styles for anchor links. The Anchor component applies these as
+     utility classes, but anchors embedded in rendered markdown (heading
+     anchor links) arrive as plain markup with only `class="anchor"`. */
+  .anchor {
+    @apply hidden float-left leading-none text-stone-600 ml-[-24px] p-1 pr-1
+      pt-1 top-0 bottom-0 dark:text-stone-400;
+  }
+
   .anchorable {
     @apply relative scroll-mt-16;
 
