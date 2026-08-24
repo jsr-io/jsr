@@ -1,6 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import type { DocEntryCtx } from "@deno/doc/html-types";
 import { Anchor } from "./Anchor.tsx";
+import { Example } from "./Example.tsx";
 import { Tag } from "./Tag.tsx";
 import { SourceButton } from "./SourceButton.tsx";
 import { getDiffColor } from "./mod.ts";
@@ -19,6 +20,9 @@ export function DocEntry(
     js_doc,
     diff_status,
     old_content,
+    params,
+    return_doc,
+    examples,
   } = entry;
 
   const renamedOldName = diff_status?.kind === "renamed"
@@ -120,6 +124,40 @@ export function DocEntry(
           // deno-lint-ignore react-no-danger
           dangerouslySetInnerHTML={{ __html: js_doc }}
         />
+      )}
+
+      {
+        /* parameter and return docs for entries that have no symbol page of
+          their own — class constructors, construct signatures and call
+          signatures */
+      }
+      {params && params.length > 0 && (
+        <div class="mt-2 pl-4 border-l border-stone-300 dark:border-stone-600">
+          <span class="text-sm font-semibold text-stone-500 dark:text-stone-400">
+            Parameters
+          </span>
+          {params.map((param, i) => <DocEntry key={i} entry={param} />)}
+        </div>
+      )}
+
+      {return_doc && (
+        <div class="mt-2 pl-4 border-l border-stone-300 dark:border-stone-600">
+          <span class="text-sm font-semibold text-stone-500 dark:text-stone-400">
+            Returns
+          </span>
+          <div
+            class="max-w-[75ch]"
+            // jsdoc rendering
+            // deno-lint-ignore react-no-danger
+            dangerouslySetInnerHTML={{ __html: return_doc }}
+          />
+        </div>
+      )}
+
+      {examples && examples.length > 0 && (
+        <div class="space-y-2 mt-3">
+          {examples.map((example, i) => <Example key={i} example={example} />)}
+        </div>
       )}
     </div>
   );
