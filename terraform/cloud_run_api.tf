@@ -314,6 +314,19 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
         }
       }
 
+      // Outgoing email is delivered by /tasks/send_email, which runs here
+      // rather than on the API service, so the Postmark credential has to be
+      // present on this service too.
+      env {
+        name = "POSTMARK_TOKEN"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.postmark_token.id
+            version = "latest"
+          }
+        }
+      }
+
       env {
         name = "TURNSTILE_SECRET_KEY"
         value_source {
