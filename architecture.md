@@ -223,6 +223,7 @@ database — they live in R2.
 | `authorizations`               | OAuth tokens and personal access tokens             |
 | `download_counts`              | JSR and npm download metrics                        |
 | `audit_log`                    | Administrative action history                       |
+| `email_deliveries`             | Outbox for outgoing email, delivered by Cloud Tasks |
 | `tickets`                      | Support tickets, opened on the web or by email      |
 | `ticket_messages`              | Messages on a ticket, in either direction           |
 | `ticket_attachments`           | Files that arrived attached to an inbound email     |
@@ -249,6 +250,26 @@ webhook a no-op rather than a duplicate.
 The Postmark inbound stream's webhook URL is configured in the Postmark
 dashboard, not in terraform:
 `https://webhook:<POSTMARK_WEBHOOK_PASSWORD>@api.jsr.io/hooks/postmark`.
+
+## Outgoing email
+
+Email is never sent inline in a request. Sending is rendered at the point of the
+action and written to `email_deliveries`, then handed to a Cloud Tasks queue
+that POSTs `/tasks/send_email`; that handler is what talks to Postmark. A
+transient Postmark failure therefore retries out of band instead of failing the
+request that caused the mail — an admin ticket reply is saved once and delivered
+independently, rather than returning 500 with the reply already committed.
+
+The delivery row is committed before Cloud Tasks is told about it, so a failed
+hand-off leaves a row nothing would pick up. `/tasks/sweep_pending_emails`, run
+every five minutes by Cloud Scheduler, re-drives those. Re-driving is safe: a
+row that has already been sent is skipped, and a redelivered task reuses the
+same `Message-ID`, so even a genuine double-send is collapsed by the recipient's
+mail client. A delivery that keeps failing is abandoned after eight attempts and
+kept with its last error rather than deleted.
+
+With no queue configured — local development and tests — deliveries are sent
+inline instead.
 
 ## Storage (Cloudflare R2)
 

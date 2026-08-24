@@ -4284,6 +4284,128 @@ gitlab_id: r.user_gitlab_id,
     Ok(Some((ticket, user, messages)))
   }
 
+  /// Queues an email for delivery. The row is the durable record; actually
+  /// handing it to Postmark happens in `/tasks/send_email`.
+  #[instrument(name = "Database::enqueue_email", skip(self, delivery), err)]
+  pub async fn enqueue_email(
+    &self,
+    delivery: NewEmailDelivery,
+  ) -> Result<Uuid> {
+    sqlx::query_scalar!(
+      r#"INSERT INTO email_deliveries (to_address, subject, body_text, body_html, message_id, in_reply_to, reference_ids)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          RETURNING id"#,
+      delivery.to_address,
+      delivery.subject,
+      delivery.body_text,
+      delivery.body_html,
+      delivery.message_id,
+      delivery.in_reply_to,
+      &delivery.reference_ids,
+    )
+    .fetch_one(&self.pool)
+    .await
+  }
+
+  /// Loads a delivery that still needs sending. Returns `None` if it has
+  /// already been sent or abandoned, which is what makes a redelivered task a
+  /// no-op rather than a second email.
+  #[instrument(name = "Database::get_pending_email_delivery", skip(self), err)]
+  pub async fn get_pending_email_delivery(
+    &self,
+    id: Uuid,
+  ) -> Result<Option<EmailDelivery>> {
+    sqlx::query!(
+      r#"SELECT id, to_address, subject, body_text, body_html, message_id, in_reply_to, reference_ids, attempts, sent_at, abandoned_at, last_error, updated_at, created_at
+        FROM email_deliveries
+        WHERE id = $1 AND sent_at IS NULL AND abandoned_at IS NULL"#,
+      id as _,
+    )
+    .map(|r| EmailDelivery {
+      id: r.id,
+      to_address: r.to_address,
+      subject: r.subject,
+      body_text: r.body_text,
+      body_html: r.body_html,
+      message_id: r.message_id,
+      in_reply_to: r.in_reply_to,
+      reference_ids: r.reference_ids,
+      attempts: r.attempts,
+      sent_at: r.sent_at,
+      abandoned_at: r.abandoned_at,
+      last_error: r.last_error,
+      updated_at: r.updated_at,
+      created_at: r.created_at,
+    })
+    .fetch_optional(&self.pool)
+    .await
+  }
+
+  #[instrument(name = "Database::mark_email_delivery_sent", skip(self), err)]
+  pub async fn mark_email_delivery_sent(&self, id: Uuid) -> Result<()> {
+    sqlx::query!(
+      r#"UPDATE email_deliveries SET sent_at = now(), attempts = attempts + 1 WHERE id = $1"#,
+      id as _,
+    )
+    .execute(&self.pool)
+    .await?;
+    Ok(())
+  }
+
+  /// Records a failed attempt. Past `max_attempts` the delivery is abandoned so
+  /// the queue stops retrying it, and the last error is kept so somebody can see
+  /// what was lost.
+  #[instrument(
+    name = "Database::record_email_delivery_failure",
+    skip(self),
+    err
+  )]
+  pub async fn record_email_delivery_failure(
+    &self,
+    id: Uuid,
+    error: &str,
+    max_attempts: i32,
+  ) -> Result<bool> {
+    let abandoned = sqlx::query_scalar!(
+      r#"UPDATE email_deliveries
+          SET attempts = attempts + 1,
+              last_error = $2,
+              abandoned_at = CASE WHEN attempts + 1 >= $3 THEN now() ELSE NULL END
+          WHERE id = $1
+          RETURNING abandoned_at IS NOT NULL as "abandoned!""#,
+      id as _,
+      error,
+      max_attempts,
+    )
+    .fetch_optional(&self.pool)
+    .await?;
+
+    Ok(abandoned.unwrap_or(false))
+  }
+
+  /// Deliveries that were queued but never reached a terminal state — the Cloud
+  /// Tasks hand-off can fail after the row is committed, and nothing else would
+  /// ever notice. Re-driven periodically by the sweeper in `tasks.rs`.
+  #[instrument(name = "Database::list_stale_email_deliveries", skip(self), err)]
+  pub async fn list_stale_email_deliveries(
+    &self,
+    older_than_secs: i64,
+    limit: i64,
+  ) -> Result<Vec<Uuid>> {
+    sqlx::query_scalar!(
+      r#"SELECT id FROM email_deliveries
+        WHERE sent_at IS NULL
+          AND abandoned_at IS NULL
+          AND created_at < now() - make_interval(secs => $1::double precision)
+        ORDER BY created_at
+        LIMIT $2"#,
+      older_than_secs as f64,
+      limit,
+    )
+    .fetch_all(&self.pool)
+    .await
+  }
+
   #[instrument(name = "Database::create_ticket", skip(self), err)]
   pub async fn create_ticket(
     &self,

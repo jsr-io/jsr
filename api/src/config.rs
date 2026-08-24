@@ -178,6 +178,11 @@ pub struct Config {
   /// The ID of the npm tarball build queue.
   pub npm_tarball_build_queue_id: Option<String>,
 
+  #[clap(long = "email_queue_id", env = "EMAIL_QUEUE_ID")]
+  /// The ID of the queue that delivers outgoing email. Email is sent inline if
+  /// unset, which is the local development and testing path.
+  pub email_queue_id: Option<String>,
+
   #[clap(long = "cloudflare_account_id", env = "CLOUDFLARE_ACCOUNT_ID")]
   /// The Cloudflare account ID for Analytics Engine.
   pub cloudflare_account_id: Option<String>,

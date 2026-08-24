@@ -1270,6 +1270,38 @@ pub type FullTicketMessage =
 
 pub type FullTicket = (Ticket, Option<User>, Vec<FullTicketMessage>);
 
+/// A queued outgoing email, already rendered. Written in the request that causes
+/// it and delivered out of band, so a Postmark failure never reaches the user
+/// whose action triggered the mail.
+#[derive(Debug, Clone)]
+pub struct EmailDelivery {
+  pub id: Uuid,
+  pub to_address: String,
+  pub subject: String,
+  pub body_text: String,
+  pub body_html: String,
+  pub message_id: Option<String>,
+  pub in_reply_to: Option<String>,
+  pub reference_ids: Vec<String>,
+  pub attempts: i32,
+  pub sent_at: Option<DateTime<Utc>>,
+  pub abandoned_at: Option<DateTime<Utc>>,
+  pub last_error: Option<String>,
+  pub updated_at: DateTime<Utc>,
+  pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone)]
+pub struct NewEmailDelivery {
+  pub to_address: String,
+  pub subject: String,
+  pub body_text: String,
+  pub body_html: String,
+  pub message_id: Option<String>,
+  pub in_reply_to: Option<String>,
+  pub reference_ids: Vec<String>,
+}
+
 /// A file that arrived attached to an inbound email, already uploaded to the
 /// attachment bucket. Only the bookkeeping row is left to write.
 #[derive(Debug, Clone)]

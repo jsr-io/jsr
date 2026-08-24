@@ -53,6 +53,7 @@ locals {
 
     "PUBLISH_QUEUE_ID"           = "projects/${var.gcp_project}/locations/us-central1/queues/${local.publishing_tasks_queue_name}"
     "NPM_TARBALL_BUILD_QUEUE_ID" = "projects/${var.gcp_project}/locations/us-central1/queues/${local.npm_tarball_build_tasks_queue_name}"
+    "EMAIL_QUEUE_ID"             = "projects/${var.gcp_project}/locations/us-central1/queues/${local.email_delivery_queue_name}"
 
     "LOGS_BIGQUERY_TABLE_ID" = "${data.google_bigquery_dataset.default.dataset_id}._Default"
     "GCP_PROJECT_ID"         = var.gcp_project

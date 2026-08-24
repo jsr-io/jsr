@@ -38,6 +38,7 @@ use crate::api::PublishQueue;
 use crate::api::api_router;
 use crate::config::Config;
 use crate::db::Database;
+use crate::emails::EmailQueue;
 use crate::emails::EmailSender;
 use crate::errors_internal::error_handler;
 use crate::external::algolia::AlgoliaClient;
@@ -78,6 +79,7 @@ pub struct MainRouterOptions {
   fallback_registry_url: Option<Url>,
   publish_queue: Option<Queue>,
   npm_tarball_build_queue: Option<Queue>,
+  email_queue: Option<Queue>,
   analytics_engine_config: Option<(
     external::cloudflare::AnalyticsEngineClient,
     /* dataset_name */ String,
@@ -108,6 +110,7 @@ pub(crate) fn main_router(
     fallback_registry_url,
     publish_queue,
     npm_tarball_build_queue,
+    email_queue,
     analytics_engine_config,
     cache_purge_client,
     turnstile,
@@ -130,6 +133,7 @@ pub(crate) fn main_router(
     .data(FallbackRegistryUrl(fallback_registry_url))
     .data(PublishQueue(publish_queue))
     .data(NpmTarballBuildQueue(npm_tarball_build_queue))
+    .data(EmailQueue(email_queue))
     .data(AnalyticsEngineConfig(analytics_engine_config))
     .data(CachePurge(cache_purge_client))
     .data(turnstile)
@@ -283,6 +287,10 @@ async fn main() {
     .npm_tarball_build_queue_id
     .map(|id: String| Queue::new(gcp_client.clone(), id, None));
 
+  let email_queue = config
+    .email_queue_id
+    .map(|id: String| Queue::new(gcp_client.clone(), id, None));
+
   let cache_purge_client = match (
     config.cloudflare_zone_id.clone(),
     config.cloudflare_api_token.clone(),
@@ -369,6 +377,7 @@ async fn main() {
     fallback_registry_url: config.fallback_registry_url,
     publish_queue,
     npm_tarball_build_queue,
+    email_queue,
     analytics_engine_config,
     cache_purge_client,
     turnstile,

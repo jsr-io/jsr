@@ -26,7 +26,9 @@ use crate::db::NewEmailTicket;
 use crate::db::NewTicketAttachment;
 use crate::db::NewTicketEmailMessage;
 use crate::db::NewTicketSystemMessage;
+use crate::emails;
 use crate::emails::EmailArgs;
+use crate::emails::EmailQueue;
 use crate::emails::EmailSender;
 use crate::emails::EmailThread;
 use crate::s3::Buckets;
@@ -353,24 +355,26 @@ async fn open_ticket(
     support_email: Cow::Borrowed(&email_sender.from),
   };
 
-  email_sender
-    .send_threaded(
-      reporter_email,
-      email_args,
-      Some(EmailThread {
-        message_id: &auto_reply_email_message_id,
-        in_reply_to: Some(in_reply_to.clone()),
-        references: vec![in_reply_to],
-      }),
-    )
-    .await
-    .map_err(|e| {
-      // The ticket is already on file and visible to staff, so this is not worth
-      // a retry: Postmark redelivering would find the message already ingested
-      // and skip straight past the send.
-      tracing::error!("failed to send support ticket auto-reply: {:?}", e);
-      ApiError::InternalServerError
-    })?;
+  // Queued rather than sent here: the ticket is already on file, and a Postmark
+  // failure must not turn into a non-2xx. Postmark would redeliver the webhook,
+  // find the message already ingested, and skip past the send entirely — so the
+  // reporter would never be acknowledged. The delivery row is retried instead.
+  if let Err(err) = emails::enqueue(
+    db,
+    email_sender,
+    req.data::<EmailQueue>().unwrap(),
+    reporter_email,
+    email_args,
+    Some(EmailThread {
+      message_id: &auto_reply_email_message_id,
+      in_reply_to: Some(in_reply_to.clone()),
+      references: vec![in_reply_to],
+    }),
+  )
+  .await
+  {
+    tracing::error!("failed to queue support ticket auto-reply: {:?}", err);
+  }
 
   Ok(())
 }
@@ -821,6 +825,115 @@ mod integration {
       .await
       .unwrap();
     resp.expect_err(StatusCode::NOT_FOUND).await;
+  }
+
+  #[tokio::test]
+  async fn inbound_email_queues_an_auto_reply() {
+    let mut t = TestSetup::new().await;
+
+    deliver(&mut t, inbound("<a@example.com>", "Help", json!([]))).await;
+    let ticket = all_tickets(&mut t).await.remove(0);
+
+    // No Postmark client is configured under test, so nothing is queued and
+    // the ticket still lands. What matters is that the webhook succeeded and
+    // the auto-reply is recorded on the ticket either way.
+    let db = t.ephemeral_database.database.as_ref().unwrap();
+    assert!(
+      db.list_stale_email_deliveries(0, 10)
+        .await
+        .unwrap()
+        .is_empty(),
+      "no deliveries are queued when email is not configured"
+    );
+    assert_eq!(ticket.messages.len(), 2);
+  }
+
+  #[tokio::test]
+  async fn a_queued_delivery_is_sent_once_and_then_ignored() {
+    let t = TestSetup::new().await;
+    let db = t.ephemeral_database.database.as_ref().unwrap();
+
+    let id = db
+      .enqueue_email(crate::db::NewEmailDelivery {
+        to_address: "someone@example.com".to_owned(),
+        subject: "[TICKET-20260824-00001] Support request".to_owned(),
+        body_text: "hello".to_owned(),
+        body_html: "<p>hello</p>".to_owned(),
+        message_id: Some("<x@jsr.io>".to_owned()),
+        in_reply_to: None,
+        reference_ids: vec![],
+      })
+      .await
+      .unwrap();
+
+    // Queued but not yet delivered, so the sweeper can still see it.
+    let pending = db.get_pending_email_delivery(id).await.unwrap();
+    assert!(pending.is_some());
+    assert_eq!(
+      db.list_stale_email_deliveries(0, 10).await.unwrap(),
+      vec![id]
+    );
+
+    db.mark_email_delivery_sent(id).await.unwrap();
+
+    // Once sent it is invisible to both the delivery path and the sweeper, so a
+    // task Cloud Tasks redelivers cannot produce a second email.
+    assert!(db.get_pending_email_delivery(id).await.unwrap().is_none());
+    assert!(
+      db.list_stale_email_deliveries(0, 10)
+        .await
+        .unwrap()
+        .is_empty()
+    );
+  }
+
+  #[tokio::test]
+  async fn a_delivery_is_abandoned_after_too_many_failures() {
+    let t = TestSetup::new().await;
+    let db = t.ephemeral_database.database.as_ref().unwrap();
+
+    let id = db
+      .enqueue_email(crate::db::NewEmailDelivery {
+        to_address: "nobody@example.invalid".to_owned(),
+        subject: "subject".to_owned(),
+        body_text: "text".to_owned(),
+        body_html: "<p>html</p>".to_owned(),
+        message_id: None,
+        in_reply_to: None,
+        reference_ids: vec![],
+      })
+      .await
+      .unwrap();
+
+    // Below the limit it stays retryable.
+    let abandoned = db
+      .record_email_delivery_failure(id, "boom", 3)
+      .await
+      .unwrap();
+    assert!(!abandoned);
+    assert!(db.get_pending_email_delivery(id).await.unwrap().is_some());
+
+    let abandoned = db
+      .record_email_delivery_failure(id, "boom", 3)
+      .await
+      .unwrap();
+    assert!(!abandoned);
+
+    // The third failure hits the limit and takes it out of the queue for good,
+    // rather than retrying an undeliverable address forever.
+    let abandoned = db
+      .record_email_delivery_failure(id, "boom", 3)
+      .await
+      .unwrap();
+    assert!(abandoned);
+    assert!(db.get_pending_email_delivery(id).await.unwrap().is_none());
+    assert!(
+      db.list_stale_email_deliveries(0, 10)
+        .await
+        .unwrap()
+        .is_empty(),
+      "an abandoned delivery is not swept up again"
+    );
   }
 
   #[tokio::test]

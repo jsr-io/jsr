@@ -20,7 +20,9 @@ use crate::db::NewTicket;
 use crate::db::NewTicketMessage;
 use crate::db::Ticket;
 use crate::db::{Database, UserPublic};
+use crate::emails;
 use crate::emails::EmailArgs;
+use crate::emails::EmailQueue;
 use crate::emails::EmailSender;
 use crate::emails::EmailThread;
 use crate::iam::ReqIamExt;
@@ -180,17 +182,22 @@ pub async fn post_handler(mut req: Request<Body>) -> ApiResult<ApiTicket> {
         registry_name: Cow::Borrowed(&email_sender.from_name),
         support_email: Cow::Borrowed(&email_sender.from),
       };
-      // Sent without a Message-ID of its own: there is nothing yet for a reply
-      // to thread onto, so a reply to this acknowledgement is matched by the
-      // ticket number in its subject instead. Every later email in the thread
-      // does carry one.
-      email_sender
-        .send(email.clone(), email_args)
-        .await
-        .map_err(|e| {
-          tracing::error!("failed to send email: {:?}", e);
-          ApiError::InternalServerError
-        })?;
+      // Queued without a Message-ID of its own: there is nothing yet for a
+      // reply to thread onto, so a reply to this acknowledgement is matched by
+      // the ticket number in its subject instead. Every later email in the
+      // thread does carry one.
+      if let Err(err) = emails::enqueue(
+        db,
+        email_sender,
+        req.data::<EmailQueue>().unwrap(),
+        email.clone(),
+        email_args,
+        None,
+      )
+      .await
+      {
+        tracing::error!("failed to queue email: {:?}", err);
+      }
     }
   }
 
@@ -307,17 +314,21 @@ pub async fn post_message_handler(
       registry_name: Cow::Borrowed(&email_sender.from_name),
       support_email: Cow::Borrowed(&email_sender.from),
     };
-    email_sender
-      .send_threaded(
-        email,
-        email_args,
-        Some(thread_for(&messages, email_message_id)),
-      )
-      .await
-      .map_err(|e| {
-        tracing::error!("failed to send email: {:?}", e);
-        ApiError::InternalServerError
-      })?;
+    // A failure here is logged rather than returned: the message is already on
+    // the ticket, and failing the request would have the admin retype a reply
+    // that was in fact saved. The sweeper re-drives anything left unsent.
+    if let Err(err) = emails::enqueue(
+      db,
+      email_sender,
+      req.data::<EmailQueue>().unwrap(),
+      email,
+      email_args,
+      Some(thread_for(&messages, email_message_id)),
+    )
+    .await
+    {
+      tracing::error!("failed to queue email: {:?}", err);
+    }
   }
 
   Ok(message.into())

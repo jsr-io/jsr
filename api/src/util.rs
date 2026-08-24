@@ -1132,6 +1132,8 @@ pub mod test {
         fallback_registry_url: fallback_registry_url.clone(),
         publish_queue: None,           // no queue locally
         npm_tarball_build_queue: None, // no queue locally
+        // No Cloud Tasks locally, so queued email is delivered inline.
+        email_queue: None,
         analytics_engine_config: None, // no analytics engine locally
         cache_purge_client: None,      // no Cloudflare purge locally
         // No secret key, so the login captcha is not verified in tests.
