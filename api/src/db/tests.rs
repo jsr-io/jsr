@@ -695,6 +695,57 @@ async fn create_package_version_and_finalize_publishing_task() {
 }
 
 #[tokio::test]
+async fn package_version_with_large_meta() {
+  let db = EphemeralDatabase::create().await;
+
+  let user_id = uuid::Uuid::default();
+  let scope_name: ScopeName = "scope".try_into().unwrap();
+  let package_name: PackageName = "testpkg".try_into().unwrap();
+  let version: Version = "1.0.0".try_into().unwrap();
+
+  db.create_scope(
+    &user_id,
+    false,
+    &scope_name,
+    user_id,
+    &ScopeDescription::default(),
+  )
+  .await
+  .unwrap();
+  let CreatePackageResult::Ok(package) =
+    db.create_package(&scope_name, &package_name).await.unwrap()
+  else {
+    unreachable!()
+  };
+
+  // Regression test for jsr-io/jsr#1505: `meta` used to be an INCLUDE column
+  // of idx_package_versions_latest, so a meta larger than Postgres' ~8KB
+  // b-tree index row cap (e.g. thousands of undocumented entrypoints) made
+  // this insert fail, permanently wedging the publishing task. The version
+  // must be non-prerelease and non-yanked so the row lands in that partial
+  // index.
+  let meta = PackageVersionMeta {
+    entrypoints_without_docs: (0..20_000)
+      .map(|i| format!("./entrypoint{i}"))
+      .collect(),
+    ..Default::default()
+  };
+  db.create_package_version_for_test(NewPackageVersion {
+    scope: &package.scope,
+    name: &package.name,
+    version: &version,
+    user_id: None,
+    readme_path: None,
+    exports: &ExportsMap::mock(),
+    uses_npm: false,
+    meta,
+    license: "MIT".to_string(),
+  })
+  .await
+  .unwrap();
+}
+
+#[tokio::test]
 async fn package_files() {
   let db = EphemeralDatabase::create().await;
 

@@ -315,6 +315,7 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
     let span = Span::current();
     let fut = publish_task(
       publishing_task_id,
+      0,
       buckets,
       license_store,
       registry,

@@ -348,6 +348,14 @@ fn generate_score(
   }
 }
 
+/// Cap on how many undocumented entrypoints are recorded in
+/// `PackageVersionMeta`. The full list is unbounded (one entry per export) and
+/// `meta` is stored in the database and returned in API responses, so a
+/// package with tens of thousands of undocumented entrypoints would bloat
+/// both (jsr-io/jsr#1505). `all_entrypoints_docs` stays accurate: a capped
+/// list is non-empty iff the uncapped list was.
+pub(crate) const MAX_ENTRYPOINTS_WITHOUT_DOCS: usize = 100;
+
 fn entrypoints_missing_module_doc(
   documents_by_url: &ParseOutput,
   main_entrypoint: Option<ModuleSpecifier>,
@@ -394,6 +402,7 @@ fn entrypoints_missing_module_doc(
     missing.push(name);
   }
 
+  missing.truncate(MAX_ENTRYPOINTS_WITHOUT_DOCS);
   missing
 }
 
@@ -1415,6 +1424,25 @@ mod tests {
     );
 
     assert_eq!(missing, vec!["./utils".to_string()]);
+  }
+
+  #[test]
+  fn entrypoints_missing_docs_caps_list() {
+    let mut output = indexmap::IndexMap::new();
+    let mut exports_map = indexmap::IndexMap::new();
+    for i in 0..(super::MAX_ENTRYPOINTS_WITHOUT_DOCS + 50) {
+      output.insert(
+        deno_ast::ModuleSpecifier::parse(&format!("file:///m{i}.ts")).unwrap(),
+        make_document(make_js_doc(None), vec![]),
+      );
+      exports_map.insert(format!("./m{i}"), format!("./m{i}.ts"));
+    }
+    let exports = crate::db::ExportsMap::new(exports_map);
+
+    let missing =
+      super::entrypoints_missing_module_doc(&output, None, false, &exports);
+
+    assert_eq!(missing.len(), super::MAX_ENTRYPOINTS_WITHOUT_DOCS);
   }
 
   #[test]
