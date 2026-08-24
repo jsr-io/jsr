@@ -73,3 +73,18 @@ resource "google_cloud_scheduler_job" "scrape_download_counts" {
     }
   }
 }
+
+resource "google_cloud_scheduler_job" "sweep_pending_emails" {
+  name        = "sweep-pending-emails"
+  description = "Re-drive queued emails whose Cloud Tasks hand-off never happened or whose task was dropped."
+  schedule    = "*/5 * * * *"
+  region      = "us-central1"
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_v2_service.registry_api_tasks.uri}/tasks/sweep_pending_emails"
+    oidc_token {
+      service_account_email = google_service_account.task_dispatcher.email
+    }
+  }
+}

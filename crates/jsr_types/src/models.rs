@@ -1103,6 +1103,59 @@ pub enum TicketKind {
   Other,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(
+  feature = "sqlx",
+  sqlx(type_name = "ticket_status", rename_all = "snake_case")
+)]
+pub enum TicketStatus {
+  Open,
+  WaitingOnUser,
+  WaitingOnSupport,
+  Closed,
+  Spam,
+}
+
+impl std::str::FromStr for TicketStatus {
+  type Err = ();
+
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    Ok(match s {
+      "open" => Self::Open,
+      "waiting_on_user" => Self::WaitingOnUser,
+      "waiting_on_support" => Self::WaitingOnSupport,
+      "closed" => Self::Closed,
+      "spam" => Self::Spam,
+      _ => return Err(()),
+    })
+  }
+}
+
+impl TicketStatus {
+  /// Whether the ticket is still being worked. `spam` counts as resolved: it is
+  /// a parking spot for junk mail, not part of the queue.
+  pub fn is_active(self) -> bool {
+    !matches!(self, TicketStatus::Closed | TicketStatus::Spam)
+  }
+}
+
+/// Which way a message travelled. `inbound` is from the person who opened the
+/// ticket, `outbound` is from JSR — a staff reply or the automatic
+/// acknowledgement.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(
+  feature = "sqlx",
+  sqlx(type_name = "ticket_message_direction", rename_all = "snake_case")
+)]
+pub enum TicketMessageDirection {
+  Inbound,
+  Outbound,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct NewTicket {
   pub kind: TicketKind,
@@ -1113,10 +1166,26 @@ pub struct NewTicket {
 #[derive(Debug, Clone)]
 pub struct Ticket {
   pub id: Uuid,
+  /// Human-quotable identifier (`TICKET-YYYYMMDD-XXXXX`). Carried in email
+  /// subject lines so a reply that has lost its threading headers can still be
+  /// matched back to its ticket.
+  pub ticket_number: String,
   pub kind: TicketKind,
-  pub creator: Uuid,
+  /// `None` for a ticket opened by email that nobody has claimed yet; the
+  /// `reporter_*` fields identify the reporter until then.
+  pub creator: Option<Uuid>,
+  pub reporter_email: Option<String>,
+  pub reporter_name: Option<String>,
+  /// The email subject an email-opened ticket arrived with. `None` for tickets
+  /// opened through the web UI, whose title is derived from `kind` and `meta`.
+  pub subject: Option<String>,
+  /// Secret that lets the reporter of an unclaimed ticket read and reply to it
+  /// without an account, and bind it to their account if they make one. Cleared
+  /// once claimed.
+  pub claim_token: Option<Uuid>,
   pub meta: serde_json::Value,
-  pub closed: bool,
+  pub status: TicketStatus,
+  pub closed_at: Option<DateTime<Utc>>,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
 }
@@ -1126,10 +1195,28 @@ impl FromRow<'_, sqlx::postgres::PgRow> for Ticket {
   fn from_row(row: &sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
     Ok(Self {
       id: try_get_row_or(row, "id", "ticket_id")?,
+      ticket_number: try_get_row_or(
+        row,
+        "ticket_number",
+        "ticket_ticket_number",
+      )?,
       kind: try_get_row_or(row, "kind", "ticket_kind")?,
       creator: try_get_row_or(row, "creator", "ticket_creator")?,
+      reporter_email: try_get_row_or(
+        row,
+        "reporter_email",
+        "ticket_reporter_email",
+      )?,
+      reporter_name: try_get_row_or(
+        row,
+        "reporter_name",
+        "ticket_reporter_name",
+      )?,
+      subject: try_get_row_or(row, "subject", "ticket_subject")?,
+      claim_token: try_get_row_or(row, "claim_token", "ticket_claim_token")?,
       meta: try_get_row_or(row, "meta", "ticket_meta")?,
-      closed: try_get_row_or(row, "closed", "ticket_closed")?,
+      status: try_get_row_or(row, "status", "ticket_status")?,
+      closed_at: try_get_row_or(row, "closed_at", "ticket_closed_at")?,
       updated_at: try_get_row_or(row, "updated_at", "ticket_updated_at")?,
       created_at: try_get_row_or(row, "created_at", "ticket_created_at")?,
     })
@@ -1144,14 +1231,127 @@ pub struct NewTicketMessage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TicketMessage {
+  pub id: Uuid,
   pub ticket_id: Uuid,
-  pub author: Uuid,
+  /// `None` when the message came in by email from someone without an account
+  /// (see `author_email`), or when JSR itself generated it (the auto-reply).
+  pub author: Option<Uuid>,
+  pub author_email: Option<String>,
+  pub author_name: Option<String>,
+  /// Whether the sending domain passed SPF and DKIM. Only meaningful alongside
+  /// `author_email` — a message from a signed-in user needs no such check.
+  pub author_email_verified: Option<bool>,
+  pub direction: TicketMessageDirection,
+  /// RFC 5322 `Message-ID` of the email this message was sent as or received
+  /// from, used to thread replies back onto the ticket. `None` for messages
+  /// that were never emailed.
+  pub email_message_id: Option<String>,
   pub message: String,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
 }
 
-pub type FullTicket = (Ticket, User, Vec<(TicketMessage, UserPublic)>);
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TicketAttachment {
+  pub id: Uuid,
+  pub message_id: Uuid,
+  pub filename: String,
+  pub content_type: String,
+  pub size_bytes: i32,
+  pub storage_key: String,
+  pub created_at: DateTime<Utc>,
+}
+
+/// A message together with the account that wrote it, if it had one, and the
+/// files that arrived with it.
+pub type FullTicketMessage =
+  (TicketMessage, Option<UserPublic>, Vec<TicketAttachment>);
+
+pub type FullTicket = (Ticket, Option<User>, Vec<FullTicketMessage>);
+
+/// A queued outgoing email, already rendered. Written in the request that causes
+/// it and delivered out of band, so a Postmark failure never reaches the user
+/// whose action triggered the mail.
+#[derive(Debug, Clone)]
+pub struct EmailDelivery {
+  pub id: Uuid,
+  pub to_address: String,
+  pub subject: String,
+  pub body_text: String,
+  pub body_html: String,
+  pub message_id: Option<String>,
+  pub in_reply_to: Option<String>,
+  pub reference_ids: Vec<String>,
+  pub attempts: i32,
+  pub sent_at: Option<DateTime<Utc>>,
+  pub abandoned_at: Option<DateTime<Utc>>,
+  pub last_error: Option<String>,
+  pub updated_at: DateTime<Utc>,
+  pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone)]
+pub struct NewEmailDelivery {
+  pub to_address: String,
+  pub subject: String,
+  pub body_text: String,
+  pub body_html: String,
+  pub message_id: Option<String>,
+  pub in_reply_to: Option<String>,
+  pub reference_ids: Vec<String>,
+}
+
+/// A file that arrived attached to an inbound email, already uploaded to the
+/// attachment bucket. Only the bookkeeping row is left to write.
+#[derive(Debug, Clone)]
+pub struct NewTicketAttachment {
+  pub filename: String,
+  pub content_type: String,
+  pub size_bytes: i32,
+  pub storage_key: String,
+}
+
+/// A message that arrived by email rather than through the web UI.
+#[derive(Debug, Clone)]
+pub struct NewTicketEmailMessage {
+  /// Chosen by the caller rather than the database, so that attachment storage
+  /// keys can be built before the row exists.
+  pub id: Uuid,
+  pub author_email: String,
+  pub author_name: Option<String>,
+  /// Whether the sending domain passed SPF and DKIM.
+  pub author_email_verified: bool,
+  /// RFC 5322 `Message-ID` of the email this came from. Doubles as the
+  /// idempotency key: the column is unique, so a redelivered webhook is
+  /// rejected by the database rather than duplicating the message.
+  pub email_message_id: String,
+  pub message: String,
+  pub attachments: Vec<NewTicketAttachment>,
+}
+
+/// An outbound message JSR generated itself, with no user behind it. Recorded so
+/// that the reply it invites can be threaded back onto the ticket by its
+/// `Message-ID`.
+#[derive(Debug, Clone)]
+pub struct NewTicketSystemMessage {
+  pub id: Uuid,
+  pub email_message_id: String,
+  pub message: String,
+}
+
+/// Everything needed to open a ticket from an inbound email, in one transaction.
+#[derive(Debug, Clone)]
+pub struct NewEmailTicket {
+  pub reporter_email: String,
+  pub reporter_name: Option<String>,
+  pub subject: String,
+  /// Secret handed to the reporter in the auto-reply so they can reach the
+  /// ticket on the web without an account.
+  pub claim_token: Uuid,
+  pub message: NewTicketEmailMessage,
+  pub auto_reply: NewTicketSystemMessage,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

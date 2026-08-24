@@ -11,6 +11,8 @@ use futures::StreamExt;
 use futures::stream;
 use hyper::Body;
 use hyper::Request;
+use hyper::Response;
+use hyper::StatusCode;
 use routerify::Router;
 use routerify::ext::RequestExt;
 use routerify_query::RequestQueryExt;
@@ -35,6 +37,10 @@ use crate::db::NewNpmTarball;
 use crate::db::PublishingTaskStatus;
 use crate::db::STALE_PUBLISHING_TASK_SECS;
 use crate::db::VersionDownloadCount;
+use crate::emails;
+use crate::emails::EmailQueue;
+use crate::emails::EmailSender;
+use crate::emails::SendEmailTask;
 use crate::external::cloudflare;
 use crate::external::cloudflare::CachePurge;
 use crate::gcp;
@@ -77,6 +83,11 @@ pub fn tasks_router() -> Router<Body, ApiError> {
     .post(
       "/clean_oauth_states",
       util::json(clean_oauth_states_handler),
+    )
+    .post("/send_email", send_email_handler)
+    .post(
+      "/sweep_pending_emails",
+      util::json(sweep_pending_emails_handler),
     )
     .post(
       "/clean_download_counts_4h",
@@ -475,4 +486,103 @@ fn deserialize_version_download_count_from_analytics(
     kind,
     count: i64::from_str(&record.count).unwrap(),
   })
+}
+
+/// Deliveries queued longer ago than this that never reached a terminal state
+/// are assumed to have lost their Cloud Tasks hand-off and are re-driven.
+/// Comfortably longer than a normal delivery, so a task still in flight is not
+/// duplicated.
+const STALE_EMAIL_DELIVERY_SECS: i64 = 300;
+
+/// How many stale deliveries one sweep re-drives. Bounds the work a single
+/// scheduler tick can do if a long Postmark outage has backed the queue up.
+const STALE_EMAIL_SWEEP_LIMIT: i64 = 500;
+
+/// Delivers one queued email. Driven by Cloud Tasks, which retries on a non-2xx.
+#[instrument(
+  name = "POST /tasks/send_email",
+  skip(req),
+  err,
+  fields(delivery_id)
+)]
+pub async fn send_email_handler(
+  mut req: Request<Body>,
+) -> ApiResult<Response<Body>> {
+  let task: SendEmailTask = decode_json(&mut req).await?;
+  Span::current().record("delivery_id", field::display(task.id));
+
+  let db = req.data::<Database>().unwrap();
+  let email_sender = req.data::<Option<EmailSender>>().unwrap();
+
+  let Some(email_sender) = email_sender else {
+    // Nothing can be delivered without a Postmark client. Returning 2xx stops
+    // Cloud Tasks retrying a task that can never succeed in this deployment.
+    error!("received an email delivery task but no email sender is configured");
+    return Ok(util::create_response(StatusCode::OK, "text/plain", "OK"));
+  };
+
+  let done =
+    emails::deliver(db, email_sender, task.id)
+      .await
+      .map_err(|err| {
+        error!("failed to process email delivery: {:?}", err);
+        ApiError::InternalServerError
+      })?;
+
+  if done {
+    Ok(util::create_response(StatusCode::OK, "text/plain", "OK"))
+  } else {
+    // The attempt failed but is worth another; a 5xx is how Cloud Tasks is told
+    // to back off and retry.
+    Err(ApiError::InternalServerError)
+  }
+}
+
+/// Re-drives emails that were queued but never delivered.
+///
+/// The delivery row is committed before Cloud Tasks is told about it, so a
+/// failure to reach Cloud Tasks — or a task dropped after its retries were
+/// exhausted at the queue level — leaves a row nothing will ever pick up. This
+/// handler, run periodically by Cloud Scheduler, finds those and queues them
+/// again. Re-driving a delivery is safe: `deliver` no-ops on a row that has
+/// already been sent.
+#[instrument(name = "POST /tasks/sweep_pending_emails", skip(req), err)]
+pub async fn sweep_pending_emails_handler(req: Request<Body>) -> ApiResult<()> {
+  let db = req.data::<Database>().unwrap();
+  let email_sender = req.data::<Option<EmailSender>>().unwrap();
+  let queue = req.data::<EmailQueue>().unwrap();
+
+  let stale = db
+    .list_stale_email_deliveries(
+      STALE_EMAIL_DELIVERY_SECS,
+      STALE_EMAIL_SWEEP_LIMIT,
+    )
+    .await?;
+
+  if stale.is_empty() {
+    return Ok(());
+  }
+
+  tracing::info!("re-driving {} stale email deliveries", stale.len());
+
+  for id in stale {
+    match (&queue.0, email_sender) {
+      (Some(queue), _) => {
+        let body = serde_json::to_vec(&SendEmailTask { id }).unwrap();
+        // A fresh task id, because the original may still be known to Cloud
+        // Tasks and would be rejected as a duplicate.
+        if let Err(err) = queue.task_buffer(None, Some(body.into())).await {
+          error!(delivery_id = %id, "failed to re-drive email delivery: {:?}", err);
+        }
+      }
+      (None, Some(email_sender)) => {
+        if let Err(err) = emails::deliver(db, email_sender, id).await {
+          error!(delivery_id = %id, "failed to re-drive email delivery: {:?}", err);
+        }
+      }
+      (None, None) => break,
+    }
+  }
+
+  Ok(())
 }

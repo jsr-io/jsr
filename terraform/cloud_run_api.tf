@@ -21,6 +21,8 @@ locals {
     "DOCS_BUCKET"       = cloudflare_r2_bucket.docs.name
     "NPM_BUCKET"        = cloudflare_r2_bucket.npm.name
 
+    "TICKET_ATTACHMENTS_BUCKET" = cloudflare_r2_bucket.ticket_attachments.name
+
     "S3_REGION"     = "auto"
     "S3_ENDPOINT"   = "${var.cloudflare_account_id}.r2.cloudflarestorage.com"
     "S3_ACCESS_KEY" = cloudflare_account_token.buckets_rw.id
@@ -51,6 +53,7 @@ locals {
 
     "PUBLISH_QUEUE_ID"           = "projects/${var.gcp_project}/locations/us-central1/queues/${local.publishing_tasks_queue_name}"
     "NPM_TARBALL_BUILD_QUEUE_ID" = "projects/${var.gcp_project}/locations/us-central1/queues/${local.npm_tarball_build_tasks_queue_name}"
+    "EMAIL_QUEUE_ID"             = "projects/${var.gcp_project}/locations/us-central1/queues/${local.email_delivery_queue_name}"
 
     "LOGS_BIGQUERY_TABLE_ID" = "${data.google_bigquery_dataset.default.dataset_id}._Default"
     "GCP_PROJECT_ID"         = var.gcp_project
@@ -142,6 +145,16 @@ resource "google_cloud_run_v2_service" "registry_api" {
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.postmark_token.id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "POSTMARK_WEBHOOK_PASSWORD"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.postmark_webhook_password.id
             version = "latest"
           }
         }
@@ -373,6 +386,12 @@ resource "google_secret_manager_secret_iam_member" "turnstile_secret_key" {
 
 resource "google_secret_manager_secret_iam_member" "postmark_token" {
   secret_id = google_secret_manager_secret.postmark_token.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.registry_api.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "postmark_webhook_password" {
+  secret_id = google_secret_manager_secret.postmark_webhook_password.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }

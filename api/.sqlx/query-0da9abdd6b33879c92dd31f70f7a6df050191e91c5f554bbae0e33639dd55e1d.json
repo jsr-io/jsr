@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO tickets (kind, creator, reporter_email, reporter_name, subject, claim_token, status)\n          VALUES ('other', NULL, $1, $2, $3, $4, 'open')\n          RETURNING id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0da9abdd6b33879c92dd31f70f7a6df050191e91c5f554bbae0e33639dd55e1d"
+}

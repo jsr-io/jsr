@@ -276,6 +276,14 @@ errors!(
     status: BAD_REQUEST,
     "The metadata for the ticket is not in a valid format, should be a key-value of strings.",
   },
+  TicketClaimTokenInvalid {
+    status: BAD_REQUEST,
+    "The claim link is not valid. It may have already been used, or the ticket may already belong to an account.",
+  },
+  TicketAttachmentNotFound {
+    status: NOT_FOUND,
+    "The requested ticket attachment was not found.",
+  },
   UnknownLoginService {
     status: BAD_REQUEST,
     "The login service is not known.",
