@@ -251,11 +251,26 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
     # task.
     max_instance_request_concurrency = 1
 
+    # Publishing a package with tens of thousands of files needs longer than
+    # the 300s default. Cloud Tasks abandons a buffered dispatch after its
+    # fixed 10 minute deadline, so anything above 600s is unreachable anyway.
+    timeout = "600s"
+
     containers {
       image = var.api_image_id
       args = [
         "--tasks", "--api=false", "--database_pool_size=1"
       ]
+
+      # Analyzing a package with ~20k modules peaks near 512Mi (the default
+      # limit), which risks the instance being OOM-killed mid-publish and the
+      # task stranding in `processing` until the reaper picks it up.
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "2Gi"
+        }
+      }
 
       dynamic "env" {
         for_each = local.api_envs

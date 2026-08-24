@@ -1113,6 +1113,7 @@ pub async fn version_publish_handler(
     let span = Span::current();
     let fut = publish_task(
       publishing_task.id,
+      0,
       buckets,
       license_store,
       registry_url,
