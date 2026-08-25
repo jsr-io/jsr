@@ -558,20 +558,36 @@ pub async fn sweep_pending_emails_handler(req: Request<Body>) -> ApiResult<()> {
   tracing::info!("re-driving {} stale email deliveries", stale.len());
 
   for id in stale {
-    match (&queue.0, email_sender) {
-      (Some(queue), _) => {
+    // Handing the delivery back to Cloud Tasks is preferred: it retries with
+    // backoff and keeps this handler quick. But if the queue cannot be reached
+    // at all — it does not exist yet, or this service may not enqueue to it —
+    // then every delivery is stuck behind the same failure, and a sweeper that
+    // only ever enqueues would never notice. So the fallback is to deliver here
+    // instead, which needs nothing but the Postmark client.
+    let queued = match &queue.0 {
+      Some(queue) => {
         let body = serde_json::to_vec(&SendEmailTask { id }).unwrap();
         // A fresh task id, because the original may still be known to Cloud
         // Tasks and would be rejected as a duplicate.
-        if let Err(err) = queue.task_buffer(None, Some(body.into())).await {
-          error!(delivery_id = %id, "failed to re-drive email delivery: {:?}", err);
+        match queue.task_buffer(None, Some(body.into())).await {
+          Ok(()) => true,
+          Err(err) => {
+            error!(
+              delivery_id = %id,
+              "could not queue email delivery, sending it directly instead: {:?}",
+              err
+            );
+            false
+          }
         }
       }
-      (None, _) => {
-        if let Err(err) = emails::deliver(db, email_sender.as_ref(), id).await {
-          error!(delivery_id = %id, "failed to re-drive email delivery: {:?}", err);
-        }
-      }
+      None => false,
+    };
+
+    if !queued
+      && let Err(err) = emails::deliver(db, email_sender.as_ref(), id).await
+    {
+      error!(delivery_id = %id, "failed to re-drive email delivery: {:?}", err);
     }
   }
 
