@@ -793,6 +793,49 @@ pub fn get_generate_ctx(
   .unwrap()
 }
 
+/// Drops sections whose content is empty — for example a "Functions" section
+/// whose only entries were filtered out for being private, since deno_doc
+/// creates the section headers before filtering symbols by visibility.
+/// Returns the anchors of the dropped section headers so the matching ToC
+/// entries can be pruned.
+fn drop_empty_sections(
+  sections: &mut Vec<deno_doc::html::util::SectionCtx>,
+) -> Vec<String> {
+  use deno_doc::html::util::SectionContentCtx;
+
+  let mut dropped = Vec::new();
+  sections.retain(|section| {
+    let empty = match &section.content {
+      SectionContentCtx::DocEntry(entries) => entries.is_empty(),
+      SectionContentCtx::Example(examples) => examples.is_empty(),
+      SectionContentCtx::IndexSignature(signatures) => signatures.is_empty(),
+      SectionContentCtx::NamespaceSection(nodes) => nodes.is_empty(),
+      SectionContentCtx::See(sees) => sees.is_empty(),
+      // deliberately header-only sections
+      SectionContentCtx::Empty => false,
+    };
+    if empty {
+      if let Some(header) = &section.header {
+        dropped.push(header.anchor.id.as_ref().to_string());
+      }
+    }
+    !empty
+  });
+  dropped
+}
+
+fn prune_toc_entries(
+  toc: &mut deno_doc::html::util::ToCCtx,
+  dropped_anchors: &[String],
+) {
+  if dropped_anchors.is_empty() {
+    return;
+  }
+  toc
+    .document_navigation
+    .retain(|entry| !dropped_anchors.contains(&entry.anchor));
+}
+
 #[instrument(name = "render_docs_html", skip(ctx, readme), err)]
 pub fn render_docs_html(
   ctx: &GenerateCtx,
@@ -804,10 +847,17 @@ pub fn render_docs_html(
     DocsRequest::AllSymbols => {
       let render_ctx = RenderContext::new(ctx, &[], UrlResolveKind::AllSymbols);
 
-      let all_symbols = deno_doc::html::AllSymbolsCtx::new(&render_ctx);
+      let mut all_symbols = deno_doc::html::AllSymbolsCtx::new(&render_ctx);
+      let mut dropped_anchors = Vec::new();
+      for entrypoint in &mut all_symbols.entrypoints {
+        dropped_anchors.extend(drop_empty_sections(
+          &mut entrypoint.module_doc.sections.sections,
+        ));
+      }
       let breadcrumbs = render_ctx.get_breadcrumbs();
 
-      let toc = deno_doc::html::ToCCtx::new(render_ctx, false, Some(None));
+      let mut toc = deno_doc::html::ToCCtx::new(render_ctx, false, Some(None));
+      prune_toc_entries(&mut toc, &dropped_anchors);
 
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: Some(breadcrumbs),
@@ -860,7 +910,11 @@ pub fn render_docs_html(
         index_module_doc.sections.docs = Some(markdown);
       }
 
-      let toc = deno_doc::html::ToCCtx::new(render_ctx, true, Some(None));
+      let dropped_anchors =
+        drop_empty_sections(&mut index_module_doc.sections.sections);
+
+      let mut toc = deno_doc::html::ToCCtx::new(render_ctx, true, Some(None));
+      prune_toc_entries(&mut toc, &dropped_anchors);
 
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: None,
@@ -891,9 +945,13 @@ pub fn render_docs_html(
         module_doc.sections.docs = None;
       }
 
+      let dropped_anchors =
+        drop_empty_sections(&mut module_doc.sections.sections);
+
       let breadcrumbs = render_ctx.get_breadcrumbs();
 
-      let toc = deno_doc::html::ToCCtx::new(render_ctx, false, Some(None));
+      let mut toc = deno_doc::html::ToCCtx::new(render_ctx, false, Some(None));
+      prune_toc_entries(&mut toc, &dropped_anchors);
 
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: Some(breadcrumbs),

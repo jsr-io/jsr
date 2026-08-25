@@ -55,6 +55,12 @@ function SectionContent({ content }: { content: SectionContentCtx }) {
 export function Section(
   { section: { header, content } }: { section: SectionCtx },
 ) {
+  // don't render a section header with no contents ("empty" sections are
+  // deliberately header-only, so those still render)
+  if (content.kind !== "empty" && content.content.length === 0) {
+    return null;
+  }
+
   return (
     <section
       class="space-y-2 mb-2 scroll-mt-16 max-w-prose"
