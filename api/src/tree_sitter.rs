@@ -140,9 +140,9 @@ pub fn tree_sitter_language_cb(
 ) -> Option<&'static HighlightConfiguration> {
   for lang in lang.split(',') {
     let cfg = match lang.trim() {
-      "js" | "javascript" => tree_sitter_language_javascript(),
+      "js" | "javascript" | "mjs" | "cjs" => tree_sitter_language_javascript(),
       "jsx" => tree_sitter_language_jsx(),
-      "ts" | "typescript" => tree_sitter_language_typescript(),
+      "ts" | "typescript" | "mts" | "cts" => tree_sitter_language_typescript(),
       "tsx" => tree_sitter_language_tsx(),
       "json" | "jsonc" => tree_sitter_language_json(),
       "css" => tree_sitter_language_css(),
@@ -153,6 +153,9 @@ pub fn tree_sitter_language_cb(
       "rs" | "rust" => tree_sitter_language_rust(),
       "html" => tree_sitter_language_html(),
       "sh" | "bash" => tree_sitter_language_bash(),
+      "toml" => tree_sitter_language_toml(),
+      "yaml" | "yml" => tree_sitter_language_yaml(),
+      "c" | "h" => tree_sitter_language_c(),
       _ => continue,
     };
     return Some(cfg);
@@ -392,4 +395,88 @@ fn tree_sitter_language_bash() -> &'static HighlightConfiguration {
     config.configure(CAPTURE_NAMES);
     config
   })
+}
+
+fn tree_sitter_language_toml() -> &'static HighlightConfiguration {
+  static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
+  CONFIG.get_or_init(|| {
+    let mut config = HighlightConfiguration::new(
+      tree_sitter_toml_ng::language(),
+      "toml",
+      tree_sitter_toml_ng::HIGHLIGHTS_QUERY,
+      "",
+      "",
+    )
+    .expect("failed to initialize tree_sitter_toml highlighter");
+    config.configure(CAPTURE_NAMES);
+    config
+  })
+}
+
+fn tree_sitter_language_yaml() -> &'static HighlightConfiguration {
+  static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
+  CONFIG.get_or_init(|| {
+    let mut config = HighlightConfiguration::new(
+      tree_sitter_yaml::language(),
+      "yaml",
+      tree_sitter_yaml::HIGHLIGHTS_QUERY,
+      "",
+      "",
+    )
+    .expect("failed to initialize tree_sitter_yaml highlighter");
+    config.configure(CAPTURE_NAMES);
+    config
+  })
+}
+
+fn tree_sitter_language_c() -> &'static HighlightConfiguration {
+  static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
+  CONFIG.get_or_init(|| {
+    let mut config = HighlightConfiguration::new(
+      tree_sitter_c::language(),
+      "c",
+      tree_sitter_c::HIGHLIGHT_QUERY,
+      "",
+      "",
+    )
+    .expect("failed to initialize tree_sitter_c highlighter");
+    config.configure(CAPTURE_NAMES);
+    config
+  })
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use comrak::adapters::SyntaxHighlighterAdapter;
+
+  fn highlight(lang: &str, code: &str) -> String {
+    let adapter = ComrakAdapter {
+      show_line_numbers: false,
+    };
+    let mut out = Vec::new();
+    adapter
+      .write_highlighted(&mut out, Some(lang), code)
+      .unwrap();
+    String::from_utf8(out).unwrap()
+  }
+
+  #[test]
+  fn highlights_added_languages() {
+    for (lang, code) in [
+      ("toml", "[package]\nname = \"demo\"\n"),
+      ("yaml", "key: value\nlist:\n  - a\n"),
+      ("yml", "key: value\n"),
+      ("c", "int main(void) { return 0; }\n"),
+      ("mjs", "export const x = 1;\n"),
+      ("mts", "export const x: number = 1;\n"),
+    ] {
+      assert!(
+        tree_sitter_language_cb(lang).is_some(),
+        "no highlighter for {lang}"
+      );
+      let html = highlight(lang, code);
+      assert!(html.contains("<span"), "{lang} did not highlight: {html}");
+    }
+  }
 }
