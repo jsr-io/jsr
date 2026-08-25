@@ -824,21 +824,25 @@ pub fn render_docs_html(
 
       let render_ctx = RenderContext::new(ctx, doc_nodes, UrlResolveKind::Root);
 
-      let mut index_module_doc = match readme_source {
-        ReadmeSource::JSDoc => ctx
-          .main_entrypoint
-          .as_ref()
-          .map(|entrypoint| {
-            deno_doc::html::jsdoc::ModuleDocCtx::new(
-              &render_ctx,
-              entrypoint,
-              false,
-              false,
-            )
-          })
-          .unwrap_or_default(),
-        ReadmeSource::Readme => Default::default(),
-      };
+      let mut index_module_doc = ctx
+        .main_entrypoint
+        .as_ref()
+        .map(|entrypoint| {
+          deno_doc::html::jsdoc::ModuleDocCtx::new(
+            &render_ctx,
+            entrypoint,
+            false,
+            false,
+          )
+        })
+        .unwrap_or_default();
+
+      // When the README is the overview's prose, drop the module JSDoc body
+      // so the README injection below kicks in — but keep the sections, which
+      // hold the module's `@example`s.
+      if matches!(readme_source, ReadmeSource::Readme) {
+        index_module_doc.sections.docs = None;
+      }
 
       if index_module_doc.sections.docs.is_none() {
         let markdown = readme
