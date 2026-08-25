@@ -4765,8 +4765,11 @@ gitlab_id: r.user_gitlab_id,
   ) -> Result<(TicketMessage, UserPublic)> {
     let mut tx = self.pool.begin().await?;
 
+    // COALESCE, because a ticket opened by email has no creator until somebody
+    // claims it, and `NULL = $2` is NULL rather than false. Without it, every
+    // staff reply to an unclaimed ticket fails to decode and 500s.
     let author_is_creator = sqlx::query_scalar!(
-      r#"SELECT creator = $2 as "is_creator!" FROM tickets WHERE id = $1"#,
+      r#"SELECT COALESCE(creator = $2, false) as "is_creator!" FROM tickets WHERE id = $1"#,
       id as _,
       author as _,
     )
