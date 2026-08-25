@@ -357,7 +357,11 @@ pub async fn list_tickets(req: Request<Body>) -> ApiResult<ApiList<ApiTicket>> {
     .list_tickets(start, limit, maybe_search, maybe_sort, maybe_status)
     .await?;
   Ok(ApiList {
-    items: tickets.into_iter().map(|ticket| ticket.into()).collect(),
+    // This endpoint is behind check_admin_access, so notes are included.
+    items: tickets
+      .into_iter()
+      .map(|ticket| ApiTicket::for_viewer(ticket, true))
+      .collect(),
     total,
   })
 }
@@ -382,7 +386,7 @@ pub async fn patch_ticket(mut req: Request<Body>) -> ApiResult<ApiTicket> {
     });
   };
 
-  Ok(ticket.into())
+  Ok(ApiTicket::for_viewer(ticket, true))
 }
 
 #[instrument(name = "GET /api/admin/audit_logs", skip(req))]

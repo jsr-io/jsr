@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE users SET gitlab_id = $1 WHERE id = $2\n      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,\n(SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as \"invite_count!\",\n(SELECT COUNT(created_at) FROM scopes WHERE creator = id) as \"scope_usage!\",\n(CASE WHEN users.is_staff THEN (\n  SELECT COUNT(tickets.created_at) FROM tickets WHERE tickets.status NOT IN ('closed', 'spam') AND (\n    SELECT tm.direction FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id ORDER BY tm.created_at DESC LIMIT 1\n  ) = 'inbound'\n) ELSE (\n  SELECT COUNT(tickets.created_at) FROM tickets WHERE tickets.creator = users.id AND tickets.status NOT IN ('closed', 'spam') AND (\n    SELECT tm.direction FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id ORDER BY tm.created_at DESC LIMIT 1\n  ) = 'outbound'\n) END) as \"newer_ticket_messages_count!\" ",
+  "query": "SELECT id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,\n(SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as \"invite_count!\",\n(SELECT COUNT(created_at) FROM scopes WHERE creator = id) as \"scope_usage!\",\n(CASE WHEN users.is_staff THEN (\n  SELECT COUNT(tickets.created_at) FROM tickets WHERE tickets.status NOT IN ('closed', 'spam') AND (\n    SELECT tm.direction FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND NOT tm.internal ORDER BY tm.created_at DESC LIMIT 1\n  ) = 'inbound'\n) ELSE (\n  SELECT COUNT(tickets.created_at) FROM tickets WHERE tickets.creator = users.id AND tickets.status NOT IN ('closed', 'spam') AND (\n    SELECT tm.direction FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND NOT tm.internal ORDER BY tm.created_at DESC LIMIT 1\n  ) = 'outbound'\n) END) as \"newer_ticket_messages_count!\"  FROM users WHERE gitlab_id = $1",
   "describe": {
     "columns": [
       {
@@ -76,8 +76,7 @@
     ],
     "parameters": {
       "Left": [
-        "Int8",
-        "Uuid"
+        "Int8"
       ]
     },
     "nullable": [
@@ -97,5 +96,5 @@
       null
     ]
   },
-  "hash": "6fb3d69cd7f0ed2b082d124345e4c73945ceb8bb29c0007d6f1625a6990ad979"
+  "hash": "aabe59cf8c1ce9acf6fcf7e7e447bc7495df524296893c6b6c2c10ca3a957595"
 }

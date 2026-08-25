@@ -53,9 +53,10 @@ pub fn tickets_router() -> Router<Body, ApiError> {
 }
 
 /// How the caller proved they are allowed to see a ticket.
+#[derive(PartialEq)]
 enum TicketAccess {
   /// A signed-in account: the ticket's owner, or a staff member.
-  User,
+  User { staff: bool },
   /// The reporter of an email-opened ticket nobody has claimed yet, holding the
   /// claim token from the auto-reply. They can read and reply, but the ticket is
   /// not theirs until they claim it.
@@ -82,9 +83,9 @@ fn check_ticket_access(
 
   let iam = req.iam();
   let current_user = iam.check_current_user_access()?;
-  if ticket.creator == Some(current_user.id) || iam.check_admin_access().is_ok()
-  {
-    return Ok(TicketAccess::User);
+  let staff = iam.check_admin_access().is_ok();
+  if ticket.creator == Some(current_user.id) || staff {
+    return Ok(TicketAccess::User { staff });
   }
 
   // Deliberately not "forbidden": that would confirm the ticket exists to
@@ -131,10 +132,15 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiTicketOverview> {
   let (ticket, creator, messages) =
     db.get_ticket(id).await?.ok_or(ApiError::TicketNotFound)?;
 
-  check_ticket_access(&req, &ticket)?;
+  let access = check_ticket_access(&req, &ticket)?;
+  let staff = access == TicketAccess::User { staff: true };
 
   let mut events: Vec<ApiTicketMessageOrAuditLog> = messages
     .into_iter()
+    // Staff notes are part of the same conversation, so they are dropped here
+    // rather than anywhere further down — the reporter reaching this with a
+    // claim token must never see them.
+    .filter(|(message, ..)| staff || !message.internal)
     .map(|message| ApiTicketMessageOrAuditLog::Message {
       message: message.into(),
     })
@@ -153,7 +159,7 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiTicketOverview> {
     }
   });
 
-  Ok((ticket, creator, events).into())
+  Ok(ApiTicketOverview::new(ticket, creator, events))
 }
 
 #[instrument(name = "POST /api/tickets", skip(req))]
@@ -201,14 +207,15 @@ pub async fn post_handler(mut req: Request<Body>) -> ApiResult<ApiTicket> {
     }
   }
 
-  Ok(
+  Ok(ApiTicket::for_viewer(
     (
       ticket,
       Some(user.clone()),
       vec![(message, Some(UserPublic::from(user)), vec![])],
-    )
-      .into(),
-  )
+    ),
+    // A ticket the caller just opened, containing only their own message.
+    false,
+  ))
 }
 
 #[instrument(name = "POST /api/tickets/:id", skip(req), fields(id))]
@@ -228,6 +235,12 @@ pub async fn post_message_handler(
 
   if new_message.message.is_empty() {
     return Err(ApiError::TicketMessageEmpty);
+  }
+
+  // A note is only ever written by staff, and writing one as anybody else would
+  // put text on the ticket that its own reporter cannot see.
+  if new_message.internal && access != (TicketAccess::User { staff: true }) {
+    return Err(ApiError::ActorNotAuthorized);
   }
 
   let email_sender = req.data::<Option<EmailSender>>().unwrap();
@@ -262,26 +275,31 @@ pub async fn post_message_handler(
         .await?;
       (message, None, vec![])
     }
-    TicketAccess::User => {
+    TicketAccess::User { .. } => {
       let iam = req.iam();
       let author = iam.check_current_user_access()?;
-      notify = match &creator {
-        // A message from staff on somebody's own ticket.
-        Some(creator) if creator.id != author.id => creator
-          .email
-          .clone()
-          .map(|email| (email, creator.name.clone())),
-        // A message on an unclaimed, email-opened ticket: staff replying to
-        // whoever wrote in.
-        None => ticket.reporter_email.clone().map(|email| {
-          let name = ticket
-            .reporter_name
+      notify = if new_message.internal {
+        // Nobody is told about a note. It exists only inside the ticket.
+        None
+      } else {
+        match &creator {
+          // A message from staff on somebody's own ticket.
+          Some(creator) if creator.id != author.id => creator
+            .email
             .clone()
-            .unwrap_or_else(|| email.clone());
-          (email, name)
-        }),
-        // The ticket's owner talking; nothing to notify them of.
-        Some(_) => None,
+            .map(|email| (email, creator.name.clone())),
+          // A message on an unclaimed, email-opened ticket: staff replying to
+          // whoever wrote in.
+          None => ticket.reporter_email.clone().map(|email| {
+            let name = ticket
+              .reporter_name
+              .clone()
+              .unwrap_or_else(|| email.clone());
+            (email, name)
+          }),
+          // The ticket's owner talking; nothing to notify them of.
+          Some(_) => None,
+        }
       };
 
       let (message, user) = db
@@ -355,7 +373,9 @@ pub async fn claim_handler(req: Request<Body>) -> ApiResult<ApiTicket> {
     .await?
     .ok_or(ApiError::TicketClaimTokenInvalid)?;
 
-  Ok(ticket.into())
+  // The ticket has just become this person's own; they are reading it as its
+  // reporter, not as staff.
+  Ok(ApiTicket::for_viewer(ticket, false))
 }
 
 #[instrument(

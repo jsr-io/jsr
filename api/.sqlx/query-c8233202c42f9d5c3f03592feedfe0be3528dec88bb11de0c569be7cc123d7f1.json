@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "DELETE FROM users WHERE id = $1\n      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,\n(SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as \"invite_count!\",\n(SELECT COUNT(created_at) FROM scopes WHERE creator = id) as \"scope_usage!\",\n(CASE WHEN users.is_staff THEN (\n  SELECT COUNT(tickets.created_at) FROM tickets WHERE tickets.status NOT IN ('closed', 'spam') AND (\n    SELECT tm.direction FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id ORDER BY tm.created_at DESC LIMIT 1\n  ) = 'inbound'\n) ELSE (\n  SELECT COUNT(tickets.created_at) FROM tickets WHERE tickets.creator = users.id AND tickets.status NOT IN ('closed', 'spam') AND (\n    SELECT tm.direction FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id ORDER BY tm.created_at DESC LIMIT 1\n  ) = 'outbound'\n) END) as \"newer_ticket_messages_count!\" ",
+  "query": "INSERT INTO users (name, email, avatar_url, github_id, gitlab_id, is_blocked, is_staff)\n      VALUES ($1, $2, $3, $4, $5, $6, $7)\n      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,\n(SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as \"invite_count!\",\n(SELECT COUNT(created_at) FROM scopes WHERE creator = id) as \"scope_usage!\",\n(CASE WHEN users.is_staff THEN (\n  SELECT COUNT(tickets.created_at) FROM tickets WHERE tickets.status NOT IN ('closed', 'spam') AND (\n    SELECT tm.direction FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND NOT tm.internal ORDER BY tm.created_at DESC LIMIT 1\n  ) = 'inbound'\n) ELSE (\n  SELECT COUNT(tickets.created_at) FROM tickets WHERE tickets.creator = users.id AND tickets.status NOT IN ('closed', 'spam') AND (\n    SELECT tm.direction FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND NOT tm.internal ORDER BY tm.created_at DESC LIMIT 1\n  ) = 'outbound'\n) END) as \"newer_ticket_messages_count!\" ",
   "describe": {
     "columns": [
       {
@@ -76,7 +76,13 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Text",
+        "Varchar",
+        "Text",
+        "Int8",
+        "Int8",
+        "Bool",
+        "Bool"
       ]
     },
     "nullable": [
@@ -96,5 +102,5 @@
       null
     ]
   },
-  "hash": "650219f99e95565978f0fa07414e6c848b23bb98519edf7710a313bc5313916c"
+  "hash": "c8233202c42f9d5c3f03592feedfe0be3528dec88bb11de0c569be7cc123d7f1"
 }

@@ -96,15 +96,28 @@ export default define.page<typeof handler>(function Ticket({
             return (
               <div
                 key={message.id}
-                class="w-full rounded border-1.5 border-current dark:border-cyan-700 px-4 py-3"
+                class={"w-full rounded border-1.5 px-4 py-3 " +
+                  (message.internal
+                    // A note is not part of the conversation the reporter can
+                    // see, so it should not look like one.
+                    ? "border-jsr-yellow-600 bg-jsr-yellow-50 dark:bg-jsr-yellow-950"
+                    : "border-current dark:border-cyan-700")}
               >
                 <div class="flex justify-between items-start gap-4 mb-2">
                   <div class="flex items-center gap-2 flex-wrap">
                     <TicketActor actor={message.author} />
-                    <AuthorRole
-                      author={message.author}
-                      inbound={message.direction === "inbound"}
-                    />
+                    {message.internal
+                      ? (
+                        <span class="rounded-full text-sm px-2 inline-block bg-jsr-yellow-400 text-jsr-gray-800">
+                          Internal note
+                        </span>
+                      )
+                      : (
+                        <AuthorRole
+                          author={message.author}
+                          inbound={message.direction === "inbound"}
+                        />
+                      )}
                   </div>
                   <div class="text-sm text-gray-600 dark:text-gray-300 shrink-0">
                     {twas(new Date(message.updatedAt).getTime())}

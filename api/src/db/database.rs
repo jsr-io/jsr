@@ -4210,6 +4210,7 @@ gitlab_id: r.user_gitlab_id,
         author_email_verified: r.message_author_email_verified,
         direction: r.message_direction,
         email_message_id: r.message_email_message_id,
+        internal: r.message_internal,
         message: r.message_message,
         updated_at: r.message_updated_at,
         created_at: r.message_created_at,
@@ -4776,39 +4777,56 @@ gitlab_id: r.user_gitlab_id,
     .fetch_one(&mut *tx)
     .await?;
 
-    let direction = if author_is_creator {
+    // A note is always from the JSR side, even when the staff member writing it
+    // is the person who opened the ticket — which happens whenever staff file
+    // one themselves. Treating it as inbound there would both misattribute it
+    // and violate the check constraint that ties internal to outbound.
+    let direction = if author_is_creator && !message.internal {
       TicketMessageDirection::Inbound
     } else {
       TicketMessageDirection::Outbound
     };
 
     let message_id = sqlx::query_scalar!(
-      r#"INSERT INTO ticket_messages (ticket_id, author, direction, message, email_message_id)
-          VALUES ($1, $2, $3, $4, $5)
+      r#"INSERT INTO ticket_messages (ticket_id, author, direction, message, email_message_id, internal)
+          VALUES ($1, $2, $3, $4, $5, $6)
           RETURNING id"#,
       id as _,
       author as _,
       direction as _,
       message.message as _,
       email_message_id,
+      message.internal,
     )
     .fetch_one(&mut *tx)
     .await?;
 
-    // Whoever did not just speak is the one now owed a response.
-    let status = if author_is_creator {
-      TicketStatus::WaitingOnSupport
+    if message.internal {
+      // A note is not a reply: nobody outside the team has seen it, so it
+      // cannot change who is owed a response. It is still activity on the
+      // ticket, so the timestamp moves.
+      sqlx::query!(
+        r#"UPDATE tickets SET updated_at = now() WHERE id = $1"#,
+        id as _,
+      )
+      .execute(&mut *tx)
+      .await?;
     } else {
-      TicketStatus::WaitingOnUser
-    };
-    sqlx::query!(
-      r#"UPDATE tickets SET status = $2, updated_at = now()
-          WHERE id = $1 AND status NOT IN ('closed', 'spam')"#,
-      id as _,
-      status as _,
-    )
-    .execute(&mut *tx)
-    .await?;
+      // Whoever did not just speak is the one now owed a response.
+      let status = if author_is_creator {
+        TicketStatus::WaitingOnSupport
+      } else {
+        TicketStatus::WaitingOnUser
+      };
+      sqlx::query!(
+        r#"UPDATE tickets SET status = $2, updated_at = now()
+            WHERE id = $1 AND status NOT IN ('closed', 'spam')"#,
+        id as _,
+        status as _,
+      )
+      .execute(&mut *tx)
+      .await?;
+    }
 
     let messages = Self::load_ticket_messages(&mut tx, id).await?;
 

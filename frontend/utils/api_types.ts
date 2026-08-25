@@ -354,6 +354,8 @@ export interface NewTicket {
 
 export interface NewTicketMessage {
   message: string;
+  /// Write this as a staff-only note rather than a reply.
+  internal?: boolean;
 }
 
 /// Who wrote a message, or opened a ticket. A ticket that arrived by email has
@@ -394,6 +396,9 @@ export interface ApiTicketMessage {
   id: string;
   author: ApiTicketActor;
   direction: TicketMessageDirection;
+  /// A note staff wrote to each other. Only ever present for a staff viewer —
+  /// the API withholds these from everyone else.
+  internal: boolean;
   message: string;
   attachments: ApiTicketAttachment[];
   updatedAt: string;
