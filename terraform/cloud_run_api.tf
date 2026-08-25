@@ -438,6 +438,12 @@ resource "google_cloud_tasks_queue_iam_member" "npm_tarball_build_tasks" {
   member = "serviceAccount:${google_service_account.registry_api.email}"
 }
 
+resource "google_cloud_tasks_queue_iam_member" "email_delivery" {
+  name   = google_cloud_tasks_queue.email_delivery.id
+  role   = "roles/cloudtasks.enqueuer"
+  member = "serviceAccount:${google_service_account.registry_api.email}"
+}
+
 resource "google_service_account_iam_member" "act_as_task_dispatcher" {
   service_account_id = google_service_account.task_dispatcher.name
   role               = "roles/iam.serviceAccountUser"
