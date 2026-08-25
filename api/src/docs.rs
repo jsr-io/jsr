@@ -264,6 +264,7 @@ impl GenerateCtxCache {
       github_repository,
       has_readme,
       runtime_compat,
+      has_create_export(exports),
       registry_url.to_string(),
       None,
     );
@@ -571,6 +572,13 @@ pub struct DocsInfo {
   pub rewrite_map: IndexMap<Url, String>,
 }
 
+/// Whether `deno create @scope/package` works for this package: the CLI
+/// rewrites that into `jsr:@scope/package/create`, so it needs a `./create`
+/// export to run (jsr-io/jsr#1358).
+pub fn has_create_export(exports: &crate::db::ExportsMap) -> bool {
+  exports.contains_key("./create")
+}
+
 pub fn get_docs_info(
   exports: &crate::db::ExportsMap,
   entrypoint: Option<&str>,
@@ -755,6 +763,7 @@ const SYMBOL_LISTING_LIMIT: usize = 2048;
     version_is_latest,
     has_readme,
     runtime_compat,
+    has_create_export,
     registry_url,
     diff
   )
@@ -771,6 +780,7 @@ pub fn get_generate_ctx(
   github_repository: Option<GithubRepository>,
   has_readme: bool,
   runtime_compat: RuntimeCompat,
+  has_create_export: bool,
   registry_url: String,
   diff: Option<(deno_doc::diff::DocDiff, bool)>,
 ) -> GenerateCtx {
@@ -848,6 +858,7 @@ pub fn get_generate_ctx(
           package,
           version,
           version_is_latest,
+          has_create_export,
         }) as Arc<dyn deno_doc::html::UsageComposer>
       }),
       rewrite_map: Some(rewrite_map),
@@ -1517,6 +1528,10 @@ struct DocUsageComposer {
   package: PackageName,
   version: Version,
   version_is_latest: bool,
+  /// Whether the package has a `./create` export. `deno create @scope/pkg`
+  /// runs `jsr:@scope/pkg/create`, so that export is exactly what makes the
+  /// command work (jsr-io/jsr#1358).
+  has_create_export: bool,
 }
 
 impl deno_doc::html::UsageComposer for DocUsageComposer {
@@ -1571,12 +1586,20 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
     );
 
     if !self.runtime_compat.deno.is_some_and(|compat| !compat) {
+      // Packages exporting `./create` are project scaffolds, so lead with the
+      // command that actually runs them.
+      let scaffold = if self.has_create_export {
+        format!("Scaffold a project\n```\ndeno create {scoped_name}\n```\n")
+      } else {
+        String::new()
+      };
+
       map.insert(
         UsageComposerEntry {
           name: "Deno".to_string(),
           icon: Some("/logos/deno.svg".into()),
         },
-        format!("Add Package\n```\ndeno add jsr:{scoped_name}\n```{import}\n<div class='or-bar'>or</div>\n\nImport directly with a jsr specifier\n{}\n", usage_to_md(&format!("jsr:{jsr_url}"), Some(self.package.as_str()))),
+        format!("{scaffold}Add Package\n```\ndeno add jsr:{scoped_name}\n```{import}\n<div class='or-bar'>or</div>\n\nImport directly with a jsr specifier\n{}\n", usage_to_md(&format!("jsr:{jsr_url}"), Some(self.package.as_str()))),
       );
     }
 
@@ -1965,5 +1988,72 @@ mod tests {
     );
     // Protocol-relative URLs are left untouched.
     assert_eq!(rewriter(None, "//example.com/x"), "//example.com/x");
+  }
+
+  fn compose_deno_usage(has_create_export: bool) -> String {
+    use deno_doc::html::UsageComposer;
+
+    let composer = DocUsageComposer {
+      runtime_compat: RuntimeCompat {
+        browser: None,
+        deno: None,
+        node: None,
+        workerd: None,
+        bun: None,
+      },
+      scope: ScopeName::new("foo".to_string()).unwrap(),
+      package: PackageName::new("bar".to_string()).unwrap(),
+      version: Version::new("1.0.0").unwrap(),
+      version_is_latest: true,
+      has_create_export,
+    };
+
+    let usage_to_md = |url: &str, _name: Option<&str>| format!("`{url}`");
+    let usages = composer.compose(UrlResolveKind::Root, &usage_to_md);
+
+    usages
+      .into_iter()
+      .find(|(entry, _)| entry.name == "Deno")
+      .unwrap()
+      .1
+  }
+
+  #[test]
+  fn create_export_adds_scaffold_command() {
+    let with_create = compose_deno_usage(true);
+    assert!(
+      with_create.contains("deno create @foo/bar"),
+      "{with_create}"
+    );
+    // the scaffold block leads, but installing is still offered
+    assert!(
+      with_create.find("deno create @foo/bar").unwrap()
+        < with_create.find("deno add jsr:@foo/bar").unwrap(),
+      "{with_create}"
+    );
+
+    // a package without the export must not advertise a command that fails
+    let without_create = compose_deno_usage(false);
+    assert!(!without_create.contains("deno create"), "{without_create}");
+    assert!(
+      without_create.contains("deno add jsr:@foo/bar"),
+      "{without_create}"
+    );
+  }
+
+  #[test]
+  fn has_create_export_checks_the_export_key() {
+    let with_create = crate::db::ExportsMap::new(IndexMap::from([
+      (".".to_string(), "./mod.ts".to_string()),
+      ("./create".to_string(), "./create.ts".to_string()),
+    ]));
+    assert!(has_create_export(&with_create));
+
+    // a `create` *file* under some other export must not count
+    let without_create = crate::db::ExportsMap::new(IndexMap::from([
+      (".".to_string(), "./mod.ts".to_string()),
+      ("./cli".to_string(), "./create.ts".to_string()),
+    ]));
+    assert!(!has_create_export(&without_create));
   }
 }

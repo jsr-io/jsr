@@ -273,6 +273,9 @@ async fn analyze_package_inner(
       workerd: None,
       bun: None,
     },
+    // only the search index is taken from this ctx, so usage instructions
+    // don't matter here
+    false,
     registry_url.to_string(),
     None,
   );
