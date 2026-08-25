@@ -3556,6 +3556,10 @@ components:
               type: string
               nullable: true
               description: HTML-rendered source code view. Null for binary files.
+            rendered:
+              type: string
+              nullable: true
+              description: Rendered HTML, present for markdown files.
           required:
             - kind
             - size

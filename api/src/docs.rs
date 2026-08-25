@@ -660,6 +660,71 @@ fn get_url_rewriter(
   })
 }
 
+/// Renders a standalone markdown file from a package (e.g. a non-README `.md`
+/// opened in the source view) to sanitized HTML, without building a full
+/// `GenerateCtx`. `path` is the package-root-relative path of the file (with
+/// a leading slash); relative links resolve against the file's directory, the
+/// same way README links do.
+pub fn render_markdown_file(
+  md: &str,
+  scope: &ScopeName,
+  package: &PackageName,
+  version: &Version,
+  github_repository: Option<GithubRepository>,
+  path: &str,
+) -> Option<String> {
+  let renderer = deno_doc::html::comrak::create_renderer(
+    Some(Arc::new(super::tree_sitter::ComrakAdapter {
+      show_line_numbers: false,
+    })),
+    Some(Box::new(match_node_value)),
+    Some(Box::new(|html| AMMONIA.clean(&html).to_string())),
+  );
+
+  let url_rewriter = get_url_rewriter(
+    format!("/@{scope}/{package}/{version}"),
+    github_repository,
+    false,
+  );
+
+  let specifier = ModuleSpecifier::parse(&format!("file://{path}")).ok()?;
+  let short_path = ShortPath::new(specifier, None, None, None);
+
+  let anchorizer: deno_doc::html::jsdoc::Anchorizer = {
+    let seen = std::sync::Mutex::new(std::collections::HashMap::new());
+    Arc::new(move |content: String, level: u8| {
+      let mut slug = String::new();
+      for ch in content.chars() {
+        if ch.is_alphanumeric() {
+          slug.extend(ch.to_lowercase());
+        } else if (ch.is_whitespace() || ch == '-') && !slug.ends_with('-') {
+          slug.push('-');
+        }
+      }
+      let mut seen = seen.lock().unwrap();
+      let count = seen
+        .entry((slug.clone(), level))
+        .and_modify(|count| *count += 1)
+        .or_insert(0);
+      if *count > 0 {
+        format!("{slug}-{count}")
+      } else {
+        slug
+      }
+    })
+  };
+
+  CURRENT_FILE.set(Some(Some(short_path)));
+  URL_REWRITER.set(Some(url_rewriter));
+
+  let rendered = renderer(md, false, None, anchorizer);
+
+  CURRENT_FILE.set(None);
+  URL_REWRITER.set(None);
+
+  rendered
+}
+
 /// Maximum number of symbol rows rendered in module symbol listings (the
 /// per-entrypoint overview and the "all symbols" page). Namespace-heavy
 /// packages (e.g. zod, which re-exports its whole API under several
@@ -1530,6 +1595,29 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
 mod tests {
   use super::*;
   use deno_doc::html::ShortPath;
+
+  #[test]
+  fn render_markdown_file_test() {
+    let html = render_markdown_file(
+      "# Hi\n\nSee the [guide](./other.md) and ![img](image.png)\n\n```ts\nconst x: number = 1;\n```\n",
+      &ScopeName::new("scope".to_string()).unwrap(),
+      &PackageName::new("pkg".to_string()).unwrap(),
+      &Version::new("1.0.0").unwrap(),
+      None,
+      "/docs/guide.md",
+    )
+    .unwrap();
+    assert!(
+      html.contains(r#"href="/@scope/pkg/1.0.0/docs/./other.md""#),
+      "{html}"
+    );
+    assert!(
+      html.contains(r#"src="/@scope/pkg/1.0.0/docs/image.png""#),
+      "{html}"
+    );
+    // code fences go through the tree-sitter highlighter
+    assert!(html.contains("<span class="), "{html}");
+  }
 
   #[test]
   fn url_resolver_test() {

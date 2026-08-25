@@ -21,6 +21,13 @@ export default define.page<typeof handler>(function PackagePage(
   const sourceRoot =
     `/@${params.scope}/${params.package}/${data.selectedVersion.version}`;
 
+  const rendered =
+    (data.source?.source.kind === "file" && data.source.source.rendered) ||
+    null;
+  const showPreview = rendered !== null && !data.showCode;
+  const selfPath = sourceRoot +
+    (data.sourcePath === "/" ? "" : data.sourcePath);
+
   return (
     <div class="mb-20">
       {data.source && (
@@ -100,6 +107,30 @@ export default define.page<typeof handler>(function PackagePage(
                 );
               })}
             </div>
+            {rendered !== null && (
+              <div class="ml-auto flex items-center rounded-md ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 overflow-hidden text-sm">
+                <a
+                  href={selfPath}
+                  class={`px-2.5 py-0.5 ${
+                    showPreview
+                      ? "bg-jsr-cyan-100 dark:bg-jsr-cyan-900 font-semibold"
+                      : "hover:bg-jsr-cyan-100/50 dark:hover:bg-jsr-cyan-900/50"
+                  }`}
+                >
+                  Preview
+                </a>
+                <a
+                  href={`${selfPath}?code`}
+                  class={`px-2.5 py-0.5 ${
+                    showPreview
+                      ? "hover:bg-jsr-cyan-100/50 dark:hover:bg-jsr-cyan-900/50"
+                      : "bg-jsr-cyan-100 dark:bg-jsr-cyan-900 font-semibold"
+                  }`}
+                >
+                  Code
+                </a>
+              </div>
+            )}
           </nav>
 
           {data.source
@@ -118,7 +149,17 @@ export default define.page<typeof handler>(function PackagePage(
                   </ListDisplay>
                 )
                 : (
-                  data.source.source.view
+                  showPreview
+                    ? (
+                      <div class="ddoc px-5 py-4">
+                        <div
+                          class="markdown"
+                          // deno-lint-ignore react-no-danger
+                          dangerouslySetInnerHTML={{ __html: rendered }}
+                        />
+                      </div>
+                    )
+                    : data.source.source.view
                     ? (
                       <div class="ddoc">
                         <div
@@ -235,6 +276,7 @@ export const handler = define.handlers({
         source,
         sourcePath,
         member: scopeMember,
+        showCode: ctx.url.searchParams.has("code"),
       },
       headers: { ...(ctx.params.version ? { "X-Robots-Tag": "noindex" } : {}) },
     };

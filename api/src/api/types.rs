@@ -726,8 +726,15 @@ pub struct ApiSourceDirEntry {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum ApiSource {
-  Dir { entries: Vec<ApiSourceDirEntry> },
-  File { size: usize, view: Option<String> },
+  Dir {
+    entries: Vec<ApiSourceDirEntry>,
+  },
+  File {
+    size: usize,
+    view: Option<String>,
+    /// Rendered HTML, present for markdown files.
+    rendered: Option<String>,
+  },
 }
 
 #[derive(Debug, Serialize, Deserialize)]

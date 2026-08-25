@@ -196,6 +196,7 @@ export interface SourceFile {
   kind: "file";
   size: number;
   view: string | null;
+  rendered: string | null;
 }
 
 export interface PackageVersionSource {

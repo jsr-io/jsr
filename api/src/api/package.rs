@@ -1738,7 +1738,7 @@ pub async fn get_source_handler(
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap();
-  let _ = db
+  let (_, repo, _) = db
     .get_package(&scope, &package)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
@@ -1822,7 +1822,31 @@ pub async fn get_source_handler(
       None
     };
 
-    ApiSource::File { size, view }
+    // Markdown files additionally get a rendered form so the frontend can
+    // offer a GitHub-style preview next to the source.
+    let rendered = if path_buf
+      .extension()
+      .is_some_and(|ext| matches!(&*ext.to_string_lossy(), "md" | "markdown"))
+    {
+      std::str::from_utf8(&file).ok().and_then(|md| {
+        crate::docs::render_markdown_file(
+          md,
+          &scope,
+          &package,
+          &version.version,
+          repo,
+          path_buf.to_string_lossy().as_ref(),
+        )
+      })
+    } else {
+      None
+    };
+
+    ApiSource::File {
+      size,
+      view,
+      rendered,
+    }
   } else {
     let files = db
       .list_package_files(&scope, &package, &version.version)
@@ -5148,12 +5172,18 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let mut resp = t.http().get(url).call().await.unwrap();
     let body = resp.expect_ok::<ApiPackageVersionSource>().await;
 
-    let ApiSource::File { size, view } = body.source else {
+    let ApiSource::File {
+      size,
+      view,
+      rendered,
+    } = body.source
+    else {
       panic!();
     };
 
     assert_eq!(size, 124);
     assert!(view.is_some());
+    assert!(rendered.is_none());
 
     let url = format!(
       "/api/scopes/{}/packages/{}/versions/{}/source?path=/bin.bin",
@@ -5162,12 +5192,18 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let mut resp = t.http().get(url).call().await.unwrap();
     let body = resp.expect_ok::<ApiPackageVersionSource>().await;
 
-    let ApiSource::File { size, view } = body.source else {
+    let ApiSource::File {
+      size,
+      view,
+      rendered,
+    } = body.source
+    else {
       panic!();
     };
 
     assert_eq!(size, 1000);
     assert!(view.is_none());
+    assert!(rendered.is_none());
   }
 
   #[tokio::test]
