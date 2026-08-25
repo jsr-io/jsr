@@ -1660,26 +1660,28 @@ mod tests {
   }
 
   #[test]
-  fn ammonia_keeps_footnote_markup() {
-    // the shape comrak emits with its footnotes extension enabled
-    let html = r##"<p>claim<sup class="footnote-ref"><a href="#fn-1" id="fnref-1" data-footnote-ref>1</a></sup></p><section class="footnotes" data-footnotes><ol><li id="fn-1"><p>the source <a href="#fnref-1" class="footnote-backref" data-footnote-backref aria-label="Back to reference 1">↩</a></p></li></ol></section>"##;
-    // the relative-URL evaluator requires the rendering thread-locals
-    CURRENT_FILE.set(Some(None));
-    URL_REWRITER.set(Some(Arc::new(|_, url: &str| url.to_string())));
-    let cleaned = AMMONIA.clean(html).to_string();
-    CURRENT_FILE.set(None);
-    URL_REWRITER.set(None);
-    assert!(
-      cleaned.contains(r#"<section class="footnotes">"#),
-      "{cleaned}"
-    );
-    assert!(
-      cleaned.contains(r#"<sup class="footnote-ref">"#),
-      "{cleaned}"
-    );
-    assert!(cleaned.contains(r#"class="footnote-backref""#), "{cleaned}");
-    assert!(cleaned.contains(r##"href="#fn-1""##), "{cleaned}");
-    assert!(cleaned.contains(r#"id="fn-1""#), "{cleaned}");
+  fn renders_footnotes_through_the_sanitizer() {
+    // goes through the real render path, so this keeps up with whatever markup
+    // the deno_doc of the day emits rather than a hand-written fixture
+    let html = render_markdown_file(
+      "claim[^1]\n\n[^1]: the source",
+      &ScopeName::new("scope".to_string()).unwrap(),
+      &PackageName::new("pkg".to_string()).unwrap(),
+      &Version::new("1.0.0").unwrap(),
+      None,
+      "/README.md",
+    )
+    .unwrap();
+
+    // the footnote section wrapper and both link classes survive the allowlist
+    assert!(html.contains(r#"<section class="footnotes">"#), "{html}");
+    assert!(html.contains(r#"<sup class="footnote-ref">"#), "{html}");
+    assert!(html.contains(r#"class="footnote-backref""#), "{html}");
+    // and so do the anchors that make the jump there and back work
+    assert!(html.contains(r##"href="#fn-1""##), "{html}");
+    assert!(html.contains(r#"id="fn-1""#), "{html}");
+    assert!(html.contains(r##"href="#fnref-1""##), "{html}");
+    assert!(html.contains(r#"id="fnref-1""#), "{html}");
   }
 
   #[test]

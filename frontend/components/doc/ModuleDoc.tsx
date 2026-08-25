@@ -4,10 +4,7 @@ import { Deprecated } from "./Deprecated.tsx";
 import { SymbolContent } from "./SymbolContent.tsx";
 
 export function ModuleDoc({ content }: { content: ModuleDocCtx }) {
-  // `symbols_trimmed` is missing from @deno/doc@0.204.0's html-types; drop
-  // this extension once the published types include it.
-  const symbolsTrimmed =
-    (content as ModuleDocCtx & { symbols_trimmed?: boolean }).symbols_trimmed;
+  const symbolsTrimmed = content.symbols_trimmed;
 
   return (
     <section>
