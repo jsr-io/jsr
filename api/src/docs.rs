@@ -793,6 +793,70 @@ pub fn get_generate_ctx(
   .unwrap()
 }
 
+/// Fills the docs preview of symbol listing entries that have no JSDoc body
+/// but do carry a `@deprecated` message, so the message shows instead of "No
+/// documentation available". The symbol page already renders the message, but
+/// the listing context deno_doc produces only carries a deprecated flag, not
+/// the message itself.
+fn fill_deprecated_docs(
+  ctx: &GenerateCtx,
+  render_ctx: &RenderContext,
+  doc_nodes: &[DocNodeWithContext],
+  sections: &mut [deno_doc::html::util::SectionCtx],
+) {
+  use deno_doc::html::util::SectionContentCtx;
+
+  let needs_fill = sections.iter().any(|section| {
+    matches!(&section.content, SectionContentCtx::NamespaceSection(nodes)
+      if nodes.iter().any(|node| node.deprecated && node.docs.is_none()))
+  });
+  if !needs_fill {
+    return;
+  }
+
+  let deprecated_docs = deno_doc::html::partition::flatten_namespace(
+    ctx,
+    doc_nodes.iter().map(Cow::Borrowed),
+  )
+  .into_iter()
+  .filter_map(|symbol| {
+    let doc = symbol.declarations.iter().find_map(|decl| {
+      decl.js_doc.tags.iter().find_map(|tag| {
+        if let deno_doc::js_doc::JsDocTag::Deprecated { doc: Some(doc) } = tag {
+          Some(doc.clone())
+        } else {
+          None
+        }
+      })
+    })?;
+    Some((symbol.get_qualified_name().to_string(), doc))
+  })
+  .collect::<std::collections::HashMap<_, _>>();
+
+  for section in sections {
+    let SectionContentCtx::NamespaceSection(nodes) = &mut section.content
+    else {
+      continue;
+    };
+    for node in nodes {
+      if node.docs.is_some() || !node.deprecated {
+        continue;
+      }
+      let Some(doc) = deprecated_docs.get(&node.name) else {
+        continue;
+      };
+      node.docs = deno_doc::html::jsdoc::markdown_to_html(
+        render_ctx,
+        doc,
+        deno_doc::html::jsdoc::MarkdownToHTMLOptions {
+          title_only: true,
+          no_toc: true,
+        },
+      );
+    }
+  }
+}
+
 #[instrument(name = "render_docs_html", skip(ctx, readme), err)]
 pub fn render_docs_html(
   ctx: &GenerateCtx,
@@ -804,7 +868,20 @@ pub fn render_docs_html(
     DocsRequest::AllSymbols => {
       let render_ctx = RenderContext::new(ctx, &[], UrlResolveKind::AllSymbols);
 
-      let all_symbols = deno_doc::html::AllSymbolsCtx::new(&render_ctx);
+      let mut all_symbols = deno_doc::html::AllSymbolsCtx::new(&render_ctx);
+      for entrypoint in &mut all_symbols.entrypoints {
+        let Some(doc_nodes) = ctx.doc_nodes.iter().find_map(|(path, nodes)| {
+          (path.display_name() == entrypoint.name).then_some(nodes)
+        }) else {
+          continue;
+        };
+        fill_deprecated_docs(
+          ctx,
+          &render_ctx,
+          doc_nodes,
+          &mut entrypoint.module_doc.sections.sections,
+        );
+      }
       let breadcrumbs = render_ctx.get_breadcrumbs();
 
       let toc = deno_doc::html::ToCCtx::new(render_ctx, false, Some(None));
@@ -890,6 +967,13 @@ pub fn render_docs_html(
       if short_path.is_main {
         module_doc.sections.docs = None;
       }
+
+      fill_deprecated_docs(
+        ctx,
+        &render_ctx,
+        doc_nodes,
+        &mut module_doc.sections.sections,
+      );
 
       let breadcrumbs = render_ctx.get_breadcrumbs();
 
