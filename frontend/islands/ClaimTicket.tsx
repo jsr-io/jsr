@@ -6,10 +6,14 @@ import { api, path } from "../utils/api.ts";
 /// rather than an account. Claiming binds it to the signed-in account, so it
 /// shows up alongside their other tickets instead of only in their inbox.
 export function ClaimTicket(
-  { ticketId, claimToken, signedIn }: {
+  { ticketId, claimToken, signedIn, returnTo }: {
     ticketId: string;
     claimToken: string;
     signedIn: boolean;
+    /// Where to come back to after signing in — this page, claim token and all.
+    /// Passed in rather than read from `location`, which does not exist when
+    /// this is rendered on the server.
+    returnTo: string;
   },
 ) {
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +57,12 @@ export function ClaimTicket(
         )
         : (
           <p>
-            <a class="link" href="/login">Sign in</a>{" "}
+            <a
+              class="link"
+              href={`/login?redirect=${encodeURIComponent(returnTo)}`}
+            >
+              Sign in
+            </a>{" "}
             to link it to your account. You can also just reply to our email —
             that works either way.
           </p>
