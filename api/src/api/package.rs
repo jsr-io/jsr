@@ -2121,6 +2121,8 @@ pub async fn get_diff_handler(
     repo,
     false,
     package.runtime_compat,
+    // diff pages don't render usage instructions at all
+    false,
     registry_url,
     Some((diff, full)),
   );
