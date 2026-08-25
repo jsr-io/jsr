@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT creator = $2 as \"is_creator!\" FROM tickets WHERE id = $1",
+  "query": "SELECT COALESCE(creator = $2, false) as \"is_creator!\" FROM tickets WHERE id = $1",
   "describe": {
     "columns": [
       {
@@ -19,5 +19,5 @@
       null
     ]
   },
-  "hash": "7aec305f8d3cf75fe4b6b47f67386e30f16668093448b612cb77a9e4b7e640fd"
+  "hash": "9285cef0b61fce21343e353c512e140ef880c3be8ed33191c40e45e8ae6bc0ab"
 }

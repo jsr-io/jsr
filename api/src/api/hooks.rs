@@ -1175,6 +1175,35 @@ mod integration {
   }
 
   #[tokio::test]
+  async fn staff_can_reply_to_a_ticket_nobody_has_claimed() {
+    let mut t = TestSetup::new().await;
+
+    deliver(&mut t, inbound("<a@example.com>", "Help", json!([]))).await;
+    let ticket = all_tickets(&mut t).await.remove(0);
+    assert_eq!(ticket.status, TicketStatus::Open);
+
+    // The ticket has no creator until it is claimed, so anything comparing the
+    // author against it has to cope with a NULL on the other side. This is the
+    // ordinary path for answering support mail, and it used to 500.
+    let staff_token = t.staff_user.token.clone();
+    let mut resp = t
+      .http()
+      .post(format!("/api/tickets/{}", ticket.id))
+      .token(Some(&staff_token))
+      .body_json(json!({ "message": "Have you tried publishing again?" }))
+      .call()
+      .await
+      .unwrap();
+    let reply: crate::api::ApiTicketMessage = resp.expect_ok().await;
+    assert_eq!(reply.message, "Have you tried publishing again?");
+    assert_eq!(reply.direction, crate::db::TicketMessageDirection::Outbound);
+
+    // Staff spoke last, so the reporter is the one now owed a response.
+    let after = all_tickets(&mut t).await.remove(0);
+    assert_eq!(after.status, TicketStatus::WaitingOnUser);
+  }
+
+  #[tokio::test]
   async fn wrong_webhook_password_is_rejected() {
     let mut t = TestSetup::new().await;
 
