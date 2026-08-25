@@ -739,7 +739,7 @@ pub fn get_generate_ctx(
       href_resolver: Arc::new(DocResolver {
         scope: scope.clone(),
         package: package.clone(),
-        version,
+        version: version.clone(),
         version_is_latest,
         registry_url,
         deno_types: DENO_TYPES
@@ -771,6 +771,8 @@ pub fn get_generate_ctx(
           runtime_compat,
           scope,
           package,
+          version,
+          version_is_latest,
         }) as Arc<dyn deno_doc::html::UsageComposer>
       }),
       rewrite_map: Some(rewrite_map),
@@ -1434,6 +1436,8 @@ struct DocUsageComposer {
   runtime_compat: RuntimeCompat,
   scope: ScopeName,
   package: PackageName,
+  version: Version,
+  version_is_latest: bool,
 }
 
 impl deno_doc::html::UsageComposer for DocUsageComposer {
@@ -1448,22 +1452,38 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
     usage_to_md: deno_doc::html::UsageToMd,
   ) -> IndexMap<UsageComposerEntry, String> {
     let mut map = IndexMap::new();
-    let scoped_name = format!("@{}/{}", self.scope, self.package);
+    // When the user is looking at a pinned, non-latest version, the add
+    // commands install exactly that version instead of the latest one.
+    let scoped_name = if self.version_is_latest {
+      format!("@{}/{}", self.scope, self.package)
+    } else {
+      format!("@{}/{}@{}", self.scope, self.package, self.version)
+    };
 
     let (is_main, path) = current_resolve
       .get_file()
       .map(|short_path| (short_path.is_main, &*short_path.path))
       .unwrap_or((true, ""));
 
-    let url = format!(
-      "@{}/{}{}",
+    let subpath = if is_main {
+      String::new()
+    } else {
+      format!("/{path}")
+    };
+
+    let url = format!("@{}/{}{}", self.scope, self.package, subpath);
+
+    // A direct jsr specifier always carries a version constraint so the
+    // snippet passes Deno's no-unversioned-import lint rule: a caret range on
+    // the latest version (matching what `deno add` writes), and the exact
+    // version when a non-latest version is pinned.
+    let jsr_url = format!(
+      "@{}/{}@{}{}{}",
       self.scope,
       self.package,
-      if is_main {
-        String::new()
-      } else {
-        format!("/{path}")
-      }
+      if self.version_is_latest { "^" } else { "" },
+      self.version,
+      subpath
     );
 
     let import = format!(
@@ -1477,7 +1497,7 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
           name: "Deno".to_string(),
           icon: Some("/logos/deno.svg".into()),
         },
-        format!("Add Package\n```\ndeno add jsr:{scoped_name}\n```{import}\n<div class='or-bar'>or</div>\n\nImport directly with a jsr specifier\n{}\n", usage_to_md(&format!("jsr:{url}"), Some(self.package.as_str()))),
+        format!("Add Package\n```\ndeno add jsr:{scoped_name}\n```{import}\n<div class='or-bar'>or</div>\n\nImport directly with a jsr specifier\n{}\n", usage_to_md(&format!("jsr:{jsr_url}"), Some(self.package.as_str()))),
       );
     }
 

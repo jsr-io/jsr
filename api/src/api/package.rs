@@ -4219,7 +4219,8 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let task = process_tarball_setup(&t, create_mock_tarball("ok")).await;
     assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
 
-    // index page
+    // index page (pinned version): usage snippets install exactly this
+    // version, and the jsr specifier is pinned to it
     let mut resp = t
       .http()
       .get("/api/scopes/scope/packages/foo/versions/1.2.3/docs")
@@ -4233,11 +4234,38 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         comrak_css: _,
         script: _,
         breadcrumbs,
-        toc: _,
+        toc,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
         assert!(breadcrumbs.is_none(), "{:?}", breadcrumbs);
+        let toc_json = serde_json::to_string(&toc).unwrap();
+        assert!(
+          toc_json.contains("deno add jsr:@scope/foo@1.2.3"),
+          "{toc_json}"
+        );
+        assert!(toc_json.contains("jsr:@scope/foo@1.2.3"), "{toc_json}");
+      }
+      ApiPackageVersionDocs::Redirect { .. } => panic!(),
+    }
+
+    // index page (latest): add commands are unversioned, but the direct jsr
+    // specifier carries a caret constraint on the latest version
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/latest/docs")
+      .call()
+      .await
+      .unwrap();
+    let docs: ApiPackageVersionDocs = resp.expect_ok().await;
+    match docs {
+      ApiPackageVersionDocs::Content { toc, .. } => {
+        let toc_json = serde_json::to_string(&toc).unwrap();
+        assert!(
+          !toc_json.contains("deno add jsr:@scope/foo@1.2.3"),
+          "{toc_json}"
+        );
+        assert!(toc_json.contains("jsr:@scope/foo@^1.2.3"), "{toc_json}");
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
