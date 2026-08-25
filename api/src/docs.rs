@@ -287,7 +287,7 @@ lazy_static::lazy_static! {
     let mut ammonia_builder = ammonia::Builder::default();
 
     ammonia_builder
-      .add_tags(["video", "button", "svg", "path", "rect"])
+      .add_tags(["video", "button", "svg", "path", "rect", "section"])
       .add_generic_attributes(["id", "align"])
       .add_tag_attributes("button", ["data-copy"])
       .add_tag_attributes(
@@ -322,6 +322,10 @@ lazy_static::lazy_static! {
       .add_tag_attributes("video", ["src", "controls"])
       .add_allowed_classes("pre", ["highlight"])
       .add_allowed_classes("button", ["copyButton"])
+      // comrak footnote output
+      .add_allowed_classes("section", ["footnotes"])
+      .add_allowed_classes("sup", ["footnote-ref"])
+      .add_allowed_classes("a", ["footnote-backref"])
       .add_allowed_classes(
         "div",
         [
@@ -1653,6 +1657,29 @@ mod tests {
     );
     // code fences go through the tree-sitter highlighter
     assert!(html.contains("<span class="), "{html}");
+  }
+
+  #[test]
+  fn ammonia_keeps_footnote_markup() {
+    // the shape comrak emits with its footnotes extension enabled
+    let html = r##"<p>claim<sup class="footnote-ref"><a href="#fn-1" id="fnref-1" data-footnote-ref>1</a></sup></p><section class="footnotes" data-footnotes><ol><li id="fn-1"><p>the source <a href="#fnref-1" class="footnote-backref" data-footnote-backref aria-label="Back to reference 1">↩</a></p></li></ol></section>"##;
+    // the relative-URL evaluator requires the rendering thread-locals
+    CURRENT_FILE.set(Some(None));
+    URL_REWRITER.set(Some(Arc::new(|_, url: &str| url.to_string())));
+    let cleaned = AMMONIA.clean(html).to_string();
+    CURRENT_FILE.set(None);
+    URL_REWRITER.set(None);
+    assert!(
+      cleaned.contains(r#"<section class="footnotes">"#),
+      "{cleaned}"
+    );
+    assert!(
+      cleaned.contains(r#"<sup class="footnote-ref">"#),
+      "{cleaned}"
+    );
+    assert!(cleaned.contains(r#"class="footnote-backref""#), "{cleaned}");
+    assert!(cleaned.contains(r##"href="#fn-1""##), "{cleaned}");
+    assert!(cleaned.contains(r#"id="fn-1""#), "{cleaned}");
   }
 
   #[test]
