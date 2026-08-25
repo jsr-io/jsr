@@ -4777,7 +4777,11 @@ gitlab_id: r.user_gitlab_id,
     .fetch_one(&mut *tx)
     .await?;
 
-    let direction = if author_is_creator {
+    // A note is always from the JSR side, even when the staff member writing it
+    // is the person who opened the ticket — which happens whenever staff file
+    // one themselves. Treating it as inbound there would both misattribute it
+    // and violate the check constraint that ties internal to outbound.
+    let direction = if author_is_creator && !message.internal {
       TicketMessageDirection::Inbound
     } else {
       TicketMessageDirection::Outbound

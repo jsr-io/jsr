@@ -1345,6 +1345,46 @@ mod integration {
   }
 
   #[tokio::test]
+  async fn a_staff_member_can_note_on_a_ticket_they_opened_themselves() {
+    let mut t = TestSetup::new().await;
+
+    // Staff open tickets like anyone else — filing one about their own scope,
+    // or just trying something out. The author then *is* the creator, which is
+    // the one combination where a note is written by the person the ticket
+    // belongs to.
+    let staff_token = t.staff_user.token.clone();
+    let mut resp = t
+      .http()
+      .post("/api/tickets")
+      .token(Some(&staff_token))
+      .body_json(json!({
+        "kind": crate::db::TicketKind::Other,
+        "meta": {},
+        "message": "my own ticket",
+      }))
+      .call()
+      .await
+      .unwrap();
+    let own: ApiTicket = resp.expect_ok().await;
+
+    let mut resp = t
+      .http()
+      .post(format!("/api/tickets/{}", own.id))
+      .token(Some(&staff_token))
+      .body_json(
+        json!({ "message": "note on my own ticket", "internal": true }),
+      )
+      .call()
+      .await
+      .unwrap();
+    let note: crate::api::ApiTicketMessage = resp.expect_ok().await;
+    assert!(note.internal);
+    // A note is from the JSR side whoever writes it, so it is outbound even
+    // here. Anything else violates the check constraint on the table.
+    assert_eq!(note.direction, crate::db::TicketMessageDirection::Outbound);
+  }
+
+  #[tokio::test]
   async fn a_note_cannot_be_written_by_anyone_but_staff() {
     let mut t = TestSetup::new().await;
 
