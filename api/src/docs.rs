@@ -1069,13 +1069,16 @@ fn generate_symbol_page(
 
   let doc_nodes = 'outer: loop {
     let next_part = name_parts.next()?;
+    // Symbols that aren't exported get a page too: the public API refers to
+    // them, so their signatures link here and this page is what those links
+    // point at (jsr-io/jsr#165). deno_doc keeps them out of the listings and
+    // of symbol search, since they can't be imported.
+    //
+    // `@internal` is different: the author asked for the symbol to be hidden,
+    // so it gets no page, and deno_doc emits no link to one either.
     let mut nodes = doc_nodes
       .iter()
-      .filter(|node| {
-        !node.declarations.iter().all(|decl| {
-          decl.declaration_kind == deno_doc::node::DeclarationKind::Private
-        }) && node.get_name() == next_part
-      })
+      .filter(|node| !node.is_hidden() && node.get_name() == next_part)
       .flat_map(|node| resolve_doc_node_references(ctx, node.clone()))
       .collect::<Vec<_>>();
 
