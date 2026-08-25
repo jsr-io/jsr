@@ -322,7 +322,15 @@ pub async fn list_tickets(req: Request<Body>) -> ApiResult<Vec<ApiTicket>> {
   let db = req.data::<Database>().unwrap();
 
   let tickets = db.list_tickets_for_user(current_user.id).await?;
-  Ok(tickets.into_iter().map(|scope| scope.into()).collect())
+  // Somebody's own tickets, read as themselves: staff notes are withheld even
+  // if the reader happens to be staff, because this is the account view rather
+  // than the admin one.
+  Ok(
+    tickets
+      .into_iter()
+      .map(|ticket| ApiTicket::for_viewer(ticket, false))
+      .collect(),
+  )
 }
 
 #[cfg(test)]

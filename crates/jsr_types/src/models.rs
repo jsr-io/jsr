@@ -1226,6 +1226,10 @@ impl FromRow<'_, sqlx::postgres::PgRow> for Ticket {
 #[derive(Debug, Deserialize)]
 pub struct NewTicketMessage {
   pub message: String,
+  /// Write this as a staff-only note rather than a reply. Rejected for anyone
+  /// who is not staff.
+  #[serde(default)]
+  pub internal: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1246,6 +1250,9 @@ pub struct TicketMessage {
   /// from, used to thread replies back onto the ticket. `None` for messages
   /// that were never emailed.
   pub email_message_id: Option<String>,
+  /// A note staff wrote to each other. Never emailed, and never shown to the
+  /// person who opened the ticket.
+  pub internal: bool,
   pub message: String,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,

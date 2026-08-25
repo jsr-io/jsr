@@ -1152,15 +1152,14 @@ pub struct ApiTicketOverview {
   pub created_at: DateTime<Utc>,
 }
 
-impl From<(Ticket, Option<User>, Vec<ApiTicketMessageOrAuditLog>)>
-  for ApiTicketOverview
-{
-  fn from(
-    (value, user, events): (
-      Ticket,
-      Option<User>,
-      Vec<ApiTicketMessageOrAuditLog>,
-    ),
+impl ApiTicketOverview {
+  /// Builds the response for a particular viewer. See
+  /// [`ApiTicket::for_viewer`] for why this is not a `From` impl; the events
+  /// passed in must already have been filtered for that viewer.
+  pub fn new(
+    value: Ticket,
+    user: Option<User>,
+    events: Vec<ApiTicketMessageOrAuditLog>,
   ) -> Self {
     Self {
       id: value.id,
@@ -1198,8 +1197,19 @@ pub struct ApiTicket {
   pub created_at: DateTime<Utc>,
 }
 
-impl From<FullTicket> for ApiTicket {
-  fn from((value, user, messages): FullTicket) -> Self {
+impl ApiTicket {
+  /// Builds the response for a particular viewer.
+  ///
+  /// Deliberately not a `From` impl. Staff notes live in the same message list
+  /// as the conversation, so every path that returns a ticket has to decide
+  /// whether the person reading is allowed to see them — and a conversion that
+  /// could be reached by `.into()` is one that will eventually be reached
+  /// without that decision being made.
+  pub fn for_viewer(full: FullTicket, viewer_is_staff: bool) -> Self {
+    let (value, user, messages) = full;
+    let messages = messages
+      .into_iter()
+      .filter(|(message, ..)| viewer_is_staff || !message.internal);
     Self {
       id: value.id,
       ticket_number: value.ticket_number,
@@ -1214,7 +1224,7 @@ impl From<FullTicket> for ApiTicket {
       subject: value.subject,
       meta: value.meta,
       status: value.status,
-      messages: messages.into_iter().map(|message| message.into()).collect(),
+      messages: messages.map(|message| message.into()).collect(),
       updated_at: value.updated_at,
       created_at: value.created_at,
     }
@@ -1227,6 +1237,9 @@ pub struct ApiTicketMessage {
   pub id: Uuid,
   pub author: ApiTicketActor,
   pub direction: TicketMessageDirection,
+  /// A note staff wrote to each other. Only ever present for a staff viewer —
+  /// see [`ApiTicket::for_viewer`].
+  pub internal: bool,
   pub message: String,
   pub attachments: Vec<ApiTicketAttachment>,
   pub updated_at: DateTime<Utc>,
@@ -1245,6 +1258,7 @@ impl From<FullTicketMessage> for ApiTicketMessage {
       )
         .into(),
       direction: value.direction,
+      internal: value.internal,
       message: value.message,
       attachments: attachments.into_iter().map(Into::into).collect(),
       updated_at: value.updated_at,

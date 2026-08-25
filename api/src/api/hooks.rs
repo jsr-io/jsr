@@ -814,6 +814,35 @@ mod integration {
     list.items
   }
 
+  /// The claim token of an unclaimed ticket. Not exposed over the API — it only
+  /// ever reaches the reporter by email — so it is read from the row.
+  async fn claim_token_of(t: &TestSetup, ticket_id: uuid::Uuid) -> uuid::Uuid {
+    t.ephemeral_database
+      .database
+      .as_ref()
+      .unwrap()
+      .get_ticket(ticket_id)
+      .await
+      .unwrap()
+      .unwrap()
+      .0
+      .claim_token
+      .expect("an unclaimed ticket has a claim token")
+  }
+
+  fn message_bodies(overview: &crate::api::ApiTicketOverview) -> Vec<String> {
+    overview
+      .events
+      .iter()
+      .filter_map(|event| match event {
+        crate::api::ApiTicketMessageOrAuditLog::Message { message } => {
+          Some(message.message.clone())
+        }
+        _ => None,
+      })
+      .collect()
+  }
+
   /// The stored message rows for a ticket, in order. Used for the parts of a
   /// message that the API deliberately does not expose.
   async fn ticket_messages(
@@ -1201,6 +1230,196 @@ mod integration {
     // Staff spoke last, so the reporter is the one now owed a response.
     let after = all_tickets(&mut t).await.remove(0);
     assert_eq!(after.status, TicketStatus::WaitingOnUser);
+  }
+
+  #[tokio::test]
+  async fn a_staff_note_is_never_shown_to_the_reporter() {
+    let mut t = TestSetup::new().await;
+
+    deliver(&mut t, inbound("<a@example.com>", "Help", json!([]))).await;
+    let ticket = all_tickets(&mut t).await.remove(0);
+
+    let staff_token = t.staff_user.token.clone();
+    let mut resp = t
+      .http()
+      .post(format!("/api/tickets/{}", ticket.id))
+      .token(Some(&staff_token))
+      .body_json(
+        json!({ "message": "looks like a squatter", "internal": true }),
+      )
+      .call()
+      .await
+      .unwrap();
+    let note: crate::api::ApiTicketMessage = resp.expect_ok().await;
+    assert!(note.internal);
+
+    // Staff see it.
+    let mut resp = t
+      .http()
+      .get(format!("/api/tickets/{}", ticket.id))
+      .token(Some(&staff_token))
+      .call()
+      .await
+      .unwrap();
+    let staff_view: crate::api::ApiTicketOverview = resp.expect_ok().await;
+    assert!(
+      message_bodies(&staff_view)
+        .iter()
+        .any(|m| m == "looks like a squatter")
+    );
+
+    // The reporter, holding the claim token from their auto-reply, does not.
+    let claim_token = claim_token_of(&t, ticket.id).await;
+    let mut resp = t
+      .http()
+      .get(format!("/api/tickets/{}?claim={claim_token}", ticket.id))
+      .token(None)
+      .call()
+      .await
+      .unwrap();
+    let reporter_view: crate::api::ApiTicketOverview = resp.expect_ok().await;
+    let bodies = message_bodies(&reporter_view);
+    assert!(
+      !bodies.iter().any(|m| m == "looks like a squatter"),
+      "the note leaked to the reporter: {bodies:?}"
+    );
+    // The rest of the conversation is still there.
+    assert!(bodies.iter().any(|m| m == "I cannot publish my package."));
+  }
+
+  #[tokio::test]
+  async fn a_staff_note_does_not_survive_claiming_the_ticket() {
+    let mut t = TestSetup::new().await;
+
+    deliver(&mut t, inbound("<a@example.com>", "Help", json!([]))).await;
+    let ticket = all_tickets(&mut t).await.remove(0);
+    let claim_token = claim_token_of(&t, ticket.id).await;
+
+    let staff_token = t.staff_user.token.clone();
+    t.http()
+      .post(format!("/api/tickets/{}", ticket.id))
+      .token(Some(&staff_token))
+      .body_json(json!({ "message": "internal only", "internal": true }))
+      .call()
+      .await
+      .unwrap();
+
+    // Claiming returns the ticket to the person who just claimed it, who is not
+    // staff however the ticket got to them.
+    let user_token = t.user1.token.clone();
+    let mut resp = t
+      .http()
+      .post(format!(
+        "/api/tickets/{}/claim?claim={claim_token}",
+        ticket.id
+      ))
+      .token(Some(&user_token))
+      .call()
+      .await
+      .unwrap();
+    let claimed: ApiTicket = resp.expect_ok().await;
+    assert!(
+      !claimed
+        .messages
+        .iter()
+        .any(|m| m.message == "internal only"),
+      "the note leaked in the claim response"
+    );
+
+    // Nor in their own account view of it afterwards.
+    let mut resp = t
+      .http()
+      .get("/api/user/tickets")
+      .token(Some(&user_token))
+      .call()
+      .await
+      .unwrap();
+    let own: Vec<ApiTicket> = resp.expect_ok().await;
+    assert!(
+      !own
+        .iter()
+        .flat_map(|t| &t.messages)
+        .any(|m| m.message == "internal only"),
+      "the note leaked in the account ticket list"
+    );
+  }
+
+  #[tokio::test]
+  async fn a_note_cannot_be_written_by_anyone_but_staff() {
+    let mut t = TestSetup::new().await;
+
+    deliver(&mut t, inbound("<a@example.com>", "Help", json!([]))).await;
+    let ticket = all_tickets(&mut t).await.remove(0);
+    let claim_token = claim_token_of(&t, ticket.id).await;
+
+    // The reporter, via their claim link.
+    let mut resp = t
+      .http()
+      .post(format!("/api/tickets/{}?claim={claim_token}", ticket.id))
+      .token(None)
+      .body_json(json!({ "message": "sneaky", "internal": true }))
+      .call()
+      .await
+      .unwrap();
+    resp.expect_err(StatusCode::FORBIDDEN).await;
+
+    // And an ordinary signed-in account that owns a ticket of its own.
+    let user_token = t.user1.token.clone();
+    let mut resp = t
+      .http()
+      .post("/api/tickets")
+      .token(Some(&user_token))
+      .body_json(json!({
+        "kind": crate::db::TicketKind::Other,
+        "meta": {},
+        "message": "hello",
+      }))
+      .call()
+      .await
+      .unwrap();
+    let own: ApiTicket = resp.expect_ok().await;
+
+    let mut resp = t
+      .http()
+      .post(format!("/api/tickets/{}", own.id))
+      .token(Some(&user_token))
+      .body_json(json!({ "message": "sneaky", "internal": true }))
+      .call()
+      .await
+      .unwrap();
+    resp.expect_err(StatusCode::FORBIDDEN).await;
+  }
+
+  #[tokio::test]
+  async fn a_staff_note_sends_no_email_and_does_not_move_the_status() {
+    let mut t = TestSetup::new().await;
+
+    deliver(&mut t, inbound("<a@example.com>", "Help", json!([]))).await;
+    let ticket = all_tickets(&mut t).await.remove(0);
+    assert_eq!(ticket.status, TicketStatus::Open);
+
+    let staff_token = t.staff_user.token.clone();
+    t.http()
+      .post(format!("/api/tickets/{}", ticket.id))
+      .token(Some(&staff_token))
+      .body_json(json!({ "message": "note to self", "internal": true }))
+      .call()
+      .await
+      .unwrap();
+
+    // A reply would have moved this to waiting_on_user. A note says nothing to
+    // the reporter, so it must not.
+    let after = all_tickets(&mut t).await.remove(0);
+    assert_eq!(after.status, TicketStatus::Open);
+
+    // And nothing was queued to be sent.
+    let db = t.ephemeral_database.database.as_ref().unwrap();
+    assert!(
+      db.list_stale_email_deliveries(0, 10)
+        .await
+        .unwrap()
+        .is_empty()
+    );
   }
 
   #[tokio::test]

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO ticket_messages (ticket_id, author, direction, message, email_message_id)\n          VALUES ($1, $2, $3, $4, $5)\n          RETURNING id",
+  "query": "INSERT INTO ticket_messages (ticket_id, author, direction, message, email_message_id, internal)\n          VALUES ($1, $2, $3, $4, $5, $6)\n          RETURNING id",
   "describe": {
     "columns": [
       {
@@ -25,12 +25,13 @@
           }
         },
         "Text",
-        "Text"
+        "Text",
+        "Bool"
       ]
     },
     "nullable": [
       false
     ]
   },
-  "hash": "4d4db475da4257e609e8f91dd0246327deba3cef0e81588f6bf475de5ad82e08"
+  "hash": "845b908b97658622ae136485449cb44a1db42731670786336d0ca71cdcb12eaa"
 }
