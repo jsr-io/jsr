@@ -1802,19 +1802,20 @@ pub async fn get_source_handler(
       let mut out = vec![];
       highlighter.write_pre_tag(&mut out, Default::default())?;
       highlighter.write_code_tag(&mut out, Default::default())?;
-      highlighter.write_highlighted(
-        &mut out,
-        path_buf
-          .extension()
-          .map(|ext| ext.to_string_lossy())
-          .as_deref()
-          .map(|ext| match ext {
-            "mts" | "cts" => "ts",
-            "mjs" | "cjs" => "js",
-            ext => ext,
-          }),
-        &file,
-      )?;
+      let ext = path_buf.extension().map(|ext| ext.to_string_lossy());
+      let file_name = path_buf.file_name().map(|name| name.to_string_lossy());
+      let lang = match ext.as_deref() {
+        Some("mts" | "cts") => Some("ts"),
+        Some("mjs" | "cjs") => Some("js"),
+        Some(ext) => Some(ext),
+        // well-known files without an extension
+        None => match file_name.as_deref() {
+          Some("Dockerfile" | "Containerfile") => Some("dockerfile"),
+          Some(".editorconfig") => Some("ini"),
+          _ => None,
+        },
+      };
+      highlighter.write_highlighted(&mut out, lang, &file)?;
       out.extend(b"</code></pre>");
 
       Some(String::from_utf8(out).context("File is not valid utf8")?)

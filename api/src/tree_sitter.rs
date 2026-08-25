@@ -31,9 +31,9 @@ impl comrak::adapters::SyntaxHighlighterAdapter for ComrakAdapter {
       match res {
         Ok(highlighter) => {
           let mut renderer = tree_sitter_highlight::HtmlRenderer::new();
-          match renderer
-            .render(highlighter, source, &|highlight| classes(highlight))
-          {
+          match renderer.render(highlighter, source, &|highlight, output| {
+            classes(highlight, output)
+          }) {
             Ok(()) => {
               let mut line_numbers = String::new();
               let mut lines = String::new();
@@ -131,8 +131,8 @@ highlighter! [
   "variable.builtin" -> "pl-smi",
 ];
 
-pub(crate) fn classes(highlight: Highlight) -> &'static [u8] {
-  CLASSES_ATTRIBUTES[highlight.0].as_bytes()
+pub(crate) fn classes(highlight: Highlight, output: &mut Vec<u8>) {
+  output.extend_from_slice(CLASSES_ATTRIBUTES[highlight.0].as_bytes());
 }
 
 pub fn tree_sitter_language_cb(
@@ -156,6 +156,12 @@ pub fn tree_sitter_language_cb(
       "toml" => tree_sitter_language_toml(),
       "yaml" | "yml" => tree_sitter_language_yaml(),
       "c" | "h" => tree_sitter_language_c(),
+      "diff" | "patch" => tree_sitter_language_diff(),
+      "ini" | "editorconfig" | "gitconfig" => tree_sitter_language_ini(),
+      "bat" | "batch" | "cmd" => tree_sitter_language_batch(),
+      "dockerfile" | "docker" | "containerfile" => {
+        tree_sitter_language_dockerfile()
+      }
       _ => continue,
     };
     return Some(cfg);
@@ -167,7 +173,7 @@ pub fn tree_sitter_language_javascript() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_javascript::language(),
+      tree_sitter_javascript::LANGUAGE.into(),
       "javascript",
       tree_sitter_javascript::HIGHLIGHT_QUERY,
       tree_sitter_javascript::INJECTIONS_QUERY,
@@ -183,7 +189,7 @@ pub fn tree_sitter_language_jsx() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_javascript::language(),
+      tree_sitter_javascript::LANGUAGE.into(),
       "jsx",
       format!(
         "{} {}",
@@ -204,7 +210,7 @@ pub fn tree_sitter_language_typescript() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_typescript::language_typescript(),
+      tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
       "typescript",
       format!(
         "{} {}",
@@ -230,7 +236,7 @@ pub fn tree_sitter_language_tsx() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_typescript::language_tsx(),
+      tree_sitter_typescript::LANGUAGE_TSX.into(),
       "tsx",
       format!(
         "{} {} {}",
@@ -257,7 +263,7 @@ fn tree_sitter_language_json() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_json::language(),
+      tree_sitter_json::LANGUAGE.into(),
       "json",
       tree_sitter_json::HIGHLIGHTS_QUERY,
       "",
@@ -273,7 +279,7 @@ fn tree_sitter_language_css() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_css::language(),
+      tree_sitter_css::LANGUAGE.into(),
       "css",
       tree_sitter_css::HIGHLIGHTS_QUERY,
       "",
@@ -289,7 +295,7 @@ fn tree_sitter_language_markdown() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_md::language(),
+      tree_sitter_md::LANGUAGE.into(),
       "markdown",
       tree_sitter_md::HIGHLIGHT_QUERY_BLOCK,
       tree_sitter_md::INJECTION_QUERY_BLOCK,
@@ -305,7 +311,7 @@ fn tree_sitter_language_xml() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_xml::language_xml(),
+      tree_sitter_xml::LANGUAGE_XML.into(),
       "xml",
       tree_sitter_xml::XML_HIGHLIGHT_QUERY,
       "",
@@ -321,7 +327,7 @@ fn tree_sitter_language_dtd() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_xml::language_dtd(),
+      tree_sitter_xml::LANGUAGE_DTD.into(),
       "dtd",
       tree_sitter_xml::DTD_HIGHLIGHT_QUERY,
       "",
@@ -337,7 +343,7 @@ fn tree_sitter_language_regex() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_regex::language(),
+      tree_sitter_regex::LANGUAGE.into(),
       "regex",
       tree_sitter_regex::HIGHLIGHTS_QUERY,
       "",
@@ -353,7 +359,7 @@ fn tree_sitter_language_rust() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_rust::language(),
+      tree_sitter_rust::LANGUAGE.into(),
       "rust",
       tree_sitter_rust::HIGHLIGHTS_QUERY,
       tree_sitter_rust::INJECTIONS_QUERY,
@@ -369,7 +375,7 @@ fn tree_sitter_language_html() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_html::language(),
+      tree_sitter_html::LANGUAGE.into(),
       "html",
       tree_sitter_html::HIGHLIGHTS_QUERY,
       tree_sitter_html::INJECTIONS_QUERY,
@@ -385,7 +391,7 @@ fn tree_sitter_language_bash() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_bash::language(),
+      tree_sitter_bash::LANGUAGE.into(),
       "bash",
       tree_sitter_bash::HIGHLIGHT_QUERY,
       "",
@@ -401,7 +407,7 @@ fn tree_sitter_language_toml() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_toml_ng::language(),
+      tree_sitter_toml_ng::LANGUAGE.into(),
       "toml",
       tree_sitter_toml_ng::HIGHLIGHTS_QUERY,
       "",
@@ -417,7 +423,7 @@ fn tree_sitter_language_yaml() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_yaml::language(),
+      tree_sitter_yaml::LANGUAGE.into(),
       "yaml",
       tree_sitter_yaml::HIGHLIGHTS_QUERY,
       "",
@@ -433,13 +439,77 @@ fn tree_sitter_language_c() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_c::language(),
+      tree_sitter_c::LANGUAGE.into(),
       "c",
       tree_sitter_c::HIGHLIGHT_QUERY,
       "",
       "",
     )
     .expect("failed to initialize tree_sitter_c highlighter");
+    config.configure(CAPTURE_NAMES);
+    config
+  })
+}
+
+fn tree_sitter_language_diff() -> &'static HighlightConfiguration {
+  static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
+  CONFIG.get_or_init(|| {
+    let mut config = HighlightConfiguration::new(
+      tree_sitter_diff::LANGUAGE.into(),
+      "diff",
+      tree_sitter_diff::HIGHLIGHTS_QUERY,
+      "",
+      "",
+    )
+    .expect("failed to initialize tree_sitter_diff highlighter");
+    config.configure(CAPTURE_NAMES);
+    config
+  })
+}
+
+fn tree_sitter_language_ini() -> &'static HighlightConfiguration {
+  static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
+  CONFIG.get_or_init(|| {
+    let mut config = HighlightConfiguration::new(
+      tree_sitter_ini::LANGUAGE.into(),
+      "ini",
+      tree_sitter_ini::HIGHLIGHTS_QUERY,
+      "",
+      "",
+    )
+    .expect("failed to initialize tree_sitter_ini highlighter");
+    config.configure(CAPTURE_NAMES);
+    config
+  })
+}
+
+fn tree_sitter_language_batch() -> &'static HighlightConfiguration {
+  static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
+  CONFIG.get_or_init(|| {
+    let mut config = HighlightConfiguration::new(
+      tree_sitter_batch::LANGUAGE.into(),
+      "batch",
+      tree_sitter_batch::HIGHLIGHTS_QUERY,
+      "",
+      "",
+    )
+    .expect("failed to initialize tree_sitter_batch highlighter");
+    config.configure(CAPTURE_NAMES);
+    config
+  })
+}
+
+fn tree_sitter_language_dockerfile() -> &'static HighlightConfiguration {
+  static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
+  CONFIG.get_or_init(|| {
+    let mut config = HighlightConfiguration::new(
+      tree_sitter_containerfile::LANGUAGE.into(),
+      "dockerfile",
+      tree_sitter_containerfile::HIGHLIGHTS_QUERY,
+      tree_sitter_containerfile::INJECTIONS_QUERY,
+      "",
+    )
+    .expect("failed to initialize tree_sitter_containerfile highlighter");
     config.configure(CAPTURE_NAMES);
     config
   })
@@ -470,6 +540,20 @@ mod tests {
       ("c", "int main(void) { return 0; }\n"),
       ("mjs", "export const x = 1;\n"),
       ("mts", "export const x: number = 1;\n"),
+      ("diff", "--- a/f\n+++ b/f\n@@ -1 +1 @@\n-old\n+new\n"),
+      ("patch", "@@ -1 +1 @@\n-old\n+new\n"),
+      ("ini", "[section]\nkey = value\n"),
+      ("editorconfig", "root = true\n\n[*]\nindent_style = space\n"),
+      (
+        "gitconfig",
+        "[remote \"origin\"]\n\turl = https://example.com\n",
+      ),
+      ("bat", "@echo off\nset NAME=world\necho Hello %NAME%\n"),
+      ("batch", "@echo off\n"),
+      ("cmd", "echo hi\n"),
+      ("dockerfile", "FROM alpine:3.20\nRUN echo hi\n"),
+      ("docker", "FROM scratch\n"),
+      ("containerfile", "FROM alpine\nCOPY . /app\n"),
     ] {
       assert!(
         tree_sitter_language_cb(lang).is_some(),
