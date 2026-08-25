@@ -392,7 +392,7 @@ body .ddoc {
       @apply bg-jsr-cyan-100/50 dark:bg-jsr-cyan-900/50;
     }
 
-    a:not(.no_color) {
+    a:not(.no_color, .anchor) {
       @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 underline
         decoration-jsr-cyan-700/50 underline-offset-2 outline-none
         focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm

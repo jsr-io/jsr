@@ -287,8 +287,12 @@ lazy_static::lazy_static! {
     let mut ammonia_builder = ammonia::Builder::default();
 
     ammonia_builder
-      .add_tags(["video", "button", "svg", "path", "rect", "section"])
+      .add_tags([
+        "video", "button", "svg", "path", "rect", "section", "g", "defs",
+        "clipPath",
+      ])
       .add_generic_attributes(["id", "align"])
+      .add_tag_attributes("g", ["clip-path", "fill", "opacity", "transform"])
       .add_tag_attributes("button", ["data-copy"])
       .add_tag_attributes(
         "svg",
@@ -325,7 +329,15 @@ lazy_static::lazy_static! {
       // comrak footnote output
       .add_allowed_classes("section", ["footnotes"])
       .add_allowed_classes("sup", ["footnote-ref"])
-      .add_allowed_classes("a", ["footnote-backref"])
+      .add_allowed_classes("a", ["footnote-backref", "anchor"])
+      // deno_doc heading permalinks
+      .add_tag_attributes("a", ["aria-label", "tabindex"])
+      .add_allowed_classes("h1", ["anchorable"])
+      .add_allowed_classes("h2", ["anchorable"])
+      .add_allowed_classes("h3", ["anchorable"])
+      .add_allowed_classes("h4", ["anchorable"])
+      .add_allowed_classes("h5", ["anchorable"])
+      .add_allowed_classes("h6", ["anchorable"])
       .add_allowed_classes(
         "div",
         [
@@ -1635,6 +1647,46 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
 mod tests {
   use super::*;
   use deno_doc::html::ShortPath;
+
+  #[test]
+  fn renders_heading_permalinks_through_the_sanitizer() {
+    // deno_doc emits heading permalinks as an `anchorable` heading wrapping an
+    // `anchor` link around its bundled link.svg. The allowlist has to keep the
+    // classes the CSS hangs off of, and it has to keep <defs>/<clipPath> so the
+    // clip rect stays inside a definition instead of painting over the icon
+    // (#1530).
+    let html = render_markdown_file(
+      "## Install\n",
+      &ScopeName::new("scope".to_string()).unwrap(),
+      &PackageName::new("pkg".to_string()).unwrap(),
+      &Version::new("1.0.0").unwrap(),
+      None,
+      "/README.md",
+    )
+    .unwrap();
+
+    assert!(
+      html.contains(r#"<h2 id="install" class="anchorable">"#),
+      "{html}"
+    );
+    assert!(html.contains(r##"href="#install""##), "{html}");
+    assert!(html.contains(r#"class="anchor""#), "{html}");
+    assert!(html.contains(r#"aria-label="Anchor""#), "{html}");
+    assert!(html.contains(r#"tabindex="-1""#), "{html}");
+    // the icon's clip plumbing survives, so the white rect stays unpainted
+    assert!(html.contains("<g clip-path="), "{html}");
+    assert!(html.contains("<defs>"), "{html}");
+    assert!(html.contains("<clipPath "), "{html}");
+    let (_, after_rect) = html.split_once("<rect ").expect("{html}");
+    assert!(
+      after_rect
+        .split("</svg>")
+        .next()
+        .unwrap()
+        .contains("</clipPath>"),
+      "the clip rect escaped its <clipPath>: {html}"
+    );
+  }
 
   #[test]
   fn render_markdown_file_test() {
