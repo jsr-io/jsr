@@ -18,6 +18,7 @@ import TbCheck from "tb-icons/TbCheck";
 import TbClockHour3 from "tb-icons/TbClockHour3";
 import TbTrashX from "tb-icons/TbTrashX";
 import { ScopeIAM, scopeIAM } from "../../utils/iam.ts";
+import { DeleteVersionButton } from "./(_islands)/DeleteVersionButton.tsx";
 import { DownloadChart } from "./(_islands)/DownloadChart.tsx";
 import { Card } from "../../components/Card.tsx";
 import { Pagination } from "../../components/Table.tsx";
@@ -138,6 +139,14 @@ export default define.page<typeof handler>(function Versions({
           })}
       </div>
 
+      {iam.canAdmin && versionsArray.length > 0 && (
+        <p class="mt-4 text-sm text-tertiary">
+          Versions can only be deleted within 24 hours of publishing, and only
+          if they have very few downloads and no other package depends on them.
+          Use yanking to discourage use of older versions.
+        </p>
+      )}
+
       <div class="mt-4 ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 rounded overflow-hidden">
         <Pagination
           pagination={data}
@@ -207,6 +216,14 @@ function Version({
   const interactive = isRedState
     ? (version?.yanked || (!isPublished && isSuccess))
     : !isBlueState;
+
+  // Scope admins can only delete versions published within the last 24 hours
+  // (the API additionally requires few downloads and no dependents). Staff
+  // with sudo can delete any version.
+  const canDelete = iam.hasSudo ||
+    (iam.canAdmin && isPublished &&
+      Date.now() - new Date(version.createdAt).getTime() <
+        24 * 60 * 60 * 1000);
 
   return (
     <Card
@@ -292,18 +309,8 @@ function Version({
             </button>
           </form>
         )}
-        {isPublished && iam.hasSudo && (
-          <form method="POST" class="z-20">
-            <input type="hidden" name="version" value={version.version} />
-            <button
-              type="submit"
-              class="button-danger"
-              name="action"
-              value="delete"
-            >
-              Delete
-            </button>
-          </form>
+        {isPublished && canDelete && (
+          <DeleteVersionButton version={version.version} />
         )}
       </div>
       <ul>

@@ -264,6 +264,14 @@ errors!(
     status: BAD_REQUEST,
     "The requested package version has dependents. Only a version without dependents can be deleted.",
   },
+  DeleteVersionTooOld {
+    status: BAD_REQUEST,
+    "The requested package version was published more than 24 hours ago. Only versions published in the last 24 hours can be deleted.",
+  },
+  DeleteVersionTooManyDownloads {
+    status: BAD_REQUEST,
+    "The requested package version has already been downloaded too many times to be deleted.",
+  },
   TicketNotFound {
     status: NOT_FOUND,
     "The requested ticket was not found.",

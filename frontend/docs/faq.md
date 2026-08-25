@@ -59,12 +59,16 @@ foreseeable future - JSR is designed to be very cheap to run.
 
 ## Can I delete a package from JSR?
 
-Source code published to JSR cannot be deleted.
+Source code published to JSR generally cannot be deleted.
 [Learn more about immutability.](/docs/immutability)
 
 You can "yank" a version of a package, which will hide the version from the
 default view, but it will still be available to users who depend on it.
 [Learn more about yanking.](/docs/packages#yanking-versions)
+
+You may delete a version that was published in the last 24 hours, if it has
+almost no downloads and no other published package depends on it.
+[Learn more about deleting a version.](/docs/packages#deleting-a-version)
 
 You may archive a package, which will prevent new versions from being published
 and hide the package from search results and the scope page.

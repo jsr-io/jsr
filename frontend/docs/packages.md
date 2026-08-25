@@ -99,9 +99,10 @@ the package.
 
 Code in a package is published as a version. A version is a snapshot of the
 package's code at a point in time. Versions are immutable - once a version is
-published, it cannot be changed or deleted. This ensures that packages are
-reliable and that users can trust that a package will not change out from under
-them. [Learn more about registry immutability.](/docs/immutability)
+published, it cannot be changed or deleted
+([with one narrow exception](#deleting-a-version)). This ensures that packages
+are reliable and that users can trust that a package will not change out from
+under them. [Learn more about registry immutability.](/docs/immutability)
 
 Versions are published using the `jsr publish` or `deno publish` command.
 [Learn more about publishing packages.](/docs/publishing-packages)
@@ -154,9 +155,10 @@ import { foo } from "jsr:@scope/my-package@2.0.0-beta.1";
 
 ### Yanking versions
 
-Package versions cannot be deleted. However, sometimes you may want to prevent
-users from using a specific version of your package, for example because it
-contains a critical bug. In this case you can "yank" the version.
+Package versions generally cannot be deleted
+([with one narrow exception](#deleting-a-version)). However, sometimes you may
+want to prevent users from using a specific version of your package, for example
+because it contains a critical bug. In this case you can "yank" the version.
 
 Yanking a version does multiple things:
 
@@ -201,6 +203,30 @@ for the following import:
 ```ts
 import { foo } from "jsr:foo@1";
 ```
+
+### Deleting a version
+
+As an exception to [registry immutability](/docs/immutability), a version can be
+deleted shortly after publishing — for example when you published something by
+accident. A version can only be deleted if all of the following are true:
+
+- The version was published less than 24 hours ago.
+- The version has fewer than 10 downloads.
+- No published version of another package depends on the version.
+
+To delete a version, head to the "Versions" tab on the package page and click
+the "Delete" button next to the version. Only scope admins can delete versions.
+
+Deleting a version permanently removes its contents from the registry. Note that
+caches may still serve the version's files for some time after deletion. The
+version number of a deleted version stays reserved: the same version can not be
+published again. If a deleted version was the latest version of the package, the
+latest version is recomputed from the remaining versions.
+
+If you need to remove a version that does not meet these requirements — for
+example because it contains a secret or personal information — please contact us
+at [help@jsr.io](mailto:help@jsr.io). Otherwise, use
+[yanking](#yanking-versions).
 
 ## Documentation
 

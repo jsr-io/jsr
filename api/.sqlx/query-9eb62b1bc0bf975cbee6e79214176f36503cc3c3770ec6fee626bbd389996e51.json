@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n      SELECT COALESCE(SUM(count), 0) as \"count!\"\n      FROM version_download_counts_24h\n      WHERE scope = $1 AND package = $2 AND version = $3\n      ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "9eb62b1bc0bf975cbee6e79214176f36503cc3c3770ec6fee626bbd389996e51"
+}
