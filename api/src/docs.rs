@@ -619,6 +619,15 @@ fn get_url_rewriter(
       return url.to_string();
     }
 
+    // So are registry URLs. `{@link [module].symbol}` in a JSDoc comment is
+    // resolved by deno_doc into `/@scope/package/doc/...` before the rewriter
+    // sees it, and rewriting that against the repository turns a working link
+    // into a 404 (jsr-io/jsr#1175). A `/@scope/...` path is unambiguously a
+    // registry URL, so leave it be whether deno_doc or the author wrote it.
+    if url.starts_with("/@") {
+      return url.to_string();
+    }
+
     let base = if let Some(github_repository) = &github_repository {
       if url.rsplit_once('.').is_some_and(|(_path, extension)| {
         matches!(
@@ -1965,5 +1974,42 @@ mod tests {
     );
     // Protocol-relative URLs are left untouched.
     assert_eq!(rewriter(None, "//example.com/x"), "//example.com/x");
+  }
+
+  /// Regression for #1175: `{@link [module].symbol}` in a JSDoc comment is
+  /// resolved by deno_doc into a registry URL before the rewriter sees it.
+  /// Those must not be sent to the repository, which is what turned them into
+  /// 404s.
+  #[test]
+  fn url_rewriter_leaves_registry_links_alone() {
+    for rewriter in [
+      get_url_rewriter(
+        String::from("/@foo/bar/1.2.3"),
+        Some(GithubRepository {
+          id: 0,
+          owner: "foo".to_string(),
+          name: "bar".to_string(),
+          updated_at: Default::default(),
+          created_at: Default::default(),
+        }),
+        true,
+      ),
+      // and with no repository linked, where the package base is the fallback
+      get_url_rewriter(String::from("/@foo/bar/1.2.3"), None, true),
+    ] {
+      // a link into this package's own docs
+      assert_eq!(
+        rewriter(None, "/@foo/bar/doc/sub/~/someSymbol"),
+        "/@foo/bar/doc/sub/~/someSymbol"
+      );
+      // and into another package's
+      assert_eq!(
+        rewriter(None, "/@std/assert@1.0.2/doc/~/assertEquals"),
+        "/@std/assert@1.0.2/doc/~/assertEquals"
+      );
+
+      // a genuine repository path is still rewritten
+      assert_ne!(rewriter(None, "/LICENSE"), "/LICENSE");
+    }
   }
 }
