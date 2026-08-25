@@ -202,8 +202,9 @@ pub async fn download_doc_nodes(
 }
 
 /// Cache for fully-built GenerateCtx. Keyed by
-/// `scope/package/version/is_latest/has_readme` so concurrent requests
-/// for the same doc page share a single GenerateCtx without rebuilding.
+/// `scope/package/version/is_latest/has_readme/runtime_compat` so concurrent
+/// requests for the same doc page share a single GenerateCtx without
+/// rebuilding.
 #[derive(Clone)]
 pub struct GenerateCtxCache {
   cache: moka::future::Cache<String, Arc<GenerateCtx>>,
@@ -232,8 +233,13 @@ impl GenerateCtxCache {
     registry_url: &str,
     bucket: &crate::s3::Buckets,
   ) -> Result<Option<Arc<GenerateCtx>>, DocNodeCacheError> {
-    let key =
-      format!("@{scope}/{package}/{version}/{version_is_latest}/{has_readme}");
+    // runtime_compat is part of the key because the usage instructions baked
+    // into the GenerateCtx depend on it, and it is editable in the package
+    // settings.
+    let key = format!(
+      "@{scope}/{package}/{version}/{version_is_latest}/{has_readme}/{:?}",
+      runtime_compat
+    );
 
     if let Some(cached) = self.cache.get(&key).await {
       return Ok(Some(cached));
@@ -1481,7 +1487,13 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
       );
     }
 
-    if !self.runtime_compat.node.is_some_and(|compat| !compat) {
+    // Packages that only target browsers or Cloudflare Workers are still
+    // installed through npm-ecosystem package managers (via a bundler), so an
+    // explicit browser/workerd "yes" shows these tabs even when node is "no".
+    if !self.runtime_compat.node.is_some_and(|compat| !compat)
+      || self.runtime_compat.browser.is_some_and(|compat| compat)
+      || self.runtime_compat.workerd.is_some_and(|compat| compat)
+    {
       map.insert(
         UsageComposerEntry {
           name: "pnpm".to_string(),
