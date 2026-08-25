@@ -23,6 +23,7 @@ mod publish;
 mod s3;
 mod s3_paths;
 mod sitemap;
+mod source_links;
 mod tarball;
 mod task_queue;
 mod tasks;

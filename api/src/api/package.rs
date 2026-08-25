@@ -1787,18 +1787,29 @@ pub async fn get_source_handler(
     None
   };
 
-  let path_buf = std::path::PathBuf::from(path);
+  let path_buf = std::path::PathBuf::from(&path);
 
   let source = if let Some(file) = file {
     let size = file.len();
 
-    let highlighter = deno_doc::html::comrak::ComrakHighlightWrapperAdapter(
-      Some(Arc::new(crate::tree_sitter::ComrakAdapter {
-        show_line_numbers: true,
-      })),
-    );
-
     let view = if let Ok(file) = String::from_utf8(file.to_vec()) {
+      let links = source_specifier_links(
+        &scope,
+        &package,
+        &version.version,
+        &path,
+        &file,
+        buckets,
+        req.data::<RegistryUrl>().unwrap().0.as_str(),
+      )
+      .await;
+
+      let mut adapter = crate::tree_sitter::ComrakAdapter::new(true);
+      adapter.links = links;
+      let highlighter = deno_doc::html::comrak::ComrakHighlightWrapperAdapter(
+        Some(Arc::new(adapter)),
+      );
+
       let mut out = vec![];
       highlighter.write_pre_tag(&mut out, Default::default())?;
       highlighter.write_code_tag(&mut out, Default::default())?;
@@ -1903,6 +1914,70 @@ pub async fn get_source_handler(
     script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
     source,
   })
+}
+
+/// Finds the import/export specifiers of the file being viewed, so the
+/// highlighter can render them as links (jsr-io/jsr#17).
+///
+/// The ranges come from the `moduleGraph2` recorded at publish time, so
+/// nothing is re-parsed here. Links are a nicety: anything missing or
+/// unreadable just yields a file view without them.
+async fn source_specifier_links(
+  scope: &ScopeName,
+  package: &PackageName,
+  version: &Version,
+  path: &str,
+  source: &str,
+  buckets: &Buckets,
+  registry_url: &str,
+) -> Vec<crate::tree_sitter::SourceLink> {
+  if !crate::source_links::is_module_path(path) {
+    return Vec::new();
+  }
+
+  let metadata_path =
+    crate::s3_paths::version_metadata(scope, package, version);
+  let metadata =
+    match buckets.modules_bucket.download(metadata_path.into()).await {
+      Ok(Some(bytes)) => {
+        match serde_json::from_slice::<crate::metadata::VersionMetadata>(&bytes)
+        {
+          Ok(metadata) => metadata,
+          Err(err) => {
+            error!("failed to parse version metadata for links: {err}");
+            return Vec::new();
+          }
+        }
+      }
+      Ok(None) => return Vec::new(),
+      Err(err) => {
+        error!("failed to download version metadata for links: {err}");
+        return Vec::new();
+      }
+    };
+
+  let Some(module_info) = metadata.module_graph_2.get(path) else {
+    return Vec::new();
+  };
+
+  let files = metadata
+    .manifest
+    .keys()
+    .map(|path| path.to_string())
+    .collect();
+
+  crate::source_links::specifier_links(
+    module_info,
+    source,
+    &crate::source_links::LinkContext {
+      scope,
+      package,
+      version,
+      current_path: path,
+      files: &files,
+      registry_url,
+    },
+  )
 }
 
 #[instrument(

@@ -684,9 +684,7 @@ pub fn render_markdown_file(
   path: &str,
 ) -> Option<String> {
   let renderer = deno_doc::html::comrak::create_renderer(
-    Some(Arc::new(super::tree_sitter::ComrakAdapter {
-      show_line_numbers: false,
-    })),
+    Some(Arc::new(super::tree_sitter::ComrakAdapter::new(false))),
     Some(Box::new(match_node_value)),
     Some(Box::new(|html| AMMONIA.clean(&html).to_string())),
   );
@@ -781,9 +779,7 @@ pub fn get_generate_ctx(
     get_url_rewriter(url_rewriter_base, github_repository, has_readme);
 
   let markdown_renderer = deno_doc::html::comrak::create_renderer(
-    Some(Arc::new(super::tree_sitter::ComrakAdapter {
-      show_line_numbers: false,
-    })),
+    Some(Arc::new(super::tree_sitter::ComrakAdapter::new(false))),
     Some(Box::new(match_node_value)),
     Some(Box::new(|html| AMMONIA.clean(&html).to_string())),
   );

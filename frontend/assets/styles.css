@@ -419,6 +419,18 @@ body .ddoc {
         }
       }
 
+      /* Import/export specifiers in the file view. These keep the syntax
+         colour of the string they sit in (hence `no_color` on the anchor) and
+         only announce themselves as links on hover and focus. */
+      .specifierLink {
+        @apply underline decoration-dotted underline-offset-2
+          decoration-jsr-gray-400 rounded-sm outline-none
+          hover:decoration-solid hover:decoration-jsr-cyan-700
+          focus-visible:ring-2 ring-jsr-cyan-700
+          dark:decoration-jsr-gray-500 dark:hover:decoration-cyan-400
+          dark:ring-cyan-400;
+      }
+
       /*!
        * GitHub Light v0.5.0
        * Copyright (c) 2012 - 2017 GitHub, Inc.
