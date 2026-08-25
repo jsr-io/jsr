@@ -25,6 +25,7 @@ import type {
 export default define.page<typeof handler>(function Ticket({
   data,
   state,
+  url,
 }) {
   const ticket = data.ticket;
   // The reporter of an unclaimed ticket reaches this page with the token from
@@ -80,6 +81,10 @@ export default define.page<typeof handler>(function Ticket({
           ticketId={ticket.id}
           claimToken={data.claimToken}
           signedIn={state.user !== null}
+          // Carries the claim token through the login round trip, so the
+          // reporter lands back here able to claim rather than on the home page
+          // with the link they followed spent.
+          returnTo={`${url.pathname}${url.search}`}
         />
       )}
 
