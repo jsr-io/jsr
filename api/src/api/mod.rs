@@ -12,6 +12,7 @@ mod types;
 mod users;
 
 pub use self::errors::*;
+pub use self::hooks::InboundTrustedAuthservId;
 pub use self::hooks::PostmarkWebhookPassword;
 pub use self::package::PublishQueue;
 use self::publishing_task::publishing_task_router;

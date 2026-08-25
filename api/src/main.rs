@@ -33,6 +33,7 @@ mod tree_sitter;
 mod util;
 
 use crate::api::ApiError;
+use crate::api::InboundTrustedAuthservId;
 use crate::api::PostmarkWebhookPassword;
 use crate::api::PublishQueue;
 use crate::api::api_router;
@@ -87,6 +88,7 @@ pub struct MainRouterOptions {
   cache_purge_client: Option<external::cloudflare::CachePurgeClient>,
   turnstile: Turnstile,
   postmark_webhook_password: PostmarkWebhookPassword,
+  inbound_trusted_authserv_id: InboundTrustedAuthservId,
   expose_api: bool,
   expose_tasks: bool,
 }
@@ -115,6 +117,7 @@ pub(crate) fn main_router(
     cache_purge_client,
     turnstile,
     postmark_webhook_password,
+    inbound_trusted_authserv_id,
     expose_api,
     expose_tasks,
   }: MainRouterOptions,
@@ -138,6 +141,7 @@ pub(crate) fn main_router(
     .data(CachePurge(cache_purge_client))
     .data(turnstile)
     .data(postmark_webhook_password)
+    .data(inbound_trusted_authserv_id)
     .data(db::DependentCountCache::new())
     .middleware(routerify_query::query_parser())
     .err_handler_with_info(error_handler);
@@ -383,6 +387,9 @@ async fn main() {
     turnstile,
     postmark_webhook_password: PostmarkWebhookPassword(
       config.postmark_webhook_password,
+    ),
+    inbound_trusted_authserv_id: InboundTrustedAuthservId(
+      config.inbound_trusted_authserv_id,
     ),
     expose_api: config.api,
     expose_tasks: config.tasks,

@@ -247,6 +247,16 @@ the fallback for clients that drop those headers.
 `ticket_messages.email_message_id` is unique, which is what makes a redelivered
 webhook a no-op rather than a duplicate.
 
+Whether a sender's address is proven is recorded per message and shown in the
+UI. Postmark's own SPF check only means something for mail delivered to it
+directly: support mail is forwarded from the Google Workspace inbox, so Postmark
+sees the forwarder as the sender and SPF fails regardless of who wrote in. The
+result Workspace recorded before forwarding survives the hop, so that is read
+instead — but only from the server named by `INBOUND_TRUSTED_AUTHSERV_ID`, and
+only the first such header, because each hop prepends its own and anyone can put
+a forged `Authentication-Results` in the mail they send. Unset the variable and
+only Postmark's own check is used.
+
 The Postmark inbound stream's webhook URL is configured in the Postmark
 dashboard, not in terraform:
 `https://webhook:<POSTMARK_WEBHOOK_PASSWORD>@api.jsr.io/hooks/postmark`.

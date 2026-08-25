@@ -822,6 +822,10 @@ pub mod test {
   /// The password the inbound email webhook accepts under test.
   pub const TEST_POSTMARK_WEBHOOK_PASSWORD: &str = "test-webhook-password";
 
+  /// The upstream whose `Authentication-Results` the inbound webhook trusts
+  /// under test.
+  pub const TEST_TRUSTED_AUTHSERV_ID: &str = "mx.test.example";
+
   /// Ensure fake s3 server is running. The first call starts S3; subsequent calls return immediately.
   fn ensure_servers_started() {
     SERVERS_STARTED.get_or_init(|| {
@@ -1141,6 +1145,9 @@ pub mod test {
         postmark_webhook_password: crate::api::PostmarkWebhookPassword(Some(
           TEST_POSTMARK_WEBHOOK_PASSWORD.to_owned(),
         )),
+        inbound_trusted_authserv_id: crate::api::InboundTrustedAuthservId(
+          Some(TEST_TRUSTED_AUTHSERV_ID.to_owned()),
+        ),
         expose_api: true,   // api enabled
         expose_tasks: true, // task endpoints enabled
       });
