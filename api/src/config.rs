@@ -222,6 +222,17 @@ pub struct Config {
   /// the support ticket webhook. Inbound handling is disabled if unset.
   pub postmark_webhook_password: Option<String>,
 
+  #[clap(
+    long = "inbound_trusted_authserv_id",
+    env = "INBOUND_TRUSTED_AUTHSERV_ID"
+  )]
+  /// The `authserv-id` of the mail server that receives support mail before it
+  /// is forwarded to Postmark, e.g. `mx.google.com`. Its
+  /// `Authentication-Results` header is then trusted for SPF and DKIM, which a
+  /// forwarding hop otherwise destroys. Only Postmark's own check is used if
+  /// unset.
+  pub inbound_trusted_authserv_id: Option<String>,
+
   #[clap(long = "email_from", env = "EMAIL_FROM")]
   /// The email address to send emails from.
   pub email_from: Option<String>,
@@ -277,6 +288,10 @@ impl std::fmt::Debug for Config {
       .field(
         "postmark_webhook_password",
         &self.postmark_webhook_password.as_ref().map(|_| "***"),
+      )
+      .field(
+        "inbound_trusted_authserv_id",
+        &self.inbound_trusted_authserv_id,
       )
       .field("email_from", &self.email_from)
       .field("email_from_name", &self.email_from_name)

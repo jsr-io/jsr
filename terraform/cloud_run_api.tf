@@ -48,8 +48,13 @@ locals {
     "REGISTRY_URL" = "https://${var.domain_name}"
     "NPM_URL"      = "https://${local.npm_domain}"
 
-    "EMAIL_FROM"      = "help@${var.domain_name}"
-    "EMAIL_FROM_NAME" = var.email_from_name
+    "EMAIL_FROM" = "help@${var.domain_name}"
+
+    // Support mail is forwarded from the Google Workspace inbox to Postmark, so
+    // Postmark's own SPF check sees the forwarder rather than the sender. The
+    // Workspace results, recorded before the hop, are trusted instead.
+    "INBOUND_TRUSTED_AUTHSERV_ID" = "mx.google.com"
+    "EMAIL_FROM_NAME"             = var.email_from_name
 
     "PUBLISH_QUEUE_ID"           = "projects/${var.gcp_project}/locations/us-central1/queues/${local.publishing_tasks_queue_name}"
     "NPM_TARBALL_BUILD_QUEUE_ID" = "projects/${var.gcp_project}/locations/us-central1/queues/${local.npm_tarball_build_tasks_queue_name}"

@@ -42,6 +42,19 @@ use super::ApiError;
 /// The password Postmark authenticates with. `None` disables inbound handling.
 pub struct PostmarkWebhookPassword(pub Option<String>);
 
+/// The `authserv-id` of the mail server that receives support mail before it
+/// reaches Postmark — `mx.google.com` for a Google Workspace inbox.
+///
+/// Mail forwarded from that inbox arrives at Postmark from the forwarder's own
+/// servers, so the SPF check Postmark performs is against the wrong sender and
+/// fails for almost everything. The forwarder recorded the real result when it
+/// first received the message, and that record survives the hop, so it is what
+/// we read instead — but only for the server named here, since anyone can write
+/// an `Authentication-Results` header claiming whatever they like.
+///
+/// `None` means no upstream is trusted and only Postmark's own check is used.
+pub struct InboundTrustedAuthservId(pub Option<String>);
+
 /// Files above this are dropped rather than stored. Postmark caps an inbound
 /// message at 35 MB in total; this is well under that, and comfortably above
 /// anything a support conversation legitimately needs.
@@ -120,13 +133,53 @@ impl InboundEmail {
     self.header("Message-ID")
   }
 
-  /// Whether the sending domain passed both SPF and DKIM, per the spam headers
-  /// Postmark adds. Unverified mail still opens a ticket — a misconfigured
-  /// sender with a real problem should not be silently dropped — but the flag is
-  /// recorded and surfaced so nobody treats the address as proven.
-  fn is_verified(&self) -> bool {
+  /// Whether the sending domain passed both SPF and DKIM.
+  ///
+  /// Postmark's own check is only meaningful for mail delivered to it directly.
+  /// When support mail is forwarded from another inbox, Postmark sees the
+  /// forwarder as the sender and SPF fails no matter who actually wrote in, so
+  /// the trusted upstream's own record is preferred where there is one.
+  ///
+  /// Unverified mail still opens a ticket — a misconfigured sender with a real
+  /// problem should not be silently dropped — but the flag is recorded and
+  /// surfaced so nobody treats the address as proven.
+  fn is_verified(&self, trusted_authserv_id: Option<&str>) -> bool {
+    if let Some(trusted) = trusted_authserv_id
+      && let Some(results) = self.trusted_auth_results(trusted)
+    {
+      return method_result(&results, "spf").as_deref() == Some("pass")
+        && method_result(&results, "dkim").as_deref() == Some("pass");
+    }
+
     let spam_test = self.header("X-Spam-Test").unwrap_or_default();
     spam_test.contains("SPF_PASS") && spam_test.contains("DKIM_VALID")
+  }
+
+  /// The `Authentication-Results` written by the trusted upstream, if it is
+  /// present.
+  ///
+  /// Only the first matching header is considered. Each server that handles a
+  /// message prepends its own headers, so the trusted server's results sit above
+  /// anything the sender put in the message themselves — including a header
+  /// forged to carry the trusted server's name. Taking any but the first would
+  /// let a sender award themselves a pass.
+  fn trusted_auth_results(&self, trusted_authserv_id: &str) -> Option<String> {
+    self
+      .headers
+      .iter()
+      .filter(|header| {
+        header.name.eq_ignore_ascii_case("Authentication-Results")
+      })
+      .map(|header| strip_comments(&header.value))
+      .find(|value| {
+        // The authserv-id is everything before the first `;`, optionally
+        // followed by the version the server speaks.
+        value
+          .split(';')
+          .next()
+          .and_then(|id| id.split_whitespace().next())
+          .is_some_and(|id| id.eq_ignore_ascii_case(trusted_authserv_id))
+      })
   }
 
   /// Every `Message-ID` this email claims to be part of, newest first, from the
@@ -169,6 +222,42 @@ impl InboundEmail {
     }
     format!("{}\n\n[message truncated]", &body[..end])
   }
+}
+
+/// Removes RFC 5322 comments — parenthesised, possibly nested — from a header
+/// value.
+///
+/// `Authentication-Results` carries human-readable comments that routinely
+/// contain both `;` and text like `spf=pass`, so anything that reads the header
+/// by splitting or searching has to drop them first or be misled by them.
+fn strip_comments(value: &str) -> String {
+  let mut out = String::with_capacity(value.len());
+  let mut depth = 0usize;
+  for c in value.chars() {
+    match c {
+      '(' => depth += 1,
+      ')' => depth = depth.saturating_sub(1),
+      _ if depth == 0 => out.push(c),
+      _ => {}
+    }
+  }
+  out
+}
+
+/// The result recorded for one authentication method in an
+/// `Authentication-Results` value, e.g. `pass` from `spf=pass`.
+///
+/// Expects a value that has already been through [`strip_comments`]. Matches the
+/// method name exactly, so `dkim` does not also match `dkim-atps`.
+fn method_result(value: &str, method: &str) -> Option<String> {
+  // The first segment is the authserv-id, never a method.
+  value.split(';').skip(1).find_map(|segment| {
+    let token = segment.split_whitespace().next()?;
+    let (name, result) = token.split_once('=')?;
+    name
+      .eq_ignore_ascii_case(method)
+      .then(|| result.to_ascii_lowercase())
+  })
 }
 
 /// Matches the ticket number JSR puts in the subject of every ticket email.
@@ -240,7 +329,9 @@ pub async fn postmark_inbound_handler(
     id: message_id,
     author_email: email.from_full.email.clone(),
     author_name: email.from_full.name.clone().filter(|n| !n.is_empty()),
-    author_email_verified: email.is_verified(),
+    author_email_verified: email.is_verified(
+      req.data::<InboundTrustedAuthservId>().unwrap().0.as_deref(),
+    ),
     email_message_id,
     message: email.body(),
     attachments,
@@ -496,16 +587,126 @@ mod test {
     );
   }
 
+  const TRUSTED: Option<&str> = Some("mx.google.com");
+
   #[test]
   fn verification_requires_both_spf_and_dkim() {
     let both = email(&[("X-Spam-Test", "SPF_PASS,DKIM_VALID")], "hi");
-    assert!(both.is_verified());
+    assert!(both.is_verified(None));
 
     let spf_only = email(&[("X-Spam-Test", "SPF_PASS")], "hi");
-    assert!(!spf_only.is_verified());
+    assert!(!spf_only.is_verified(None));
 
     let neither = email(&[], "hi");
-    assert!(!neither.is_verified());
+    assert!(!neither.is_verified(None));
+  }
+
+  #[test]
+  fn the_trusted_upstream_result_wins_over_postmarks_own() {
+    // What forwarded mail actually looks like: the sender is fine, but Postmark
+    // checked SPF against the forwarder and failed it.
+    let forwarded = email(
+      &[
+        ("X-Spam-Test", "DKIM_VALID"),
+        (
+          "Authentication-Results",
+          "mx.google.com; dkim=pass header.i=@example.org; spf=pass (google.com: domain of leo@example.org designates 1.2.3.4 as permitted sender) smtp.mailfrom=leo@example.org; dmarc=pass header.from=example.org",
+        ),
+      ],
+      "hi",
+    );
+    assert!(forwarded.is_verified(TRUSTED));
+
+    // And a genuine failure upstream is still a failure, even though Postmark
+    // happens to be happy.
+    let failed_upstream = email(
+      &[
+        ("X-Spam-Test", "SPF_PASS,DKIM_VALID"),
+        (
+          "Authentication-Results",
+          "mx.google.com; dkim=fail header.i=@example.org; spf=softfail smtp.mailfrom=leo@example.org",
+        ),
+      ],
+      "hi",
+    );
+    assert!(!failed_upstream.is_verified(TRUSTED));
+  }
+
+  #[test]
+  fn a_forged_authentication_results_header_cannot_award_a_pass() {
+    // A sender can put whatever headers they like in the message they send,
+    // including one carrying the trusted server's name. The trusted server
+    // prepends its own on receipt, so the real result comes first and the
+    // forgery below it must be ignored.
+    let forged = email(
+      &[
+        (
+          "Authentication-Results",
+          "mx.google.com; dkim=fail; spf=fail smtp.mailfrom=attacker@example.org",
+        ),
+        (
+          "Authentication-Results",
+          "mx.google.com; dkim=pass; spf=pass smtp.mailfrom=someone@example.org",
+        ),
+      ],
+      "hi",
+    );
+    assert!(!forged.is_verified(TRUSTED));
+  }
+
+  #[test]
+  fn results_from_an_untrusted_server_are_ignored() {
+    let elsewhere = email(
+      &[(
+        "Authentication-Results",
+        "mx.attacker.example; dkim=pass; spf=pass",
+      )],
+      "hi",
+    );
+    // Falls back to Postmark's own check, which has nothing to say here.
+    assert!(!elsewhere.is_verified(TRUSTED));
+
+    // With no upstream trusted at all, the header is never consulted.
+    let trusted_header = email(
+      &[(
+        "Authentication-Results",
+        "mx.google.com; dkim=pass; spf=pass",
+      )],
+      "hi",
+    );
+    assert!(!trusted_header.is_verified(None));
+  }
+
+  #[test]
+  fn comments_in_the_header_cannot_fake_a_result() {
+    // The parenthesised comment contains both a `;` and the text `spf=pass`,
+    // and the real result is a failure.
+    let value = "mx.google.com; spf=fail (google.com: sender is not permitted; tried spf=pass) smtp.mailfrom=a@example.org; dkim=fail";
+    let stripped = strip_comments(value);
+    assert_eq!(method_result(&stripped, "spf").as_deref(), Some("fail"));
+    assert_eq!(method_result(&stripped, "dkim").as_deref(), Some("fail"));
+
+    let email = email(&[("Authentication-Results", value)], "hi");
+    assert!(!email.is_verified(TRUSTED));
+  }
+
+  #[test]
+  fn method_names_are_matched_whole() {
+    let value = strip_comments("mx.google.com; dkim-atps=pass; dkim=fail");
+    // `dkim-atps` must not be read as `dkim`.
+    assert_eq!(method_result(&value, "dkim").as_deref(), Some("fail"));
+  }
+
+  #[test]
+  fn the_authserv_id_may_carry_a_version() {
+    let email = email(
+      &[(
+        "Authentication-Results",
+        "mx.google.com 1; dkim=pass; spf=pass",
+      )],
+      "hi",
+    );
+    assert!(email.is_verified(TRUSTED));
   }
 
   #[test]
