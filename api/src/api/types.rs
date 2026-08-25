@@ -464,6 +464,9 @@ pub struct ApiPackage {
   pub when_featured: Option<DateTime<Utc>>,
   pub is_archived: bool,
   pub readme_source: ApiReadmeSource,
+  /// Symbols documented by the latest version, or `None` for packages whose
+  /// latest version predates the count being recorded.
+  pub symbol_count: Option<u32>,
 }
 
 impl From<PackageWithGitHubRepoAndMeta> for ApiPackage {
@@ -487,6 +490,12 @@ impl From<PackageWithGitHubRepoAndMeta> for ApiPackage {
         .latest_version
         .as_ref()
         .map(|_| score.score_percentage()),
+      // a package with no published version has no docs to count symbols in
+      symbol_count: if package.latest_version.is_some() {
+        meta.symbol_count
+      } else {
+        None
+      },
       latest_version: package.latest_version,
       when_featured: package.when_featured,
       is_archived: package.is_archived,
@@ -631,6 +640,9 @@ pub struct ApiPackageVersion {
   pub readme_path: Option<PackagePath>,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
+  /// Symbols documented by this specific version, or `None` for versions
+  /// published before the count was recorded.
+  pub symbol_count: Option<u32>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -686,6 +698,7 @@ impl From<PackageVersion> for ApiPackageVersion {
       readme_path: value.readme_path,
       updated_at: value.updated_at,
       created_at: value.created_at,
+      symbol_count: value.meta.symbol_count,
     }
   }
 }
@@ -704,6 +717,7 @@ impl From<PackageVersionWithNewerVersionsCount> for ApiPackageVersion {
       readme_path: value.readme_path,
       updated_at: value.updated_at,
       created_at: value.created_at,
+      symbol_count: value.meta.symbol_count,
     }
   }
 }
