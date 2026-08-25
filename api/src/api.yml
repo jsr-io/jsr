@@ -2583,6 +2583,14 @@ components:
           type: string
           enum: ["readme", "jsdoc"]
           description: The source of the package readme.
+        symbolCount:
+          type: integer
+          nullable: true
+          description: >-
+            The number of symbols documented by the latest version of the
+            package. Null for packages with no published version, and for
+            packages whose latest version was published before this count was
+            recorded.
       required:
         - scope
         - name
@@ -2751,6 +2759,12 @@ components:
           type: string
           format: date-time
           description: The date and time when the package version was last updated.
+        symbolCount:
+          type: integer
+          nullable: true
+          description: >-
+            The number of symbols documented by this version. Null for versions
+            published before this count was recorded.
       required:
         - scope
         - package
@@ -2812,6 +2826,12 @@ components:
           type: string
           format: date-time
           description: The date and time when the package version was last updated.
+        symbolCount:
+          type: integer
+          nullable: true
+          description: >-
+            The number of symbols documented by this version. Null for versions
+            published before this count was recorded.
       required:
         - scope
         - package

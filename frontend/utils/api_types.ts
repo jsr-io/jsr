@@ -134,6 +134,9 @@ export interface Package {
   whenFeatured: string | null;
   isArchived: boolean;
   readmeSource: ReadmeSource;
+  /** Null for packages with no published version, and for packages whose
+   * latest version predates this count being recorded. */
+  symbolCount: number | null;
 }
 
 export type ReadmeSource = "readme" | "jsdoc";
@@ -150,6 +153,8 @@ export interface PackageVersion {
   readmePath: string;
   updatedAt: string;
   createdAt: string;
+  /** Null for versions published before this count was recorded. */
+  symbolCount: number | null;
 }
 
 export interface PackageVersionWithUser extends PackageVersion {

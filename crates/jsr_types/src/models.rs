@@ -518,6 +518,11 @@ pub struct PackageVersionMeta {
   pub percentage_documented_symbols: f32,
   pub all_fast_check: bool, // mean no slow types
   pub has_provenance: bool,
+  /// Number of distinct symbols the generated docs list for this version, used
+  /// to show the package's API surface area in the nav (jsr-io/jsr#1206).
+  /// `None` on versions published before this was recorded, which render
+  /// without the chip rather than claiming zero symbols.
+  pub symbol_count: Option<u32>,
 }
 
 #[cfg(feature = "sqlx")]

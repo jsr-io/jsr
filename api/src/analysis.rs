@@ -234,7 +234,7 @@ async fn analyze_package_inner(
   .await
   .map_err(PublishError::NpmTarballError)?;
 
-  let (meta, readme_path) = {
+  let (mut meta, readme_path) = {
     let readme = files
       .iter()
       .find(|file| file.0.case_insensitive().is_readme());
@@ -276,6 +276,7 @@ async fn analyze_package_inner(
     registry_url.to_string(),
     None,
   );
+  meta.symbol_count = Some(count_symbols(&ctx));
   let search_index = deno_doc::html::generate_search_index(&ctx);
   let doc_search_json = if let serde_json::Value::Object(mut obj) = search_index
   {
@@ -345,7 +346,39 @@ fn generate_score(
     ),
     all_fast_check,
     has_provenance: false, // Provenance score is updated after version publish
+    // filled in once the render context exists, see `count_symbols`
+    symbol_count: None,
   }
+}
+
+/// Counts the symbols the generated docs actually list for a package: every
+/// exported symbol of every entrypoint, plus namespace members, minus the ones
+/// hidden from the listings (`@internal` and non-exported types).
+///
+/// Deduplicated per `(file, qualified name)` the same way the search index is,
+/// so a symbol re-exported from several entrypoints counts once per entrypoint
+/// it is documented under, and never twice within one. Class/interface members
+/// are not counted: they are part of their parent symbol, not separate entries
+/// in the listings.
+fn count_symbols(ctx: &deno_doc::html::GenerateCtx) -> u32 {
+  let mut seen = HashSet::new();
+
+  for (short_path, nodes) in &ctx.doc_nodes {
+    for node in deno_doc::html::partition::flatten_namespace(
+      ctx,
+      nodes.iter().map(std::borrow::Cow::Borrowed),
+    ) {
+      if node.is_internal(ctx) {
+        continue;
+      }
+      seen.insert((
+        short_path.path.clone(),
+        node.get_qualified_name().to_string(),
+      ));
+    }
+  }
+
+  seen.len() as u32
 }
 
 /// Cap on how many undocumented entrypoints are recorded in
