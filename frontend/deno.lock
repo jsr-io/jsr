@@ -2,7 +2,7 @@
   "version": "5",
   "specifiers": {
     "jsr:@deno/cache-dir@0.25": "0.25.0",
-    "jsr:@deno/doc@0.204": "0.204.0",
+    "jsr:@deno/doc@0.205": "0.205.0",
     "jsr:@deno/esbuild-plugin@^1.2.0": "1.2.1",
     "jsr:@deno/gfm@0.11": "0.11.0",
     "jsr:@deno/graph@0.100": "0.100.1",
@@ -29,7 +29,6 @@
     "jsr:@std/fmt@^1.0.7": "1.0.10",
     "jsr:@std/fmt@^1.0.8": "1.0.10",
     "jsr:@std/front-matter@1": "1.0.9",
-    "jsr:@std/fs@1": "1.0.24",
     "jsr:@std/fs@^1.0.19": "1.0.24",
     "jsr:@std/fs@^1.0.24": "1.0.24",
     "jsr:@std/fs@^1.0.6": "1.0.24",
@@ -113,8 +112,8 @@
         "jsr:@std/path@^1.0.8"
       ]
     },
-    "@deno/doc@0.204.0": {
-      "integrity": "2098f4924af3b193984fd0a195321bc12a996a90a428fb93d27746bb4efb5009",
+    "@deno/doc@0.205.0": {
+      "integrity": "86e01dd7f2bc8b5d9059b3458cfce10a9e8a9f06245be612d82e09f21373c36e",
       "dependencies": [
         "jsr:@deno/cache-dir",
         "jsr:@deno/graph@0.100"
@@ -260,7 +259,6 @@
     "@std/fs@1.0.24": {
       "integrity": "f3061b45b81673a2bece689da041df32d174be064c89eb6397fb5718d3fb7877",
       "dependencies": [
-        "jsr:@std/internal",
         "jsr:@std/path@^1.1.5"
       ]
     },
@@ -3021,7 +3019,7 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@deno/doc@0.204",
+      "jsr:@deno/doc@0.205",
       "jsr:@deno/gfm@0.11",
       "jsr:@fresh/core@^2.3.3",
       "jsr:@fresh/plugin-tailwind@1",

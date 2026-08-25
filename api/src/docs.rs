@@ -287,7 +287,7 @@ lazy_static::lazy_static! {
     let mut ammonia_builder = ammonia::Builder::default();
 
     ammonia_builder
-      .add_tags(["video", "button", "svg", "path", "rect"])
+      .add_tags(["video", "button", "svg", "path", "rect", "section"])
       .add_generic_attributes(["id", "align"])
       .add_tag_attributes("button", ["data-copy"])
       .add_tag_attributes(
@@ -322,6 +322,10 @@ lazy_static::lazy_static! {
       .add_tag_attributes("video", ["src", "controls"])
       .add_allowed_classes("pre", ["highlight"])
       .add_allowed_classes("button", ["copyButton"])
+      // comrak footnote output
+      .add_allowed_classes("section", ["footnotes"])
+      .add_allowed_classes("sup", ["footnote-ref"])
+      .add_allowed_classes("a", ["footnote-backref"])
       .add_allowed_classes(
         "div",
         [
@@ -1653,6 +1657,31 @@ mod tests {
     );
     // code fences go through the tree-sitter highlighter
     assert!(html.contains("<span class="), "{html}");
+  }
+
+  #[test]
+  fn renders_footnotes_through_the_sanitizer() {
+    // goes through the real render path, so this keeps up with whatever markup
+    // the deno_doc of the day emits rather than a hand-written fixture
+    let html = render_markdown_file(
+      "claim[^1]\n\n[^1]: the source",
+      &ScopeName::new("scope".to_string()).unwrap(),
+      &PackageName::new("pkg".to_string()).unwrap(),
+      &Version::new("1.0.0").unwrap(),
+      None,
+      "/README.md",
+    )
+    .unwrap();
+
+    // the footnote section wrapper and both link classes survive the allowlist
+    assert!(html.contains(r#"<section class="footnotes">"#), "{html}");
+    assert!(html.contains(r#"<sup class="footnote-ref">"#), "{html}");
+    assert!(html.contains(r#"class="footnote-backref""#), "{html}");
+    // and so do the anchors that make the jump there and back work
+    assert!(html.contains(r##"href="#fn-1""##), "{html}");
+    assert!(html.contains(r#"id="fn-1""#), "{html}");
+    assert!(html.contains(r##"href="#fnref-1""##), "{html}");
+    assert!(html.contains(r#"id="fnref-1""#), "{html}");
   }
 
   #[test]
