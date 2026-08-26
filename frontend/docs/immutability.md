@@ -52,8 +52,9 @@ Note that yanking does not remove the contents of the package version from the
 registry. It only superficially hides the version from users in some places.
 
 There is one narrow exception: scope admins can delete a version that was
-published in the last 24 hours, as long as it has almost no downloads and no
-other published package depends on it.
+published in the last 24 hours, as long as it has almost no downloads and
+deleting it does not break any dependent package (dependents must be able to
+resolve their version constraints to another version of the package).
 [Learn more about deleting a version.](/docs/packages#deleting-a-version)
 
 ## What if I need to delete a package?

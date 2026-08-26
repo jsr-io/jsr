@@ -67,7 +67,7 @@ default view, but it will still be available to users who depend on it.
 [Learn more about yanking.](/docs/packages#yanking-versions)
 
 You may delete a version that was published in the last 24 hours, if it has
-almost no downloads and no other published package depends on it.
+almost no downloads and no dependent package relies on that specific version.
 [Learn more about deleting a version.](/docs/packages#deleting-a-version)
 
 You may archive a package, which will prevent new versions from being published

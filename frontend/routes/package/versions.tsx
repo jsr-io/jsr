@@ -142,8 +142,8 @@ export default define.page<typeof handler>(function Versions({
       {iam.canAdmin && versionsArray.length > 0 && (
         <p class="mt-4 text-sm text-tertiary">
           Versions can only be deleted within 24 hours of publishing, and only
-          if they have very few downloads and no other package depends on them.
-          Use yanking to discourage use of older versions.
+          if they have very few downloads and no other package depends on that
+          specific version. Use yanking to discourage use of older versions.
         </p>
       )}
 

@@ -212,7 +212,11 @@ accident. A version can only be deleted if all of the following are true:
 
 - The version was published less than 24 hours ago.
 - The version has fewer than 10 downloads.
-- No published version of another package depends on the version.
+- No published package depends on the version, unless the dependents' version
+  constraints can also be satisfied by another (non-yanked) version of the
+  package. For example, with versions `1.1.0` and `1.1.1` published and a
+  dependent using `^1.0.0`, either of the two can be deleted (but not both), as
+  the dependent can resolve to the remaining one.
 
 To delete a version, head to the "Versions" tab on the package page and click
 the "Delete" button next to the version. Only scope admins can delete versions.

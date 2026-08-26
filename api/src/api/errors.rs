@@ -262,7 +262,7 @@ errors!(
   },
   DeleteVersionHasDependents {
     status: BAD_REQUEST,
-    "The requested package version has dependents. Only a version without dependents can be deleted.",
+    "The requested package version is depended on by other published packages, and no other version satisfies their version constraints. It cannot be deleted.",
   },
   DeleteVersionTooOld {
     status: BAD_REQUEST,

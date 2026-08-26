@@ -1047,7 +1047,7 @@ paths:
 
     delete:
       summary: Delete package version
-      description: Deletes a package version. Scope admins may only delete versions that were published in the last 24 hours, have fewer than 10 downloads, and are not depended on by any other published package version.
+      description: Deletes a package version. Scope admins may only delete versions that were published in the last 24 hours, have fewer than 10 downloads, and are not the only version satisfying another published package's dependency constraint on this package (dependents that can resolve to a different version of the package do not block deletion).
       operationId: deletePackageVersion
       parameters:
         - name: scope

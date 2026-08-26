@@ -1342,17 +1342,33 @@ pub async fn version_delete_handler(
   let constraints = db
     .list_package_dependent_constraints(&scope, &package)
     .await?;
-  for constraint in constraints {
-    let blocking = match VersionReq::parse_from_specifier(&constraint) {
-      Ok(req) => match req.range() {
-        Some(range) => range.satisfies(&version.0),
-        // A dist-tag constraint cannot be proven to exclude this version.
-        None => true,
-      },
-      Err(_) => true,
-    };
-    if blocking {
-      return Err(ApiError::DeleteVersionHasDependents);
+  if !constraints.is_empty() {
+    // A dependent constraint only blocks deletion if this version is the sole
+    // remaining non-yanked version satisfying it. Dependents that can resolve
+    // to a sibling version are not broken by the deletion, so a broad range
+    // (like a wildcard) does not pin every version of the package.
+    let remaining_versions = db
+      .list_package_versions_for_metadata(&scope, &package)
+      .await?
+      .into_iter()
+      .filter(|v| !v.is_yanked && v.version != version)
+      .map(|v| v.version)
+      .collect::<Vec<_>>();
+    for constraint in constraints {
+      let blocking = match VersionReq::parse_from_specifier(&constraint) {
+        Ok(req) => match req.range() {
+          Some(range) => {
+            range.satisfies(&version.0)
+              && !remaining_versions.iter().any(|v| range.satisfies(&v.0))
+          }
+          // A dist-tag constraint cannot be proven to exclude this version.
+          None => true,
+        },
+        Err(_) => true,
+      };
+      if blocking {
+        return Err(ApiError::DeleteVersionHasDependents);
+      }
     }
   }
 
@@ -5390,6 +5406,65 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     resp
       .expect_err_code(StatusCode::BAD_REQUEST, "deleteVersionHasDependents")
       .await;
+
+    // publish foo@1.3.0, which is also matched by bar's `@1` constraint
+    let version13 = Version::try_from("1.3.0").unwrap();
+    let task = process_tarball_setup2(
+      &t,
+      create_mock_tarball("ok3"),
+      &foo_name,
+      &version13,
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    // with foo@1.2.3 yanked, foo@1.3.0 is the only non-yanked version that
+    // bar's `@1` constraint can resolve to, so it cannot be deleted
+    let version = Version::try_from("1.2.3").unwrap();
+    t.db()
+      .yank_package_version(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        &foo_name,
+        &version,
+        true,
+      )
+      .await
+      .unwrap();
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/1.3.0")
+      .token(Some(&admin_token))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::BAD_REQUEST, "deleteVersionHasDependents")
+      .await;
+
+    // once foo@1.2.3 is unyanked, bar's `@1` constraint can resolve to it, so
+    // foo@1.3.0 can be deleted even though bar depends on `@1`
+    t.db()
+      .yank_package_version(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        &foo_name,
+        &version,
+        false,
+      )
+      .await
+      .unwrap();
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/1.3.0")
+      .token(Some(&admin_token))
+      .call()
+      .await
+      .unwrap();
+    resp.expect_ok_no_content().await;
 
     // publish foo@2.0.0, which is not matched by bar's `@1` constraint
     let version2 = Version::try_from("2.0.0").unwrap();
