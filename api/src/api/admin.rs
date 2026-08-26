@@ -14,8 +14,13 @@ use tracing::Span;
 use tracing::field;
 use tracing::instrument;
 
+use std::collections::HashMap;
+
+use crate::analysis::PackageAnalysisData;
+use crate::analysis::analyze_package;
 use crate::db::*;
 use crate::iam::ReqIamExt;
+use crate::ids::PackagePath;
 use crate::ids::ScopeDescription;
 use crate::publish::publish_task;
 use crate::util;
@@ -40,6 +45,10 @@ pub fn admin_router() -> Router<Body, ApiError> {
     .post("/scopes", util::auth(util::json(assign_scope)))
     .patch("/scopes/:scope", util::auth(util::json(patch_scopes)))
     .get("/packages", util::auth(util::json(list_packages)))
+    .post(
+      "/packages/:scope/:package/:version/recompute_meta",
+      util::auth(util::json(recompute_package_version_meta)),
+    )
     .get(
       "/publishing_tasks",
       util::auth(util::json(list_publishing_tasks)),
@@ -232,6 +241,108 @@ pub async fn list_packages(
     items: packages.into_iter().map(|package| package.into()).collect(),
     total,
   })
+}
+
+/// Re-runs the package analysis for a published version and stores the
+/// freshly computed score meta, which is otherwise only computed at publish
+/// time. Docs, the npm tarball, and provenance are left untouched.
+#[instrument(
+  name = "POST /api/admin/packages/:scope/:package/:version/recompute_meta",
+  skip(req),
+  fields(scope, package, version)
+)]
+pub async fn recompute_package_version_meta(
+  req: Request<Body>,
+) -> ApiResult<ApiPackageScore> {
+  let iam = req.iam();
+  let staff = iam.check_admin_access()?;
+  let staff_id = staff.id;
+
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  let version = req.param_version()?;
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package));
+  Span::current().record("version", field::display(&version));
+
+  let db = req.data::<Database>().unwrap();
+  let buckets = req.data::<Buckets>().unwrap();
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
+
+  let (pkg, _, _) = db
+    .get_package(&scope, &package)
+    .await?
+    .ok_or(ApiError::PackageNotFound)?;
+  let package_version = db
+    .get_package_version(&scope, &package, &version)
+    .await?
+    .ok_or(ApiError::PackageVersionNotFound)?;
+
+  let mut files = HashMap::new();
+  for file in db.list_package_files(&scope, &package, &version).await? {
+    let s3_path =
+      crate::s3_paths::file_path(&scope, &package, &version, &file.path);
+    let bytes = buckets
+      .modules_bucket
+      .download(s3_path.into())
+      .await?
+      .ok_or_else(|| {
+        tracing::error!(
+          "module file '{}' of @{}/{}@{} is missing from the modules bucket",
+          file.path,
+          scope,
+          package,
+          version
+        );
+        ApiError::InternalServerError
+      })?;
+    files.insert(file.path, bytes.to_vec());
+  }
+
+  // the config file path is only used in analysis error messages; the
+  // exports driving the analysis come from the database
+  let config_file = ["/jsr.json", "/jsr.jsonc", "/deno.json", "/deno.jsonc"]
+    .into_iter()
+    .map(|path| PackagePath::new(path.to_string()).unwrap())
+    .find(|path| files.contains_key(path))
+    .unwrap_or_else(|| PackagePath::new("/jsr.json".to_string()).unwrap());
+
+  let span = Span::current();
+  let analysis_scope = scope.clone();
+  let analysis_package = package.clone();
+  let analysis_version = version.clone();
+  let data = PackageAnalysisData {
+    exports: package_version.exports.clone(),
+    files,
+  };
+  let output = tokio::task::spawn_blocking(move || {
+    analyze_package(
+      span,
+      registry_url,
+      analysis_scope,
+      analysis_package,
+      analysis_version,
+      config_file,
+      data,
+    )
+  })
+  .await
+  .map_err(|join_error| {
+    tracing::error!("analysis task panicked: {join_error:?}");
+    ApiError::InternalServerError
+  })?
+  .map_err(|analysis_error| ApiError::PackageAnalysisFailed {
+    msg: analysis_error.to_string(),
+  })?;
+
+  let mut meta = output.meta;
+  // provenance is recorded post-publish and not derivable from the files
+  meta.has_provenance = package_version.meta.has_provenance;
+
+  db.update_package_version_meta(&staff_id, &scope, &package, &version, &meta)
+    .await?;
+
+  Ok(ApiPackageScore::from((&meta, &pkg)))
 }
 
 #[instrument(name = "GET /api/admin/publishing_tasks", skip(req))]
@@ -536,5 +647,128 @@ mod tests {
       .unwrap()
       .expect_err_code(StatusCode::CONFLICT, "scopeAlreadyExists")
       .await;
+  }
+
+  #[tokio::test]
+  async fn recompute_package_version_meta() {
+    use std::io::Write as _;
+
+    use bytes::Bytes;
+    use flate2::Compression;
+    use flate2::write::GzEncoder;
+
+    use crate::api::ApiPackageScore;
+    use crate::db::PublishingTaskStatus;
+    use crate::ids::PackageName;
+    use crate::ids::ScopeName;
+    use crate::ids::Version;
+
+    let mut t = TestSetup::new().await;
+
+    // a JS entrypoint typed via `/// <reference types>`, the layout from
+    // jsr-io/jsr#698
+    let mut tar_bytes = Vec::new();
+    let mut tar = tar::Builder::new(&mut tar_bytes);
+    let mut append = |path: &str, content: &[u8]| {
+      let mut header = tar::Header::new_gnu();
+      header.set_size(content.len() as u64);
+      header.set_mode(0o644);
+      header.set_cksum();
+      tar.append_data(&mut header, path, content).unwrap();
+    };
+    append(
+      "jsr.json",
+      br#"{ "name": "@scope/foo", "version": "1.2.3", "license": "MIT", "exports": "./mod.mjs" }"#,
+    );
+    append("README.md", b"# foo\n\n```ts\nadd(1, 2);\n```\n");
+    append(
+      "mod.mjs",
+      b"/// <reference types=\"./mod.d.ts\" />\n/** Adds two numbers. */\nexport function add(a, b) {\n  return a + b;\n}\n",
+    );
+    append(
+      "mod.d.ts",
+      b"/** A module. @module */\n\n/** Adds two numbers. */\nexport declare function add(a: number, b: number): number;\n",
+    );
+    tar.finish().unwrap();
+    drop(tar);
+    let mut gz_bytes = Vec::new();
+    let mut encoder = GzEncoder::new(&mut gz_bytes, Compression::default());
+    encoder.write_all(&tar_bytes).unwrap();
+    encoder.finish().unwrap();
+
+    let task =
+      crate::publish::tests::process_tarball_setup(&t, Bytes::from(gz_bytes))
+        .await;
+    assert_eq!(
+      task.status,
+      PublishingTaskStatus::Success,
+      "{:?}",
+      task.error
+    );
+
+    let scope = ScopeName::try_from("scope").unwrap();
+    let name = PackageName::try_from("foo").unwrap();
+    let version = Version::try_from("1.2.3").unwrap();
+
+    let fresh = t
+      .db()
+      .get_package_version(&scope, &name, &version)
+      .await
+      .unwrap()
+      .unwrap();
+    assert!(fresh.meta.all_fast_check);
+    assert!(fresh.meta.has_readme);
+
+    // simulate stale meta from an older analysis pipeline
+    let mut stale = fresh.meta.clone();
+    stale.all_fast_check = false;
+    stale.has_readme = false;
+    stale.has_provenance = true;
+    t.db()
+      .update_package_version_meta(
+        &t.staff_user.user.id,
+        &scope,
+        &name,
+        &version,
+        &stale,
+      )
+      .await
+      .unwrap();
+
+    let path = "/api/admin/packages/scope/foo/1.2.3/recompute_meta";
+
+    let user_token = t.user1.token.clone();
+    t.http()
+      .post(path)
+      .token(Some(&user_token))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::FORBIDDEN, "actorNotAuthorized")
+      .await;
+
+    let staff_token = t.staff_user.token.clone();
+    let score = t
+      .http()
+      .post(path)
+      .token(Some(&staff_token))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok::<ApiPackageScore>()
+      .await;
+    assert!(score.all_fast_check);
+    assert!(score.has_readme);
+    assert!(score.has_provenance);
+
+    let healed = t
+      .db()
+      .get_package_version(&scope, &name, &version)
+      .await
+      .unwrap()
+      .unwrap();
+    assert!(healed.meta.all_fast_check);
+    assert!(healed.meta.has_readme);
+    assert!(healed.meta.has_provenance);
   }
 }

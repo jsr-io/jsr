@@ -577,6 +577,51 @@ impl Database {
     Ok(())
   }
 
+  /// Replaces the stored score metadata of a published version.
+  #[instrument(
+    name = "Database::update_package_version_meta",
+    skip(self, meta),
+    err
+  )]
+  pub async fn update_package_version_meta(
+    &self,
+    staff_id: &Uuid,
+    scope: &ScopeName,
+    name: &PackageName,
+    version: &Version,
+    meta: &PackageVersionMeta,
+  ) -> Result<()> {
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      staff_id,
+      true,
+      "update_package_version_meta",
+      json!({
+        "scope": scope,
+        "name": name,
+        "version": version,
+      }),
+    )
+    .await?;
+
+    sqlx::query!(
+      r#"UPDATE package_versions SET meta = $1
+      WHERE scope = $2 AND name = $3 AND version = $4"#,
+      meta as _,
+      scope as _,
+      name as _,
+      version as _
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(())
+  }
+
   #[instrument(name = "Database::update_package_description", skip(self), err)]
   pub async fn update_package_description(
     &self,
