@@ -4,6 +4,7 @@ use crate::ids::PackageName;
 use crate::ids::PackagePath;
 use crate::ids::ScopeName;
 use crate::ids::Version;
+use crate::npm::FIRST_NPM_LAYOUT_TARBALL_REVISION;
 use crate::npm::NpmMappedJsrPackageName;
 
 pub fn file_path(
@@ -160,6 +161,17 @@ pub fn scope_api_cache_urls(
   api_cache_urls(registry_url, &paths)
 }
 
+/// Storage path (relative to the npm bucket root, which doubles as the URL
+/// path under `https://npm.jsr.io/`) of the npm compatibility tarball for
+/// `revision`.
+///
+/// Since [`FIRST_NPM_LAYOUT_TARBALL_REVISION`], tarballs live at the path
+/// layout used by registry.npmjs.org (`{name}/-/{basename}-{version}.tgz`),
+/// because npm proxies such as JFrog Artifactory and Google Artifact Registry
+/// construct tarball paths by that convention instead of reading
+/// `dist.tarball` (https://github.com/jsr-io/jsr/issues/405). Earlier
+/// revisions live under `~/{revision}/`; those objects are kept forever so
+/// tarball URLs recorded in existing lockfiles keep resolving.
 pub fn npm_tarball_path(
   scope: &ScopeName,
   package_name: &PackageName,
@@ -170,13 +182,71 @@ pub fn npm_tarball_path(
     scope,
     package: package_name,
   };
-  format!("~/{revision}/{npm_mapped_package_name}/{version}.tgz")
+  if revision >= FIRST_NPM_LAYOUT_TARBALL_REVISION {
+    format!("{npm_mapped_package_name}/-/{scope}__{package_name}-{version}.tgz")
+  } else {
+    format!("~/{revision}/{npm_mapped_package_name}/{version}.tgz")
+  }
+}
+
+/// Public URL of an npm compatibility tarball, as advertised in the
+/// `dist.tarball` field of the npm version manifest. Pass `npm_url` as
+/// `https://npm.jsr.io/` (must end with a slash).
+pub fn npm_tarball_url(
+  npm_url: &url::Url,
+  scope: &ScopeName,
+  package_name: &PackageName,
+  version: &Version,
+  revision: u32,
+) -> String {
+  format!(
+    "{npm_url}{}",
+    npm_tarball_path(scope, package_name, version, revision)
+  )
 }
 
 #[cfg(test)]
 mod tests {
   use crate::ids::PackageName;
   use crate::ids::ScopeName;
+  use crate::ids::Version;
+  use crate::npm::FIRST_NPM_LAYOUT_TARBALL_REVISION;
+
+  #[test]
+  fn npm_tarball_path_layouts() {
+    let scope = ScopeName::try_from("luca").unwrap();
+    let package = PackageName::try_from("cases").unwrap();
+    let version = Version::try_from("1.0.0").unwrap();
+
+    // Legacy revisions keep the revisioned path so tarball URLs recorded in
+    // existing lockfiles keep resolving.
+    assert_eq!(
+      super::npm_tarball_path(&scope, &package, &version, 11),
+      "~/11/@jsr/luca__cases/1.0.0.tgz"
+    );
+    // Current revisions follow the registry.npmjs.org path layout.
+    assert_eq!(
+      super::npm_tarball_path(
+        &scope,
+        &package,
+        &version,
+        FIRST_NPM_LAYOUT_TARBALL_REVISION
+      ),
+      "@jsr/luca__cases/-/luca__cases-1.0.0.tgz"
+    );
+
+    let npm_url = url::Url::parse("https://npm.jsr.io/").unwrap();
+    assert_eq!(
+      super::npm_tarball_url(
+        &npm_url,
+        &scope,
+        &package,
+        &version,
+        FIRST_NPM_LAYOUT_TARBALL_REVISION
+      ),
+      "https://npm.jsr.io/@jsr/luca__cases/-/luca__cases-1.0.0.tgz"
+    );
+  }
 
   #[test]
   fn package_api_cache_urls_covers_both_hosts() {

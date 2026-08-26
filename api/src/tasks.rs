@@ -292,10 +292,22 @@ pub async fn npm_tarball_build_handler(
     )
     .await?;
 
+  // Since tarballs moved to the npm path layout, a rebuild overwrites the
+  // version's tarball object in place, so the tarball URL must be purged
+  // from the CDN cache along with the manifest.
   cache_purge
-    .purge(vec![crate::s3_paths::npm_version_manifest_url(
-      &npm_url, &job.scope, &job.name,
-    )])
+    .purge(vec![
+      crate::s3_paths::npm_version_manifest_url(
+        &npm_url, &job.scope, &job.name,
+      ),
+      crate::s3_paths::npm_tarball_url(
+        &npm_url,
+        &job.scope,
+        &job.name,
+        &job.version,
+        NPM_TARBALL_REVISION,
+      ),
+    ])
     .await;
 
   Ok(())
