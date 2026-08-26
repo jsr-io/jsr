@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE package_versions SET meta = $1\n      WHERE scope = $2 AND name = $3 AND version = $4",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Jsonb",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fa5333f441b4533c8f1a2a68ffd68eca5a65f0bf664f22ef844219bf8d058631"
+}

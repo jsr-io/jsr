@@ -819,6 +819,13 @@ pub mod test {
   static TEST_INSTANCE_COUNTER: std::sync::atomic::AtomicU64 =
     std::sync::atomic::AtomicU64::new(0);
 
+  /// The password the inbound email webhook accepts under test.
+  pub const TEST_POSTMARK_WEBHOOK_PASSWORD: &str = "test-webhook-password";
+
+  /// The upstream whose `Authentication-Results` the inbound webhook trusts
+  /// under test.
+  pub const TEST_TRUSTED_AUTHSERV_ID: &str = "mx.test.example";
+
   /// Ensure fake s3 server is running. The first call starts S3; subsequent calls return immediately.
   fn ensure_servers_started() {
     SERVERS_STARTED.get_or_init(|| {
@@ -993,17 +1000,28 @@ pub mod test {
       let modules_name = format!("modules-{test_id}");
       let docs_name = format!("docs-{test_id}");
       let npm_name = format!("npm-{test_id}");
-      let (publishing_bucket, modules_bucket, docs_bucket, npm_bucket) = tokio::join!(
+      let ticket_attachments_name = format!("ticket-attachments-{test_id}");
+      let (
+        publishing_bucket,
+        modules_bucket,
+        docs_bucket,
+        npm_bucket,
+        ticket_attachments_bucket,
+      ) = tokio::join!(
         s3.create_bucket(&publishing_name),
         s3.create_bucket(&modules_name),
         s3.create_bucket(&docs_name),
         s3.create_bucket(&npm_name),
+        s3.create_bucket(&ticket_attachments_name),
       );
       let buckets = Buckets {
         publishing_bucket: crate::s3::BucketWithQueue::new(publishing_bucket),
         modules_bucket: BucketWithQueue::new(modules_bucket),
         docs_bucket: crate::s3::BucketWithQueue::new(docs_bucket),
         npm_bucket: crate::s3::BucketWithQueue::new(npm_bucket),
+        ticket_attachments_bucket: crate::s3::BucketWithQueue::new(
+          ticket_attachments_bucket,
+        ),
       };
       let registry_url = "http://jsr-tests.test".parse().unwrap();
       let github_oauth2_client = crate::auth::github::Oauth2Client::new(
@@ -1118,10 +1136,18 @@ pub mod test {
         fallback_registry_url: fallback_registry_url.clone(),
         publish_queue: None,           // no queue locally
         npm_tarball_build_queue: None, // no queue locally
+        // No Cloud Tasks locally, so queued email is delivered inline.
+        email_queue: None,
         analytics_engine_config: None, // no analytics engine locally
         cache_purge_client: None,      // no Cloudflare purge locally
         // No secret key, so the login captcha is not verified in tests.
         turnstile: crate::external::cloudflare::Turnstile(None),
+        postmark_webhook_password: crate::api::PostmarkWebhookPassword(Some(
+          TEST_POSTMARK_WEBHOOK_PASSWORD.to_owned(),
+        )),
+        inbound_trusted_authserv_id: crate::api::InboundTrustedAuthservId(
+          Some(TEST_TRUSTED_AUTHSERV_ID.to_owned()),
+        ),
         expose_api: true,   // api enabled
         expose_tasks: true, // task endpoints enabled
       });

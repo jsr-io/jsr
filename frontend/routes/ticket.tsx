@@ -1,23 +1,43 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError, RouteConfig } from "fresh";
 import TbArrowLeft from "tb-icons/TbArrowLeft";
-import TbCheck from "tb-icons/TbCheck";
-import TbClock from "tb-icons/TbClock";
+import TbPaperclip from "tb-icons/TbPaperclip";
 import twas from "twas";
 import { define } from "../util.ts";
 import { assertOk, path } from "../utils/api.ts";
 import { TicketMessageInput } from "../islands/TicketMessageInput.tsx";
+import { ClaimTicket } from "../islands/ClaimTicket.tsx";
+import { TicketActor } from "../components/TicketActor.tsx";
+import { TicketStatusControl } from "../islands/TicketStatusControl.tsx";
+import {
+  TicketStatusDot,
+  ticketStatusLabel,
+} from "../components/TicketStatus.tsx";
 import { TicketTitle } from "../components/TicketTitle.tsx";
-import type { ApiTicketOverview, TicketKind } from "../utils/api_types.ts";
+import type {
+  ApiTicketActor,
+  ApiTicketAttachment,
+  ApiTicketOverview,
+  TicketKind,
+  TicketStatus,
+} from "../utils/api_types.ts";
 
 export default define.page<typeof handler>(function Ticket({
   data,
   state,
+  url,
 }) {
+  const ticket = data.ticket;
+  // The reporter of an unclaimed ticket reaches this page with the token from
+  // their auto-reply instead of a session, so nothing here may assume a user.
+  const isReporter = ticket.reporter.kind === "user"
+    ? state.user?.id === ticket.reporter.user.id
+    : data.claimToken !== null;
+
   return (
     <div class="mb-24 space-y-8">
       <div class="flex items-start justify-between gap-6 md:gap-12 max-md:flex-col">
-        {state.user!.isStaff && (
+        {state.user?.isStaff && (
           <a class="button-primary" href="/admin/tickets">
             <TbArrowLeft /> Back to admin panel
           </a>
@@ -25,20 +45,21 @@ export default define.page<typeof handler>(function Ticket({
 
         <div>
           <p class="text-gray-600 dark:text-gray-300">
-            Ticket #{data.ticket.id}
+            {ticket.ticketNumber}
           </p>
           <h1 class="text-3xl font-bold">
             <TicketTitle
-              kind={data.ticket.kind}
-              meta={data.ticket.meta}
-              user={data.ticket.creator}
+              kind={ticket.kind}
+              meta={ticket.meta}
+              reporter={ticket.reporter}
+              subject={ticket.subject}
             />
           </h1>
         </div>
 
         <div class="flex gap-3 md:gap-8 max-md:flex-col">
-          {(formatMeta(data.ticket.kind, data.ticket.meta) ??
-            Object.entries(data.ticket.meta)).map((
+          {(formatMeta(ticket.kind, ticket.meta) ??
+            Object.entries(ticket.meta)).map((
               [key, value],
             ) => (
               <div key={key}>
@@ -47,108 +68,208 @@ export default define.page<typeof handler>(function Ticket({
                 {value}
               </div>
             ))}
-          <div>
-            <span class="font-semibold">status:</span>
-            <br />
-            <div class="flex items-center gap-1.5">
-              <span>{data.ticket.closed ? "closed" : "open"}</span>
-              <div
-                class={`${
-                  data.ticket.closed
-                    ? "bg-green-400 dark:bg-green-600"
-                    : "bg-orange-400 dark:bg-orange-600"
-                } rounded-full p-1`}
-              >
-                {data.ticket.closed
-                  ? <TbCheck class="text-white" />
-                  : <TbClock class="text-white" />}
-              </div>
-            </div>
-          </div>
+          <TicketStatusControl
+            ticketId={ticket.id}
+            status={ticket.status}
+            canEdit={state.user?.isStaff ?? false}
+          />
         </div>
       </div>
+
+      {data.claimToken !== null && ticket.reporter.kind === "email" && (
+        <ClaimTicket
+          ticketId={ticket.id}
+          claimToken={data.claimToken}
+          signedIn={state.user !== null}
+          // Carries the claim token through the login round trip, so the
+          // reporter lands back here able to claim rather than on the home page
+          // with the link they followed spent.
+          returnTo={`${url.pathname}${url.search}`}
+        />
+      )}
+
       <div class="space-y-3">
-        {data.ticket.events.map((event) => {
+        {ticket.events.map((event) => {
           if (event.kind === "message") {
-            const { message, user } = event;
-            const isOpener = user.id === data.ticket.creator.id;
+            const { message } = event;
 
             return (
-              <div class="w-full rounded border-1.5 border-current dark:border-cyan-700 px-4 py-3">
-                <div class="flex justify-between mb-2">
-                  <div class="flex items-center gap-3">
-                    <a
-                      class="contents"
-                      href={`/user/${message.author}`}
-                    >
-                      <img
-                        src={user.avatarUrl}
-                        class="w-7 aspect-square rounded-full ring-2 ring-jsr-cyan-700 select-none"
-                        alt={user.name}
-                      />
-                      <span class="font-semibold">{user.name}</span>
-                      {" "}
-                    </a>
-                    <span
-                      class={"rounded-full text-sm px-2 inline-block " +
-                        (isOpener
-                          ? "bg-jsr-cyan-500 text-white"
-                          : "bg-jsr-yellow-400 text-jsr-gray-800")}
-                    >
-                      {isOpener ? "User" : "Staff"}
-                    </span>
+              <div
+                key={message.id}
+                class={"w-full rounded border-1.5 px-4 py-3 " +
+                  (message.internal
+                    // A note is not part of the conversation the reporter can
+                    // see, so it should not look like one.
+                    ? "border-jsr-yellow-600 bg-jsr-yellow-50 dark:bg-jsr-yellow-950"
+                    : "border-current dark:border-cyan-700")}
+              >
+                <div class="flex justify-between items-start gap-4 mb-2">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <TicketActor actor={message.author} />
+                    {message.internal
+                      ? (
+                        <span class="rounded-full text-sm px-2 inline-block bg-jsr-yellow-400 text-jsr-gray-800">
+                          Internal note
+                        </span>
+                      )
+                      : (
+                        <AuthorRole
+                          author={message.author}
+                          inbound={message.direction === "inbound"}
+                        />
+                      )}
                   </div>
-                  <div>
+                  <div class="text-sm text-gray-600 dark:text-gray-300 shrink-0">
                     {twas(new Date(message.updatedAt).getTime())}
                   </div>
                 </div>
                 <pre class="mt-4 font-sans text-wrap">
                 {message.message}
                 </pre>
+                {message.attachments.length > 0 && (
+                  <Attachments
+                    ticketId={ticket.id}
+                    claimToken={data.claimToken}
+                    attachments={message.attachments}
+                  />
+                )}
               </div>
             );
           } else {
-            const { user, auditLog } = event;
-
             return (
-              <div class="flex items-center gap-1.5">
-                <div
-                  class={`w-fit ${
-                    auditLog.meta.closed
-                      ? "bg-green-400 dark:bg-green-600"
-                      : "bg-orange-400 dark:bg-orange-600"
-                  } rounded-full p-1`}
-                >
-                  {auditLog.meta.closed
-                    ? <TbCheck class="text-white" />
-                    : <TbClock class="text-white" />}
-                </div>
-                <p class="text-sm">
-                  <span class="font-semibold">{user.name}</span>{" "}
-                  {auditLog.meta.closed ? "closed" : "opened"} the ticket{" "}
-                  {twas(new Date(auditLog.createdAt).getTime())}
-                </p>
-              </div>
+              <StatusChange
+                key={event.auditLog.createdAt}
+                actorName={event.user.name}
+                meta={event.auditLog.meta}
+                createdAt={event.auditLog.createdAt}
+              />
             );
           }
         })}
       </div>
-      {state.user!.id === data.ticket.creator.id &&
-        (
-          <p class="text-sm text-gray-600 dark:text-gray-300">
-            We will respond to you as soon as possible. Please do not create
-            multiple tickets for the same issue. You will be emailed at{" "}
-            {state.user!.email} when we respond to your ticket.
-          </p>
-        )}
+
+      {isReporter && (
+        <p class="text-sm text-gray-600 dark:text-gray-300">
+          We will respond to you as soon as possible. Please do not create
+          multiple tickets for the same issue. {ticket.reporter.kind === "email"
+            ? (
+              <>
+                You will be emailed at {ticket.reporter.email}{" "}
+                when we respond, and you can reply to that email directly.
+              </>
+            )
+            : (
+              <>
+                You will be emailed at {state.user?.email}{" "}
+                when we respond, and you can reply to that email directly.
+              </>
+            )}
+        </p>
+      )}
+
       <TicketMessageInput
-        ticketId={data.ticket.id}
-        closed={data.ticket.closed}
-        user={state.user!}
+        ticketId={ticket.id}
+        status={ticket.status}
+        claimToken={data.claimToken}
+        isStaff={state.user?.isStaff ?? false}
       />
     </div>
   );
 });
+
+/// Which side of the conversation a message came from. Derived from the author
+/// rather than the direction alone: the automatic acknowledgement is outbound
+/// but nobody on the team wrote it, and labelling it "Staff" implies a human
+/// replied.
+function AuthorRole(
+  { author, inbound }: { author: ApiTicketActor; inbound: boolean },
+) {
+  if (author.kind === "system") {
+    return (
+      <span class="rounded-full text-sm px-2 inline-block bg-jsr-gray-200 text-jsr-gray-700 dark:bg-jsr-gray-700 dark:text-jsr-gray-100">
+        Automatic
+      </span>
+    );
+  }
+
+  return (
+    <span
+      class={"rounded-full text-sm px-2 inline-block " +
+        (inbound
+          ? "bg-jsr-cyan-500 text-white"
+          : "bg-jsr-yellow-400 text-jsr-gray-800")}
+    >
+      {inbound ? "User" : "Staff"}
+    </span>
+  );
+}
+
+/// A status change, rendered as a timeline marker rather than a stray line of
+/// prose: same left gutter as the message cards, muted, and carrying the colour
+/// of the status it moved to.
+function StatusChange(
+  { actorName, meta, createdAt }: {
+    actorName: string;
+    meta: Record<string, unknown>;
+    createdAt: string;
+  },
+) {
+  // Audit log entries written before the status enum recorded a `closed`
+  // boolean instead, and those rows are still in the log.
+  const status = (meta.status as TicketStatus | undefined) ??
+    (typeof meta.closed === "boolean"
+      ? (meta.closed ? "closed" : "open")
+      : undefined);
+
+  return (
+    <div class="flex items-center gap-2 pl-4 text-sm text-gray-600 dark:text-gray-300">
+      {status
+        ? <TicketStatusDot status={status} />
+        : <div class="rounded-full bg-jsr-gray-400 p-1 shrink-0" />}
+      <p>
+        <span class="font-semibold">{actorName}</span> set the status to{" "}
+        <span class="font-semibold">
+          {status ? ticketStatusLabel(status) : "a new value"}
+        </span>{" "}
+        · {twas(new Date(createdAt).getTime())}
+      </p>
+    </div>
+  );
+}
+
+function Attachments(
+  { ticketId, claimToken, attachments }: {
+    ticketId: string;
+    claimToken: string | null;
+    attachments: ApiTicketAttachment[];
+  },
+) {
+  const query = claimToken ? `?claim=${encodeURIComponent(claimToken)}` : "";
+  return (
+    <ul class="mt-4 space-y-1">
+      {attachments.map((attachment) => (
+        <li key={attachment.id}>
+          <a
+            class="link inline-flex items-center gap-1.5 text-sm"
+            href={`/api/tickets/${ticketId}/attachments/${attachment.id}${query}`}
+          >
+            <TbPaperclip />
+            {attachment.filename}
+            <span class="text-gray-600 dark:text-gray-300">
+              ({formatBytes(attachment.sizeBytes)})
+            </span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 function formatMeta(kind: TicketKind, meta: Record<string, string>) {
   switch (kind) {
@@ -176,21 +297,31 @@ function formatMeta(kind: TicketKind, meta: Record<string, string>) {
 
 export const handler = define.handlers({
   async GET(ctx) {
+    // Present when the visitor followed the claim link out of the auto-reply
+    // email. It stands in for a session, so it is forwarded to the API.
+    const claimToken = ctx.url.searchParams.get("claim");
+
     const [currentUser, ticketResp] = await Promise.all([
       ctx.state.userPromise,
-      ctx.state.api.get<ApiTicketOverview>(path`/tickets/${ctx.params.ticket}`),
+      ctx.state.api.get<ApiTicketOverview>(
+        path`/tickets/${ctx.params.ticket}`,
+        claimToken ? { claim: claimToken } : undefined,
+      ),
     ]);
     if (currentUser instanceof Response) return currentUser;
-    if (!currentUser) throw new HttpError(404, "No signed in user found.");
+    if (!currentUser && !claimToken) {
+      throw new HttpError(404, "No signed in user found.");
+    }
 
     assertOk(ticketResp);
 
     ctx.state.meta = {
-      title: `Ticket ${ticketResp.data.id} - JSR`,
+      title: `Ticket ${ticketResp.data.ticketNumber} - JSR`,
     };
     return {
       data: {
         ticket: ticketResp.data,
+        claimToken,
       },
     };
   },

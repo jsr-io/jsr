@@ -6,17 +6,13 @@ pub const USER_SELECT_FULL: &str = r#"id, name, email, avatar_url, updated_at, c
 (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
 (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
 (CASE WHEN users.is_staff THEN (
-  SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
-    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
-      SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
-    )
-  )
+  SELECT COUNT(tickets.created_at) FROM tickets WHERE tickets.status NOT IN ('closed', 'spam') AND (
+    SELECT tm.direction FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND NOT tm.internal ORDER BY tm.created_at DESC LIMIT 1
+  ) = 'inbound'
 ) ELSE (
-  SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-      SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-    )
-  )
+  SELECT COUNT(tickets.created_at) FROM tickets WHERE tickets.creator = users.id AND tickets.status NOT IN ('closed', 'spam') AND (
+    SELECT tm.direction FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND NOT tm.internal ORDER BY tm.created_at DESC LIMIT 1
+  ) = 'outbound'
 ) END) as "newer_ticket_messages_count!" "#;
 
 // Runtime-safe variant without sqlx type annotations, for use with sqlx::query_as() / format!().
@@ -24,17 +20,13 @@ pub const USER_SELECT_FULL_RT: &str = r#"id, name, email, avatar_url, updated_at
 (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count",
 (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage",
 (CASE WHEN users.is_staff THEN (
-  SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
-    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
-      SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
-    )
-  )
+  SELECT COUNT(tickets.created_at) FROM tickets WHERE tickets.status NOT IN ('closed', 'spam') AND (
+    SELECT tm.direction FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND NOT tm.internal ORDER BY tm.created_at DESC LIMIT 1
+  ) = 'inbound'
 ) ELSE (
-  SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-      SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-    )
-  )
+  SELECT COUNT(tickets.created_at) FROM tickets WHERE tickets.creator = users.id AND tickets.status NOT IN ('closed', 'spam') AND (
+    SELECT tm.direction FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND NOT tm.internal ORDER BY tm.created_at DESC LIMIT 1
+  ) = 'outbound'
 ) END) as "newer_ticket_messages_count" "#;
 
 pub const SCOPE_SELECT: &str = r#"scope as "scope: ScopeName", description as "description: ScopeDescription", creator, package_limit, new_package_per_week_limit, publish_attempts_per_week_limit, verify_oidc_actor, require_publishing_from_ci, updated_at, created_at"#;
@@ -121,44 +113,39 @@ pub const SCOPE_INVITE_SELECT_JOINED: &str = r#"scope_invites.scope as "scope_in
 
 pub const SCOPE_MEMBER_SELECT_JOINED: &str = r#"scope_members.scope as "scope_member_scope: ScopeName", scope_members.user_id as "scope_member_user_id", scope_members.is_admin as "scope_member_is_admin", scope_members.updated_at as "scope_member_updated_at", scope_members.created_at as "scope_member_created_at""#;
 
-pub const TICKET_SELECT_JOINED: &str = r#"tickets.id as "ticket_id", tickets.kind as "ticket_kind: TicketKind", tickets.creator as "ticket_creator", tickets.meta as "ticket_meta", tickets.closed as "ticket_closed", tickets.updated_at as "ticket_updated_at", tickets.created_at as "ticket_created_at""#;
+pub const TICKET_SELECT_JOINED: &str = r#"tickets.id as "ticket_id", tickets.ticket_number as "ticket_ticket_number", tickets.kind as "ticket_kind: TicketKind", tickets.creator as "ticket_creator", tickets.reporter_email as "ticket_reporter_email", tickets.reporter_name as "ticket_reporter_name", tickets.subject as "ticket_subject", tickets.claim_token as "ticket_claim_token", tickets.meta as "ticket_meta", tickets.status as "ticket_status: TicketStatus", tickets.closed_at as "ticket_closed_at", tickets.updated_at as "ticket_updated_at", tickets.created_at as "ticket_created_at""#;
 
-pub const TICKET_SELECT_JOINED_RT: &str = r#"tickets.id as "ticket_id", tickets.kind as "ticket_kind", tickets.creator as "ticket_creator", tickets.meta as "ticket_meta", tickets.closed as "ticket_closed", tickets.updated_at as "ticket_updated_at", tickets.created_at as "ticket_created_at""#;
+pub const TICKET_SELECT_JOINED_RT: &str = r#"tickets.id as "ticket_id", tickets.ticket_number as "ticket_ticket_number", tickets.kind as "ticket_kind", tickets.creator as "ticket_creator", tickets.reporter_email as "ticket_reporter_email", tickets.reporter_name as "ticket_reporter_name", tickets.subject as "ticket_subject", tickets.claim_token as "ticket_claim_token", tickets.meta as "ticket_meta", tickets.status as "ticket_status", tickets.closed_at as "ticket_closed_at", tickets.updated_at as "ticket_updated_at", tickets.created_at as "ticket_created_at""#;
 
-pub const USER_SELECT_FULL_JOINED: &str = r#"users.id as "user_id", users.name as "user_name", users.email as "user_email", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.gitlab_id as "user_gitlab_id", users.is_blocked as "user_is_blocked", users.is_staff as "user_is_staff", users.scope_limit as "user_scope_limit", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
-(SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as "user_invite_count!",
-(SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as "user_scope_usage!",
+// Full user columns for a LEFT JOIN: every column is nullable, so it works
+// wherever the joined user is optional — such as a support ticket opened by
+// email that nobody has claimed yet.
+pub const USER_SELECT_FULL_JOINED_OPTIONAL: &str = r#"users.id as "user_id?", users.name as "user_name?", users.email as "user_email", users.avatar_url as "user_avatar_url?", users.github_id as "user_github_id", users.gitlab_id as "user_gitlab_id", users.is_blocked as "user_is_blocked?", users.is_staff as "user_is_staff?", users.scope_limit as "user_scope_limit?", users.updated_at as "user_updated_at?", users.created_at as "user_created_at?",
+(SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as "user_invite_count",
+(SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as "user_scope_usage",
 (CASE WHEN users.is_staff THEN (
-  SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
-    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
-      SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
-    )
-  )
+  SELECT COUNT(tickets.created_at) FROM tickets WHERE tickets.status NOT IN ('closed', 'spam') AND (
+    SELECT tm.direction FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND NOT tm.internal ORDER BY tm.created_at DESC LIMIT 1
+  ) = 'inbound'
 ) ELSE (
-  SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-      SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-    )
-  )
-) END) as "user_newer_ticket_messages_count!""#;
+  SELECT COUNT(tickets.created_at) FROM tickets WHERE tickets.creator = users.id AND tickets.status NOT IN ('closed', 'spam') AND (
+    SELECT tm.direction FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND NOT tm.internal ORDER BY tm.created_at DESC LIMIT 1
+  ) = 'outbound'
+) END) as "user_newer_ticket_messages_count""#;
 
 pub const USER_SELECT_FULL_JOINED_RT: &str = r#"users.id as "user_id", users.name as "user_name", users.email as "user_email", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.gitlab_id as "user_gitlab_id", users.is_blocked as "user_is_blocked", users.is_staff as "user_is_staff", users.scope_limit as "user_scope_limit", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
 (SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as "user_invite_count",
 (SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as "user_scope_usage",
 (CASE WHEN users.is_staff THEN (
-  SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
-    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
-      SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
-    )
-  )
+  SELECT COUNT(tickets.created_at) FROM tickets WHERE tickets.status NOT IN ('closed', 'spam') AND (
+    SELECT tm.direction FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND NOT tm.internal ORDER BY tm.created_at DESC LIMIT 1
+  ) = 'inbound'
 ) ELSE (
-  SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-      SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-    )
-  )
+  SELECT COUNT(tickets.created_at) FROM tickets WHERE tickets.creator = users.id AND tickets.status NOT IN ('closed', 'spam') AND (
+    SELECT tm.direction FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND NOT tm.internal ORDER BY tm.created_at DESC LIMIT 1
+  ) = 'outbound'
 ) END) as "user_newer_ticket_messages_count""#;
 
-pub const TICKET_MESSAGE_SELECT_JOINED: &str = r#"ticket_messages.ticket_id as "message_ticket_id", ticket_messages.author as "message_author", ticket_messages.message as "message_message", ticket_messages.updated_at as "message_updated_at", ticket_messages.created_at as "message_created_at""#;
+pub const TICKET_MESSAGE_SELECT_JOINED: &str = r#"ticket_messages.id as "message_id", ticket_messages.ticket_id as "message_ticket_id", ticket_messages.author as "message_author", ticket_messages.author_email as "message_author_email", ticket_messages.author_name as "message_author_name", ticket_messages.author_email_verified as "message_author_email_verified", ticket_messages.direction as "message_direction: TicketMessageDirection", ticket_messages.email_message_id as "message_email_message_id", ticket_messages.internal as "message_internal", ticket_messages.message as "message_message", ticket_messages.updated_at as "message_updated_at", ticket_messages.created_at as "message_created_at""#;
 
 pub const AUDIT_LOG_SELECT_JOINED: &str = r#"audit_logs.actor_id as "audit_log_actor_id", audit_logs.is_sudo as "audit_log_is_sudo", audit_logs.action as "audit_log_action", audit_logs.meta as "audit_log_meta", audit_logs.created_at as "audit_log_created_at""#;

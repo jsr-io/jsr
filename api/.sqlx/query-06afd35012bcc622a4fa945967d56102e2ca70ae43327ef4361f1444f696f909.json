@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE tickets\n          SET status = 'waiting_on_support', closed_at = NULL, updated_at = now()\n          WHERE id = $1 AND status <> 'spam'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "06afd35012bcc622a4fa945967d56102e2ca70ae43327ef4361f1444f696f909"
+}

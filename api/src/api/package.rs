@@ -437,11 +437,7 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiPackage> {
   let dependent_count_cache =
     req.data::<crate::db::DependentCountCache>().unwrap();
   let dependent_count = dependent_count_cache
-    .count_package_dependents(
-      db,
-      crate::db::DependencyKind::Jsr,
-      &format!("@{}/{}", scope, package),
-    )
+    .count_package_dependents(db, &scope, &package)
     .await?;
   api_package.dependent_count = dependent_count as u64;
 
@@ -488,8 +484,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
   }
 
   // Every update variant mutates the aggressively-cached `:package` response,
-  // so cache-bust it (and the scope aggregates) afterwards. Built before the
-  // match because the GitHub-repository arm consumes `scope`/`package_name`.
+  // so cache-bust it (and the scope aggregates) afterwards.
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let purge_urls = crate::s3_paths::package_api_cache_urls(
     &registry_url,
@@ -497,7 +492,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     &package_name,
   );
 
-  let result = match body {
+  let result: Result<ApiPackage, ApiError> = match body {
     ApiUpdatePackageRequest::Description(description) => {
       let npm_url = &req.data::<NpmUrl>().unwrap().0;
       let buckets = req.data::<Buckets>().unwrap().clone();
@@ -518,25 +513,56 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
       Ok(ApiPackage::from((package, repo, meta)))
     }
     ApiUpdatePackageRequest::GithubRepository(None) => {
+      let npm_url = &req.data::<NpmUrl>().unwrap().0;
+      let buckets = req.data::<Buckets>().unwrap();
+      let cache_purge = req.data::<CachePurge>().unwrap();
       let package = db
         .delete_package_github_repository(&user.id, sudo, &scope, &package_name)
         .await?;
+      // The GitHub repository is embedded in the package `meta.json` and the
+      // npm compatibility manifest, so regenerate them.
+      upload_package_manifests(
+        db,
+        buckets,
+        &registry_url,
+        npm_url,
+        cache_purge,
+        &scope,
+        &package_name,
+      )
+      .await?;
       Ok(ApiPackage::from((package, None, meta)))
     }
     ApiUpdatePackageRequest::GithubRepository(Some(repo)) => {
+      let npm_url = &req.data::<NpmUrl>().unwrap().0;
+      let buckets = req.data::<Buckets>().unwrap();
+      let cache_purge = req.data::<CachePurge>().unwrap();
       let github_oauth2_client =
         req.data::<auth::github::Oauth2Client>().unwrap();
-      update_github_repository(
+      let package = update_github_repository(
         &user.id,
         sudo,
         user,
         db,
         github_oauth2_client,
-        scope,
-        package_name,
+        &scope,
+        &package_name,
         repo,
       )
-      .await
+      .await?;
+      // The GitHub repository is embedded in the package `meta.json` and the
+      // npm compatibility manifest, so regenerate them.
+      upload_package_manifests(
+        db,
+        buckets,
+        &registry_url,
+        npm_url,
+        cache_purge,
+        &scope,
+        &package_name,
+      )
+      .await?;
+      Ok(package)
     }
     ApiUpdatePackageRequest::RuntimeCompat(runtime_compat) => {
       let runtime_compat: RuntimeCompat = runtime_compat.into();
@@ -701,8 +727,8 @@ async fn update_github_repository(
   user: &User,
   db: &Database,
   github_oauth2_client: &auth::github::Oauth2Client,
-  scope: ScopeName,
-  package: PackageName,
+  scope: &ScopeName,
+  package: &PackageName,
   req: ApiUpdatePackageGithubRepositoryRequest,
 ) -> Result<ApiPackage, ApiError> {
   let gh_user_id = user.github_id.ok_or_else(|| {
@@ -745,11 +771,67 @@ async fn update_github_repository(
 
   let (package, repo, score) = db
     .update_package_github_repository(
-      actor_id, is_sudo, &scope, &package, new_repo,
+      actor_id, is_sudo, scope, package, new_repo,
     )
     .await?;
 
   Ok(ApiPackage::from((package, Some(repo), score)))
+}
+
+/// Regenerates the package-level `meta.json` and the npm compatibility
+/// version manifest from the current database state, uploads them to their
+/// buckets, and purges their CDN cache entries.
+async fn upload_package_manifests(
+  db: &Database,
+  buckets: &Buckets,
+  registry_url: &Url,
+  npm_url: &Url,
+  cache_purge: &CachePurge,
+  scope: &ScopeName,
+  package: &PackageName,
+) -> Result<(), ApiError> {
+  let package_metadata_path = crate::s3_paths::package_metadata(scope, package);
+  let package_metadata = PackageMetadata::create(db, scope, package).await?;
+  let content = serde_json::to_vec(&package_metadata)?;
+  buckets
+    .modules_bucket
+    .upload(
+      package_metadata_path.into(),
+      UploadTaskBody::Bytes(content.into()),
+      S3UploadOptions {
+        content_type: Some("application/json".into()),
+        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
+        gzip_encoded: false,
+      },
+    )
+    .await?;
+
+  let npm_version_manifest_path =
+    crate::s3_paths::npm_version_manifest_path(scope, package);
+  let npm_version_manifest =
+    generate_npm_version_manifest(db, npm_url, scope, package).await?;
+  let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
+  buckets
+    .npm_bucket
+    .upload(
+      npm_version_manifest_path.into(),
+      UploadTaskBody::Bytes(content.into()),
+      S3UploadOptions {
+        content_type: Some("application/json".into()),
+        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
+        gzip_encoded: false,
+      },
+    )
+    .await?;
+
+  cache_purge
+    .purge(vec![
+      crate::s3_paths::package_metadata_url(registry_url, scope, package),
+      crate::s3_paths::npm_version_manifest_url(npm_url, scope, package),
+    ])
+    .await;
+
+  Ok(())
 }
 
 #[instrument(
@@ -1031,6 +1113,7 @@ pub async fn version_publish_handler(
     let span = Span::current();
     let fut = publish_task(
       publishing_task.id,
+      0,
       buckets,
       license_store,
       registry_url,
@@ -1175,52 +1258,24 @@ pub async fn version_update_handler(
   )
   .await?;
 
-  let package_metadata_path =
-    crate::s3_paths::package_metadata(&scope, &package);
-  let package_metadata = PackageMetadata::create(db, &scope, &package).await?;
-
-  let content = serde_json::to_vec(&package_metadata)?;
-  buckets
-    .modules_bucket
-    .upload(
-      package_metadata_path.into(),
-      UploadTaskBody::Bytes(content.into()),
-      S3UploadOptions {
-        content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
-        gzip_encoded: false,
-      },
-    )
-    .await?;
-
-  let npm_version_manifest_path =
-    crate::s3_paths::npm_version_manifest_path(&scope, &package);
-  let npm_version_manifest =
-    generate_npm_version_manifest(db, npm_url, &scope, &package).await?;
-  let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
-  buckets
-    .npm_bucket
-    .upload(
-      npm_version_manifest_path.into(),
-      crate::s3::UploadTaskBody::Bytes(content.into()),
-      S3UploadOptions {
-        content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
-        gzip_encoded: false,
-      },
-    )
-    .await?;
-
-  let mut purge_urls = vec![
-    crate::s3_paths::package_metadata_url(registry_url, &scope, &package),
-    crate::s3_paths::npm_version_manifest_url(npm_url, &scope, &package),
-  ];
-  purge_urls.extend(crate::s3_paths::package_api_cache_urls(
+  upload_package_manifests(
+    db,
+    &buckets,
     registry_url,
+    npm_url,
+    cache_purge,
     &scope,
     &package,
-  ));
-  cache_purge.purge(purge_urls).await;
+  )
+  .await?;
+
+  cache_purge
+    .purge(crate::s3_paths::package_api_cache_urls(
+      registry_url,
+      &scope,
+      &package,
+    ))
+    .await;
 
   Ok(
     Response::builder()
@@ -1254,12 +1309,7 @@ pub async fn version_delete_handler(
   let iam = req.iam();
   let staff = iam.check_admin_access()?;
 
-  let count = db
-    .count_package_dependents(
-      crate::db::DependencyKind::Jsr,
-      &format!("@{}/{}", scope, package),
-    )
-    .await?;
+  let count = db.count_package_dependents(&scope, &package).await?;
 
   if count > 0 {
     return Err(ApiError::DeleteVersionHasDependents);
@@ -1280,52 +1330,24 @@ pub async fn version_delete_handler(
     crate::s3_paths::file_path_root_directory(&scope, &package, &version);
   buckets.modules_bucket.delete_directory(path.into()).await?;
 
-  let package_metadata_path =
-    crate::s3_paths::package_metadata(&scope, &package);
-  let package_metadata = PackageMetadata::create(db, &scope, &package).await?;
-
-  let content = serde_json::to_vec(&package_metadata)?;
-  buckets
-    .modules_bucket
-    .upload(
-      package_metadata_path.into(),
-      UploadTaskBody::Bytes(content.into()),
-      S3UploadOptions {
-        content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
-        gzip_encoded: false,
-      },
-    )
-    .await?;
-
-  let npm_version_manifest_path =
-    crate::s3_paths::npm_version_manifest_path(&scope, &package);
-  let npm_version_manifest =
-    generate_npm_version_manifest(db, npm_url, &scope, &package).await?;
-  let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
-  buckets
-    .npm_bucket
-    .upload(
-      npm_version_manifest_path.into(),
-      crate::s3::UploadTaskBody::Bytes(content.into()),
-      S3UploadOptions {
-        content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
-        gzip_encoded: false,
-      },
-    )
-    .await?;
-
-  let mut purge_urls = vec![
-    crate::s3_paths::package_metadata_url(registry_url, &scope, &package),
-    crate::s3_paths::npm_version_manifest_url(npm_url, &scope, &package),
-  ];
-  purge_urls.extend(crate::s3_paths::package_api_cache_urls(
+  upload_package_manifests(
+    db,
+    &buckets,
     registry_url,
+    npm_url,
+    cache_purge,
     &scope,
     &package,
-  ));
-  cache_purge.purge(purge_urls).await;
+  )
+  .await?;
+
+  cache_purge
+    .purge(crate::s3_paths::package_api_cache_urls(
+      registry_url,
+      &scope,
+      &package,
+    ))
+    .await;
 
   Ok(
     Response::builder()
@@ -1716,7 +1738,7 @@ pub async fn get_source_handler(
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap();
-  let _ = db
+  let (_, repo, _) = db
     .get_package(&scope, &package)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
@@ -1765,18 +1787,29 @@ pub async fn get_source_handler(
     None
   };
 
-  let path_buf = std::path::PathBuf::from(path);
+  let path_buf = std::path::PathBuf::from(&path);
 
   let source = if let Some(file) = file {
     let size = file.len();
 
-    let highlighter = deno_doc::html::comrak::ComrakHighlightWrapperAdapter(
-      Some(Arc::new(crate::tree_sitter::ComrakAdapter {
-        show_line_numbers: true,
-      })),
-    );
-
     let view = if let Ok(file) = String::from_utf8(file.to_vec()) {
+      let links = source_specifier_links(
+        &scope,
+        &package,
+        &version.version,
+        &path,
+        &file,
+        buckets,
+        req.data::<RegistryUrl>().unwrap().0.as_str(),
+      )
+      .await;
+
+      let mut adapter = crate::tree_sitter::ComrakAdapter::new(true);
+      adapter.links = links;
+      let highlighter = deno_doc::html::comrak::ComrakHighlightWrapperAdapter(
+        Some(Arc::new(adapter)),
+      );
+
       let mut out = vec![];
       highlighter.write_pre_tag(&mut out, Default::default())?;
       highlighter.write_code_tag(&mut out, Default::default())?;
@@ -1800,7 +1833,31 @@ pub async fn get_source_handler(
       None
     };
 
-    ApiSource::File { size, view }
+    // Markdown files additionally get a rendered form so the frontend can
+    // offer a GitHub-style preview next to the source.
+    let rendered = if path_buf
+      .extension()
+      .is_some_and(|ext| matches!(&*ext.to_string_lossy(), "md" | "markdown"))
+    {
+      std::str::from_utf8(&file).ok().and_then(|md| {
+        crate::docs::render_markdown_file(
+          md,
+          &scope,
+          &package,
+          &version.version,
+          repo,
+          path_buf.to_string_lossy().as_ref(),
+        )
+      })
+    } else {
+      None
+    };
+
+    ApiSource::File {
+      size,
+      view,
+      rendered,
+    }
   } else {
     let files = db
       .list_package_files(&scope, &package, &version.version)
@@ -1857,6 +1914,70 @@ pub async fn get_source_handler(
     script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
     source,
   })
+}
+
+/// Finds the import/export specifiers of the file being viewed, so the
+/// highlighter can render them as links (jsr-io/jsr#17).
+///
+/// The ranges come from the `moduleGraph2` recorded at publish time, so
+/// nothing is re-parsed here. Links are a nicety: anything missing or
+/// unreadable just yields a file view without them.
+async fn source_specifier_links(
+  scope: &ScopeName,
+  package: &PackageName,
+  version: &Version,
+  path: &str,
+  source: &str,
+  buckets: &Buckets,
+  registry_url: &str,
+) -> Vec<crate::tree_sitter::SourceLink> {
+  if !crate::source_links::is_module_path(path) {
+    return Vec::new();
+  }
+
+  let metadata_path =
+    crate::s3_paths::version_metadata(scope, package, version);
+  let metadata =
+    match buckets.modules_bucket.download(metadata_path.into()).await {
+      Ok(Some(bytes)) => {
+        match serde_json::from_slice::<crate::metadata::VersionMetadata>(&bytes)
+        {
+          Ok(metadata) => metadata,
+          Err(err) => {
+            error!("failed to parse version metadata for links: {err}");
+            return Vec::new();
+          }
+        }
+      }
+      Ok(None) => return Vec::new(),
+      Err(err) => {
+        error!("failed to download version metadata for links: {err}");
+        return Vec::new();
+      }
+    };
+
+  let Some(module_info) = metadata.module_graph_2.get(path) else {
+    return Vec::new();
+  };
+
+  let files = metadata
+    .manifest
+    .keys()
+    .map(|path| path.to_string())
+    .collect();
+
+  crate::source_links::specifier_links(
+    module_info,
+    source,
+    &crate::source_links::LinkContext {
+      scope,
+      package,
+      version,
+      current_path: path,
+      files: &files,
+      registry_url,
+    },
+  )
 }
 
 #[instrument(
@@ -2000,6 +2121,8 @@ pub async fn get_diff_handler(
     repo,
     false,
     package.runtime_compat,
+    // diff pages don't render usage instructions at all
+    false,
     registry_url,
     Some((diff, full)),
   );
@@ -2052,12 +2175,10 @@ pub async fn list_dependents_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  let dep_name = format!("@{}/{}", scope, package);
-
   let (total, deps) = db
     .list_package_dependents(
-      crate::db::DependencyKind::Jsr,
-      &dep_name,
+      &scope,
+      &package,
       start,
       limit,
       versions_per_package_limit,
@@ -2507,6 +2628,8 @@ async fn analyze_deps_tree(
         jsr_metadata_store: None,
 
         unstable_css_imports: false,
+        unstable_config_imports: false,
+        prefer_cached_jsr_versions: false,
       },
     )
     .await;
@@ -3749,6 +3872,110 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
   }
 
   #[tokio::test]
+  async fn package_manifests_include_github_repository() {
+    let mut t = TestSetup::new().await;
+
+    let task = process_tarball_setup(&t, create_mock_tarball("ok")).await;
+    assert_eq!(
+      task.status,
+      PublishingTaskStatus::Success,
+      "{:?}",
+      task.error
+    );
+
+    let scope = t.scope.scope.clone();
+    let name = PackageName::try_from("foo").unwrap();
+
+    let download_meta_json = |t: &TestSetup| {
+      let bucket = t.buckets.modules_bucket.clone();
+      async move {
+        let json = bucket
+          .download("@scope/foo/meta.json".into())
+          .await
+          .unwrap()
+          .unwrap();
+        serde_json::from_slice::<serde_json::Value>(&json).unwrap()
+      }
+    };
+    let download_npm_manifest = |t: &TestSetup| {
+      let bucket = t.buckets.npm_bucket.clone();
+      async move {
+        let json = bucket
+          .download("@jsr/scope__foo".into())
+          .await
+          .unwrap()
+          .unwrap();
+        serde_json::from_slice::<serde_json::Value>(&json).unwrap()
+      }
+    };
+
+    // No repository is linked yet, so the manifests don't contain one.
+    let meta_json = download_meta_json(&t).await;
+    assert!(meta_json.get("githubRepository").is_none());
+    let npm_json = download_npm_manifest(&t).await;
+    assert!(npm_json.get("repository").is_none());
+
+    t.ephemeral_database
+      .update_package_github_repository(
+        &t.user1.user.id,
+        false,
+        &scope,
+        &name,
+        NewGithubRepository {
+          id: 42,
+          owner: "octocat",
+          name: "hello-world",
+        },
+      )
+      .await
+      .unwrap();
+
+    // Yank state updates regenerate the manifests, which now include the
+    // linked repository.
+    let mut resp = t
+      .http()
+      .patch("/api/scopes/scope/packages/foo/versions/1.2.3")
+      .body_json(json!({ "yanked": false }))
+      .call()
+      .await
+      .unwrap();
+    resp.expect_ok_no_content().await;
+
+    let meta_json = download_meta_json(&t).await;
+    assert_eq!(
+      meta_json.get("githubRepository").unwrap(),
+      &json!({ "owner": "octocat", "name": "hello-world" })
+    );
+    let npm_json = download_npm_manifest(&t).await;
+    let expected_repository = json!({
+      "type": "git",
+      "url": "git+https://github.com/octocat/hello-world.git"
+    });
+    assert_eq!(npm_json.get("repository").unwrap(), &expected_repository);
+    assert_eq!(
+      npm_json["versions"]["1.2.3"].get("repository").unwrap(),
+      &expected_repository
+    );
+
+    // Unlinking the repository regenerates the manifests without it.
+    let mut resp = t
+      .http()
+      .patch("/api/scopes/scope/packages/foo")
+      .body_json(json!({ "githubRepository": null }))
+      .call()
+      .await
+      .unwrap();
+    let package: ApiPackage = resp.expect_ok().await;
+    assert!(package.github_repository.is_none());
+
+    let meta_json = download_meta_json(&t).await;
+    assert!(meta_json.get("githubRepository").is_none());
+    let npm_json = download_npm_manifest(&t).await;
+    assert!(npm_json.get("repository").is_none());
+    assert!(npm_json["versions"]["1.2.3"].get("repository").is_none());
+  }
+
+  #[tokio::test]
   async fn update_package_runtime_compat() {
     let mut t = TestSetup::new().await;
 
@@ -4152,7 +4379,8 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let task = process_tarball_setup(&t, create_mock_tarball("ok")).await;
     assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
 
-    // index page
+    // index page (pinned version): usage snippets install exactly this
+    // version, and the jsr specifier is pinned to it
     let mut resp = t
       .http()
       .get("/api/scopes/scope/packages/foo/versions/1.2.3/docs")
@@ -4166,11 +4394,38 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         comrak_css: _,
         script: _,
         breadcrumbs,
-        toc: _,
+        toc,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
         assert!(breadcrumbs.is_none(), "{:?}", breadcrumbs);
+        let toc_json = serde_json::to_string(&toc).unwrap();
+        assert!(
+          toc_json.contains("deno add jsr:@scope/foo@1.2.3"),
+          "{toc_json}"
+        );
+        assert!(toc_json.contains("jsr:@scope/foo@1.2.3"), "{toc_json}");
+      }
+      ApiPackageVersionDocs::Redirect { .. } => panic!(),
+    }
+
+    // index page (latest): add commands are unversioned, but the direct jsr
+    // specifier carries a caret constraint on the latest version
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/latest/docs")
+      .call()
+      .await
+      .unwrap();
+    let docs: ApiPackageVersionDocs = resp.expect_ok().await;
+    match docs {
+      ApiPackageVersionDocs::Content { toc, .. } => {
+        let toc_json = serde_json::to_string(&toc).unwrap();
+        assert!(
+          !toc_json.contains("deno add jsr:@scope/foo@1.2.3"),
+          "{toc_json}"
+        );
+        assert!(toc_json.contains("jsr:@scope/foo@^1.2.3"), "{toc_json}");
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
@@ -4339,6 +4594,43 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     resp
       .expect_err_code(StatusCode::NOT_FOUND, "diffDisabled")
       .await;
+  }
+
+  #[tokio::test]
+  async fn test_package_docs_merged_export_name() {
+    let mut t = TestSetup::new().await;
+
+    let task =
+      process_tarball_setup(&t, create_mock_tarball("merged_export_name"))
+        .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    // `ArrayExpression` is both a re-exported function (through a value
+    // `export *`) and an interface (through an `export type *`); the symbol
+    // page must show both.
+    let mut resp = t
+      .http()
+      .get(
+        "/api/scopes/scope/packages/foo/versions/1.2.3/docs?symbol=ArrayExpression",
+      )
+      .call()
+      .await
+      .unwrap();
+    let docs: ApiPackageVersionDocs = resp.expect_ok().await;
+    match docs {
+      ApiPackageVersionDocs::Content { main, .. } => {
+        let main = serde_json::to_string(&main).unwrap();
+        assert!(
+          main.contains("builder function"),
+          "function part missing from symbol page: {main}"
+        );
+        assert!(
+          main.contains("node interface"),
+          "interface part missing from symbol page: {main}"
+        );
+      }
+      ApiPackageVersionDocs::Redirect { .. } => panic!(),
+    }
   }
 
   #[tokio::test]
@@ -4655,6 +4947,73 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       ],
     );
     assert_eq!(dependents.total, 2);
+
+    // Packages that depend on this package through the npm compatibility
+    // layer (`npm:@jsr/scope__name`) are also counted as dependents.
+    let package_name = PackageName::try_from("qux").unwrap();
+    let version = Version::try_from("1.2.3").unwrap();
+    let task = crate::publish::tests::process_tarball_setup2(
+      &t,
+      create_mock_tarball("depends_on_ok_npm_mapped"),
+      &package_name,
+      &version,
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/qux/versions/1.2.3/dependencies")
+      .call()
+      .await
+      .unwrap();
+    let deps: Vec<ApiDependency> = resp.expect_ok().await;
+    assert_eq!(
+      deps,
+      vec![ApiDependency {
+        kind: ApiDependencyKind::Npm,
+        name: "@jsr/scope__foo".to_string(),
+        constraint: "1".to_string(),
+        path: "".to_string(),
+        fallback_url: None,
+      }],
+    );
+
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/dependents")
+      .call()
+      .await
+      .unwrap();
+    let dependents: ApiList<ApiDependent> = resp.expect_ok().await;
+    assert_eq!(
+      dependents.items,
+      vec![
+        ApiDependent {
+          scope: "scope".try_into().unwrap(),
+          package: "bar".try_into().unwrap(),
+          versions: vec![
+            "1.2.3".try_into().unwrap(),
+            "1.2.4".try_into().unwrap()
+          ],
+          total_versions: 2,
+        },
+        ApiDependent {
+          scope: "scope".try_into().unwrap(),
+          package: "baz".try_into().unwrap(),
+          versions: vec!["1.2.3".try_into().unwrap()],
+          total_versions: 1,
+        },
+        ApiDependent {
+          scope: "scope".try_into().unwrap(),
+          package: "qux".try_into().unwrap(),
+          versions: vec!["1.2.3".try_into().unwrap()],
+          total_versions: 1,
+        },
+      ],
+    );
+    assert_eq!(dependents.total, 3);
   }
 
   #[tokio::test]
@@ -5026,12 +5385,18 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let mut resp = t.http().get(url).call().await.unwrap();
     let body = resp.expect_ok::<ApiPackageVersionSource>().await;
 
-    let ApiSource::File { size, view } = body.source else {
+    let ApiSource::File {
+      size,
+      view,
+      rendered,
+    } = body.source
+    else {
       panic!();
     };
 
     assert_eq!(size, 124);
     assert!(view.is_some());
+    assert!(rendered.is_none());
 
     let url = format!(
       "/api/scopes/{}/packages/{}/versions/{}/source?path=/bin.bin",
@@ -5040,12 +5405,18 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let mut resp = t.http().get(url).call().await.unwrap();
     let body = resp.expect_ok::<ApiPackageVersionSource>().await;
 
-    let ApiSource::File { size, view } = body.source else {
+    let ApiSource::File {
+      size,
+      view,
+      rendered,
+    } = body.source
+    else {
       panic!();
     };
 
     assert_eq!(size, 1000);
     assert!(view.is_none());
+    assert!(rendered.is_none());
   }
 
   #[tokio::test]

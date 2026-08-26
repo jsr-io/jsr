@@ -43,12 +43,21 @@ pub struct NpmDistInfo {
   pub integrity: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct NpmRepositoryInfo {
+  #[serde(rename = "type")]
+  pub repository_type: String,
+  pub url: String,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NpmVersionInfo<'a> {
   pub name: NpmMappedJsrPackageName<'a>,
   pub version: Version,
   pub description: String,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub repository: Option<NpmRepositoryInfo>,
   pub dist: NpmDistInfo,
   pub dependencies: IndexMap<String, String>,
 }
@@ -57,6 +66,8 @@ pub struct NpmVersionInfo<'a> {
 pub struct NpmPackageInfo<'a> {
   pub name: NpmMappedJsrPackageName<'a>,
   pub description: String,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub repository: Option<NpmRepositoryInfo>,
   #[serde(rename = "dist-tags")]
   pub dist_tags: IndexMap<String, Version>,
   pub versions: IndexMap<Version, NpmVersionInfo<'a>>,

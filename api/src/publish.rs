@@ -46,13 +46,32 @@ use tracing::instrument;
 use url::Url;
 use uuid::Uuid;
 
+/// How many times a publishing task may fail with a retryable error before it
+/// is marked as failed instead of being handed back to the task queue. Without
+/// this bound, a deterministic "retryable" error (e.g. the database rejecting
+/// the version insert, jsr-io/jsr#1505) burns through all of Cloud Tasks'
+/// retries and then strands the task in `pending` forever, with the client
+/// polling indefinitely. Must be below the queue's `max_attempts` (30, see
+/// terraform/queues.tf) or Cloud Tasks gives up first and the failure is
+/// never recorded.
+const MAX_PUBLISH_ATTEMPTS: u32 = 10;
+
 #[instrument(
   name = "POST /tasks/publish",
   skip(req),
   err,
-  fields(publishing_task_id)
+  fields(publishing_task_id, task_retry_count)
 )]
 pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
+  // Number of times Cloud Tasks has retried this task; 0 on the first
+  // attempt. Absent when the handler is invoked outside Cloud Tasks.
+  let task_retry_count: u32 = req
+    .headers()
+    .get("X-CloudTasks-TaskRetryCount")
+    .and_then(|v| v.to_str().ok())
+    .and_then(|v| v.parse().ok())
+    .unwrap_or(0);
+  tracing::Span::current().record("task_retry_count", task_retry_count);
   let publishing_task_id: Uuid = decode_json(&mut req).await?;
 
   let db = req.data::<Database>().unwrap().clone();
@@ -67,6 +86,7 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
 
   publish_task(
     publishing_task_id,
+    task_retry_count,
     buckets,
     license_store,
     registry_url,
@@ -97,6 +117,7 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
 )]
 pub async fn publish_task(
   publish_id: Uuid,
+  task_retry_count: u32,
   buckets: Buckets,
   license_store: LicenseStore,
   registry_url: Url,
@@ -129,7 +150,30 @@ pub async fn publish_task(
         )
         .await;
         if let Err(err) = res {
-          // retryable errors
+          // A retryable error on the final allowed attempt is recorded as a
+          // failure so the client stops polling; before that, the task is
+          // handed back to the queue as `pending` for another attempt. The
+          // underlying error is only logged — it can contain infrastructure
+          // internals that don't belong in a user-facing message.
+          if task_retry_count + 1 >= MAX_PUBLISH_ATTEMPTS {
+            error!(
+              "publishing task failed after {} attempts, giving up: {}",
+              task_retry_count + 1,
+              err
+            );
+            db.update_publishing_task_status(
+              None,
+              publishing_task.id,
+              PublishingTaskStatus::Processing,
+              PublishingTaskStatus::Failure,
+              Some(PublishingTaskError {
+                code: "internalError".to_string(),
+                message: "the registry repeatedly failed to process this publish; please retry, and report the problem at https://github.com/jsr-io/jsr/issues if it keeps happening".to_string(),
+              }),
+            )
+            .await?;
+            return Ok(());
+          }
           db.update_publishing_task_status(
             None,
             publishing_task.id,
@@ -618,6 +662,7 @@ pub mod tests {
 
     publish_task(
       task.0.id,
+      0,
       t.buckets(),
       t.license_store(),
       t.registry_url(),
@@ -636,6 +681,147 @@ pub mod tests {
         .unwrap()
         .0,
     )
+  }
+
+  // Regression test for jsr-io/jsr#1505: a package with many undocumented
+  // entrypoints publishes successfully, and the stored meta records only a
+  // capped list of them.
+  #[tokio::test]
+  async fn publish_many_undocumented_entrypoints() {
+    let n = crate::analysis::MAX_ENTRYPOINTS_WITHOUT_DOCS + 50;
+
+    let mut tar_bytes = Vec::new();
+    let mut tar = tar::Builder::new(&mut tar_bytes);
+    let mut append = |path: &str, content: &[u8]| {
+      let mut header = tar::Header::new_gnu();
+      header.set_size(content.len() as u64);
+      header.set_mode(0o644);
+      header.set_cksum();
+      tar.append_data(&mut header, path, content).unwrap();
+    };
+
+    let mut exports = serde_json::Map::new();
+    exports.insert(".".into(), "./mod.ts".into());
+    append("mod.ts", b"/** Main module. */\nexport const a = 1;\n");
+    for i in 0..n {
+      // No module-level doc comment, so every one of these entrypoints lands
+      // in `meta.entrypoints_without_docs`.
+      append(
+        &format!("e{i}.ts"),
+        format!("export const e{i} = {i};\n").as_bytes(),
+      );
+      exports.insert(format!("./e{i}"), format!("./e{i}.ts").into());
+    }
+    let config = json!({
+      "name": "@scope/foo",
+      "version": "1.2.3",
+      "license": "MIT",
+      "exports": exports,
+    });
+    append("jsr.json", serde_json::to_vec(&config).unwrap().as_slice());
+    tar.finish().unwrap();
+    drop(tar);
+
+    let mut gz_bytes = Vec::new();
+    let mut encoder = GzEncoder::new(&mut gz_bytes, Compression::default());
+    encoder.write_all(&tar_bytes).unwrap();
+    encoder.finish().unwrap();
+
+    let t = TestSetup::new().await;
+    let task = process_tarball_setup(&t, Bytes::from(gz_bytes)).await;
+    assert_eq!(
+      task.status,
+      PublishingTaskStatus::Success,
+      "{:?}",
+      task.error
+    );
+
+    let package_name = PackageName::try_from("foo").unwrap();
+    let version = Version::try_from("1.2.3").unwrap();
+    let package_version = t
+      .db()
+      .get_package_version(
+        &"scope".try_into().unwrap(),
+        &package_name,
+        &version,
+      )
+      .await
+      .unwrap()
+      .unwrap();
+    assert!(!package_version.meta.all_entrypoints_docs);
+    assert_eq!(
+      package_version.meta.entrypoints_without_docs.len(),
+      crate::analysis::MAX_ENTRYPOINTS_WITHOUT_DOCS
+    );
+  }
+
+  #[tokio::test]
+  async fn publish_fails_fast_after_max_attempts() {
+    let t = TestSetup::new().await;
+    let scope_name = "scope".try_into().unwrap();
+    let package_name = PackageName::try_from("foo").unwrap();
+    let version = Version::try_from("1.2.3").unwrap();
+
+    let res = t
+      .db()
+      .create_package(&scope_name, &package_name)
+      .await
+      .unwrap();
+    assert!(matches!(res, crate::db::CreatePackageResult::Ok(_)));
+
+    let CreatePublishingTaskResult::Created(task) = t
+      .db()
+      .create_publishing_task(NewPublishingTask {
+        user_id: Some(t.user1.user.id),
+        package_scope: &scope_name,
+        package_name: &package_name,
+        package_version: &version,
+        config_file: &PackagePath::try_from("/jsr.json").unwrap(),
+      })
+      .await
+      .unwrap()
+    else {
+      unreachable!()
+    };
+
+    // No tarball was uploaded, so processing fails with a retryable error.
+    // Below the attempt cap the task goes back to `pending` for the queue to
+    // retry, and the error propagates so Cloud Tasks schedules that retry.
+    let run = |retry_count| {
+      publish_task(
+        task.0.id,
+        retry_count,
+        t.buckets(),
+        t.license_store(),
+        t.registry_url(),
+        t.npm_url(),
+        t.fallback_registry_url.clone(),
+        t.db(),
+        None,
+        CachePurge(None),
+      )
+    };
+    run(0).await.unwrap_err();
+    let (task_after, _) = t
+      .db()
+      .get_publishing_task(task.0.id)
+      .await
+      .unwrap()
+      .unwrap();
+    assert_eq!(task_after.status, PublishingTaskStatus::Pending);
+    assert!(task_after.error.is_none());
+
+    // On the final allowed attempt the task is marked as failed instead, so
+    // clients stop polling (jsr-io/jsr#1505).
+    run(MAX_PUBLISH_ATTEMPTS - 1).await.unwrap();
+    let (task_after, _) = t
+      .db()
+      .get_publishing_task(task.0.id)
+      .await
+      .unwrap()
+      .unwrap();
+    assert_eq!(task_after.status, PublishingTaskStatus::Failure);
+    assert_eq!(task_after.error.unwrap().code, "internalError");
   }
 
   pub fn create_mock_tarball(name: &str) -> Bytes {

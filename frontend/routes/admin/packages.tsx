@@ -7,6 +7,7 @@ import { URLQuerySearch } from "./(_components)/URLQuerySearch.tsx";
 import { define } from "../../util.ts";
 import twas from "twas";
 import { AdminCopyButton } from "./(_islands)/AdminCopyButton.tsx";
+import { RecomputeVersionMeta } from "./(_islands)/RecomputeVersionMeta.tsx";
 
 export default define.page<typeof handler>(function Packages({ data, url }) {
   return (
@@ -33,6 +34,7 @@ export default define.page<typeof handler>(function Packages({ data, url }) {
             fieldName: "created_at",
             align: "right",
           },
+          { title: "", class: "w-0", align: "right" },
         ]}
         pagination={data}
         sortBy={data.sortBy}
@@ -95,6 +97,9 @@ export default define.page<typeof handler>(function Packages({ data, url }) {
               align="right"
             >
               {twas(new Date(pkg.createdAt).getTime())}
+            </TableData>
+            <TableData align="right">
+              <RecomputeVersionMeta scope={pkg.scope} pkg={pkg.name} />
             </TableData>
           </TableRow>
         ))}

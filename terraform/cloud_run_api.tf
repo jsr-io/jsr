@@ -21,6 +21,8 @@ locals {
     "DOCS_BUCKET"       = cloudflare_r2_bucket.docs.name
     "NPM_BUCKET"        = cloudflare_r2_bucket.npm.name
 
+    "TICKET_ATTACHMENTS_BUCKET" = cloudflare_r2_bucket.ticket_attachments.name
+
     "S3_REGION"     = "auto"
     "S3_ENDPOINT"   = "${var.cloudflare_account_id}.r2.cloudflarestorage.com"
     "S3_ACCESS_KEY" = cloudflare_account_token.buckets_rw.id
@@ -46,11 +48,17 @@ locals {
     "REGISTRY_URL" = "https://${var.domain_name}"
     "NPM_URL"      = "https://${local.npm_domain}"
 
-    "EMAIL_FROM"      = "help@${var.domain_name}"
-    "EMAIL_FROM_NAME" = var.email_from_name
+    "EMAIL_FROM" = "help@${var.domain_name}"
+
+    // Support mail is forwarded from the Google Workspace inbox to Postmark, so
+    // Postmark's own SPF check sees the forwarder rather than the sender. The
+    // Workspace results, recorded before the hop, are trusted instead.
+    "INBOUND_TRUSTED_AUTHSERV_ID" = "mx.google.com"
+    "EMAIL_FROM_NAME"             = var.email_from_name
 
     "PUBLISH_QUEUE_ID"           = "projects/${var.gcp_project}/locations/us-central1/queues/${local.publishing_tasks_queue_name}"
     "NPM_TARBALL_BUILD_QUEUE_ID" = "projects/${var.gcp_project}/locations/us-central1/queues/${local.npm_tarball_build_tasks_queue_name}"
+    "EMAIL_QUEUE_ID"             = "projects/${var.gcp_project}/locations/us-central1/queues/${local.email_delivery_queue_name}"
 
     "LOGS_BIGQUERY_TABLE_ID" = "${data.google_bigquery_dataset.default.dataset_id}._Default"
     "GCP_PROJECT_ID"         = var.gcp_project
@@ -142,6 +150,16 @@ resource "google_cloud_run_v2_service" "registry_api" {
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.postmark_token.id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "POSTMARK_WEBHOOK_PASSWORD"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.postmark_webhook_password.id
             version = "latest"
           }
         }
@@ -251,11 +269,26 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
     # task.
     max_instance_request_concurrency = 1
 
+    # Publishing a package with tens of thousands of files needs longer than
+    # the 300s default. Cloud Tasks abandons a buffered dispatch after its
+    # fixed 10 minute deadline, so anything above 600s is unreachable anyway.
+    timeout = "600s"
+
     containers {
       image = var.api_image_id
       args = [
         "--tasks", "--api=false", "--database_pool_size=1"
       ]
+
+      # Analyzing a package with ~20k modules peaks near 512Mi (the default
+      # limit), which risks the instance being OOM-killed mid-publish and the
+      # task stranding in `processing` until the reaper picks it up.
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "2Gi"
+        }
+      }
 
       dynamic "env" {
         for_each = local.api_envs
@@ -281,6 +314,19 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.gitlab_client_secret.id
+            version = "latest"
+          }
+        }
+      }
+
+      // Outgoing email is delivered by /tasks/send_email, which runs here
+      // rather than on the API service, so the Postmark credential has to be
+      // present on this service too.
+      env {
+        name = "POSTMARK_TOKEN"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.postmark_token.id
             version = "latest"
           }
         }
@@ -362,6 +408,12 @@ resource "google_secret_manager_secret_iam_member" "postmark_token" {
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }
 
+resource "google_secret_manager_secret_iam_member" "postmark_webhook_password" {
+  secret_id = google_secret_manager_secret.postmark_webhook_password.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.registry_api.email}"
+}
+
 resource "google_secret_manager_secret_iam_member" "algolia_write_api_key" {
   secret_id = google_secret_manager_secret.algolia_write_api_key.id
   role      = "roles/secretmanager.secretAccessor"
@@ -382,6 +434,12 @@ resource "google_cloud_tasks_queue_iam_member" "publishing_tasks" {
 
 resource "google_cloud_tasks_queue_iam_member" "npm_tarball_build_tasks" {
   name   = google_cloud_tasks_queue.npm_tarball_build_tasks.id
+  role   = "roles/cloudtasks.enqueuer"
+  member = "serviceAccount:${google_service_account.registry_api.email}"
+}
+
+resource "google_cloud_tasks_queue_iam_member" "email_delivery" {
+  name   = google_cloud_tasks_queue.email_delivery.id
   role   = "roles/cloudtasks.enqueuer"
   member = "serviceAccount:${google_service_account.registry_api.email}"
 }

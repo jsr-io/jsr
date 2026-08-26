@@ -464,6 +464,9 @@ pub struct ApiPackage {
   pub when_featured: Option<DateTime<Utc>>,
   pub is_archived: bool,
   pub readme_source: ApiReadmeSource,
+  /// Symbols documented by the latest version, or `None` for packages whose
+  /// latest version predates the count being recorded.
+  pub symbol_count: Option<u32>,
 }
 
 impl From<PackageWithGitHubRepoAndMeta> for ApiPackage {
@@ -487,6 +490,12 @@ impl From<PackageWithGitHubRepoAndMeta> for ApiPackage {
         .latest_version
         .as_ref()
         .map(|_| score.score_percentage()),
+      // a package with no published version has no docs to count symbols in
+      symbol_count: if package.latest_version.is_some() {
+        meta.symbol_count
+      } else {
+        None
+      },
       latest_version: package.latest_version,
       when_featured: package.when_featured,
       is_archived: package.is_archived,
@@ -631,6 +640,9 @@ pub struct ApiPackageVersion {
   pub readme_path: Option<PackagePath>,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
+  /// Symbols documented by this specific version, or `None` for versions
+  /// published before the count was recorded.
+  pub symbol_count: Option<u32>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -686,6 +698,7 @@ impl From<PackageVersion> for ApiPackageVersion {
       readme_path: value.readme_path,
       updated_at: value.updated_at,
       created_at: value.created_at,
+      symbol_count: value.meta.symbol_count,
     }
   }
 }
@@ -704,6 +717,7 @@ impl From<PackageVersionWithNewerVersionsCount> for ApiPackageVersion {
       readme_path: value.readme_path,
       updated_at: value.updated_at,
       created_at: value.created_at,
+      symbol_count: value.meta.symbol_count,
     }
   }
 }
@@ -726,8 +740,15 @@ pub struct ApiSourceDirEntry {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum ApiSource {
-  Dir { entries: Vec<ApiSourceDirEntry> },
-  File { size: usize, view: Option<String> },
+  Dir {
+    entries: Vec<ApiSourceDirEntry>,
+  },
+  File {
+    size: usize,
+    view: Option<String>,
+    /// Rendered HTML, present for markdown files.
+    rendered: Option<String>,
+  },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -1053,12 +1074,80 @@ pub struct ApiPackageDownloadsRecentVersion {
   pub downloads: Vec<ApiDownloadDataPoint>,
 }
 
+/// Who wrote a ticket message, or opened the ticket. A ticket that arrived by
+/// email has only an address behind it until somebody claims it.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+pub enum ApiTicketActor {
+  User {
+    user: ApiUser,
+  },
+  #[serde(rename_all = "camelCase")]
+  Email {
+    name: Option<String>,
+    email: String,
+    /// Whether the sending domain passed SPF and DKIM. False means the address
+    /// is unproven and should be treated as such in the UI.
+    email_verified: bool,
+  },
+  /// JSR itself — the automatic acknowledgement sent when a ticket is opened by
+  /// email.
+  System,
+}
+
+impl
+  From<(
+    Option<UserPublic>,
+    Option<String>,
+    Option<String>,
+    Option<bool>,
+  )> for ApiTicketActor
+{
+  fn from(
+    (user, email, name, email_verified): (
+      Option<UserPublic>,
+      Option<String>,
+      Option<String>,
+      Option<bool>,
+    ),
+  ) -> Self {
+    match (user, email) {
+      (Some(user), _) => ApiTicketActor::User { user: user.into() },
+      (None, Some(email)) => ApiTicketActor::Email {
+        name,
+        email,
+        email_verified: email_verified.unwrap_or(false),
+      },
+      (None, None) => ApiTicketActor::System,
+    }
+  }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiTicketAttachment {
+  pub id: Uuid,
+  pub filename: String,
+  pub content_type: String,
+  pub size_bytes: i32,
+}
+
+impl From<TicketAttachment> for ApiTicketAttachment {
+  fn from(value: TicketAttachment) -> Self {
+    Self {
+      id: value.id,
+      filename: value.filename,
+      content_type: value.content_type,
+      size_bytes: value.size_bytes,
+    }
+  }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum ApiTicketMessageOrAuditLog {
   Message {
-    message: TicketMessage,
-    user: UserPublic,
+    message: ApiTicketMessage,
   },
   #[serde(rename_all = "camelCase")]
   AuditLog {
@@ -1071,27 +1160,42 @@ pub enum ApiTicketMessageOrAuditLog {
 #[serde(rename_all = "camelCase")]
 pub struct ApiTicketOverview {
   pub id: Uuid,
+  pub ticket_number: String,
   pub kind: TicketKind,
-  pub creator: ApiUser,
+  pub reporter: ApiTicketActor,
+  /// The email subject an email-opened ticket arrived with. Null for tickets
+  /// opened through the web UI, whose title comes from `kind` and `meta`.
+  pub subject: Option<String>,
   pub meta: serde_json::Value,
-  pub closed: bool,
+  pub status: TicketStatus,
   pub events: Vec<ApiTicketMessageOrAuditLog>,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
 }
 
-impl From<(Ticket, User, Vec<ApiTicketMessageOrAuditLog>)>
-  for ApiTicketOverview
-{
-  fn from(
-    (value, user, events): (Ticket, User, Vec<ApiTicketMessageOrAuditLog>),
+impl ApiTicketOverview {
+  /// Builds the response for a particular viewer. See
+  /// [`ApiTicket::for_viewer`] for why this is not a `From` impl; the events
+  /// passed in must already have been filtered for that viewer.
+  pub fn new(
+    value: Ticket,
+    user: Option<User>,
+    events: Vec<ApiTicketMessageOrAuditLog>,
   ) -> Self {
     Self {
       id: value.id,
+      ticket_number: value.ticket_number,
       kind: value.kind,
-      creator: user.into(),
+      reporter: (
+        user.map(UserPublic::from),
+        value.reporter_email,
+        value.reporter_name,
+        Some(true),
+      )
+        .into(),
+      subject: value.subject,
       meta: value.meta,
-      closed: value.closed,
+      status: value.status,
       events,
       updated_at: value.updated_at,
       created_at: value.created_at,
@@ -1103,26 +1207,45 @@ impl From<(Ticket, User, Vec<ApiTicketMessageOrAuditLog>)>
 #[serde(rename_all = "camelCase")]
 pub struct ApiTicket {
   pub id: Uuid,
+  pub ticket_number: String,
   pub kind: TicketKind,
-  pub creator: ApiUser,
+  pub reporter: ApiTicketActor,
+  pub subject: Option<String>,
   pub meta: serde_json::Value,
-  pub closed: bool,
+  pub status: TicketStatus,
   pub messages: Vec<ApiTicketMessage>,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
 }
 
-impl From<(Ticket, User, Vec<(TicketMessage, UserPublic)>)> for ApiTicket {
-  fn from(
-    (value, user, messages): (Ticket, User, Vec<(TicketMessage, UserPublic)>),
-  ) -> Self {
+impl ApiTicket {
+  /// Builds the response for a particular viewer.
+  ///
+  /// Deliberately not a `From` impl. Staff notes live in the same message list
+  /// as the conversation, so every path that returns a ticket has to decide
+  /// whether the person reading is allowed to see them — and a conversion that
+  /// could be reached by `.into()` is one that will eventually be reached
+  /// without that decision being made.
+  pub fn for_viewer(full: FullTicket, viewer_is_staff: bool) -> Self {
+    let (value, user, messages) = full;
+    let messages = messages
+      .into_iter()
+      .filter(|(message, ..)| viewer_is_staff || !message.internal);
     Self {
       id: value.id,
+      ticket_number: value.ticket_number,
       kind: value.kind,
-      creator: user.into(),
+      reporter: (
+        user.map(UserPublic::from),
+        value.reporter_email,
+        value.reporter_name,
+        Some(true),
+      )
+        .into(),
+      subject: value.subject,
       meta: value.meta,
-      closed: value.closed,
-      messages: messages.into_iter().map(|message| message.into()).collect(),
+      status: value.status,
+      messages: messages.map(|message| message.into()).collect(),
       updated_at: value.updated_at,
       created_at: value.created_at,
     }
@@ -1132,17 +1255,33 @@ impl From<(Ticket, User, Vec<(TicketMessage, UserPublic)>)> for ApiTicket {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiTicketMessage {
-  pub author: ApiUser,
+  pub id: Uuid,
+  pub author: ApiTicketActor,
+  pub direction: TicketMessageDirection,
+  /// A note staff wrote to each other. Only ever present for a staff viewer —
+  /// see [`ApiTicket::for_viewer`].
+  pub internal: bool,
   pub message: String,
+  pub attachments: Vec<ApiTicketAttachment>,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
 }
 
-impl From<(TicketMessage, UserPublic)> for ApiTicketMessage {
-  fn from((value, user): (TicketMessage, UserPublic)) -> Self {
+impl From<FullTicketMessage> for ApiTicketMessage {
+  fn from((value, user, attachments): FullTicketMessage) -> Self {
     Self {
-      author: user.into(),
+      id: value.id,
+      author: (
+        user,
+        value.author_email,
+        value.author_name,
+        value.author_email_verified,
+      )
+        .into(),
+      direction: value.direction,
+      internal: value.internal,
       message: value.message,
+      attachments: attachments.into_iter().map(Into::into).collect(),
       updated_at: value.updated_at,
       created_at: value.created_at,
     }
@@ -1152,7 +1291,7 @@ impl From<(TicketMessage, UserPublic)> for ApiTicketMessage {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiAdminUpdateTicketRequest {
-  pub closed: Option<bool>,
+  pub status: Option<TicketStatus>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

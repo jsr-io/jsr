@@ -167,6 +167,8 @@ async fn analyze_package_inner(
         unstable_text_imports: false,
         jsr_metadata_store: None,
         unstable_css_imports: false,
+        unstable_config_imports: false,
+        prefer_cached_jsr_versions: false,
       },
     )
     .await;
@@ -232,7 +234,7 @@ async fn analyze_package_inner(
   .await
   .map_err(PublishError::NpmTarballError)?;
 
-  let (meta, readme_path) = {
+  let (mut meta, readme_path) = {
     let readme = files
       .iter()
       .find(|file| file.0.case_insensitive().is_readme());
@@ -271,9 +273,13 @@ async fn analyze_package_inner(
       workerd: None,
       bun: None,
     },
+    // only the search index is taken from this ctx, so usage instructions
+    // don't matter here
+    false,
     registry_url.to_string(),
     None,
   );
+  meta.symbol_count = Some(count_symbols(&ctx));
   let search_index = deno_doc::html::generate_search_index(&ctx);
   let doc_search_json = if let serde_json::Value::Object(mut obj) = search_index
   {
@@ -343,8 +349,48 @@ fn generate_score(
     ),
     all_fast_check,
     has_provenance: false, // Provenance score is updated after version publish
+    // filled in once the render context exists, see `count_symbols`
+    symbol_count: None,
   }
 }
+
+/// Counts the symbols the generated docs actually list for a package: every
+/// exported symbol of every entrypoint, plus namespace members, minus the ones
+/// hidden from the listings (`@internal` and non-exported types).
+///
+/// Deduplicated per `(file, qualified name)` the same way the search index is,
+/// so a symbol re-exported from several entrypoints counts once per entrypoint
+/// it is documented under, and never twice within one. Class/interface members
+/// are not counted: they are part of their parent symbol, not separate entries
+/// in the listings.
+fn count_symbols(ctx: &deno_doc::html::GenerateCtx) -> u32 {
+  let mut seen = HashSet::new();
+
+  for (short_path, nodes) in &ctx.doc_nodes {
+    for node in deno_doc::html::partition::flatten_namespace(
+      ctx,
+      nodes.iter().map(std::borrow::Cow::Borrowed),
+    ) {
+      if node.is_internal(ctx) {
+        continue;
+      }
+      seen.insert((
+        short_path.path.clone(),
+        node.get_qualified_name().to_string(),
+      ));
+    }
+  }
+
+  seen.len() as u32
+}
+
+/// Cap on how many undocumented entrypoints are recorded in
+/// `PackageVersionMeta`. The full list is unbounded (one entry per export) and
+/// `meta` is stored in the database and returned in API responses, so a
+/// package with tens of thousands of undocumented entrypoints would bloat
+/// both (jsr-io/jsr#1505). `all_entrypoints_docs` stays accurate: a capped
+/// list is non-empty iff the uncapped list was.
+pub(crate) const MAX_ENTRYPOINTS_WITHOUT_DOCS: usize = 100;
 
 fn entrypoints_missing_module_doc(
   documents_by_url: &ParseOutput,
@@ -392,6 +438,7 @@ fn entrypoints_missing_module_doc(
     missing.push(name);
   }
 
+  missing.truncate(MAX_ENTRYPOINTS_WITHOUT_DOCS);
   missing
 }
 
@@ -416,6 +463,14 @@ fn percentage_of_symbols_with_docs(documents_by_url: &ParseOutput) -> f32 {
         .iter()
         .filter(|decl| {
           decl.declaration_kind != deno_doc::node::DeclarationKind::Private
+            // Skip re-export references: their docs live at the target
+            // declaration, which is counted where it is defined. Counting the
+            // (always doc-less) reference too would double-count every
+            // re-exported symbol as undocumented (jsr-io/jsr#988).
+            && !matches!(
+              &decl.def,
+              deno_doc::node::DeclarationDef::Reference(_)
+            )
         })
         .collect();
 
@@ -658,6 +713,8 @@ async fn rebuild_npm_tarball_inner(
         unstable_text_imports: false,
         jsr_metadata_store: None,
         unstable_css_imports: false,
+        unstable_config_imports: false,
+        prefer_cached_jsr_versions: false,
       },
     )
     .await;
@@ -1383,6 +1440,61 @@ mod tests {
     );
   }
 
+  // Regression test for jsr-io/jsr#988: a symbol re-exported from another
+  // entrypoint appears there as a doc-less `Reference` declaration; it must
+  // not be counted as an undocumented symbol.
+  #[test]
+  fn percentage_docs_skips_reexport_references() {
+    let target_location = deno_doc::Location {
+      filename: "file:///util.ts".into(),
+      line: 1,
+      col: 0,
+      byte_index: 19,
+    };
+
+    // util.ts: the actual (documented) definition.
+    let util_symbol = make_symbol(
+      "hello",
+      vec![make_declaration(
+        make_js_doc(Some("Says hello.")),
+        make_fn_decl(true),
+      )],
+    );
+    let util_doc = make_document(make_js_doc(None), vec![util_symbol]);
+
+    // mod.ts: `export { hello } from "./util.ts"` — a Reference with no docs.
+    let reexport_symbol = make_symbol(
+      "hello",
+      vec![make_declaration(
+        make_js_doc(None),
+        deno_doc::node::DeclarationDef::Reference(
+          deno_doc::node::ReferenceDef {
+            target: target_location,
+          },
+        ),
+      )],
+    );
+    let mod_doc = make_document(make_js_doc(None), vec![reexport_symbol]);
+
+    let mut output = indexmap::IndexMap::new();
+    output.insert(
+      deno_ast::ModuleSpecifier::parse("file:///util.ts").unwrap(),
+      util_doc,
+    );
+    output.insert(
+      deno_ast::ModuleSpecifier::parse("file:///mod.ts").unwrap(),
+      mod_doc,
+    );
+
+    // Only the real declaration in util.ts counts, and it is documented.
+    let pct = super::percentage_of_symbols_with_docs(&output);
+    assert!(
+      (pct - 1.0).abs() < f32::EPSILON,
+      "Expected 100% but got {:.0}%",
+      pct * 100.0,
+    );
+  }
+
   #[test]
   fn entrypoints_missing_docs_returns_export_names() {
     let doc_with = make_document(make_js_doc(Some("Module doc")), vec![]);
@@ -1411,6 +1523,25 @@ mod tests {
     );
 
     assert_eq!(missing, vec!["./utils".to_string()]);
+  }
+
+  #[test]
+  fn entrypoints_missing_docs_caps_list() {
+    let mut output = indexmap::IndexMap::new();
+    let mut exports_map = indexmap::IndexMap::new();
+    for i in 0..(super::MAX_ENTRYPOINTS_WITHOUT_DOCS + 50) {
+      output.insert(
+        deno_ast::ModuleSpecifier::parse(&format!("file:///m{i}.ts")).unwrap(),
+        make_document(make_js_doc(None), vec![]),
+      );
+      exports_map.insert(format!("./m{i}"), format!("./m{i}.ts"));
+    }
+    let exports = crate::db::ExportsMap::new(exports_map);
+
+    let missing =
+      super::entrypoints_missing_module_doc(&output, None, false, &exports);
+
+    assert_eq!(missing.len(), super::MAX_ENTRYPOINTS_WITHOUT_DOCS);
   }
 
   #[test]

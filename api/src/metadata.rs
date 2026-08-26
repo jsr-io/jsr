@@ -15,6 +15,10 @@ use std::collections::HashMap;
 /// {
 ///   "scope": "ry",
 ///   "name": "foo",
+///   "githubRepository": {
+///     "owner": "ry",
+///     "name": "foo"
+///   },
 ///   "versions": {
 ///     "0.1.2": {
 ///       "yanked": true,
@@ -32,7 +36,19 @@ pub struct PackageMetadata {
   pub scope: ScopeName,
   pub name: PackageName,
   pub latest: Option<Version>,
+  #[serde(
+    rename = "githubRepository",
+    skip_serializing_if = "Option::is_none",
+    default
+  )]
+  pub github_repository: Option<PackageMetadataGithubRepository>,
   pub versions: HashMap<Version, PackageMetadataVersion>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct PackageMetadataGithubRepository {
+  pub owner: String,
+  pub name: String,
 }
 
 impl PackageMetadata {
@@ -41,6 +57,10 @@ impl PackageMetadata {
     scope: &ScopeName,
     package_name: &PackageName,
   ) -> anyhow::Result<Self> {
+    let (_, github_repository, _) =
+      db.get_package(scope, package_name).await?.ok_or_else(|| {
+        anyhow::anyhow!("package not found: @{scope}/{package_name}")
+      })?;
     let mut versions = db
       .list_package_versions_for_metadata(scope, package_name)
       .await?;
@@ -56,6 +76,12 @@ impl PackageMetadata {
       scope: scope.to_owned(),
       name: package_name.to_owned(),
       latest,
+      github_repository: github_repository.map(|repo| {
+        PackageMetadataGithubRepository {
+          owner: repo.owner,
+          name: repo.name,
+        }
+      }),
       versions: HashMap::new(),
     };
     for version in versions {

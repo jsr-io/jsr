@@ -223,21 +223,75 @@ database — they live in R2.
 | `authorizations`               | OAuth tokens and personal access tokens             |
 | `download_counts`              | JSR and npm download metrics                        |
 | `audit_log`                    | Administrative action history                       |
-| `support_tickets`              | User support tickets and messages                   |
+| `email_deliveries`             | Outbox for outgoing email, delivered by Cloud Tasks |
+| `tickets`                      | Support tickets, opened on the web or by email      |
+| `ticket_messages`              | Messages on a ticket, in either direction           |
+| `ticket_attachments`           | Files that arrived attached to an inbound email     |
 
 Migrations are in `api/migrations/` and managed by sqlx. Version columns use
 natural collation so `1.10.0` sorts after `1.9.0`.
 
+## Support tickets
+
+A ticket is opened either through the web UI by a signed-in user, or by anyone
+emailing the support address. Postmark delivers inbound mail to
+`POST /api/hooks/postmark` (`api/src/api/hooks.rs`), authenticated with basic
+auth against `POSTMARK_WEBHOOK_PASSWORD`.
+
+An email-opened ticket has no `creator` — it belongs to `reporter_email` until
+somebody claims it with the token from the auto-reply, which binds it to their
+account. Every ticket email is sent under a `Message-ID` that is recorded on the
+message it announces, so a reply's `In-Reply-To` / `References` headers identify
+the ticket it belongs to; the `TICKET-YYYYMMDD-XXXXX` number in the subject is
+the fallback for clients that drop those headers.
+`ticket_messages.email_message_id` is unique, which is what makes a redelivered
+webhook a no-op rather than a duplicate.
+
+Whether a sender's address is proven is recorded per message and shown in the
+UI. Postmark's own SPF check only means something for mail delivered to it
+directly: support mail is forwarded from the Google Workspace inbox, so Postmark
+sees the forwarder as the sender and SPF fails regardless of who wrote in. The
+result Workspace recorded before forwarding survives the hop, so that is read
+instead — but only from the server named by `INBOUND_TRUSTED_AUTHSERV_ID`, and
+only the first such header, because each hop prepends its own and anyone can put
+a forged `Authentication-Results` in the mail they send. Unset the variable and
+only Postmark's own check is used.
+
+The Postmark inbound stream's webhook URL is configured in the Postmark
+dashboard, not in terraform:
+`https://webhook:<POSTMARK_WEBHOOK_PASSWORD>@api.jsr.io/hooks/postmark`.
+
+## Outgoing email
+
+Email is never sent inline in a request. Sending is rendered at the point of the
+action and written to `email_deliveries`, then handed to a Cloud Tasks queue
+that POSTs `/tasks/send_email`; that handler is what talks to Postmark. A
+transient Postmark failure therefore retries out of band instead of failing the
+request that caused the mail — an admin ticket reply is saved once and delivered
+independently, rather than returning 500 with the reply already committed.
+
+The delivery row is committed before Cloud Tasks is told about it, so a failed
+hand-off leaves a row nothing would pick up. `/tasks/sweep_pending_emails`, run
+every five minutes by Cloud Scheduler, re-drives those. Re-driving is safe: a
+row that has already been sent is skipped, and a redelivered task reuses the
+same `Message-ID`, so even a genuine double-send is collapsed by the recipient's
+mail client. A delivery that keeps failing is abandoned after eight attempts and
+kept with its last error rather than deleted.
+
+With no queue configured — local development and tests — deliveries are sent
+inline instead.
+
 ## Storage (Cloudflare R2)
 
-Four R2 buckets hold all published artifacts:
+Five R2 buckets hold all stored files:
 
-| Bucket       | Contents                                    |
-| ------------ | ------------------------------------------- |
-| `publishing` | Temporary tarball uploads during publish    |
-| `modules`    | Published package source files and metadata |
-| `docs`       | Generated HTML documentation                |
-| `npm`        | NPM compatibility tarballs                  |
+| Bucket               | Contents                                    |
+| -------------------- | ------------------------------------------- |
+| `publishing`         | Temporary tarball uploads during publish    |
+| `modules`            | Published package source files and metadata |
+| `docs`               | Generated HTML documentation                |
+| `npm`                | NPM compatibility tarballs                  |
+| `ticket-attachments` | Files attached to inbound support email     |
 
 The `modules` bucket is served directly through the Cloudflare Worker with
 strict access controls — browsers cannot navigate directly to untrusted source

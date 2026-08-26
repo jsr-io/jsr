@@ -1,0 +1,37 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO tickets (kind, creator, meta) VALUES ($1, $2, $3) RETURNING id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ticket_kind",
+            "kind": {
+              "Enum": [
+                "user_scope_quota_increase",
+                "scope_quota_increase",
+                "scope_claim",
+                "package_report",
+                "other"
+              ]
+            }
+          }
+        },
+        "Uuid",
+        "Jsonb"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "12a9310c1545b8bf4c9656df981403e6a69b8d4af7b8d08fd90227a3e438b35b"
+}

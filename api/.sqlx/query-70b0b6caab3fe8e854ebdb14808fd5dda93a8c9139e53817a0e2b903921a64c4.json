@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT ticket_attachments.id, ticket_attachments.message_id, ticket_attachments.filename, ticket_attachments.content_type, ticket_attachments.size_bytes, ticket_attachments.storage_key, ticket_attachments.created_at\n        FROM ticket_attachments\n        INNER JOIN ticket_messages ON ticket_messages.id = ticket_attachments.message_id\n        WHERE ticket_messages.ticket_id = $1\n        ORDER BY ticket_attachments.created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "message_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "filename",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "content_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "size_bytes",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "storage_key",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "70b0b6caab3fe8e854ebdb14808fd5dda93a8c9139e53817a0e2b903921a64c4"
+}
