@@ -43,6 +43,11 @@ errors!(
     status: NOT_FOUND,
     "The requested package version was not found.",
   },
+  PackageAnalysisFailed {
+    status: BAD_REQUEST,
+    fields: { msg: String },
+    ({ msg }) => "Failed to re-analyze the package version: {msg}.",
+  },
   DiffNoIndex {
     status: NOT_FOUND,
     "Diffs do not have an index.",
