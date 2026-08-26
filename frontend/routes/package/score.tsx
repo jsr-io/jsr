@@ -93,8 +93,9 @@ function ScoreInfo(props: {
         </div>
         <div class="text-tertiary text-sm text-center mt-6">
           The JSR score is an overall measure of the quality of{" "}
-          {version ? "this version" : "the latest version"} of a package, based
-          on factors such as documentation and runtime compatibility.
+          {version ? "this version" : "the latest version"}{" "}
+          of a package, based on factors such as documentation and runtime
+          compatibility.
         </div>
       </div>
 
