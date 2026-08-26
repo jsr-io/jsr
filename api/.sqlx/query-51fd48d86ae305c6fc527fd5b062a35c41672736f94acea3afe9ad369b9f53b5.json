@@ -1,0 +1,69 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO package_files (scope, name, version, path, size, checksum)\n      VALUES ($1, $2, $3, $4, $5, $6)\n      RETURNING scope as \"scope: ScopeName\", name as \"name: PackageName\", version as \"version: Version\", path as \"path: PackagePath\", size, checksum, updated_at, created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "scope: ScopeName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "name: PackageName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "version: Version",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "path: PackagePath",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "size",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "checksum",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Int4",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "51fd48d86ae305c6fc527fd5b062a35c41672736f94acea3afe9ad369b9f53b5"
+}
