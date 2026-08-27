@@ -42,6 +42,19 @@ export default define.page<typeof handler>(function PackagePage(
             showProvenanceBadge
           />
         )
+        : data.selectedVersion
+        ? (
+          <div class="mt-8 text-tertiary text-center">
+            Documentation is only available for the{" "}
+            <a
+              class="link"
+              href={`/@${data.package.scope}/${data.package.name}`}
+            >
+              latest version
+            </a>{" "}
+            of a package.
+          </div>
+        )
         : (
           <div class="mt-8 text-tertiary text-center">
             This package has not published{" "}

@@ -127,14 +127,35 @@ export async function packageDataWithDocs(
       if (pkgDocsResp.code === "scopeNotFound") return null;
       if (pkgDocsResp.code === "packageNotFound") return null;
       if (pkgDocsResp.code === "docsOnlyForLatestVersion") {
-        // Docs are only served for the latest version; redirect to the
-        // canonical (versionless) docs URL for the latest version.
-        return new Response(null, {
-          status: 302,
-          headers: {
-            Location: `/@${scope}/${pkg}/doc${compileDocsRequestPath(docs)}`,
-          },
-        });
+        if ("entrypoint" in docs || "all_symbols" in docs) {
+          // Docs are only served for the latest version; redirect to the
+          // canonical (versionless) docs URL for the latest version.
+          return new Response(null, {
+            status: 302,
+            headers: {
+              Location: `/@${scope}/${pkg}/doc${compileDocsRequestPath(docs)}`,
+            },
+          });
+        }
+
+        // The package overview page of a non-latest version: render it
+        // without docs instead of redirecting away from the version.
+        const pkgVersionResp = await state.api.get<PackageVersionWithUser>(
+          path`/scopes/${scope}/packages/${pkg}/versions/${version!}`,
+        );
+        if (!pkgVersionResp.ok) {
+          if (pkgVersionResp.code === "packageVersionNotFound") return null;
+          if (pkgVersionResp.code === "scopeNotFound") return null;
+          if (pkgVersionResp.code === "packageNotFound") return null;
+          assertOk(pkgVersionResp);
+        }
+        return {
+          ...data,
+          kind: "content",
+          selectedVersion: pkgVersionResp.data,
+          selectedVersionIsLatestUnyanked: false,
+          docs: null,
+        };
       }
       if (pkgDocsResp.code === "entrypointOrSymbolNotFound") {
         // redirect to all symbols page if there is no default entrypoint
