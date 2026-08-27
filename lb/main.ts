@@ -1,7 +1,12 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import type { WorkerEnv } from "./types.ts";
-import { type ExecutionCtx, proxyToBackend, proxyToR2 } from "./proxy.ts";
+import {
+  type ExecutionCtx,
+  isBucketCachePath,
+  proxyToBackend,
+  proxyToR2,
+} from "./proxy.ts";
 import {
   handleCORSPreflight,
   isCORSPreflight,
@@ -47,6 +52,19 @@ export async function route(
 ): Promise<Response> {
   const url = new URL(request.url);
   const hostname = url.hostname.toLowerCase();
+
+  // Reserved namespace the lb keys its own bucket cache entries under (see
+  // BUCKET_CACHE_PREFIX). Nothing is served from here; rejecting it up front —
+  // before any backend, and before any cache read or write — keeps a crafted
+  // request from planting a response under, or reading, a bucket cache key.
+  if (isBucketCachePath(url.pathname)) {
+    return new Response("404 - Not Found", {
+      status: 404,
+      headers: {
+        "Content-Type": "text/plain",
+      },
+    });
+  }
 
   if (hostname === env.API_DOMAIN) {
     return await handleAPIRequest(request, env, true, ctx);
