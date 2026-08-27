@@ -497,11 +497,11 @@ async fn upload_package_manifest(
     )
     .await?;
 
-  let mut purge_urls = vec![crate::s3_paths::package_metadata_url(
+  let mut purge_urls = crate::s3_paths::package_metadata_purge_urls(
     registry_url,
     &publishing_task.package_scope,
     &publishing_task.package_name,
-  )];
+  );
   purge_urls.extend(crate::s3_paths::package_api_cache_urls(
     registry_url,
     &publishing_task.package_scope,
@@ -546,11 +546,11 @@ async fn upload_npm_version_manifest(
     .await?;
 
   cache_purge
-    .purge(vec![crate::s3_paths::npm_version_manifest_url(
+    .purge(crate::s3_paths::npm_version_manifest_purge_urls(
       npm_url,
       &publishing_task.package_scope,
       &publishing_task.package_name,
-    )])
+    ))
     .await;
 
   Ok(())

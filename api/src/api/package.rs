@@ -713,11 +713,11 @@ async fn update_description(
     .await?;
 
   cache_purge
-    .purge(vec![crate::s3_paths::npm_version_manifest_url(
+    .purge(crate::s3_paths::npm_version_manifest_purge_urls(
       npm_url,
       scope,
       &package.name,
-    )])
+    ))
     .await;
 
   Ok(package)
@@ -828,12 +828,12 @@ async fn upload_package_manifests(
     )
     .await?;
 
-  cache_purge
-    .purge(vec![
-      crate::s3_paths::package_metadata_url(registry_url, scope, package),
-      crate::s3_paths::npm_version_manifest_url(npm_url, scope, package),
-    ])
-    .await;
+  let mut purge_urls =
+    crate::s3_paths::package_metadata_purge_urls(registry_url, scope, package);
+  purge_urls.extend(crate::s3_paths::npm_version_manifest_purge_urls(
+    npm_url, scope, package,
+  ));
+  cache_purge.purge(purge_urls).await;
 
   Ok(())
 }
@@ -2651,7 +2651,6 @@ async fn analyze_deps_tree(
         skip_dynamic_deps: false,
         module_info_cacher: Default::default(),
         unstable_bytes_imports: false,
-        unstable_text_imports: false,
         jsr_metadata_store: None,
 
         unstable_css_imports: false,
