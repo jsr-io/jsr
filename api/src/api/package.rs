@@ -209,8 +209,12 @@ pub fn package_router() -> Router<Body, ApiError> {
       ),
     )
     .get(
+      // `_shared`: like `docs` above, both search payloads are derived purely
+      // from the published version, with no permission/member/sudo branch, so
+      // the lb may serve them from its shared cache to authenticated callers
+      // instead of bypassing on auth.
       "/:package/versions/:version/docs/search",
-      util::cache_versioned(
+      util::cache_versioned_shared(
         CacheDuration::FIVE_MINUTES,
         CacheDuration::THIRTY_DAYS,
         util::json(get_docs_search_handler),
@@ -218,7 +222,7 @@ pub fn package_router() -> Router<Body, ApiError> {
     )
     .get(
       "/:package/versions/:version/docs/search_structured",
-      util::cache_versioned(
+      util::cache_versioned_shared(
         CacheDuration::FIVE_MINUTES,
         CacheDuration::THIRTY_DAYS,
         util::json(get_docs_search_structured_handler),
@@ -1620,6 +1624,10 @@ pub async fn get_docs_search_handler(
     ApiError::InternalServerError
   })?;
 
+  if crate::docs::all_symbols_listing_too_large(&ctx) {
+    return Err(ApiError::DocsSymbolListingTooLarge);
+  }
+
   let _permit = crate::docs::acquire_doc_render_permit().await;
   let search_index = deno_doc::html::generate_search_index(&ctx);
 
@@ -1693,6 +1701,10 @@ pub async fn get_docs_search_structured_handler(
     );
     ApiError::InternalServerError
   })?;
+
+  if crate::docs::all_symbols_listing_too_large(&ctx) {
+    return Err(ApiError::DocsSymbolListingTooLarge);
+  }
 
   let _permit = crate::docs::acquire_doc_render_permit().await;
   let docs = crate::docs::render_docs_html(

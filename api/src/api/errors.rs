@@ -60,6 +60,10 @@ errors!(
     status: NOT_FOUND,
     "Documentation is only available for the latest version of a package.",
   },
+  DocsSymbolListingTooLarge {
+    status: PAYLOAD_TOO_LARGE,
+    "This package has too many symbols to list them all at once.",
+  },
   EntrypointOrSymbolNotFound {
     status: NOT_FOUND,
     "The requested entrypoint or symbol was not found.",
@@ -428,6 +432,12 @@ impl
       oauth2::basic::BasicRevocationErrorResponse,
     >,
   ) -> ApiError {
+    anyhow::Error::from(error).into()
+  }
+}
+
+impl From<crate::docs::GenerateCtxCacheError> for ApiError {
+  fn from(error: crate::docs::GenerateCtxCacheError) -> ApiError {
     anyhow::Error::from(error).into()
   }
 }

@@ -952,6 +952,60 @@ Deno.test("proxyToBackend negatively caches 404s with a public TTL", async () =>
   }
 });
 
+Deno.test("proxyToBackend caches a 413 symbol-listing refusal", async () => {
+  const cache = createFakeCache();
+  (globalThis as any).caches = { default: cache };
+
+  // A package with more symbols than the listing can carry is refused with 413.
+  // That is a fixed property of the published version, so the API stamps it
+  // cacheable — without this, one crawler produced 871 identical failing
+  // requests to the origin in an hour.
+  const restore = setupFetchStub(
+    new Response("Payload Too Large", {
+      status: 413,
+      headers: {
+        "Cache-Control": "public, max-age=60, s-maxage=2592000",
+      },
+    }),
+  );
+
+  try {
+    const request = new Request(
+      "https://jsr.io/api/scopes/s/packages/p/versions/1.0.0/docs/search_structured",
+      { method: "GET" },
+    );
+    const response = await proxyToBackend(request, BACKEND_URL);
+
+    assertEquals(response.status, 413);
+    assertEquals(cache.putCalls.length, 1);
+  } finally {
+    restore();
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
+Deno.test("proxyToBackend does not cache a 413 without a cacheable directive", async () => {
+  const cache = createFakeCache();
+  (globalThis as any).caches = { default: cache };
+
+  // Only the API's explicit opt-in makes an error cacheable; an unmarked 413
+  // from anywhere else must still reach the origin next time.
+  const restore = setupFetchStub(
+    new Response("Payload Too Large", { status: 413 }),
+  );
+
+  try {
+    const request = new Request("https://jsr.io/api/too-big", { method: "GET" });
+    const response = await proxyToBackend(request, BACKEND_URL);
+
+    assertEquals(response.status, 413);
+    assertEquals(cache.putCalls.length, 0);
+  } finally {
+    restore();
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
 Deno.test("proxyToBackend does not cache 404s with no-store", async () => {
   const cache = createFakeCache();
   (globalThis as any).caches = { default: cache };

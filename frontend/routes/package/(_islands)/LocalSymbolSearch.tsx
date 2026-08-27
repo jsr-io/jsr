@@ -164,9 +164,13 @@ export function LocalSymbolSearch(
   }, []);
 
   async function onInput(e: JSX.TargetedEvent<HTMLInputElement>) {
+    // The index is absent when the symbol listing could not be fetched — a
+    // package with too many symbols to list is refused by the API. Typing then
+    // has nothing to search, so do nothing rather than throw on every keystroke.
+    if (!db.value) return;
     if (e.currentTarget.value) {
       const term = e.currentTarget.value;
-      const searchResult = await search(db.value!, {
+      const searchResult = await search(db.value, {
         term,
         properties: ["name", "description"],
         threshold: 0.2,
