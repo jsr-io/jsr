@@ -995,7 +995,9 @@ Deno.test("proxyToBackend does not cache a 413 without a cacheable directive", a
   );
 
   try {
-    const request = new Request("https://jsr.io/api/too-big", { method: "GET" });
+    const request = new Request("https://jsr.io/api/too-big", {
+      method: "GET",
+    });
     const response = await proxyToBackend(request, BACKEND_URL);
 
     assertEquals(response.status, 413);
