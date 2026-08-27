@@ -436,6 +436,12 @@ impl
   }
 }
 
+impl From<crate::object_cache::ObjectCacheError> for ApiError {
+  fn from(error: crate::object_cache::ObjectCacheError) -> ApiError {
+    anyhow::Error::from(error).into()
+  }
+}
+
 impl From<crate::docs::GenerateCtxCacheError> for ApiError {
   fn from(error: crate::docs::GenerateCtxCacheError) -> ApiError {
     anyhow::Error::from(error).into()

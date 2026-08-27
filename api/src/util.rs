@@ -1145,6 +1145,7 @@ pub mod test {
         database: db,
         buckets: buckets.clone(),
         generate_ctx_cache: crate::docs::GenerateCtxCache::new(),
+        object_cache: crate::object_cache::ObjectCache::new(),
         github_client: github_oauth2_client.clone(),
         gitlab_client: gitlab_oauth2_client.clone(),
         algolia_client: None,
