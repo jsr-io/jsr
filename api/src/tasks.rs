@@ -293,9 +293,9 @@ pub async fn npm_tarball_build_handler(
     .await?;
 
   cache_purge
-    .purge(vec![crate::s3_paths::npm_version_manifest_url(
+    .purge(crate::s3_paths::npm_version_manifest_purge_urls(
       &npm_url, &job.scope, &job.name,
-    )])
+    ))
     .await;
 
   Ok(())
