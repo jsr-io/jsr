@@ -14,11 +14,7 @@ import {
 import { Highlight, type Position } from "@orama/highlight";
 import { api, path } from "../../../utils/api.ts";
 import { useMacLike } from "../../../utils/os.ts";
-import type {
-  AllSymbolsCtx,
-  AllSymbolsItemCtx,
-  SectionContentNamespaceSectionCtx,
-} from "@deno/doc/html-types";
+import type { AllSymbolsCtx, AllSymbolsItemCtx } from "@deno/doc/html-types";
 import { renderToString } from "preact-render-to-string";
 import { AllSymbols } from "../../../components/doc/AllSymbols.tsx";
 
@@ -113,11 +109,8 @@ export function LocalSymbolSearch(
 
       for (const entrypoint of searchContent.value!.entrypoints) {
         for (const kindGroup of entrypoint.module_doc.sections.sections) {
-          for (
-            const symbol
-              of (kindGroup.content as SectionContentNamespaceSectionCtx)
-                .content
-          ) {
+          if (kindGroup.content.kind !== "namespace_section") continue;
+          for (const symbol of kindGroup.content.content) {
             searchItems.push({
               name: symbol.name,
               symbolName: symbol.name,
@@ -202,32 +195,34 @@ export function LocalSymbolSearch(
         .map((entrypoint) => {
           const filteredSections = entrypoint.module_doc.sections.sections
             .map((kindGroup) => {
-              const filteredContent =
-                (kindGroup.content as SectionContentNamespaceSectionCtx).content
-                  .map((symbol) => {
-                    const symbolMatches = hitNames.has(symbol.name);
-                    const matchingSubitems = symbol.subitems.filter((subitem) =>
-                      hitNames.has(subitem.title)
-                    );
+              const content = kindGroup.content;
+              if (content.kind !== "namespace_section") return null;
 
-                    if (!symbolMatches && matchingSubitems.length === 0) {
-                      return null;
-                    }
+              const filteredContent = content.content
+                .map((symbol) => {
+                  const symbolMatches = hitNames.has(symbol.name);
+                  const matchingSubitems = symbol.subitems.filter((subitem) =>
+                    hitNames.has(subitem.title)
+                  );
 
-                    return {
-                      ...symbol,
-                      subitems: symbolMatches
-                        ? symbol.subitems
-                        : matchingSubitems,
-                    };
-                  })
-                  .filter(Boolean);
+                  if (!symbolMatches && matchingSubitems.length === 0) {
+                    return null;
+                  }
+
+                  return {
+                    ...symbol,
+                    subitems: symbolMatches
+                      ? symbol.subitems
+                      : matchingSubitems,
+                  };
+                })
+                .filter(Boolean);
 
               if (filteredContent.length === 0) return null;
 
               return {
                 ...kindGroup,
-                content: { ...kindGroup.content, content: filteredContent },
+                content: { ...content, content: filteredContent },
               };
             })
             .filter(Boolean);
