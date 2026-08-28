@@ -179,6 +179,8 @@ Deno.test("proxyToR2 cache hit returns a fresh, mutable response", async () => {
 Deno.test("proxyToR2 namespaces cache keys away from the raw URL", async () => {
   // The frontend caches `/@scope/...` navigations under the raw URL; bucket
   // responses for the same URL must use a distinct key to avoid cross-serving.
+  // The key stays on the public origin so the publish-time Cloudflare purge —
+  // which only accepts in-zone URLs — can actually evict it (jsr-io/jsr#1455).
   const matchKeys: string[] = [];
   const putKeys: string[] = [];
   (globalThis as any).caches = {
@@ -206,9 +208,39 @@ Deno.test("proxyToR2 namespaces cache keys away from the raw URL", async () => {
     assertEquals(res.status, 200);
     assertEquals(
       matchKeys[0],
-      "https://bucket-cache.jsr.internal/npm.jsr.io/@jsr/std__yaml",
+      "https://npm.jsr.io/__bucket-cache/@jsr/std__yaml",
     );
     assertEquals(putKeys[0], matchKeys[0]); // match and put use the same key
+  } finally {
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
+Deno.test("proxyToR2 keys the module bucket per host", async () => {
+  // The bucket cache key is namespaced by path, so the host must still keep the
+  // module and npm buckets apart — `/@jsr/std__yaml` is a valid path on both.
+  const matchKeys: string[] = [];
+  (globalThis as any).caches = {
+    default: {
+      match: (req: Request) => {
+        matchKeys.push(req.url);
+        return Promise.resolve(undefined);
+      },
+      put: () => Promise.resolve(),
+    },
+  };
+
+  try {
+    const bucket = createFakeBucket({
+      "@jsr/std__yaml": { body: "{}", contentType: "application/json" },
+    });
+    await proxyToR2(new Request("https://jsr.io/@jsr/std__yaml"), bucket);
+    await proxyToR2(new Request("https://npm.jsr.io/@jsr/std__yaml"), bucket);
+
+    assertEquals(matchKeys, [
+      "https://jsr.io/__bucket-cache/@jsr/std__yaml",
+      "https://npm.jsr.io/__bucket-cache/@jsr/std__yaml",
+    ]);
   } finally {
     (globalThis as any).caches = { default: undefined };
   }
@@ -528,7 +560,7 @@ Deno.test("proxyToR2 caches a fallback response the fallback marked cacheable", 
 
     assertEquals(res.status, 200);
     assertEquals(putKeys, [
-      "https://bucket-cache.jsr.internal/jsr.io/@std/yaml/meta.json",
+      "https://jsr.io/__bucket-cache/@std/yaml/meta.json",
     ]);
   } finally {
     restore();
