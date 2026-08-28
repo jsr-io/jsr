@@ -15,6 +15,7 @@ pub use self::errors::*;
 pub use self::hooks::InboundTrustedAuthservId;
 pub use self::hooks::PostmarkWebhookPassword;
 pub use self::package::PublishQueue;
+pub use self::package::RegistryMetadataCache;
 use self::publishing_task::publishing_task_router;
 use self::self_user::self_user_router;
 pub use self::types::*;

@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use anyhow::Context;
+use bytes::Bytes;
 use chrono::Utc;
 use comrak::adapters::SyntaxHighlighterAdapter;
 use deno_ast::MediaType;
@@ -11,7 +12,7 @@ use deno_graph::Module;
 use deno_graph::Resolution;
 use deno_graph::WorkspaceMember;
 use deno_graph::analysis::ModuleInfo;
-use deno_graph::ast::CapturingModuleAnalyzer;
+use deno_graph::ast::ParserModuleAnalyzer;
 use deno_graph::source::JsrUrlProvider;
 use deno_graph::source::LoadError;
 use deno_graph::source::LoadOptions;
@@ -35,6 +36,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use sha2::Digest;
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io;
 use std::sync::Arc;
@@ -251,8 +253,21 @@ pub fn package_router() -> Router<Body, ApiError> {
       ),
     )
     .get(
+      // The graph is resolved live — a `jsr:` range in the package's source
+      // picks up whatever version matches it today — so even a pinned version
+      // is not immutable, and a day is the ceiling rather than the obvious
+      // answer. "latest" moves on publish on top of that, so it stays short;
+      // it used to be pinned for a day along with everything else.
+      //
+      // `_shared`: the handler reads nothing but the buckets, keyed by scope,
+      // package and version — no db, no iam, no permission branch — so the
+      // response is identity-independent and the lb may serve it from its
+      // shared cache to authenticated callers. Without this every signed-in
+      // view of a dependency graph bypassed the cache and paid the full cold
+      // build, which is by far the most expensive handler in the API.
       "/:package/versions/:version/dependencies/graph",
-      util::cache(
+      util::cache_versioned_shared(
+        CacheDuration::FIVE_MINUTES,
         CacheDuration::ONE_DAY,
         util::json(get_dependencies_graph_handler),
       ),
@@ -2297,6 +2312,174 @@ pub async fn list_dependencies_handler(
   Ok(deps)
 }
 
+/// Upper bound on a single fallback-registry request made while building a
+/// dependency graph.
+///
+/// Deliberately much tighter than [`crate::tarball::FALLBACK_REQUEST_TIMEOUT`],
+/// which this used to share. A publish can afford to wait half a minute on a
+/// degraded fallback; a page render cannot, and the probe fires once per object
+/// the modules bucket does not hold — so on a fallback-hosted package the
+/// registry's patience is paid for every file in the package, one after another.
+const DEP_TREE_FALLBACK_REQUEST_TIMEOUT: std::time::Duration =
+  std::time::Duration::from_secs(5);
+
+/// The body handed to deno_graph for a module whose structure came from
+/// metadata. It only ever reaches `Module::source`, and the one thing this
+/// endpoint reads off a source is its length — which [`MetadataSizes`] has.
+///
+/// Wasm is the exception: deno_graph runs wasm bytes through `wasm_module_to_dts`
+/// and an empty body would error the module out of the graph, so it gets the
+/// minimum valid wasm module instead. That leaves the module in the graph and
+/// costs nothing, because `build_module_info` drops `Module::Wasm` anyway.
+fn stub_module_body(specifier: &ModuleSpecifier) -> Arc<[u8]> {
+  if MediaType::from_specifier(specifier) == MediaType::Wasm {
+    Arc::new([
+      0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00, 0x0A, 0x01, 0x00,
+    ])
+  } else {
+    Arc::new([])
+  }
+}
+
+/// Cache for the metadata documents a dependency graph is built from.
+///
+/// A build is now almost entirely `meta.json` and `<version>_meta.json` reads,
+/// and it walks them a level at a time: a package's dependencies aren't known
+/// until its metadata arrives, so the endpoint's latency is round trips to the
+/// modules bucket, in series, two per level of the dependency tree. The bucket
+/// is in a different cloud from the API, so each of those is an internet round
+/// trip.
+///
+/// Across builds they are overwhelmingly the same documents — the handful of
+/// packages nearly every dependency tree bottoms out in. Over a sweep of 419
+/// packages, 56% of these reads were repeats, and `@std/path/meta.json` alone
+/// was read by one build in seven. Holding them here takes the repeats off the
+/// critical path entirely.
+#[derive(Clone)]
+pub struct RegistryMetadataCache {
+  /// `<version>_meta.json`. Published once and never rewritten (it goes up with
+  /// `CACHE_CONTROL_IMMUTABLE`), so the only reason to expire it is to give the
+  /// memory back.
+  version: moka::sync::Cache<Arc<str>, Bytes>,
+  /// `meta.json`, the package's version list. Rewritten by every publish, and
+  /// it decides which version a `jsr:` range resolves to — so it is held only
+  /// briefly, and a newly published version starts being picked up within
+  /// [`PACKAGE_METADATA_TTL`].
+  package: moka::sync::Cache<Arc<str>, Bytes>,
+}
+
+/// Ceiling on the metadata held in memory. Documents average ~12KB, so this is
+/// room for a few thousand of them — far more than the popular tail that
+/// actually repeats.
+const REGISTRY_METADATA_CACHE_BYTES: u64 = 64 * 1024 * 1024;
+
+/// How long a package's version list may be served from memory. This is the
+/// delay before a `jsr:` range in some other package starts resolving to a
+/// newly published version.
+const PACKAGE_METADATA_TTL: std::time::Duration =
+  std::time::Duration::from_secs(60);
+
+/// How long a version's metadata is held. The document itself never changes, so
+/// this is not about staleness but about deletion: a staff version delete
+/// removes it from the bucket and purges the CDN, and this cache is per instance
+/// so no purge can reach it. Keeping the window short bounds how long a deleted
+/// version can still appear in a graph. Anything read more than once in this
+/// window — which is every package a dependency tree bottoms out in — still
+/// stays warm.
+const VERSION_METADATA_TTL: std::time::Duration =
+  std::time::Duration::from_secs(5 * 60);
+
+impl RegistryMetadataCache {
+  pub fn new() -> Self {
+    fn build(ttl: std::time::Duration) -> moka::sync::Cache<Arc<str>, Bytes> {
+      moka::sync::Cache::builder()
+        .max_capacity(REGISTRY_METADATA_CACHE_BYTES)
+        .weigher(|_key: &Arc<str>, value: &Bytes| {
+          value.len().try_into().unwrap_or(u32::MAX)
+        })
+        .time_to_live(ttl)
+        .build()
+    }
+    Self {
+      version: build(VERSION_METADATA_TTL),
+      package: build(PACKAGE_METADATA_TTL),
+    }
+  }
+
+  /// Read a metadata document, from memory if it is there.
+  ///
+  /// Only a document the bucket actually holds is cached. A miss falls through
+  /// to the caller unrecorded, so the fallback-registry probe still runs on
+  /// every request for a package this registry doesn't have, and a package that
+  /// gets published later isn't pinned as missing.
+  async fn get_or_download(
+    &self,
+    kind: MetadataKind,
+    path: Arc<str>,
+    bucket: &crate::s3::BucketWithQueue,
+  ) -> Result<Option<Bytes>, crate::s3::S3Error> {
+    let cache = match kind {
+      MetadataKind::Version => &self.version,
+      MetadataKind::Package => &self.package,
+    };
+    if let Some(hit) = cache.get(&path) {
+      return Ok(Some(hit));
+    }
+    let bytes = bucket.download(path.clone()).await?;
+    if let Some(bytes) = &bytes {
+      cache.insert(path, bytes.clone());
+    }
+    Ok(bytes)
+  }
+}
+
+impl Default for RegistryMetadataCache {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
+/// Which of the two metadata documents a registry path is, if either.
+#[derive(Clone, Copy)]
+enum MetadataKind {
+  /// `<version>_meta.json`
+  Version,
+  /// `meta.json`
+  Package,
+}
+
+impl MetadataKind {
+  /// Classify a path *within a package*, i.e. what `JSR_DEP_PATH_RE` captures
+  /// after the scope and name. Anything else is one of the package's files.
+  fn of(path: &str) -> Option<Self> {
+    if path.ends_with("_meta.json") {
+      Some(Self::Version)
+    } else if path.ends_with("/meta.json") {
+      Some(Self::Package)
+    } else {
+      None
+    }
+  }
+}
+
+/// Sizes of the files a dependency graph can report without downloading them,
+/// keyed by `@scope/name@version/path`.
+///
+/// Filled in as the loader reads each dependency's `<version>_meta.json`, and
+/// only for files that version's `moduleGraph2` also describes — those are
+/// exactly the files deno_graph builds from metadata, so a size here means the
+/// file's bytes are needed for nothing at all.
+type MetadataSizes = Arc<tokio::sync::Mutex<HashMap<String, u64>>>;
+
+fn metadata_size_key(
+  scope: &str,
+  package: &str,
+  version: &str,
+  path: &str,
+) -> String {
+  format!("@{scope}/{package}@{version}{path}")
+}
+
 struct DepTreeLoader {
   scope: ScopeName,
   package: PackageName,
@@ -2306,6 +2489,13 @@ struct DepTreeLoader {
   registry_url: Url,
   fallback_registry_url: Option<Url>,
   fallback_packages: Arc<tokio::sync::Mutex<HashSet<String>>>,
+  /// `moduleGraph2` of the package being viewed. Its own modules are `file:`
+  /// specifiers, so they get none of deno_graph's `jsr:` metadata handling —
+  /// this is what lets [`DepTreeAnalyzer`] describe them without a parse, and
+  /// the loader serve them without a download.
+  root_module_info: Arc<HashMap<String, ModuleInfo>>,
+  metadata_sizes: MetadataSizes,
+  metadata_cache: RegistryMetadataCache,
 }
 
 impl DepTreeLoader {
@@ -2354,6 +2544,8 @@ impl DepTreeLoader {
         let registry_url = self.registry_url.clone();
         let fallback_registry_url = self.fallback_registry_url.clone();
         let fallback_packages = self.fallback_packages.clone();
+        let metadata_sizes = self.metadata_sizes.clone();
+        let metadata_cache = self.metadata_cache.clone();
 
         async move {
           let jsr_matches = JSR_DEP_PATH_RE.captures(specifier.path()).unwrap();
@@ -2362,6 +2554,29 @@ impl DepTreeLoader {
           let package = jsr_matches.name("package").unwrap();
           let version = jsr_matches.name("version");
           let path = jsr_matches.name("path").unwrap();
+
+          // deno_graph already built this module from the `moduleGraph2` in the
+          // package's `<version>_meta.json` and is asking for the bytes only to
+          // fill in `Module::source`. We recorded its size off the same
+          // metadata, so there is nothing left to fetch.
+          if let Some(version) = &version
+            && metadata_sizes
+              .lock()
+              .await
+              .contains_key(&metadata_size_key(
+                scope.as_str(),
+                package.as_str(),
+                version.as_str(),
+                path.as_str(),
+              ))
+          {
+            return Ok(Some(deno_graph::source::LoadResponse::Module {
+              content: stub_module_body(&specifier),
+              mtime: None,
+              specifier: specifier.clone(),
+              maybe_headers: None,
+            }));
+          }
 
           let full_path: Arc<str> = format!(
             "@{}/{}/{}{}",
@@ -2379,10 +2594,20 @@ impl DepTreeLoader {
           )
           .into();
 
-          let mut bytes = bucket
-            .download(full_path.clone())
-            .await
-            .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e))))?;
+          // The two metadata documents are what every dependency tree is
+          // walked through, and the popular ones are read by a large share of
+          // all builds, so they are served from memory where possible. A
+          // package's own files are read at most once per build and are not
+          // worth holding.
+          let mut bytes = match MetadataKind::of(path.as_str()) {
+            Some(kind) => {
+              metadata_cache
+                .get_or_download(kind, full_path.clone(), &bucket)
+                .await
+            }
+            None => bucket.download(full_path.clone()).await,
+          }
+          .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e))))?;
 
           let mut from_fallback = false;
 
@@ -2404,7 +2629,7 @@ impl DepTreeLoader {
 
               let response = crate::util::shared_http_client()
                 .get(&fallback_specifier)
-                .timeout(crate::tarball::FALLBACK_REQUEST_TIMEOUT)
+                .timeout(DEP_TREE_FALLBACK_REQUEST_TIMEOUT)
                 .send()
                 .await
                 .ok();
@@ -2452,6 +2677,28 @@ impl DepTreeLoader {
                 LoadError::Other(Arc::new(JsErrorBox::from_err(e)))
               })?;
 
+            // Record what this metadata lets us answer without ever fetching
+            // the files it describes: their sizes. Restricted to files
+            // `moduleGraph2` also covers, because those are the ones deno_graph
+            // will build from metadata — anything else still needs its source
+            // parsed, and so still needs downloading.
+            let mut sizes = metadata_sizes.lock().await;
+            for (path, entry) in &meta.manifest {
+              let path = path.to_string();
+              if meta.module_graph_2.contains_key(&path) {
+                sizes.insert(
+                  metadata_size_key(
+                    scope.as_str(),
+                    package.as_str(),
+                    version.as_str(),
+                    &path,
+                  ),
+                  entry.size as u64,
+                );
+              }
+            }
+            drop(sizes);
+
             let mut lock = exports.lock().await;
             lock.insert(
               format!(
@@ -2490,8 +2737,46 @@ impl deno_graph::source::Loader for DepTreeLoader {
   fn load(
     &self,
     specifier: &ModuleSpecifier,
-    _options: LoadOptions,
+    options: LoadOptions,
   ) -> deno_graph::source::LoadFuture {
+    use futures::FutureExt;
+
+    // `CacheSetting::Only` asks whether we already have this module's source at
+    // hand. We never do — every load is a bucket round trip — and the loader
+    // contract is to answer `Ok(None)` in that case. Answering it makes
+    // deno_graph build the module from the `moduleGraph2` entry already in the
+    // package's `<version>_meta.json` (which it has fetched anyway, to resolve
+    // the `jsr:` specifier) rather than downloading and parsing the file to
+    // rediscover dependencies we recorded when the file was published.
+    //
+    // That is what made this endpoint slow: the walk could only advance one
+    // module at a time, because a module's dependencies were unknown until its
+    // source came back and went through swc. Off the metadata, a package's
+    // whole internal structure arrives in one object.
+    if options.cache_setting == deno_graph::source::CacheSetting::Only {
+      return async { Ok(None) }.boxed();
+    }
+
+    // The package being viewed. Its modules are `file:` specifiers, outside
+    // deno_graph's `jsr:` handling, so the same saving has to be made here: its
+    // `moduleGraph2` describes this module, [`DepTreeAnalyzer`] will hand that
+    // description back without parsing, and the size comes from the manifest
+    // beside it — so the source is dead weight.
+    if specifier.scheme() == "file"
+      && self.root_module_info.contains_key(specifier.path())
+    {
+      let specifier = specifier.clone();
+      return async move {
+        Ok(Some(deno_graph::source::LoadResponse::Module {
+          content: stub_module_body(&specifier),
+          mtime: None,
+          specifier,
+          maybe_headers: None,
+        }))
+      }
+      .boxed();
+    }
+
     self.load_inner(specifier)
   }
 }
@@ -2504,23 +2789,33 @@ impl JsrUrlProvider for DepTreeJsrUrlProvider {
   }
 }
 
+/// Analyzer for the dependency graph endpoint.
+///
+/// Nothing published by this registry should reach the parser at all: every
+/// dependency is built from its own `moduleGraph2` by deno_graph, and the
+/// package being viewed is built from `root_module_info` here. What is left is
+/// the fallback registry, and packages old enough that their metadata predates
+/// `moduleGraph2` — those still get parsed, as before.
+///
+/// Unlike [`crate::analysis::ModuleAnalyzer`] this keeps nothing: the endpoint
+/// reads dependencies, size and media type off the graph and never looks at a
+/// [`deno_ast::ParsedSource`], so retaining every parse for the life of the
+/// request only cost memory.
 struct DepTreeAnalyzer {
-  pub analyzer: CapturingModuleAnalyzer,
-  pub module_info:
-    std::cell::RefCell<std::collections::HashMap<Url, Vec<String>>>,
+  root_module_info: Arc<HashMap<String, ModuleInfo>>,
 }
 
-impl Default for DepTreeAnalyzer {
-  fn default() -> Self {
-    Self {
-      analyzer: CapturingModuleAnalyzer::new(
-        Some(Box::new(ModuleParser::default())),
-        None,
-      ),
-      module_info: Default::default(),
-    }
-  }
-}
+/// Every module parsed while building a dependency graph — that is, every
+/// module whose dependencies could not be read off published metadata.
+/// Recorded by specifier rather than counted so that tests running in parallel
+/// don't see each other's entries.
+///
+/// The saving is invisible in the endpoint's output — the graph is identical
+/// either way — so without this nothing would notice a drift back to
+/// downloading and parsing every module of every package in the graph.
+#[cfg(test)]
+static MODULES_PARSED: std::sync::Mutex<Vec<String>> =
+  std::sync::Mutex::new(Vec::new());
 
 #[async_trait::async_trait(?Send)]
 impl deno_graph::analysis::ModuleAnalyzer for DepTreeAnalyzer {
@@ -2530,31 +2825,18 @@ impl deno_graph::analysis::ModuleAnalyzer for DepTreeAnalyzer {
     source: Arc<str>,
     media_type: MediaType,
   ) -> Result<ModuleInfo, JsErrorBox> {
-    let module_info =
-      self.analyzer.analyze(specifier, source, media_type).await?;
-
-    let deps = module_info
-      .dependencies
-      .iter()
-      .filter_map(|dep| {
-        dep.as_static().and_then(|dep| {
-          if dep.specifier.starts_with("jsr:") {
-            Some(dep.specifier.clone())
-          } else {
-            None
-          }
-        })
-      })
-      .collect::<Vec<_>>();
-
-    if !deps.is_empty() {
-      self
-        .module_info
-        .borrow_mut()
-        .insert(specifier.clone(), deps.clone());
+    if specifier.scheme() == "file"
+      && let Some(info) = self.root_module_info.get(specifier.path())
+    {
+      return Ok(info.clone());
     }
 
-    Ok(module_info)
+    #[cfg(test)]
+    MODULES_PARSED.lock().unwrap().push(specifier.to_string());
+
+    ParserModuleAnalyzer::new(&ModuleParser::default())
+      .analyze(specifier, source, media_type)
+      .await
   }
 }
 
@@ -2565,20 +2847,53 @@ lazy_static::lazy_static! {
 
 // We have to spawn another tokio runtime, because
 // `deno_graph::ModuleGraph::build` is not thread-safe.
+/// Where a dependency graph reads the registry from.
+struct DepTreeRegistry {
+  url: Url,
+  fallback_url: Option<Url>,
+  bucket: crate::s3::BucketWithQueue,
+  metadata_cache: RegistryMetadataCache,
+}
+
 #[allow(clippy::result_large_err)]
 #[tokio::main(flavor = "current_thread")]
 async fn analyze_deps_tree(
-  registry_url: Url,
-  fallback_registry_url: Option<Url>,
+  registry: DepTreeRegistry,
   scope: ScopeName,
   package: PackageName,
   version: crate::ids::Version,
-  bucket: crate::s3::BucketWithQueue,
-  exports: IndexMap<String, String>,
+  version_meta: VersionMetadata,
 ) -> Result<
   IndexMap<DependencyKind, DependencyInfo>,
   deno_graph::ModuleGraphError,
 > {
+  let DepTreeRegistry {
+    url: registry_url,
+    fallback_url: fallback_registry_url,
+    bucket,
+    metadata_cache,
+  } = registry;
+  let VersionMetadata {
+    exports,
+    manifest: root_manifest,
+    module_graph_2: root_module_info,
+  } = version_meta;
+  let root_sizes = root_manifest
+    .into_iter()
+    .map(|(path, entry)| (path.to_string(), entry.size as u64))
+    .collect::<HashMap<_, _>>();
+  // Only keep the modules whose size is also recorded: answering one from
+  // metadata means its source is never fetched, so a module described here but
+  // missing from the manifest would be reported with no size at all. The two
+  // are written together at publish time, so this drops nothing in practice —
+  // it just makes "described here" and "measurable" the same set.
+  let root_module_info = Arc::new(
+    root_module_info
+      .into_iter()
+      .filter(|(path, _)| root_sizes.contains_key(path))
+      .collect::<HashMap<_, _>>(),
+  );
+
   let roots = exports
     .values()
     .map(|path| Url::parse(&format!("file://{}", path)).unwrap())
@@ -2591,7 +2906,9 @@ async fn analyze_deps_tree(
     exports: exports.clone(),
   };
 
-  let module_analyzer = DepTreeAnalyzer::default();
+  let module_analyzer = DepTreeAnalyzer {
+    root_module_info: root_module_info.clone(),
+  };
   let mut graph = deno_graph::ModuleGraph::new(GraphKind::All);
   let loader = DepTreeLoader {
     scope,
@@ -2602,6 +2919,9 @@ async fn analyze_deps_tree(
     registry_url: registry_url.clone(),
     fallback_registry_url: fallback_registry_url.clone(),
     fallback_packages: Default::default(),
+    root_module_info,
+    metadata_sizes: Default::default(),
+    metadata_cache,
   };
   graph
     .build(
@@ -2659,17 +2979,21 @@ async fn analyze_deps_tree(
     .collect();
 
   let fallback_packages_set = loader.fallback_packages.lock().await.clone();
+  let metadata_sizes = loader.metadata_sizes.lock().await.clone();
 
-  for root in roots {
-    GraphDependencyCollector::collect(
-      &graph,
-      &root,
-      &exports_by_identifier,
-      &mut index,
-      &mut dependencies,
-      fallback_registry_url.as_ref(),
-      &fallback_packages_set,
-    );
+  let mut collector = GraphDependencyCollector {
+    graph: &graph,
+    dependencies: &mut dependencies,
+    exports: &exports_by_identifier,
+    id_index: &mut index,
+    visited: Default::default(),
+    fallback_registry_url: fallback_registry_url.as_ref(),
+    fallback_packages: &fallback_packages_set,
+    root_sizes: &root_sizes,
+    metadata_sizes: &metadata_sizes,
+  };
+  for root in &roots {
+    collector.collect_root(root);
   }
 
   Ok(dependencies)
@@ -2683,37 +3007,33 @@ struct GraphDependencyCollector<'a> {
   visited: IndexSet<DependencyKind>,
   fallback_registry_url: Option<&'a Url>,
   fallback_packages: &'a HashSet<String>,
+  /// Sizes of the viewed package's files, by path, and of every dependency's
+  /// files, by [`metadata_size_key`]. A module the loader answered from
+  /// metadata has no source to measure, so its size comes from here; anything
+  /// missing was loaded for real and is measured off the module as before.
+  root_sizes: &'a HashMap<String, u64>,
+  metadata_sizes: &'a HashMap<String, u64>,
 }
 
-impl<'a> GraphDependencyCollector<'a> {
-  pub fn collect(
-    graph: &'a deno_graph::ModuleGraph,
-    root: &'a ModuleSpecifier,
-    exports: &'a IndexMap<String, IndexMap<String, String>>,
-    id_index: &'a mut usize,
-    dependencies: &'a mut IndexMap<DependencyKind, DependencyInfo>,
-    fallback_registry_url: Option<&'a Url>,
-    fallback_packages: &'a HashSet<String>,
-  ) {
-    let root_module = graph.try_get(root).unwrap().unwrap();
-
-    Self {
-      graph,
-      dependencies,
-      exports,
-      id_index,
-      visited: Default::default(),
-      fallback_registry_url,
-      fallback_packages,
-    }
-    .build_module_info(root_module)
-    .unwrap();
+impl GraphDependencyCollector<'_> {
+  /// Walk one entrypoint, adding what it reaches to the shared node map.
+  ///
+  /// `visited` is per entrypoint, not shared: it only breaks cycles within a
+  /// walk. Nodes are deduplicated across entrypoints by `dependencies`, which
+  /// every walk adds to.
+  pub fn collect_root(&mut self, root: &ModuleSpecifier) {
+    self.visited = Default::default();
+    let root_module = self.graph.try_get(root).unwrap().unwrap();
+    self.build_module_info(root_module).unwrap();
   }
 
   fn build_module_info(&mut self, module: &Module) -> Option<usize> {
     let specifier = module.specifier();
 
-    let dependency = match module {
+    // `published_size` is the size as published, for the modules the loader
+    // answered out of metadata rather than downloading — their `Module::source`
+    // is a stub, so there is nothing to measure.
+    let (dependency, published_size) = match module {
       Module::Js(_) | Module::Json(_) => {
         if let Some(jsr_matches) = JSR_DEP_PATH_RE.captures(specifier.as_str())
         {
@@ -2747,17 +3067,31 @@ impl<'a> GraphDependencyCollector<'a> {
             None
           };
 
-          DependencyKind::Jsr {
-            scope: scope.as_str().to_string(),
-            package: package.as_str().to_string(),
-            version: version.as_str().to_string(),
-            entrypoint,
-            fallback_url,
-          }
+          (
+            DependencyKind::Jsr {
+              scope: scope.as_str().to_string(),
+              package: package.as_str().to_string(),
+              version: version.as_str().to_string(),
+              entrypoint,
+              fallback_url,
+            },
+            self
+              .metadata_sizes
+              .get(&metadata_size_key(
+                scope.as_str(),
+                package.as_str(),
+                version.as_str(),
+                path.as_str(),
+              ))
+              .copied(),
+          )
         } else {
-          DependencyKind::Root {
-            path: specifier.path().to_string(),
-          }
+          (
+            DependencyKind::Root {
+              path: specifier.path().to_string(),
+            },
+            self.root_sizes.get(specifier.path()).copied(),
+          )
         }
       }
       Module::Wasm(_)
@@ -2777,14 +3111,14 @@ impl<'a> GraphDependencyCollector<'a> {
     if let Some(info) = self.dependencies.get(&dependency) {
       Some(info.id)
     } else {
-      let maybe_size = match module {
+      let maybe_size = published_size.or_else(|| match module {
         Module::Js(js) => Some(js.size() as u64),
         Module::Json(json) => Some(json.size() as u64),
         Module::Wasm(_)
         | Module::Node(_)
         | Module::Npm(_)
         | Module::External(_) => None,
-      };
+      });
 
       let media_type = match module {
         Module::Js(js) => Some(js.media_type),
@@ -2927,11 +3261,16 @@ pub async fn get_dependencies_graph_handler(
   Span::current().record("version", field::display(&version));
 
   let buckets = req.data::<Buckets>().unwrap().clone();
+  let metadata_cache = req.data::<RegistryMetadataCache>().unwrap().clone();
+
+  // Through the same cache the graph build uses: this is a `<version>_meta.json`
+  // like any other, and it is the document the whole build hangs off, so a
+  // request for a package that is being looked at at all reaches the bucket
+  // zero times.
   let s3_path =
     crate::s3_paths::version_metadata(&scope, &package, &version).into();
-  let version_meta = buckets
-    .modules_bucket
-    .download(s3_path)
+  let version_meta = metadata_cache
+    .get_or_download(MetadataKind::Version, s3_path, &buckets.modules_bucket)
     .await?
     .ok_or(ApiError::PackageVersionNotFound)?;
   let version_meta = serde_json::from_slice::<VersionMetadata>(&version_meta)?;
@@ -2942,13 +3281,16 @@ pub async fn get_dependencies_graph_handler(
 
   let deps = tokio::task::spawn_blocking(|| {
     analyze_deps_tree(
-      registry_url,
-      fallback_registry_url,
+      DepTreeRegistry {
+        url: registry_url,
+        fallback_url: fallback_registry_url,
+        bucket: buckets.modules_bucket,
+        metadata_cache,
+      },
       scope,
       package,
       version,
-      buckets.modules_bucket,
-      version_meta.exports,
+      version_meta,
     )
   })
   .await
@@ -4992,6 +5334,25 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
           media_type: Some("TypeScript".to_string())
         }
       ]
+    );
+
+    // Both packages are above with their real sizes and media types, so the
+    // graph is complete — but every module in it got there off the
+    // `moduleGraph2` recorded when it was published, without its source ever
+    // being fetched or parsed. Re-deriving all of that per request, by
+    // downloading and parsing every module of every package in the graph, is
+    // what made this endpoint slow.
+    //
+    // `bar`'s own modules are `file:` specifiers and `@scope/foo`'s are
+    // registry URLs; the two take different routes to the same saving, so both
+    // are asserted. Modules from the fallback registry are exempt — nothing
+    // has published metadata for those.
+    let parsed = super::MODULES_PARSED.lock().unwrap().clone();
+    assert!(
+      !parsed
+        .iter()
+        .any(|s| s.starts_with("file:") || s.contains("/@scope/foo/")),
+      "modules were parsed instead of read from published metadata: {parsed:?}"
     );
   }
 
