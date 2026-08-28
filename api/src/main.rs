@@ -73,6 +73,7 @@ pub struct MainRouterOptions {
   buckets: Buckets,
   generate_ctx_cache: crate::docs::GenerateCtxCache,
   object_cache: crate::object_cache::ObjectCache,
+  registry_metadata_cache: crate::api::RegistryMetadataCache,
   github_client: auth::github::Oauth2Client,
   gitlab_client: auth::gitlab::Oauth2Client,
   algolia_client: Option<AlgoliaClient>,
@@ -106,6 +107,7 @@ pub(crate) fn main_router(
     buckets,
     generate_ctx_cache,
     object_cache,
+    registry_metadata_cache,
     github_client,
     gitlab_client,
     algolia_client,
@@ -131,6 +133,7 @@ pub(crate) fn main_router(
     .data(buckets)
     .data(generate_ctx_cache)
     .data(object_cache)
+    .data(registry_metadata_cache)
     .data(github_client)
     .data(gitlab_client)
     .data(algolia_client)
@@ -372,12 +375,14 @@ async fn main() {
 
   let generate_ctx_cache = crate::docs::GenerateCtxCache::new();
   let object_cache = crate::object_cache::ObjectCache::new();
+  let registry_metadata_cache = crate::api::RegistryMetadataCache::new();
 
   let router = main_router(MainRouterOptions {
     database,
     buckets,
     generate_ctx_cache,
     object_cache,
+    registry_metadata_cache,
     github_client,
     gitlab_client,
     algolia_client,
