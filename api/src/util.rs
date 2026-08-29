@@ -209,7 +209,8 @@ fn error_response(
   res
 }
 
-/// Short negative-cache `Cache-Control` for a `404` on a cached route. Anonymous
+/// Short negative-cache `Cache-Control` for a cacheable error (see
+/// [`is_cacheable_error_status`]) on a cached route. Anonymous
 /// (and identity-independent `shared`) requests get a brief `public` window;
 /// other authenticated requests are never cached (the lb skips its shared cache
 /// when an `Authorization` header or `token=` cookie is present, so a `public`
@@ -226,18 +227,36 @@ fn short_negative_cache_control(public: bool) -> header::HeaderValue {
   .unwrap()
 }
 
-/// A missing entrypoint/symbol on an immutable (non-"latest") version can never
-/// appear later, so it is as cacheable as a normal `200` for that version —
-/// unlike other 404s (package/version not found, or anything on "latest"), which
-/// only get the brief negative-cache window. Returns the long-lived value to use
-/// for such an error, or `None` to fall back to short negative caching.
+/// Errors that are a deterministic property of an immutable (non-"latest")
+/// version can never resolve differently later, so they are as cacheable as a
+/// normal `200` for that version — unlike other 404s (package/version not
+/// found, or anything on "latest"), which only get the brief negative-cache
+/// window. Returns the long-lived value to use for such an error, or `None` to
+/// fall back to short negative caching.
 fn immutable_miss_cache_control(
   err: &ApiError,
   is_latest: bool,
   long_lived: impl FnOnce() -> header::HeaderValue,
 ) -> Option<header::HeaderValue> {
-  (matches!(err, ApiError::EntrypointOrSymbolNotFound) && !is_latest)
-    .then(long_lived)
+  let deterministic_for_version = matches!(
+    err,
+    // The symbol is absent from this version's docs.
+    ApiError::EntrypointOrSymbolNotFound
+      // This version has more symbols than the listing can carry; that is a
+      // property of its published contents, so it will not change.
+      | ApiError::DocsSymbolListingTooLarge
+  );
+  (deterministic_for_version && !is_latest).then(long_lived)
+}
+
+/// Statuses whose error responses carry `Cache-Control` on a cached route.
+///
+/// `404` has always been here. `413` joined it because the docs symbol-listing
+/// refusal is deterministic per version: without a cache header every retry
+/// reached the origin, which is how one crawler produced 871 identical failing
+/// requests in an hour.
+fn is_cacheable_error_status(status: StatusCode) -> bool {
+  status == StatusCode::NOT_FOUND || status == StatusCode::PAYLOAD_TOO_LARGE
 }
 
 /// Cache an immutable-ish response for `duration`. See [`cache_shared`] for the
@@ -312,7 +331,7 @@ where
         req.param("version").map(|v| v == "latest").unwrap_or(false);
       let mut res = match handler(req).await {
         Ok(res) => res,
-        Err(err) if err.status_code() == StatusCode::NOT_FOUND => {
+        Err(err) if is_cacheable_error_status(err.status_code()) => {
           let long_lived = || if public { value } else { private_value };
           let cc = immutable_miss_cache_control(&err, is_latest, long_lived)
             .unwrap_or_else(|| short_negative_cache_control(public));
@@ -425,7 +444,7 @@ where
         req.param("version").map(|v| v == "latest").unwrap_or(true);
       let mut res = match handler(req).await {
         Ok(res) => res,
-        Err(err) if err.status_code() == StatusCode::NOT_FOUND => {
+        Err(err) if is_cacheable_error_status(err.status_code()) => {
           let long_lived = || {
             if public {
               versioned_value
@@ -1126,6 +1145,7 @@ pub mod test {
         database: db,
         buckets: buckets.clone(),
         generate_ctx_cache: crate::docs::GenerateCtxCache::new(),
+        object_cache: crate::object_cache::ObjectCache::new(),
         registry_metadata_cache: crate::api::RegistryMetadataCache::new(),
         github_client: github_oauth2_client.clone(),
         gitlab_client: gitlab_oauth2_client.clone(),

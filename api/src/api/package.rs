@@ -211,8 +211,12 @@ pub fn package_router() -> Router<Body, ApiError> {
       ),
     )
     .get(
+      // `_shared`: like `docs` above, both search payloads are derived purely
+      // from the published version, with no permission/member/sudo branch, so
+      // the lb may serve them from its shared cache to authenticated callers
+      // instead of bypassing on auth.
       "/:package/versions/:version/docs/search",
-      util::cache_versioned(
+      util::cache_versioned_shared(
         CacheDuration::FIVE_MINUTES,
         CacheDuration::THIRTY_DAYS,
         util::json(get_docs_search_handler),
@@ -220,7 +224,7 @@ pub fn package_router() -> Router<Body, ApiError> {
     )
     .get(
       "/:package/versions/:version/docs/search_structured",
-      util::cache_versioned(
+      util::cache_versioned_shared(
         CacheDuration::FIVE_MINUTES,
         CacheDuration::THIRTY_DAYS,
         util::json(get_docs_search_structured_handler),
@@ -1482,7 +1486,14 @@ pub async fn get_docs_handler(
       version.readme_path.as_ref().unwrap(),
     )
     .into();
-    Either::Left(buckets.modules_bucket.download(s3_path))
+    let object_cache = req
+      .data::<crate::object_cache::ObjectCache>()
+      .unwrap()
+      .clone();
+    let modules_bucket = buckets.modules_bucket.clone();
+    Either::Left(async move {
+      object_cache.download(&modules_bucket, s3_path).await
+    })
   } else {
     Either::Right(futures::future::ready(Ok(None)))
   };
@@ -1635,6 +1646,10 @@ pub async fn get_docs_search_handler(
     ApiError::InternalServerError
   })?;
 
+  if crate::docs::all_symbols_listing_too_large(&ctx) {
+    return Err(ApiError::DocsSymbolListingTooLarge);
+  }
+
   let _permit = crate::docs::acquire_doc_render_permit().await;
   let search_index = deno_doc::html::generate_search_index(&ctx);
 
@@ -1709,6 +1724,10 @@ pub async fn get_docs_search_structured_handler(
     ApiError::InternalServerError
   })?;
 
+  if crate::docs::all_symbols_listing_too_large(&ctx) {
+    return Err(ApiError::DocsSymbolListingTooLarge);
+  }
+
   let _permit = crate::docs::acquire_doc_render_permit().await;
   let docs = crate::docs::render_docs_html(
     &ctx,
@@ -1778,9 +1797,10 @@ pub async fn get_source_handler(
   } else if path == format!("{}_meta.json", version.version) {
     let source_file_path =
       crate::s3_paths::version_metadata(&scope, &package, &version.version);
-    buckets
-      .modules_bucket
-      .download(source_file_path.into())
+    req
+      .data::<crate::object_cache::ObjectCache>()
+      .unwrap()
+      .download(&buckets.modules_bucket, source_file_path.into())
       .await?
   } else if path != "/" {
     let package_path = PackagePath::try_from(path.as_str()).map_err(|err| {
@@ -1815,6 +1835,7 @@ pub async fn get_source_handler(
         &path,
         &file,
         buckets,
+        req.data::<crate::object_cache::ObjectCache>().unwrap(),
         req.data::<RegistryUrl>().unwrap().0.as_str(),
       )
       .await;
@@ -1937,6 +1958,7 @@ pub async fn get_source_handler(
 /// The ranges come from the `moduleGraph2` recorded at publish time, so
 /// nothing is re-parsed here. Links are a nicety: anything missing or
 /// unreadable just yields a file view without them.
+#[allow(clippy::too_many_arguments)]
 async fn source_specifier_links(
   scope: &ScopeName,
   package: &PackageName,
@@ -1944,32 +1966,37 @@ async fn source_specifier_links(
   path: &str,
   source: &str,
   buckets: &Buckets,
+  object_cache: &crate::object_cache::ObjectCache,
   registry_url: &str,
 ) -> Vec<crate::tree_sitter::SourceLink> {
   if !crate::source_links::is_module_path(path) {
     return Vec::new();
   }
 
+  // Immutable per version and shared by every file in it, so this goes
+  // through the object cache: without it each source-file view re-downloaded
+  // the whole manifest just to read one module's entry.
   let metadata_path =
     crate::s3_paths::version_metadata(scope, package, version);
-  let metadata =
-    match buckets.modules_bucket.download(metadata_path.into()).await {
-      Ok(Some(bytes)) => {
-        match serde_json::from_slice::<crate::metadata::VersionMetadata>(&bytes)
-        {
-          Ok(metadata) => metadata,
-          Err(err) => {
-            error!("failed to parse version metadata for links: {err}");
-            return Vec::new();
-          }
+  let metadata = match object_cache
+    .download(&buckets.modules_bucket, metadata_path.into())
+    .await
+  {
+    Ok(Some(bytes)) => {
+      match serde_json::from_slice::<crate::metadata::VersionMetadata>(&bytes) {
+        Ok(metadata) => metadata,
+        Err(err) => {
+          error!("failed to parse version metadata for links: {err}");
+          return Vec::new();
         }
       }
-      Ok(None) => return Vec::new(),
-      Err(err) => {
-        error!("failed to download version metadata for links: {err}");
-        return Vec::new();
-      }
-    };
+    }
+    Ok(None) => return Vec::new(),
+    Err(err) => {
+      error!("failed to download version metadata for links: {err}");
+      return Vec::new();
+    }
+  };
 
   let Some(module_info) = metadata.module_graph_2.get(path) else {
     return Vec::new();

@@ -429,7 +429,10 @@ async function cachedFetch(
 
   // Only cache responses the origin explicitly marked cacheable: a `max-age` or
   // `s-maxage` directive, and never `private`/`no-store`. This applies to both
-  // 200s and (negatively-cached) 404s. Previously an unmarked 200 was cached by
+  // 200s, (negatively-cached) 404s, and the 413 the API returns for a symbol
+  // listing too large to serve — that refusal is a deterministic property of a
+  // published version, and leaving it uncacheable meant every crawler retry
+  // reached the origin. Previously an unmarked 200 was cached by
   // default, which silently cached dynamic endpoints that forgot to opt out —
   // e.g. the publish-status poll (`util::json`, no `Cache-Control`), pinning a
   // stale "pending"/"processing" status so `deno publish` hung until the entry
@@ -440,7 +443,8 @@ async function cachedFetch(
     cacheControl.includes("no-store");
   const hasCacheableDirective = cacheControl.includes("max-age") ||
     cacheControl.includes("s-maxage");
-  const cacheable = (res.ok || res.status === 404) &&
+  const cacheableStatus = res.ok || res.status === 404 || res.status === 413;
+  const cacheable = cacheableStatus &&
     !explicitlyUncacheable && hasCacheableDirective;
   // An authenticated request may only write an identity-independent response —
   // a viewer-specific authed response must never land in the shared cache.

@@ -37,6 +37,7 @@ use std::io::Read;
 use std::io::Write;
 use std::sync::Arc;
 use std::sync::OnceLock;
+use std::time::Duration;
 use tracing::instrument;
 use url::Url;
 
@@ -146,6 +147,22 @@ pub async fn download_doc_nodes(
   version: &Version,
   bucket: &crate::s3::Buckets,
 ) -> Result<Option<ParseOutput>, DocNodeCacheError> {
+  Ok(
+    download_doc_nodes_sized(scope, package, version, bucket)
+      .await?
+      .map(|(doc_nodes, _)| doc_nodes),
+  )
+}
+
+/// Like [`download_doc_nodes`], but also reports how many stored bytes the
+/// nodes were decoded from. [`GenerateCtxCache`] weighs its entries by that
+/// figure, so it needs the size the download already knows.
+async fn download_doc_nodes_sized(
+  scope: &ScopeName,
+  package: &PackageName,
+  version: &Version,
+  bucket: &crate::s3::Buckets,
+) -> Result<Option<(ParseOutput, usize)>, DocNodeCacheError> {
   let v2_path = crate::s3_paths::docs_v2_path(scope, package, version);
   let v2_result = bucket
     .docs_bucket
@@ -153,7 +170,7 @@ pub async fn download_doc_nodes(
     .await?;
 
   if let Some(bytes) = v2_result {
-    return Ok(Some(deserialize_doc_nodes_v2(&bytes)?));
+    return Ok(Some((deserialize_doc_nodes_v2(&bytes)?, bytes.len())));
   }
 
   let v1_path = crate::s3_paths::docs_v1_path(scope, package, version);
@@ -167,6 +184,7 @@ pub async fn download_doc_nodes(
   };
 
   let doc_nodes = deserialize_doc_nodes_v1(&bytes)?;
+  let stored_bytes = bytes.len();
 
   // Best-effort migration: re-upload as v2 and delete v1. Failures are
   // logged but not propagated — the doc nodes were already read successfully.
@@ -198,8 +216,50 @@ pub async fn download_doc_nodes(
     }
   }
 
-  Ok(Some(doc_nodes))
+  Ok(Some((doc_nodes, stored_bytes)))
 }
+
+/// Total weight the cache may hold, measured in the *stored* (gzipped
+/// MessagePack) size of the doc nodes each context was built from.
+///
+/// This replaced a flat 64-entry capacity. Counting entries meant 64 tiny
+/// packages evicted each other exactly as readily as 64 enormous ones, while
+/// the memory actually held was bounded by nothing at all. Weighing by stored
+/// size bounds memory instead, which both caps the worst case and lets far more
+/// of the long tail stay resident — a production sample saw 534 distinct
+/// packages across 2000 docs requests against those 64 slots.
+///
+/// Stored size is a proxy: the built context is roughly an order of magnitude
+/// larger in memory than the bytes it was decoded from. The budget is set
+/// conservatively for that reason, and pinning the real ratio needs cache
+/// instrumentation that does not exist yet.
+const MAX_CACHED_DOC_NODE_BYTES: u64 = 16 * 1024 * 1024;
+
+/// Release contexts that go unread for this long, so a burst across many
+/// packages does not pin memory for the rest of the process's life.
+const CACHED_CTX_TIME_TO_IDLE: Duration = Duration::from_secs(30 * 60);
+
+#[derive(Clone)]
+struct CachedCtx {
+  ctx: Arc<GenerateCtx>,
+  /// Stored size of the doc nodes this was built from; the cache weight.
+  stored_bytes: u32,
+}
+
+/// Loader failure. `Absent` never reaches a caller — returning it as an error
+/// is how a package with no doc nodes escapes `try_get_with` without moka
+/// caching the miss.
+#[derive(Debug, thiserror::Error)]
+enum CtxLoadError {
+  #[error(transparent)]
+  DocNodes(#[from] DocNodeCacheError),
+  #[error("no doc nodes stored for this version")]
+  Absent,
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error(transparent)]
+pub struct GenerateCtxCacheError(Arc<CtxLoadError>);
 
 /// Cache for fully-built GenerateCtx. Keyed by
 /// `scope/package/version/is_latest/has_readme/runtime_compat` so concurrent
@@ -207,15 +267,17 @@ pub async fn download_doc_nodes(
 /// rebuilding.
 #[derive(Clone)]
 pub struct GenerateCtxCache {
-  cache: moka::future::Cache<String, Arc<GenerateCtx>>,
+  cache: moka::future::Cache<String, CachedCtx>,
 }
 
 impl GenerateCtxCache {
   pub fn new() -> Self {
     Self {
-      // estimated 2-5mb for the average package (based on std packages).
-      // 5*64 = 320mb estimated max average.
-      cache: moka::future::Cache::builder().max_capacity(64).build(),
+      cache: moka::future::Cache::builder()
+        .max_capacity(MAX_CACHED_DOC_NODE_BYTES)
+        .weigher(|_key, cached: &CachedCtx| cached.stored_bytes)
+        .time_to_idle(CACHED_CTX_TIME_TO_IDLE)
+        .build(),
     }
   }
 
@@ -232,7 +294,7 @@ impl GenerateCtxCache {
     runtime_compat: RuntimeCompat,
     registry_url: &str,
     bucket: &crate::s3::Buckets,
-  ) -> Result<Option<Arc<GenerateCtx>>, DocNodeCacheError> {
+  ) -> Result<Option<Arc<GenerateCtx>>, GenerateCtxCacheError> {
     // runtime_compat is part of the key because the usage instructions baked
     // into the GenerateCtx depend on it, and it is editable in the package
     // settings.
@@ -241,38 +303,93 @@ impl GenerateCtxCache {
       runtime_compat
     );
 
-    if let Some(cached) = self.cache.get(&key).await {
-      return Ok(Some(cached));
+    // `try_get_with` single-flights the miss: concurrent requests for the same
+    // cold key wait on one download and one context build instead of each
+    // paying both. That matters more here than for a typical cache, because
+    // building a context allocates the 10-50 MB the render permit exists to
+    // bound, so a stampede on a popular cold package multiplied real memory as
+    // well as CPU.
+    let loaded = self
+      .cache
+      .try_get_with(key, async {
+        let Some((doc_nodes, stored_bytes)) =
+          download_doc_nodes_sized(scope, package, version, bucket).await?
+        else {
+          return Err(CtxLoadError::Absent);
+        };
+
+        let docs_info = get_docs_info(exports, None);
+        let ctx = get_generate_ctx(
+          "/doc".to_string(),
+          doc_nodes,
+          docs_info.main_entrypoint,
+          docs_info.rewrite_map,
+          scope.clone(),
+          package.clone(),
+          version.clone(),
+          version_is_latest,
+          github_repository,
+          has_readme,
+          runtime_compat,
+          has_create_export(exports),
+          registry_url.to_string(),
+          None,
+        );
+
+        Ok(CachedCtx {
+          ctx: Arc::new(ctx),
+          stored_bytes: stored_bytes.try_into().unwrap_or(u32::MAX),
+        })
+      })
+      .await;
+
+    match loaded {
+      Ok(cached) => Ok(Some(cached.ctx)),
+      Err(err) if matches!(&*err, CtxLoadError::Absent) => Ok(None),
+      Err(err) => Err(GenerateCtxCacheError(err)),
     }
-
-    let Some(doc_nodes) =
-      download_doc_nodes(scope, package, version, bucket).await?
-    else {
-      return Ok(None);
-    };
-
-    let docs_info = get_docs_info(exports, None);
-    let ctx = get_generate_ctx(
-      "/doc".to_string(),
-      doc_nodes,
-      docs_info.main_entrypoint,
-      docs_info.rewrite_map,
-      scope.clone(),
-      package.clone(),
-      version.clone(),
-      version_is_latest,
-      github_repository,
-      has_readme,
-      runtime_compat,
-      has_create_export(exports),
-      registry_url.to_string(),
-      None,
-    );
-
-    let ctx = Arc::new(ctx);
-    self.cache.insert(key, ctx.clone()).await;
-    Ok(Some(ctx))
   }
+}
+
+/// Upper bound on the number of symbol rows the "all symbols" listing may
+/// contain across *every* entrypoint.
+///
+/// [`SYMBOL_LISTING_LIMIT`] already bounds each module's own listing, but the
+/// all-symbols listing concatenates one per entrypoint, so a package with many
+/// entrypoints multiplies straight past it: `@ubx/sdk-aws` publishes 1921
+/// exports, putting its ceiling near 3.9 million rows. The resulting response
+/// exceeded Cloud Run's 32 MiB cap, so every request built the whole thing,
+/// spent ~1.6s of CPU, and was then killed mid-flight — 871 times in one hour
+/// from a single crawler, and never cacheable because a 500 is not.
+///
+/// Refusing up front turns that into a cheap, cacheable error. The durable fix
+/// is for the limit in deno_doc to be a total budget rather than a per-module
+/// one, at which point this guard should stop firing on its own.
+const ALL_SYMBOLS_LISTING_LIMIT: usize = 10_000;
+
+/// Whether the all-symbols listing for `ctx` would exceed
+/// [`ALL_SYMBOLS_LISTING_LIMIT`].
+///
+/// Mirrors what rendering will actually emit: each entrypoint contributes at
+/// most [`SYMBOL_LISTING_LIMIT`] rows. Counting top-level doc nodes can only
+/// over-estimate a module's rendered rows, so this errs towards refusing.
+pub fn all_symbols_listing_too_large(ctx: &GenerateCtx) -> bool {
+  listing_rows_exceed_limit(ctx.doc_nodes.values().map(|nodes| nodes.len()))
+}
+
+/// The counting half of [`all_symbols_listing_too_large`], split out so the
+/// per-entrypoint accumulation can be tested without building a `GenerateCtx`.
+fn listing_rows_exceed_limit(
+  module_symbol_counts: impl Iterator<Item = usize>,
+) -> bool {
+  let mut total = 0usize;
+  for count in module_symbol_counts {
+    total = total.saturating_add(count.min(SYMBOL_LISTING_LIMIT));
+    if total > ALL_SYMBOLS_LISTING_LIMIT {
+      return true;
+    }
+  }
+  false
 }
 
 pub type URLRewriter =
@@ -1669,6 +1786,36 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
 mod tests {
   use super::*;
   use deno_doc::html::ShortPath;
+
+  #[test]
+  fn one_module_under_the_per_module_limit_is_allowed() {
+    // The common case: a single entrypoint, however symbol-heavy, is capped by
+    // SYMBOL_LISTING_LIMIT and must still render.
+    assert!(!listing_rows_exceed_limit(std::iter::once(usize::MAX)));
+  }
+
+  #[test]
+  fn many_small_entrypoints_can_exceed_the_total_limit() {
+    // The regression this guard exists for. Every module here is far under
+    // SYMBOL_LISTING_LIMIT, so the per-module cap never trims anything, yet the
+    // all-symbols listing concatenates one per entrypoint. @ubx/sdk-aws
+    // publishes 1921 exports; at 100 symbols each that is 192_100 rows, which
+    // is what pushed the response past Cloud Run's 32 MiB cap.
+    assert!(listing_rows_exceed_limit(std::iter::repeat_n(100, 1921)));
+  }
+
+  #[test]
+  fn a_package_at_the_limit_is_still_served() {
+    // Exactly at the budget is allowed; only exceeding it refuses.
+    assert!(!listing_rows_exceed_limit(std::iter::repeat_n(
+      1,
+      ALL_SYMBOLS_LISTING_LIMIT
+    )));
+    assert!(listing_rows_exceed_limit(std::iter::repeat_n(
+      1,
+      ALL_SYMBOLS_LISTING_LIMIT + 1
+    )));
+  }
 
   #[test]
   fn renders_heading_permalinks_through_the_sanitizer() {
