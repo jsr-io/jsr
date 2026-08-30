@@ -37,11 +37,12 @@ export function PackageHeader({
 }: PackageHeaderProps) {
   const selectedVersionSemver = selectedVersion &&
     parse(selectedVersion.version);
-  const isNewerPrerelease = selectedVersionSemver &&
+  const isPrerelease = !!(selectedVersionSemver &&
     selectedVersionSemver.prerelease &&
-    selectedVersionSemver.prerelease.length !== 0 &&
+    selectedVersionSemver.prerelease.length !== 0);
+  const isNewerPrerelease = isPrerelease &&
     (pkg.latestVersion === null ||
-      greaterThan(selectedVersionSemver, parse(pkg.latestVersion)));
+      greaterThan(selectedVersionSemver!, parse(pkg.latestVersion)));
 
   // Calculate weekly downloads for mobile display (drop incomplete current week)
   const hasDownloads = downloads !== null &&
@@ -82,7 +83,8 @@ export function PackageHeader({
                       @{pkg.scope}/{pkg.name} is {pkg.latestVersion}.
                     </>
                   )
-                  : (
+                  : (selectedVersion.newerVersionsCount ?? 0) > 0
+                  ? (
                     <>
                       <span class="bold">
                         is {selectedVersion.newerVersionsCount!}{" "}
@@ -90,6 +92,12 @@ export function PackageHeader({
                           "s"} behind {pkg.latestVersion}
                       </span>{" "}
                       — the latest version of @{pkg.scope}/{pkg.name}.
+                    </>
+                  )
+                  : (
+                    <>
+                      is not the latest version — the latest version of @{pkg
+                        .scope}/{pkg.name} is {pkg.latestVersion}.
                     </>
                   )}
               </span>
@@ -157,6 +165,12 @@ export function PackageHeader({
                 pkg.latestVersion === selectedVersion?.version && (
                 <div class="chip bg-jsr-yellow-400 dark:text-jsr-gray-800 select-none">
                   latest
+                </div>
+              )}
+
+              {isPrerelease && (
+                <div class="chip bg-jsr-cyan-200 dark:bg-jsr-cyan-950 select-none">
+                  pre-release
                 </div>
               )}
 

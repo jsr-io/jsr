@@ -68,6 +68,11 @@ This metadata contains a list of published versions for the package. This allows
 a tool to discover the available versions of a package and perform semantic
 versioning resolution to determine the best version to use.
 
+The metadata also contains a `latest` field with the latest version of the
+package. This is the newest unyanked stable version, or — for packages that only
+have pre-release versions — the newest unyanked pre-release version. It is
+`null` when the package has no unyanked versions.
+
 Each version in the metadata contains information about the version, such as the
 yanked status, and the `exports` field for the package version. The `exports`
 field is normalized to simple object form.
@@ -82,6 +87,7 @@ For the above `@luca/flag` package, the metadata would look like this:
 {
   "scope": "luca",
   "name": "flag",
+  "latest": "1.0.1",
   "githubRepository": {
     "owner": "lucacasonato",
     "name": "flag"
