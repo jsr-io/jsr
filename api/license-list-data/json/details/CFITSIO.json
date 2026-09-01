@@ -7,21 +7,21 @@
   "crossRef": [
     {
       "match": "true",
-      "url": "https://heasarc.gsfc.nasa.gov/docs/software/ftools/fv/doc/license.html",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-07-16T09:30:44Z",
-      "isWayBackLink": false,
-      "order": 1
-    },
-    {
-      "match": "true",
       "url": "https://heasarc.gsfc.nasa.gov/docs/software/fitsio/c/f_user/node9.html",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-07-16T09:30:44Z",
+      "timestamp": "2026-08-27T17:07:33Z",
       "isWayBackLink": false,
       "order": 0
+    },
+    {
+      "match": "true",
+      "url": "https://heasarc.gsfc.nasa.gov/docs/software/ftools/fv/doc/license.html",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-08-27T17:07:33Z",
+      "isWayBackLink": false,
+      "order": 1
     }
   ],
   "seeAlso": [

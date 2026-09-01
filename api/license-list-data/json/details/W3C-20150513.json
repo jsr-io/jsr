@@ -11,19 +11,10 @@
   "crossRef": [
     {
       "match": "N/A",
-      "url": "https://www.w3.org/Consortium/Legal/2015/copyright-software-and-document",
-      "isValid": true,
-      "isLive": false,
-      "timestamp": "2026-07-16T09:26:16Z",
-      "isWayBackLink": false,
-      "order": 0
-    },
-    {
-      "match": "N/A",
       "url": "https://www.w3.org/copyright/software-license-2023/",
       "isValid": true,
       "isLive": false,
-      "timestamp": "2026-07-16T09:26:16Z",
+      "timestamp": "2026-08-27T16:55:33Z",
       "isWayBackLink": false,
       "order": 2
     },
@@ -32,9 +23,18 @@
       "url": "https://www.w3.org/copyright/software-license-2015/",
       "isValid": true,
       "isLive": false,
-      "timestamp": "2026-07-16T09:26:16Z",
+      "timestamp": "2026-08-27T16:55:33Z",
       "isWayBackLink": false,
       "order": 1
+    },
+    {
+      "match": "N/A",
+      "url": "https://www.w3.org/Consortium/Legal/2015/copyright-software-and-document",
+      "isValid": true,
+      "isLive": false,
+      "timestamp": "2026-08-27T16:55:33Z",
+      "isWayBackLink": false,
+      "order": 0
     }
   ],
   "seeAlso": [

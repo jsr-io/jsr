@@ -7,21 +7,21 @@
   "crossRef": [
     {
       "match": "false",
-      "url": "https://ctan.math.illinois.edu/systems/texlive/tlnet/archive/hyphen-bulgarian.tar.xz",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-07-16T09:30:26Z",
-      "isWayBackLink": false,
-      "order": 0
-    },
-    {
-      "match": "false",
       "url": "https://gitlab.freedesktop.org/xkeyboard-config/xkeyboard-config/-/blob/959538769bfad6a73bdf34275d46520ec0f9cbb5/COPYING#L176-185",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-07-16T09:30:27Z",
+      "timestamp": "2026-08-27T17:03:34Z",
       "isWayBackLink": false,
       "order": 1
+    },
+    {
+      "match": "false",
+      "url": "https://ctan.math.illinois.edu/systems/texlive/tlnet/archive/hyphen-bulgarian.tar.xz",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-08-27T17:03:35Z",
+      "isWayBackLink": false,
+      "order": 0
     }
   ],
   "seeAlso": [

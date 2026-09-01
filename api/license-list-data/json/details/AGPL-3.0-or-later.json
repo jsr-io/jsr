@@ -12,21 +12,21 @@
   "crossRef": [
     {
       "match": "N/A",
-      "url": "https://www.gnu.org/licenses/agpl.txt",
-      "isValid": true,
-      "isLive": false,
-      "timestamp": "2026-07-16T09:26:16Z",
-      "isWayBackLink": false,
-      "order": 0
-    },
-    {
-      "match": "N/A",
       "url": "https://opensource.org/license/AGPL-3.0",
       "isValid": true,
       "isLive": false,
-      "timestamp": "2026-07-16T09:26:16Z",
+      "timestamp": "2026-08-27T17:08:21Z",
       "isWayBackLink": false,
       "order": 1
+    },
+    {
+      "match": "N/A",
+      "url": "https://www.gnu.org/licenses/agpl.txt",
+      "isValid": true,
+      "isLive": false,
+      "timestamp": "2026-08-27T17:08:51Z",
+      "isWayBackLink": false,
+      "order": 0
     }
   ],
   "seeAlso": [

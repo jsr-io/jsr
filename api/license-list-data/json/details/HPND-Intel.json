@@ -8,11 +8,11 @@
   "licenseId": "HPND-Intel",
   "crossRef": [
     {
-      "match": "false",
+      "match": "N/A",
       "url": "https://sourceware.org/git/?p\u003dnewlib-cygwin.git;a\u003dblob;f\u003dnewlib/libc/machine/i960/memcpy.S;hb\u003dHEAD",
       "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-07-16T09:30:27Z",
+      "isLive": false,
+      "timestamp": "2026-08-27T16:57:42Z",
       "isWayBackLink": false,
       "order": 0
     }
