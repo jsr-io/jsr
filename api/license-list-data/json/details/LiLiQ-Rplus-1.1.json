@@ -8,20 +8,11 @@
   "licenseId": "LiLiQ-Rplus-1.1",
   "crossRef": [
     {
-      "match": "N/A",
-      "url": "https://www.forge.gouv.qc.ca/participez/licence-logicielle/licence-libre-du-quebec-liliq-en-francais/licence-libre-du-quebec-reciprocite-forte-liliq-r-v1-1/",
-      "isValid": true,
-      "isLive": false,
-      "timestamp": "2026-07-16T09:21:49Z",
-      "isWayBackLink": false,
-      "order": 0
-    },
-    {
       "match": "false",
       "url": "https://forge.gouv.qc.ca/licence/liliq-r+/",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-07-16T09:21:50Z",
+      "timestamp": "2026-08-27T17:06:25Z",
       "isWayBackLink": false,
       "order": 2
     },
@@ -30,9 +21,18 @@
       "url": "http://opensource.org/license/LiLiQ-Rplus-1.1",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-07-16T09:21:50Z",
+      "timestamp": "2026-08-27T17:06:25Z",
       "isWayBackLink": false,
       "order": 1
+    },
+    {
+      "match": "N/A",
+      "url": "https://www.forge.gouv.qc.ca/participez/licence-logicielle/licence-libre-du-quebec-liliq-en-francais/licence-libre-du-quebec-reciprocite-forte-liliq-r-v1-1/",
+      "isValid": true,
+      "isLive": false,
+      "timestamp": "2026-08-27T17:06:26Z",
+      "isWayBackLink": false,
+      "order": 0
     }
   ],
   "seeAlso": [

@@ -7,22 +7,22 @@
   "licenseId": "MIT",
   "crossRef": [
     {
-      "match": "N/A",
-      "url": "https://opensource.org/license/MIT",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-07-16T09:23:37Z",
-      "isWayBackLink": false,
-      "order": 0
-    },
-    {
       "match": "false",
       "url": "https://gitlab.freedesktop.org/xorg/xserver/-/blob/dd5c2595a42d3ff0c4f18d9b53d1f6c3fd934fd4/COPYING#L365-389",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-07-16T09:23:38Z",
+      "timestamp": "2026-08-27T17:04:13Z",
       "isWayBackLink": false,
       "order": 1
+    },
+    {
+      "match": "N/A",
+      "url": "https://opensource.org/license/MIT",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-08-27T17:04:14Z",
+      "isWayBackLink": false,
+      "order": 0
     }
   ],
   "seeAlso": [

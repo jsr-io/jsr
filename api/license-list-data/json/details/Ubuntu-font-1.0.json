@@ -7,21 +7,21 @@
   "crossRef": [
     {
       "match": "false",
-      "url": "https://assets.ubuntu.com/v1/81e5605d-ubuntu-font-licence-1.0.txt",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-07-16T09:21:50Z",
-      "isWayBackLink": false,
-      "order": 1
-    },
-    {
-      "match": "false",
       "url": "https://ubuntu.com/legal/font-licence",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-07-16T09:21:51Z",
+      "timestamp": "2026-08-27T17:01:21Z",
       "isWayBackLink": false,
       "order": 0
+    },
+    {
+      "match": "false",
+      "url": "https://assets.ubuntu.com/v1/81e5605d-ubuntu-font-licence-1.0.txt",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-08-27T17:01:22Z",
+      "isWayBackLink": false,
+      "order": 1
     }
   ],
   "seeAlso": [
