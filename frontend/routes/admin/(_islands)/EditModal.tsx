@@ -37,11 +37,19 @@ type Field = SelectField | BooleanField | NumberField | TextField;
 const BASE_INPUT_STYLING = "w-full block px-2 py-1.5 input-container input";
 
 export function EditModal(
-  { style, fields, title, path }: {
+  { style, fields, title, path, method = "patch", label = "edit", redirect }: {
     path: APIPath;
     style: "primary" | "danger";
     title: string;
     fields: Field[];
+    /// `patch` sends only the fields that changed from their initial value and
+    /// reloads the page; `post` sends every field and creates something new.
+    method?: "patch" | "post";
+    /// Text on the button that opens the modal.
+    label?: string;
+    /// Where to go once a `post` succeeds, with `{id}` replaced by the id of
+    /// the object the API returned. Reloads the page when unset.
+    redirect?: string;
   },
 ) {
   const open = useSignal(false);
@@ -85,7 +93,7 @@ export function EditModal(
         onClick={() => open.value = !open.value}
         aria-expanded={open.value ? "true" : "false"}
       >
-        edit
+        {label}
       </button>
       <div
         class={`fixed top-0 right-0 w-screen h-screen bg-gray-300/40 dark:bg-jsr-gray-950/70 z-80 flex justify-center items-center overflow-hidden ${
@@ -112,7 +120,7 @@ export function EditModal(
             for (const field of fields) {
               const val = state.value[field.name];
 
-              if (field.value !== undefined) {
+              if (method === "patch" && field.value !== undefined) {
                 if (field.value !== val) {
                   data[field.name] = val;
                 }
@@ -128,8 +136,20 @@ export function EditModal(
 
             status.value = "submitting";
 
-            api.patch(path, data).then((res) => {
-              if (res.ok) {
+            const request = method === "post"
+              ? api.post<{ id: string }>(path, data)
+              : api.patch<{ id: string }>(path, data);
+            request.then((res) => {
+              if (!res.ok) {
+                status.value = "pending";
+                return;
+              }
+              if (redirect !== undefined) {
+                globalThis.location.href = redirect.replace(
+                  "{id}",
+                  res.data.id,
+                );
+              } else {
                 globalThis.location.reload();
               }
             });

@@ -1106,6 +1106,9 @@ pub enum TicketKind {
   ScopeClaim,
   PackageReport,
   Other,
+  /// Opened by staff, addressed to a user. The ticket's creator is the user
+  /// being contacted, and its first message is outbound.
+  StaffOutreach,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

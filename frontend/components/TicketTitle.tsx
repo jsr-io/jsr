@@ -35,6 +35,10 @@ export function TicketTitle(props: TicketTitleProps): JSX.Element {
     case "scope_claim":
       title = `Request for reserved scope '@${props.meta.scope}'`;
       break;
+    case "staff_outreach":
+      // Always opened with a subject; this is only reached if it was blank.
+      title = "Message from JSR staff";
+      break;
     case "package_report":
       title = `Report package '${props.meta.scope}/${props.meta.name}${
         props.meta.version ? `@${props.meta.version}` : ""

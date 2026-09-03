@@ -349,7 +349,9 @@ export type TicketKind =
   | "scope_quota_increase"
   | "scope_claim"
   | "package_report"
-  | "other";
+  | "other"
+  /// Opened by staff, addressed to the user who appears as its reporter.
+  | "staff_outreach";
 
 export interface NewTicket {
   kind: TicketKind;

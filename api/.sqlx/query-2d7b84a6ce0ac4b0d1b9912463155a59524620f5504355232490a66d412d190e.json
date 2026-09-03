@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO tickets (kind, creator, subject, meta, status)\n          VALUES ('staff_outreach', $1, $2, $3, 'waiting_on_user')\n          RETURNING id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Jsonb"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "2d7b84a6ce0ac4b0d1b9912463155a59524620f5504355232490a66d412d190e"
+}

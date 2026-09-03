@@ -4491,6 +4491,80 @@ gitlab_id: r.user_gitlab_id,
     Ok((ticket, user, message))
   }
 
+  /// Opens a ticket addressed to `user_id` on behalf of staff.
+  ///
+  /// The ticket belongs to the user being contacted, so it lists with their own
+  /// tickets and their replies are inbound like on any other. The opening
+  /// message is outbound from `staff_id`, and the ticket starts out waiting on
+  /// the user rather than in the open queue, since nobody is owed a reply by
+  /// support yet.
+  ///
+  /// `email_message_id` is the `Message-ID` the notification email will be
+  /// sent under, or `None` when no email goes out.
+  #[instrument(
+    name = "Database::create_staff_outreach_ticket",
+    skip(self, message),
+    err
+  )]
+  pub async fn create_staff_outreach_ticket(
+    &self,
+    staff_id: &Uuid,
+    user_id: Uuid,
+    subject: &str,
+    meta: serde_json::Value,
+    message: &str,
+    email_message_id: Option<&str>,
+  ) -> Result<(Ticket, User, FullTicketMessage)> {
+    let mut tx = self.pool.begin().await?;
+
+    let ticket_id = sqlx::query_scalar!(
+      r#"INSERT INTO tickets (kind, creator, subject, meta, status)
+          VALUES ('staff_outreach', $1, $2, $3, 'waiting_on_user')
+          RETURNING id"#,
+      user_id as _,
+      subject,
+      meta as _,
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+
+    sqlx::query!(
+      r#"INSERT INTO ticket_messages (ticket_id, author, direction, message, email_message_id)
+          VALUES ($1, $2, 'outbound', $3, $4)"#,
+      ticket_id as _,
+      staff_id as _,
+      message,
+      email_message_id,
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    audit_log(
+      &mut tx,
+      staff_id,
+      true,
+      "create_staff_outreach_ticket",
+      json!({
+        "ticket_id": ticket_id,
+        "user_id": user_id,
+      }),
+    )
+    .await?;
+
+    let (ticket, user, mut messages) =
+      Self::load_full_ticket(&mut tx, ticket_id)
+        .await?
+        .expect("ticket was just inserted in this transaction");
+
+    tx.commit().await?;
+
+    // The whole message, author included: unlike a ticket somebody opens
+    // themselves, the author here is not the ticket's owner.
+    let message = messages.remove(0);
+    let user = user.expect("ticket was just created with a creator");
+    Ok((ticket, user, message))
+  }
+
   #[instrument(name = "Database::list_tickets", skip(self), err)]
   pub async fn list_tickets(
     &self,
