@@ -154,6 +154,11 @@ The version metadata field is immutable, so it can be cached indefinitely.
 Because of this immutability, the `yanked` field is not included in the version
 metadata. Instead, retrieve yanked status from the package metadata.
 
+Note that in the rare case that a version is
+[deleted](/docs/packages#deleting-a-version), its modules and version metadata
+are removed from the registry and the version disappears from the package
+metadata.
+
 ## npm compatibility registry API
 
 The npm compatibility registry API is used to download npm compatible tarballs

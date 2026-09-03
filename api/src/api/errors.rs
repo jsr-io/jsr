@@ -271,7 +271,15 @@ errors!(
   },
   DeleteVersionHasDependents {
     status: BAD_REQUEST,
-    "The requested package version has dependents. Only a version without dependents can be deleted.",
+    "The requested package version is depended on by other published packages, and no other version satisfies their version constraints. It cannot be deleted.",
+  },
+  DeleteVersionTooOld {
+    status: BAD_REQUEST,
+    "The requested package version was published more than 24 hours ago. Only versions published in the last 24 hours can be deleted.",
+  },
+  DeleteVersionTooManyDownloads {
+    status: BAD_REQUEST,
+    "The requested package version has already been downloaded too many times to be deleted.",
   },
   TicketNotFound {
     status: NOT_FOUND,

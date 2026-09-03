@@ -18,6 +18,7 @@ use deno_graph::source::LoadError;
 use deno_graph::source::LoadOptions;
 use deno_graph::source::NullFileSystem;
 use deno_semver::StackString;
+use deno_semver::VersionReq;
 use futures::StreamExt;
 use futures::TryFutureExt;
 use futures::future::Either;
@@ -70,6 +71,7 @@ use crate::docs::GeneratedDocsOutput;
 use crate::external::algolia::AlgoliaClient;
 use crate::external::cloudflare::CachePurge;
 use crate::gcp;
+use crate::iam::IamInfo;
 use crate::iam::ReqIamExt;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
@@ -125,6 +127,10 @@ use super::ApiUpdatePackageRequest;
 use super::ApiUpdatePackageVersionRequest;
 
 pub const MAX_PUBLISH_TARBALL_SIZE: u64 = 20 * 1024 * 1024; // 20mb
+
+/// The maximum number of downloads a version may have to still be deletable by
+/// a scope admin.
+const MAX_DELETABLE_VERSION_DOWNLOADS: i64 = 10;
 
 pub struct PublishQueue(pub Option<gcp::Queue>);
 
@@ -1324,18 +1330,78 @@ pub async fn version_delete_handler(
   let registry_url = &req.data::<RegistryUrl>().unwrap().0;
   let npm_url = &req.data::<NpmUrl>().unwrap().0;
   let cache_purge = req.data::<CachePurge>().unwrap();
+  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap().clone();
+  let iam_sudo = req.context::<IamInfo>().unwrap().sudo;
 
   let iam = req.iam();
-  let staff = iam.check_admin_access()?;
+  let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
+  // `check_scope_admin_access` only reports sudo for staff that are not scope
+  // members, so also treat a staff scope admin with sudo enabled as sudo.
+  let sudo = sudo || (user.is_staff && iam_sudo);
+  let user_id = user.id;
 
-  let count = db.count_package_dependents(&scope, &package).await?;
+  let package_version = db
+    .get_package_version(&scope, &package, &version)
+    .await?
+    .ok_or(ApiError::PackageVersionNotFound)?;
 
-  if count > 0 {
-    return Err(ApiError::DeleteVersionHasDependents);
+  if !sudo {
+    if Utc::now() - package_version.created_at > chrono::Duration::hours(24) {
+      return Err(ApiError::DeleteVersionTooOld);
+    }
+
+    let downloads = db
+      .get_package_version_total_downloads(&scope, &package, &version)
+      .await?;
+    if downloads >= MAX_DELETABLE_VERSION_DOWNLOADS {
+      return Err(ApiError::DeleteVersionTooManyDownloads);
+    }
   }
 
-  db.delete_package_version(&staff.id, &scope, &package, &version)
+  let constraints = db
+    .list_package_dependent_constraints(&scope, &package)
     .await?;
+  if !constraints.is_empty() {
+    // A dependent constraint only blocks deletion if this version is the sole
+    // remaining non-yanked version satisfying it. Dependents that can resolve
+    // to a sibling version are not broken by the deletion, so a broad range
+    // (like a wildcard) does not pin every version of the package.
+    let remaining_versions = db
+      .list_package_versions_for_metadata(&scope, &package)
+      .await?
+      .into_iter()
+      .filter(|v| !v.is_yanked && v.version != version)
+      .map(|v| v.version)
+      .collect::<Vec<_>>();
+    for constraint in constraints {
+      let blocking = match VersionReq::parse_from_specifier(&constraint) {
+        Ok(req) => match req.range() {
+          Some(range) => {
+            range.satisfies(&version.0)
+              && !remaining_versions.iter().any(|v| range.satisfies(&v.0))
+          }
+          // A dist-tag constraint cannot be proven to exclude this version.
+          None => true,
+        },
+        Err(_) => true,
+      };
+      if blocking {
+        return Err(ApiError::DeleteVersionHasDependents);
+      }
+    }
+  }
+
+  // Collect the npm tarball rows before the delete cascades them away.
+  let npm_tarballs = db
+    .list_npm_tarballs_for_version(&scope, &package, &version)
+    .await?;
+
+  let deleted = db
+    .delete_package_version(&user_id, sudo, &scope, &package, &version)
+    .await?;
+  if !deleted {
+    return Err(ApiError::PackageVersionNotFound);
+  }
 
   let v1_path = crate::s3_paths::docs_v1_path(&scope, &package, &version);
   let v2_path = crate::s3_paths::docs_v2_path(&scope, &package, &version);
@@ -1348,6 +1414,16 @@ pub async fn version_delete_handler(
   let path =
     crate::s3_paths::file_path_root_directory(&scope, &package, &version);
   buckets.modules_bucket.delete_directory(path.into()).await?;
+
+  for npm_tarball in npm_tarballs {
+    let path = crate::s3_paths::npm_tarball_path(
+      &scope,
+      &package,
+      &version,
+      npm_tarball.revision as u32,
+    );
+    buckets.npm_bucket.delete_file(path.into()).await?;
+  }
 
   upload_package_manifests(
     db,
@@ -1367,6 +1443,13 @@ pub async fn version_delete_handler(
       &package,
     ))
     .await;
+
+  if let Some(algolia_client) = algolia_client
+    && let Some((db_package, _, meta)) =
+      db.get_package(&scope, &package).await?
+  {
+    algolia_client.upsert_package(&db_package, &meta);
+  }
 
   Ok(
     Response::builder()
@@ -3402,16 +3485,19 @@ mod test {
   use crate::api::{ApiDependency, ApiReadmeSource};
   use crate::db::CreatePackageResult;
   use crate::db::CreatePublishingTaskResult;
+  use crate::db::DownloadKind;
   use crate::db::ExportsMap;
   use crate::db::NewGithubRepository;
   use crate::db::NewPackageVersion;
   use crate::db::NewPublishingTask;
   use crate::db::NewScopeInvite;
+  use crate::db::NewScopeMember;
   use crate::db::PackagePublishPermission;
   use crate::db::Permission;
   use crate::db::Permissions;
   use crate::db::PublishingTaskStatus;
   use crate::db::TokenType;
+  use crate::db::VersionDownloadCount;
   use crate::ids::{
     PackageName, PackagePath, ScopeDescription, ScopeName, Version,
   };
@@ -3424,6 +3510,7 @@ mod test {
   use crate::util::test::ApiResultExt;
   use crate::util::test::FakeFallbackRegistry;
   use crate::util::test::TestSetup;
+  use chrono::Utc;
   use hyper::Body;
   use hyper::StatusCode;
   use indexmap::IndexSet;
@@ -5779,12 +5866,31 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
   #[tokio::test]
   async fn delete_version() {
     let mut t = TestSetup::new().await;
+    let admin_token = t.user1.token.clone();
+    let member_token = t.user2.token.clone();
+    let non_member_token = t.user3.token.clone();
     let staff_token = t.staff_user.token.clone();
 
-    // unpublished package
+    let scope_name = t.scope.scope.clone();
+    let foo_name = PackageName::try_from("foo").unwrap();
+
+    t.db()
+      .add_user_to_scope(NewScopeMember {
+        scope: &scope_name,
+        user_id: t.user2.user.id,
+        is_admin: false,
+      })
+      .await
+      .unwrap();
+
+    let task = process_tarball_setup(&t, create_mock_tarball("ok")).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    // deleting a version that does not exist is a 404
     let mut resp = t
       .http()
-      .get("/api/scopes/scope/packages/foo/versions/0.0.1/dependencies/graph")
+      .delete("/api/scopes/scope/packages/foo/versions/0.0.1")
+      .token(Some(&admin_token))
       .call()
       .await
       .unwrap();
@@ -5792,26 +5898,36 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .expect_err_code(StatusCode::NOT_FOUND, "packageVersionNotFound")
       .await;
 
-    let task = process_tarball_setup(&t, create_mock_tarball("ok")).await;
-    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
-
-    // Now publish a package that has a few deps
-    let package_name = PackageName::try_from("bar").unwrap();
+    // publish bar@1.2.3, which depends on jsr:@scope/foo@1
+    let bar_name = PackageName::try_from("bar").unwrap();
     let version = Version::try_from("1.2.3").unwrap();
     let task = process_tarball_setup2(
       &t,
       create_mock_tarball("depends_on_ok"),
-      &package_name,
+      &bar_name,
       &version,
       false,
     )
     .await;
     assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
 
+    // foo@1.2.3 is matched by bar's `@1` constraint, so it cannot be deleted,
+    // not even by staff with sudo
     let mut resp = t
       .http()
-      .delete("/api/scopes/scope/packages/foo/versions/0.0.1")
+      .delete("/api/scopes/scope/packages/foo/versions/1.2.3")
+      .token(Some(&admin_token))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::BAD_REQUEST, "deleteVersionHasDependents")
+      .await;
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/1.2.3")
       .token(Some(&staff_token))
+      .sudo(true)
       .call()
       .await
       .unwrap();
@@ -5819,35 +5935,262 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .expect_err_code(StatusCode::BAD_REQUEST, "deleteVersionHasDependents")
       .await;
 
-    let mut resp = t
-      .http()
-      .delete("/api/scopes/scope/packages/bar/versions/1.2.3")
-      .token(Some(&staff_token))
-      .call()
-      .await
-      .unwrap();
-    resp.expect_ok_no_content().await;
-
-    let mut resp = t
-      .http()
-      .delete("/api/scopes/scope/packages/foo/versions/0.0.1")
-      .token(Some(&staff_token))
-      .call()
-      .await
-      .unwrap();
-    resp.expect_ok_no_content().await;
-
-    let package_name = PackageName::try_from("foo").unwrap();
-    let version = Version::try_from("0.0.1").unwrap();
+    // publish foo@1.3.0, which is also matched by bar's `@1` constraint
+    let version13 = Version::try_from("1.3.0").unwrap();
     let task = process_tarball_setup2(
       &t,
-      create_mock_tarball("ok"),
-      &package_name,
-      &version,
+      create_mock_tarball("ok3"),
+      &foo_name,
+      &version13,
       false,
     )
     .await;
-    assert_eq!(task.status, PublishingTaskStatus::Failure, "{:?}", task);
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    // with foo@1.2.3 yanked, foo@1.3.0 is the only non-yanked version that
+    // bar's `@1` constraint can resolve to, so it cannot be deleted
+    let version = Version::try_from("1.2.3").unwrap();
+    t.db()
+      .yank_package_version(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        &foo_name,
+        &version,
+        true,
+      )
+      .await
+      .unwrap();
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/1.3.0")
+      .token(Some(&admin_token))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::BAD_REQUEST, "deleteVersionHasDependents")
+      .await;
+
+    // once foo@1.2.3 is unyanked, bar's `@1` constraint can resolve to it, so
+    // foo@1.3.0 can be deleted even though bar depends on `@1`
+    t.db()
+      .yank_package_version(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        &foo_name,
+        &version,
+        false,
+      )
+      .await
+      .unwrap();
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/1.3.0")
+      .token(Some(&admin_token))
+      .call()
+      .await
+      .unwrap();
+    resp.expect_ok_no_content().await;
+
+    // publish foo@2.0.0, which is not matched by bar's `@1` constraint
+    let version2 = Version::try_from("2.0.0").unwrap();
+    let task = process_tarball_setup2(
+      &t,
+      create_mock_tarball("ok2"),
+      &foo_name,
+      &version2,
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    // only scope admins may delete versions
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/2.0.0")
+      .token(Some(&member_token))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeAdmin")
+      .await;
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/2.0.0")
+      .token(Some(&non_member_token))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeMember")
+      .await;
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/2.0.0")
+      .token(Some(&staff_token))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeMember")
+      .await;
+
+    // a version with too many downloads cannot be deleted by a scope admin
+    let time_bucket = Utc::now() - chrono::Duration::hours(48);
+    t.db()
+      .insert_download_entries(vec![VersionDownloadCount {
+        scope: scope_name.clone(),
+        package: foo_name.clone(),
+        version: version2.clone(),
+        time_bucket,
+        kind: DownloadKind::JsrMeta,
+        count: 10,
+      }])
+      .await
+      .unwrap();
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/2.0.0")
+      .token(Some(&admin_token))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::BAD_REQUEST, "deleteVersionTooManyDownloads")
+      .await;
+
+    // lower the download count below the threshold again
+    t.db()
+      .insert_download_entries(vec![VersionDownloadCount {
+        scope: scope_name.clone(),
+        package: foo_name.clone(),
+        version: version2.clone(),
+        time_bucket,
+        kind: DownloadKind::JsrMeta,
+        count: 5,
+      }])
+      .await
+      .unwrap();
+
+    // the npm tarball for foo@2.0.0 exists before deletion
+    let npm_tarballs = t
+      .db()
+      .list_npm_tarballs_for_version(&scope_name, &foo_name, &version2)
+      .await
+      .unwrap();
+    assert!(!npm_tarballs.is_empty());
+    let npm_tarball_paths = npm_tarballs
+      .iter()
+      .map(|tarball| {
+        crate::s3_paths::npm_tarball_path(
+          &scope_name,
+          &foo_name,
+          &version2,
+          tarball.revision as u32,
+        )
+      })
+      .collect::<Vec<_>>();
+    for path in &npm_tarball_paths {
+      let obj = t.buckets.npm_bucket.download(path.as_str().into()).await;
+      assert!(obj.unwrap().is_some(), "{path} missing before delete");
+    }
+
+    // now a scope admin can delete foo@2.0.0
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/2.0.0")
+      .token(Some(&admin_token))
+      .call()
+      .await
+      .unwrap();
+    resp.expect_ok_no_content().await;
+
+    let version = t
+      .db()
+      .get_package_version(&scope_name, &foo_name, &version2)
+      .await
+      .unwrap();
+    assert!(version.is_none());
+    for path in &npm_tarball_paths {
+      let obj = t.buckets.npm_bucket.download(path.as_str().into()).await;
+      assert!(obj.unwrap().is_none(), "{path} present after delete");
+    }
+
+    // a version published more than 24 hours ago cannot be deleted by a scope
+    // admin
+    let version = Version::try_from("1.2.3").unwrap();
+    t.db()
+      .set_package_version_created_at_for_test(
+        &scope_name,
+        &foo_name,
+        &version,
+        Utc::now() - chrono::Duration::hours(25),
+      )
+      .await
+      .unwrap();
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/1.2.3")
+      .token(Some(&admin_token))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::BAD_REQUEST, "deleteVersionTooOld")
+      .await;
+
+    // delete the dependent bar@1.2.3 (fresh, no dependents, no downloads)
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/bar/versions/1.2.3")
+      .token(Some(&admin_token))
+      .call()
+      .await
+      .unwrap();
+    resp.expect_ok_no_content().await;
+
+    // foo@1.2.3 is still too old for a scope admin, but staff with sudo
+    // bypasses the age and download restrictions
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/1.2.3")
+      .token(Some(&admin_token))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::BAD_REQUEST, "deleteVersionTooOld")
+      .await;
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/1.2.3")
+      .token(Some(&staff_token))
+      .sudo(true)
+      .call()
+      .await
+      .unwrap();
+    resp.expect_ok_no_content().await;
+
+    // the publishing task for a deleted version survives, so the version
+    // cannot be re-published
+    let CreatePublishingTaskResult::Exists((task, _)) = t
+      .db()
+      .create_publishing_task(NewPublishingTask {
+        user_id: Some(t.user1.user.id),
+        package_scope: &scope_name,
+        package_name: &foo_name,
+        package_version: &version,
+        config_file: &PackagePath::try_from("/jsr.json").unwrap(),
+      })
+      .await
+      .unwrap()
+    else {
+      panic!("expected the old publishing task to block re-publishing");
+    };
+    assert_eq!(task.status, PublishingTaskStatus::Success);
   }
 
   #[tokio::test]

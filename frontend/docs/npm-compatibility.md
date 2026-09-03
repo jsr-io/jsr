@@ -203,3 +203,8 @@ new URL that includes the new revision.
 Because the tarball URL is included in package manager lock files, running
 `npm i` / `yarn` / `pnpm i` will never accidentally download a new revision of
 the tarball.
+
+One exception to tarball URL immutability is
+[version deletion](/docs/packages#deleting-a-version): when a package version is
+deleted, its tarballs are removed from the registry, although caches may still
+serve them for some time.

@@ -1047,7 +1047,7 @@ paths:
 
     delete:
       summary: Delete package version
-      description: Deletes a package version. Only allowed for versions published in the last 24 hours with no dependents.
+      description: Deletes a package version. Scope admins may only delete versions that were published in the last 24 hours, have fewer than 10 downloads, and are not the only version satisfying another published package's dependency constraint on this package (dependents that can resolve to a different version of the package do not block deletion).
       operationId: deletePackageVersion
       parameters:
         - name: scope
@@ -1072,7 +1072,7 @@ paths:
         "204":
           description: OK, no content
         "400":
-          description: Invalid request / Version has dependents / Version too old
+          description: Invalid request / Version has dependents / Version too old / Version has too many downloads
           content:
             application/json:
               schema:

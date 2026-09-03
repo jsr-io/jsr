@@ -2208,17 +2208,18 @@ gitlab_id: r.user_gitlab_id,
   #[instrument(name = "Database::delete_package_version", skip(self), err)]
   pub async fn delete_package_version(
     &self,
-    staff_id: &Uuid,
+    actor_id: &Uuid,
+    is_sudo: bool,
     scope: &ScopeName,
     name: &PackageName,
     version: &Version,
-  ) -> Result<()> {
+  ) -> Result<bool> {
     let mut tx = self.pool.begin().await?;
 
     audit_log(
       &mut tx,
-      staff_id,
-      true,
+      actor_id,
+      is_sudo,
       "delete_package_version",
       json!({
       "scope": scope,
@@ -2228,19 +2229,49 @@ gitlab_id: r.user_gitlab_id,
     )
     .await?;
 
-    sqlx::query_as!(
-      PackageVersion,
+    let res = sqlx::query!(
       r#"DELETE FROM package_versions WHERE scope = $1 AND name = $2 AND version = $3"#,
       scope as _,
       name as _,
       version as _
     )
-      .execute(&mut *tx)
-      .await?;
+    .execute(&mut *tx)
+    .await?;
 
     tx.commit().await?;
 
-    Ok(())
+    Ok(res.rows_affected() > 0)
+  }
+
+  #[instrument(
+    name = "Database::list_package_dependent_constraints",
+    skip(self),
+    err
+  )]
+  pub async fn list_package_dependent_constraints(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<Vec<String>> {
+    let jsr_name = format!("@{scope}/{name}");
+    let npm_name = crate::npm::NpmMappedJsrPackageName {
+      scope,
+      package: name,
+    }
+    .to_string();
+    let constraints = sqlx::query!(
+      r#"SELECT DISTINCT dependency_constraint
+      FROM package_version_dependencies
+      WHERE (dependency_kind = 'jsr' AND dependency_name = $1)
+        OR (dependency_kind = 'npm' AND dependency_name = $2)"#,
+      jsr_name,
+      npm_name,
+    )
+    .map(|r| r.dependency_constraint)
+    .fetch_all(&self.pool)
+    .await?;
+
+    Ok(constraints)
   }
 
   #[instrument(name = "Database::list_package_files", skip(self), err)]
@@ -3919,6 +3950,55 @@ gitlab_id: r.user_gitlab_id,
     Ok(())
   }
 
+  #[cfg(test)]
+  #[instrument(
+    name = "Database::set_package_version_created_at_for_test",
+    skip(self),
+    err
+  )]
+  pub async fn set_package_version_created_at_for_test(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+    version: &Version,
+    created_at: DateTime<Utc>,
+  ) -> Result<()> {
+    sqlx::query!(
+      r#"UPDATE package_versions SET created_at = $4 WHERE scope = $1 AND name = $2 AND version = $3"#,
+      scope as _,
+      name as _,
+      version as _,
+      created_at,
+    )
+    .execute(&self.pool)
+    .await?;
+
+    Ok(())
+  }
+
+  #[instrument(
+    name = "Database::list_npm_tarballs_for_version",
+    skip(self),
+    err
+  )]
+  pub async fn list_npm_tarballs_for_version(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+    version: &Version,
+  ) -> Result<Vec<NpmTarball>> {
+    query_concat_as!(
+      NpmTarball,
+      "SELECT ", NPM_TARBALL_SELECT, " FROM npm_tarballs
+      WHERE scope = $1 AND name = $2 AND version = $3";
+      scope as _,
+      name as _,
+      version as _,
+    )
+    .fetch_all(&self.pool)
+    .await
+  }
+
   #[instrument(name = "Database::get_npm_tarball", skip(self), err)]
   pub async fn get_npm_tarball(
     &self,
@@ -4146,6 +4226,32 @@ gitlab_id: r.user_gitlab_id,
     )
       .fetch_all(&self.pool)
       .await
+  }
+
+  #[instrument(
+    name = "Database::get_package_version_total_downloads",
+    skip(self),
+    err
+  )]
+  pub async fn get_package_version_total_downloads(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+    version: &Version,
+  ) -> Result<i64> {
+    sqlx::query!(
+      r#"
+      SELECT COALESCE(SUM(count), 0) as "count!"
+      FROM version_download_counts_24h
+      WHERE scope = $1 AND package = $2 AND version = $3
+      "#,
+      scope as _,
+      name as _,
+      version as _,
+    )
+    .map(|r| r.count)
+    .fetch_one(&self.pool)
+    .await
   }
 
   #[instrument(name = "Database::get_package_downloads_24h", skip(self), err)]
