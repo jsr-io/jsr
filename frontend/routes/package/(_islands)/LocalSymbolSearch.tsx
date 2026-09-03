@@ -85,8 +85,15 @@ export function LocalSymbolSearch(
   const searchCounter = useSignal(0);
   const searchContent = useSignal<AllSymbolsCtx | null>(null);
 
-  useEffect(() => {
-    (async () => {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const loadPromise = useRef<Promise<void> | null>(null);
+
+  // The symbol listing is only fetched and indexed once the user interacts
+  // with the search input, so plain page visits never pay for it. The first
+  // focus or input event kicks it off; subsequent ones reuse the same promise.
+  function ensureLoaded(): Promise<void> {
+    if (loadPromise.current) return loadPromise.current;
+    loadPromise.current = (async () => {
       const [oramaDb, searchResp] = await Promise.all([
         createOrama(),
         !props.content
@@ -135,8 +142,14 @@ export function LocalSymbolSearch(
 
       await insertMultiple(oramaDb, searchItems);
       db.value = oramaDb;
+
+      // Anything typed while the index was still loading has not been
+      // searched yet, so run it now.
+      const pending = inputRef.current?.value;
+      if (pending) await runSearch(pending);
     })();
-  }, []);
+    return loadPromise.current;
+  }
 
   useEffect(() => {
     const keyboardHandler = (e: KeyboardEvent) => {
@@ -163,104 +176,110 @@ export function LocalSymbolSearch(
     );
   }, []);
 
-  async function onInput(e: JSX.TargetedEvent<HTMLInputElement>) {
-    // The index is absent when the symbol listing could not be fetched — a
-    // package with too many symbols to list is refused by the API. Typing then
-    // has nothing to search, so do nothing rather than throw on every keystroke.
-    if (!db.value) return;
+  function onInput(e: JSX.TargetedEvent<HTMLInputElement>) {
+    ensureLoaded();
     if (e.currentTarget.value) {
-      const term = e.currentTarget.value;
-      const searchResult = await search(db.value, {
-        term,
-        properties: ["name", "description"],
-        threshold: 0.2,
-        limit: 50,
-      });
-
-      for (const node of previousResultNodes.current) {
-        node.style.setProperty("display", "none");
-        node.querySelectorAll("mark.orama-highlight").forEach((el) => {
-          el.replaceWith(...el.childNodes);
-        });
-        node.normalize();
-      }
-      previousResultNodes.current = [];
-
-      for (const section of previousSections.current) {
-        section.hidden = true;
-      }
-      previousSections.current.clear();
-
-      const hitNames = new Set(
-        searchResult.hits.map((hit) => hit.document.name),
-      );
-
-      const out: AllSymbolsItemCtx[] = searchContent.value!.entrypoints
-        .map((entrypoint) => {
-          const filteredSections = entrypoint.module_doc.sections.sections
-            .map((kindGroup) => {
-              const content = kindGroup.content;
-              if (content.kind !== "namespace_section") return null;
-
-              const filteredContent = content.content
-                .map((symbol) => {
-                  const symbolMatches = hitNames.has(symbol.name);
-                  const matchingSubitems = symbol.subitems.filter((subitem) =>
-                    hitNames.has(subitem.title)
-                  );
-
-                  if (!symbolMatches && matchingSubitems.length === 0) {
-                    return null;
-                  }
-
-                  return {
-                    ...symbol,
-                    subitems: symbolMatches
-                      ? symbol.subitems
-                      : matchingSubitems,
-                  };
-                })
-                .filter(Boolean);
-
-              if (filteredContent.length === 0) return null;
-
-              return {
-                ...kindGroup,
-                content: { ...content, content: filteredContent },
-              };
-            })
-            .filter(Boolean);
-
-          if (filteredSections.length === 0) return null;
-
-          return {
-            ...entrypoint,
-            module_doc: {
-              ...entrypoint.module_doc,
-              sections: {
-                ...entrypoint.module_doc.sections,
-                sections: filteredSections,
-              },
-            },
-          };
-        })
-        .filter(Boolean) as AllSymbolsItemCtx[];
-
-      const searchResults = document.getElementById("docSearchResults")!;
-      searchResults.innerHTML = highlight(
-        renderToString(
-          <AllSymbols items={out} />,
-        ),
-        term,
-      );
-
-      hasResults.value = searchResult.hits.length > 0;
-      searchCounter.value++;
-      showResults.value = true;
+      // The index is absent while the symbol listing is still loading, or when
+      // it could not be fetched at all — a package with too many symbols to
+      // list is refused by the API. In the former case the load completion
+      // re-runs the search with whatever is in the input; in the latter there
+      // is nothing to search, so do nothing rather than throw on every
+      // keystroke.
+      if (!db.value) return;
+      runSearch(e.currentTarget.value);
     } else {
       hasResults.value = true;
       showResults.value = false;
     }
+  }
+
+  async function runSearch(term: string) {
+    if (!db.value) return;
+    const searchResult = await search(db.value, {
+      term,
+      properties: ["name", "description"],
+      threshold: 0.2,
+      limit: 50,
+    });
+
+    for (const node of previousResultNodes.current) {
+      node.style.setProperty("display", "none");
+      node.querySelectorAll("mark.orama-highlight").forEach((el) => {
+        el.replaceWith(...el.childNodes);
+      });
+      node.normalize();
+    }
+    previousResultNodes.current = [];
+
+    for (const section of previousSections.current) {
+      section.hidden = true;
+    }
+    previousSections.current.clear();
+
+    const hitNames = new Set(
+      searchResult.hits.map((hit) => hit.document.name),
+    );
+
+    const out: AllSymbolsItemCtx[] = searchContent.value!.entrypoints
+      .map((entrypoint) => {
+        const filteredSections = entrypoint.module_doc.sections.sections
+          .map((kindGroup) => {
+            const content = kindGroup.content;
+            if (content.kind !== "namespace_section") return null;
+
+            const filteredContent = content.content
+              .map((symbol) => {
+                const symbolMatches = hitNames.has(symbol.name);
+                const matchingSubitems = symbol.subitems.filter((subitem) =>
+                  hitNames.has(subitem.title)
+                );
+
+                if (!symbolMatches && matchingSubitems.length === 0) {
+                  return null;
+                }
+
+                return {
+                  ...symbol,
+                  subitems: symbolMatches ? symbol.subitems : matchingSubitems,
+                };
+              })
+              .filter(Boolean);
+
+            if (filteredContent.length === 0) return null;
+
+            return {
+              ...kindGroup,
+              content: { ...content, content: filteredContent },
+            };
+          })
+          .filter(Boolean);
+
+        if (filteredSections.length === 0) return null;
+
+        return {
+          ...entrypoint,
+          module_doc: {
+            ...entrypoint.module_doc,
+            sections: {
+              ...entrypoint.module_doc.sections,
+              sections: filteredSections,
+            },
+          },
+        };
+      })
+      .filter(Boolean) as AllSymbolsItemCtx[];
+
+    const searchResults = document.getElementById("docSearchResults")!;
+    searchResults.innerHTML = highlight(
+      renderToString(
+        <AllSymbols items={out} />,
+      ),
+      term,
+    );
+
+    hasResults.value = searchResult.hits.length > 0;
+    searchCounter.value++;
+    showResults.value = true;
   }
 
   if (IS_BROWSER) {
@@ -290,7 +309,8 @@ export function LocalSymbolSearch(
           placeholder={placeholder}
           id="symbol-search-input"
           class="block text-sm w-full py-2 px-2 input-container input border border-jsr-cyan-300/50 dark:border-jsr-cyan-800"
-          disabled={!db.value}
+          ref={inputRef}
+          onFocus={ensureLoaded}
           onInput={onInput}
         />
       </div>
