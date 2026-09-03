@@ -14,11 +14,17 @@ use tracing::Span;
 use tracing::field;
 use tracing::instrument;
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 use crate::analysis::PackageAnalysisData;
 use crate::analysis::analyze_package;
 use crate::db::*;
+use crate::emails;
+use crate::emails::EmailArgs;
+use crate::emails::EmailQueue;
+use crate::emails::EmailSender;
+use crate::emails::EmailThread;
 use crate::iam::ReqIamExt;
 use crate::ids::PackagePath;
 use crate::ids::ScopeDescription;
@@ -41,6 +47,10 @@ pub fn admin_router() -> Router<Body, ApiError> {
   Router::builder()
     .get("/users", util::auth(util::json(list_users)))
     .patch("/users/:user_id", util::auth(util::json(update_user)))
+    .post(
+      "/users/:user_id/tickets",
+      util::auth(util::json(create_outreach_ticket)),
+    )
     .get("/scopes", util::auth(util::json(list_scopes)))
     .post("/scopes", util::auth(util::json(assign_scope)))
     .patch("/scopes/:scope", util::auth(util::json(patch_scopes)))
@@ -124,6 +134,108 @@ pub async fn update_user(mut req: Request<Body>) -> ApiResult<ApiFullUser> {
       msg: "missing 'is_staff', 'is_blocked' or 'scope_limit' parameter".into(),
     })
   }
+}
+
+/// Opens a ticket addressed to a user, so that staff can start a conversation
+/// rather than only answer one. The user is notified by email when they have
+/// one; either way the ticket shows up in their account and unread badge, and
+/// replying works exactly as on a ticket they opened themselves.
+#[instrument(name = "POST /api/admin/users/:user_id/tickets", skip(req))]
+pub async fn create_outreach_ticket(
+  mut req: Request<Body>,
+) -> ApiResult<ApiTicket> {
+  let user_id = req.param_uuid("user_id")?;
+  Span::current().record("user_id", field::display(&user_id));
+  let ApiAdminNewOutreachTicketRequest {
+    subject,
+    message,
+    meta,
+  } = decode_json(&mut req).await?;
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  let staff = iam.check_admin_access()?;
+
+  let subject = subject.trim();
+  if subject.is_empty() {
+    return Err(ApiError::MalformedRequest {
+      msg: "'subject' must not be empty".into(),
+    });
+  }
+  if message.trim().is_empty() {
+    return Err(ApiError::TicketMessageEmpty);
+  }
+  let meta = meta.unwrap_or_else(|| serde_json::json!({}));
+  if !meta.is_object() {
+    return Err(ApiError::TicketMetaNotValid);
+  }
+
+  let user = db.get_user(user_id).await?.ok_or(ApiError::UserNotFound)?;
+
+  let email_sender = req.data::<Option<EmailSender>>().unwrap();
+  let registry_url = req.data::<RegistryUrl>().unwrap();
+
+  // Generated before the insert so the stored row and the header on the email
+  // announcing it agree, which is what makes the user's reply threadable. Only
+  // recorded when an email actually goes out: a user with no address on file
+  // gets the ticket on the web alone.
+  let email_message_id = match (&email_sender, &user.email) {
+    (Some(_), Some(_)) => {
+      Some(super::tickets::new_email_message_id(registry_url))
+    }
+    _ => None,
+  };
+
+  let (ticket, user, message) = db
+    .create_staff_outreach_ticket(
+      &staff.id,
+      user_id,
+      subject,
+      meta,
+      &message,
+      email_message_id.as_deref(),
+    )
+    .await?;
+
+  if let Some(email) = &user.email
+    && let Some(email_sender) = email_sender
+    && let Some(email_message_id) = &email_message_id
+  {
+    let email_args = EmailArgs::SupportTicketOutreach {
+      name: Cow::Borrowed(&user.name),
+      ticket_id: Cow::Owned(ticket.id.to_string()),
+      ticket_number: Cow::Borrowed(&ticket.ticket_number),
+      subject: Cow::Borrowed(subject),
+      content: Cow::Borrowed(&message.0.message),
+      registry_url: Cow::Borrowed(registry_url.0.as_str()),
+      registry_name: Cow::Borrowed(&email_sender.from_name),
+      support_email: Cow::Borrowed(&email_sender.from),
+    };
+    // Logged rather than returned: the ticket is already open, and failing the
+    // request would have staff open a second one. The sweeper re-drives
+    // anything left unsent.
+    if let Err(err) = emails::enqueue(
+      db,
+      email_sender,
+      req.data::<EmailQueue>().unwrap(),
+      email.clone(),
+      email_args,
+      Some(EmailThread {
+        message_id: email_message_id,
+        in_reply_to: None,
+        references: vec![],
+      }),
+    )
+    .await
+    {
+      tracing::error!("failed to queue email: {:?}", err);
+    }
+  }
+
+  Ok(ApiTicket::for_viewer(
+    (ticket, Some(user), vec![message]),
+    true,
+  ))
 }
 
 #[instrument(name = "GET /api/admin/scopes", skip(req))]
@@ -535,6 +647,131 @@ mod tests {
   use crate::util::test::TestSetup;
   use hyper::StatusCode;
   use serde_json::json;
+
+  #[tokio::test]
+  async fn create_outreach_ticket() {
+    use crate::api::ApiTicket;
+    use crate::api::ApiTicketActor;
+    use crate::api::ApiTicketMessage;
+    use crate::db::TicketKind;
+    use crate::db::TicketMessageDirection;
+    use crate::db::TicketStatus;
+
+    let mut t = TestSetup::new().await;
+    let staff_token = t.staff_user.token.clone();
+    let user_token = t.user1.token.clone();
+    let user_id = t.user1.user.id;
+    let path = format!("/api/admin/users/{user_id}/tickets");
+
+    // Not for regular users.
+    t.http()
+      .post(&path)
+      .token(Some(&user_token))
+      .body_json(json!({ "subject": "Hi", "message": "hello" }))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::FORBIDDEN, "actorNotAuthorized")
+      .await;
+
+    // An empty message opens nothing.
+    t.http()
+      .post(&path)
+      .token(Some(&staff_token))
+      .body_json(json!({ "subject": "Hi", "message": "  " }))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::BAD_REQUEST, "ticketMessageEmpty")
+      .await;
+
+    // Nor does one addressed to nobody.
+    t.http()
+      .post(format!("/api/admin/users/{}/tickets", uuid::Uuid::new_v4()))
+      .token(Some(&staff_token))
+      .body_json(json!({ "subject": "Hi", "message": "hello" }))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::NOT_FOUND, "userNotFound")
+      .await;
+
+    let ticket = t
+      .http()
+      .post(&path)
+      .token(Some(&staff_token))
+      .body_json(json!({
+        "subject": "About your scope",
+        "message": "hello from staff",
+        "meta": { "scope": "scope" },
+      }))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok::<ApiTicket>()
+      .await;
+
+    assert_eq!(ticket.kind, TicketKind::StaffOutreach);
+    assert_eq!(ticket.subject.as_deref(), Some("About your scope"));
+    assert_eq!(ticket.status, TicketStatus::WaitingOnUser);
+    assert_eq!(ticket.meta, json!({ "scope": "scope" }));
+    let ApiTicketActor::User { user: reporter } = &ticket.reporter else {
+      panic!("expected a user reporter, got {:?}", ticket.reporter);
+    };
+    assert_eq!(reporter.id, user_id);
+    assert_eq!(ticket.messages.len(), 1);
+    assert_eq!(ticket.messages[0].message, "hello from staff");
+    assert_eq!(
+      ticket.messages[0].direction,
+      TicketMessageDirection::Outbound
+    );
+    let ApiTicketActor::User { user: author } = &ticket.messages[0].author
+    else {
+      panic!(
+        "expected a user author, got {:?}",
+        ticket.messages[0].author
+      );
+    };
+    assert_eq!(author.id, t.staff_user.user.id);
+
+    // The contacted user can see it and reply, and their reply is inbound
+    // like on any ticket they opened themselves.
+    let message = t
+      .http()
+      .post(format!("/api/tickets/{}", ticket.id))
+      .token(Some(&user_token))
+      .body_json(json!({ "message": "hello back" }))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok::<ApiTicketMessage>()
+      .await;
+    assert_eq!(message.direction, TicketMessageDirection::Inbound);
+
+    let tickets = t
+      .http()
+      .get("/api/user/tickets")
+      .token(Some(&user_token))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok::<Vec<ApiTicket>>()
+      .await;
+    assert_eq!(tickets.len(), 1);
+    assert_eq!(tickets[0].id, ticket.id);
+    assert_eq!(tickets[0].status, TicketStatus::WaitingOnSupport);
+
+    // Somebody else cannot.
+    let other_token = t.user2.token.clone();
+    t.http()
+      .get(format!("/api/tickets/{}", ticket.id))
+      .token(Some(&other_token))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::NOT_FOUND, "ticketNotFound")
+      .await;
+  }
 
   #[tokio::test]
   async fn list_users() {

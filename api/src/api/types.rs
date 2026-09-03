@@ -1294,6 +1294,18 @@ pub struct ApiAdminUpdateTicketRequest {
   pub status: Option<TicketStatus>,
 }
 
+/// Opens a `staff_outreach` ticket addressed to a user.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiAdminNewOutreachTicketRequest {
+  pub subject: String,
+  pub message: String,
+  /// Structured context for what the conversation is about, such as the scope
+  /// or package it concerns. Shown on the ticket page.
+  #[serde(default)]
+  pub meta: Option<serde_json::Value>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiAuditLog {

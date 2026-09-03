@@ -116,7 +116,7 @@ fn thread_for<'a>(
 /// Generates a `Message-ID` for an email JSR is about to send. Recorded against
 /// the message it announces, so a reply pointing back at it can be threaded onto
 /// the right ticket.
-fn new_email_message_id(registry_url: &RegistryUrl) -> String {
+pub(super) fn new_email_message_id(registry_url: &RegistryUrl) -> String {
   let domain = registry_url.0.host_str().unwrap_or("jsr.io");
   format!("<{}@{}>", Uuid::new_v4(), domain)
 }

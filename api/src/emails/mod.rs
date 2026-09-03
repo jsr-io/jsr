@@ -23,6 +23,8 @@ const SUPPORT_TICKET_MESSAGE_TXT: &str = "support_ticket_message.txt";
 const SUPPORT_TICKET_MESSAGE_HTML: &str = "support_ticket_message.html";
 const SUPPORT_TICKET_AUTO_REPLY_TXT: &str = "support_ticket_auto_reply.txt";
 const SUPPORT_TICKET_AUTO_REPLY_HTML: &str = "support_ticket_auto_reply.html";
+const SUPPORT_TICKET_OUTREACH_TXT: &str = "support_ticket_outreach.txt";
+const SUPPORT_TICKET_OUTREACH_HTML: &str = "support_ticket_outreach.html";
 
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
@@ -73,6 +75,19 @@ pub enum EmailArgs<'a> {
     registry_name: Cow<'a, str>,
     support_email: Cow<'a, str>,
   },
+  /// Sent to a user when staff open a ticket addressed to them. Unlike the
+  /// other ticket emails it is not a reply to anything, so it introduces the
+  /// conversation rather than announcing a new message on it.
+  SupportTicketOutreach {
+    name: Cow<'a, str>,
+    ticket_id: Cow<'a, str>,
+    ticket_number: Cow<'a, str>,
+    subject: Cow<'a, str>,
+    content: Cow<'a, str>,
+    registry_url: Cow<'a, str>,
+    registry_name: Cow<'a, str>,
+    support_email: Cow<'a, str>,
+  },
 }
 
 impl EmailArgs<'_> {
@@ -109,6 +124,13 @@ impl EmailArgs<'_> {
           .trim();
         format!("[{ticket_number}] Re: {subject}")
       }
+      EmailArgs::SupportTicketOutreach {
+        ticket_number,
+        subject,
+        ..
+      } => {
+        format!("[{ticket_number}] {}", subject.trim())
+      }
     }
   }
 
@@ -119,6 +141,7 @@ impl EmailArgs<'_> {
       EmailArgs::SupportTicketCreated { .. } => SUPPORT_TICKET_CREATED_TXT,
       EmailArgs::SupportTicketMessage { .. } => SUPPORT_TICKET_MESSAGE_TXT,
       EmailArgs::SupportTicketAutoReply { .. } => SUPPORT_TICKET_AUTO_REPLY_TXT,
+      EmailArgs::SupportTicketOutreach { .. } => SUPPORT_TICKET_OUTREACH_TXT,
     }
   }
 
@@ -131,6 +154,7 @@ impl EmailArgs<'_> {
       EmailArgs::SupportTicketAutoReply { .. } => {
         SUPPORT_TICKET_AUTO_REPLY_HTML
       }
+      EmailArgs::SupportTicketOutreach { .. } => SUPPORT_TICKET_OUTREACH_HTML,
     }
   }
 }
@@ -186,6 +210,14 @@ fn init_handlebars()
   t.register_template_string(
     SUPPORT_TICKET_AUTO_REPLY_HTML,
     include_str!("./templates/support_ticket_auto_reply.html.hbs"),
+  )?;
+  t.register_template_string(
+    SUPPORT_TICKET_OUTREACH_TXT,
+    include_str!("./templates/support_ticket_outreach.txt.hbs"),
+  )?;
+  t.register_template_string(
+    SUPPORT_TICKET_OUTREACH_HTML,
+    include_str!("./templates/support_ticket_outreach.html.hbs"),
   )?;
 
   t.set_strict_mode(true);

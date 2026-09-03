@@ -292,6 +292,8 @@ function formatMeta(kind: TicketKind, meta: Record<string, string>) {
       return null;
     case "other":
       return null;
+    case "staff_outreach":
+      return null;
   }
 }
 
