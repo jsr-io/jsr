@@ -1,1 +1,6 @@
+User-agent: *
+# Versioned doc pages (/@scope/pkg@1.2.3/doc/...) only redirect to the
+# versionless docs of the latest version, so crawling them is pure waste.
+Disallow: /@*/*@*/doc
+
 Sitemap: https://jsr.io/sitemap.xml
