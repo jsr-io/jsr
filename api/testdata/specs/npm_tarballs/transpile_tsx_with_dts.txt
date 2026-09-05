@@ -1,0 +1,76 @@
+# index.tsx
+/** @jsxImportSource npm:preact@^10.22.0 */
+import type { JSX } from "npm:preact@^10.22.0";
+export function Hello(props: { name: string }): JSX.Element {
+  return <div>hello {props.name}</div>;
+}
+
+# jsr.json
+{
+  "name": "@scope/foo",
+  "version": "1.0.0",
+  "exports": "./index.tsx"
+}
+
+# npm:preact@^10.22.0
+<external>
+
+# npm:preact@^10.22.0/jsx-runtime
+<external>
+
+# output
+== /_dist/index.d.ts ==
+/** @jsxImportSource npm:preact@^10.22.0 */ import type { JSX } from "preact";
+export declare function Hello(props: {
+  name: string;
+}): JSX.Element;
+//# sourceMappingURL=index.d.ts.map
+
+== /_dist/index.d.ts.map ==
+{"version":3,"file":"index.d.ts","sources":["../index.tsx"],"names":[],"mappings":"AAAA,yCAAyC,GACzC,cAAc,GAAG,iBAA8B;AAC/C,OAAO,iBAAS,MAAM;EAAS,MAAM,MAAM;CAAE,GAAG,IAAI"}
+
+== /index.js ==
+/** @jsxImportSource npm:preact@^10.22.0 */ import { jsxs as _jsxs } from "preact/jsx-runtime";
+export function Hello(props) {
+  return /*#__PURE__*/ _jsxs("div", {
+    children: [
+      "hello ",
+      props.name
+    ]
+  });
+}
+//# sourceMappingURL=index.js.map
+
+== /index.js.map ==
+{"version":3,"file":"index.js","sources":["./index.tsx"],"names":[],"mappings":"AAAA,yCAAyC;AAEzC,OAAO,SAAS,MAAM,KAAuB;EAC3C,qBAAO,MAAC;;MAAI;MAAO,MAAM,IAAI;;;AAC/B"}
+
+== /index.tsx ==
+/** @jsxImportSource npm:preact@^10.22.0 */
+import type { JSX } from "npm:preact@^10.22.0";
+export function Hello(props: { name: string }): JSX.Element {
+  return <div>hello {props.name}</div>;
+}
+
+== /jsr.json ==
+{
+  "name": "@scope/foo",
+  "version": "1.0.0",
+  "exports": "./index.tsx"
+}
+
+== /package.json ==
+{
+  "name": "@jsr/scope__foo",
+  "version": "1.0.0",
+  "homepage": "http://jsr.test/@scope/foo",
+  "type": "module",
+  "dependencies": {},
+  "exports": {
+    ".": {
+      "types": "./_dist/index.d.ts",
+      "default": "./index.js"
+    }
+  },
+  "_jsr_revision": 0
+}
+
