@@ -3,6 +3,7 @@
 use crate::api::ApiError;
 use crate::db::*;
 use crate::util::ApiResult;
+use crate::util::oauth2_http_request;
 use chrono::DateTime;
 use chrono::Duration;
 use chrono::Utc;
@@ -13,49 +14,59 @@ use oauth2::TokenResponse;
 use oauth2::basic::BasicErrorResponse;
 use oauth2::basic::BasicRevocationErrorResponse;
 use oauth2::basic::BasicTokenType;
-use oauth2::reqwest::async_http_client;
-use oauth2::{EmptyExtraTokenFields, RedirectUrl, RevocationUrl};
+use oauth2::{
+  EmptyExtraTokenFields, EndpointNotSet, EndpointSet, RedirectUrl,
+  RevocationUrl,
+};
 use tracing::instrument;
 use url::Url;
 
 type GitLabTokenResponse =
   StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>;
 
+/// An `oauth2::Client` with the authorization, token, and revocation
+/// endpoints set, and no device authorization or introspection endpoint.
+type GitLabClient = oauth2::Client<
+  BasicErrorResponse,
+  GitLabTokenResponse,
+  StandardTokenIntrospectionResponse<EmptyExtraTokenFields, BasicTokenType>,
+  StandardRevocableToken,
+  BasicRevocationErrorResponse,
+  EndpointSet,
+  EndpointNotSet,
+  EndpointNotSet,
+  EndpointSet,
+  EndpointSet,
+>;
+
 #[derive(Clone)]
-pub struct Oauth2Client(
-  pub  oauth2::Client<
-    BasicErrorResponse,
-    GitLabTokenResponse,
-    BasicTokenType,
-    StandardTokenIntrospectionResponse<EmptyExtraTokenFields, BasicTokenType>,
-    StandardRevocableToken,
-    BasicRevocationErrorResponse,
-  >,
-);
+pub struct Oauth2Client(pub GitLabClient);
 
 impl Oauth2Client {
   pub fn new(registry_url: &Url, id: String, secret: String) -> Self {
     Self(
-      oauth2::Client::new(
-        oauth2::ClientId::new(id),
-        Some(oauth2::ClientSecret::new(secret)),
-        oauth2::AuthUrl::new("https://gitlab.com/oauth/authorize".to_string())
+      oauth2::Client::new(oauth2::ClientId::new(id))
+        .set_client_secret(oauth2::ClientSecret::new(secret))
+        .set_auth_uri(
+          oauth2::AuthUrl::new(
+            "https://gitlab.com/oauth/authorize".to_string(),
+          )
           .unwrap(),
-        Some(
+        )
+        .set_token_uri(
           oauth2::TokenUrl::new("https://gitlab.com/oauth/token".to_string())
             .unwrap(),
-        ),
-      )
-      .set_revocation_uri(
-        RevocationUrl::new("https://gitlab.com/oauth/revoke".to_string())
-          .unwrap(),
-      )
-      .set_redirect_uri(RedirectUrl::from_url(
-        Url::options()
-          .base_url(Some(registry_url))
-          .parse("./login/callback/gitlab")
-          .unwrap(),
-      )),
+        )
+        .set_revocation_url(
+          RevocationUrl::new("https://gitlab.com/oauth/revoke".to_string())
+            .unwrap(),
+        )
+        .set_redirect_uri(RedirectUrl::from_url(
+          Url::options()
+            .base_url(Some(registry_url))
+            .parse("./login/callback/gitlab")
+            .unwrap(),
+        )),
     )
   }
 }
@@ -104,7 +115,7 @@ pub async fn access_token(
       .exchange_refresh_token(&oauth2::RefreshToken::new(
         glid.refresh_token.clone().unwrap(),
       ))
-      .request_async(async_http_client)
+      .request_async(&oauth2_http_request)
       .await?;
     let new_gitlab_identity = new_gitlab_identity_from_oauth_response(res);
     glid.access_token = new_gitlab_identity.access_token;

@@ -6,13 +6,13 @@ use crate::db::*;
 use crate::external::cloudflare::Turnstile;
 use crate::iam::ReqIamExt;
 use crate::util::ApiResult;
+use crate::util::oauth2_http_request;
 use crate::util::sanitize_redirect_url;
 use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
 use hyper::header;
-use oauth2::reqwest::async_http_client;
 use oauth2::{AccessToken, RedirectUrl, RefreshToken, StandardRevocableToken};
 use routerify::ext::RequestExt;
 use routerify_query::RequestQueryExt;
@@ -214,7 +214,7 @@ pub async fn login_callback_handler(
         .set_pkce_verifier(oauth2::PkceCodeVerifier::new(
           oauth_state.pkce_code_verifier,
         ))
-        .request_async(async_http_client)
+        .request_async(&oauth2_http_request)
         .await?;
 
       db.delete_oauth_state(&oauth_state.csrf_token).await?;
@@ -229,7 +229,7 @@ pub async fn login_callback_handler(
         .set_pkce_verifier(oauth2::PkceCodeVerifier::new(
           oauth_state.pkce_code_verifier,
         ))
-        .request_async(async_http_client)
+        .request_async(&oauth2_http_request)
         .await?;
 
       db.delete_oauth_state(&oauth_state.csrf_token).await?;
@@ -421,7 +421,7 @@ pub async fn connect_callback_handler(
             .parse("./connect/callback/github")
             .unwrap(),
         )))
-        .request_async(async_http_client)
+        .request_async(&oauth2_http_request)
         .await?;
 
       db.delete_oauth_state(&oauth_state.csrf_token).await?;
@@ -443,7 +443,7 @@ pub async fn connect_callback_handler(
             .parse("./connect/callback/gitlab")
             .unwrap(),
         )))
-        .request_async(async_http_client)
+        .request_async(&oauth2_http_request)
         .await?;
 
       db.delete_oauth_state(&oauth_state.csrf_token).await?;
@@ -504,14 +504,14 @@ pub async fn disconnect_handler(
           .revoke_token(StandardRevocableToken::RefreshToken(
             RefreshToken::new(identity.refresh_token.unwrap()),
           ))?
-          .request_async(async_http_client)
+          .request_async(&oauth2_http_request)
           .await?;
         gitlab_oauth2_client
           .0
           .revoke_token(StandardRevocableToken::AccessToken(AccessToken::new(
             identity.access_token.unwrap(),
           )))?
-          .request_async(async_http_client)
+          .request_async(&oauth2_http_request)
           .await?;
       }
     }

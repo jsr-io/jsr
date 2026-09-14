@@ -21,7 +21,9 @@ anyhow = "1"
 base64 = "0.21"
 bytes = "1"
 chrono = { version = "0.4", features = ["serde"] }
-oauth2 = "4.4.1"
+# `default-features = false` leaves out oauth2's own reqwest client; the flows
+# go through `util::oauth2_http_request` on the app's reqwest instead.
+oauth2 = { version = "5", default-features = false }
 futures = "0.3"
 hyper = { version = "0.14", features = [
     "http1",
@@ -38,13 +40,19 @@ sha2 = "0.10.7"
 crc32fast = "1.3.2"
 routerify = "3"
 routerify-query = "3"
-reqwest = { version = "0.11.18", default-features = false, features = [
-    "rustls-tls",
+# rust-s3 has its own reqwest (0.12) with no `gzip`/`brotli`, and that must
+# stay so: reqwest transparently decodes `Content-Encoding: gzip` responses
+# when those features are on, and objects we store gzip-encoded (tarballs,
+# docs) would then come back from the bucket already inflated. Keep every
+# other reqwest user on this version so the features do not unify into it.
+reqwest = { version = "0.13", default-features = false, features = [
+    "rustls",
     "stream",
     "gzip",
     "brotli",
     "json",
     "multipart",
+    "form",
 ] }
 rmp-serde = "1"
 serde = { version = "1", features = ["derive"] }
@@ -67,33 +75,32 @@ const_format = { version = "0.2", features = ["const_generics"] }
 tar = "0.4"
 tracing = "0.1"
 tracing-futures = "0.2"
-tracing-opentelemetry = "0.28"
+tracing-opentelemetry = "0.33"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-opentelemetry = { version = "0.27", features = ["trace", "logs"] }
-opentelemetry_sdk = { version = "0.27", features = [
-    "rt-tokio",
-    "trace",
-    "logs",
-] }
+opentelemetry = { version = "0.32", features = ["trace", "logs"] }
+opentelemetry_sdk = { version = "0.32.1", features = ["trace", "logs"] }
 # Bridges `tracing` events into OpenTelemetry log records so the same logs we
 # print to stdout are also exported over OTLP (to Grafana Cloud Loki).
-opentelemetry-appender-tracing = "0.27"
+opentelemetry-appender-tracing = "0.32"
 # OTLP over HTTP/protobuf (not gRPC): the managed Grafana Cloud OTLP gateway only
-# speaks OTLP/HTTP. `reqwest-client` routes export through reqwest (its own
-# reqwest 0.12, separate from the app's reqwest 0.11). Default `grpc-tonic` is
-# off. `http-proto` enables trace+metrics; `logs` is listed explicitly because
-# it does not.
-opentelemetry-otlp = { version = "0.27", default-features = false, features = [
+# speaks OTLP/HTTP. The SDK's batch processors run on their own thread and
+# block on the export future, so the exporter needs a blocking HTTP client:
+# `reqwest-blocking-client` (shares the app's reqwest 0.13) and
+# `reqwest-rustls` for TLS to the https endpoint. Default
+# `grpc-tonic` is off. `http-proto` enables trace+metrics; `logs` is listed
+# explicitly because it does not.
+opentelemetry-otlp = { version = "0.32", default-features = false, features = [
     "trace",
     "logs",
     "http-proto",
-    "reqwest-client",
+    "reqwest-blocking-client",
+    "reqwest-rustls",
 ] }
 rust-s3 = { version = "0.37.1", default-features = false, features = ["tokio-rustls-tls"] }
 deno_semver = "0.10.1"
 flate2 = "1"
 thiserror = "2"
-async-tar = "0.4.2"
+async-tar = "0.6"
 async-compression = { version = "0.4", features = ["futures-io", "gzip"] }
 deno_graph = "=0.111.0"
 deno_ast = { version = "0.53.0", features = ["view"] }
@@ -103,35 +110,34 @@ deno_error = "0.7.0"
 comrak = { version = "0.29.0", default-features = false }
 ammonia = "4.0.0"
 async-trait = "0.1.73"
-jsonwebkey = { version = "0.3.5", features = ["jsonwebtoken", "jwt-convert"] }
-jsonwebtoken = "8.3.0"
+jsonwebtoken = { version = "11", features = ["aws_lc_rs"] }
 indexmap = { version = "2.13.0", features = ["serde"] }
 pin-project = "1.1.3"
 regex = "1.10.2"
-postmark = { version = "=0.10.0", features = ["reqwest-rustls-tls"] }
+postmark = { version = "2", features = ["reqwest-rustls-tls"] }
 handlebars = "5.0.0"
 jsonc-parser = { version = "0.26.3", features = ["serde"] }
 sha1 = "0.10.6"
 infer = "0.15.0"
-x509-parser = { version = "0.15.1", features = ["verify"] }
+x509-parser = { version = "0.18", features = ["verify"] }
 sitemap-rs = "0.2.1"
 askalono = "0.5.0"
 moka = { version = "0.12", features = ["future", "sync"] }
 
-tree-sitter-highlight = "0.22.6"
-tree-sitter-javascript = "0.21.4"
-tree-sitter-typescript = "0.21.2"
-tree-sitter-json = "0.21.0"
-tree-sitter-regex = "0.21.0"
-tree-sitter-css = "0.21.0"
-tree-sitter-md = "0.2.3"
-tree-sitter-rust = "0.21.2"
-tree-sitter-html = "0.20.3"
-tree-sitter-bash = "0.21.0"
-tree-sitter-xml = "0.6.4"
-tree-sitter-toml-ng = "0.6.0"
-tree-sitter-yaml = "0.6.1"
-tree-sitter-c = "0.21.4"
+tree-sitter-highlight = "0.26"
+tree-sitter-javascript = "0.25"
+tree-sitter-typescript = "0.23"
+tree-sitter-json = "0.24"
+tree-sitter-regex = "0.25"
+tree-sitter-css = "0.25"
+tree-sitter-md = "0.5"
+tree-sitter-rust = "0.24"
+tree-sitter-html = "0.23"
+tree-sitter-bash = "0.25"
+tree-sitter-xml = "0.7"
+tree-sitter-toml-ng = "0.7"
+tree-sitter-yaml = "0.7"
+tree-sitter-c = "0.24"
 lazy_static = "1.5.0"
 tikv-jemallocator = { version = "0.6", features = ["profiling"] }
 tikv-jemalloc-ctl = { version = "0.6", features = ["stats"] }

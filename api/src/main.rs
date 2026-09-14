@@ -360,7 +360,7 @@ async fn main() {
   let email_sender = config.postmark_token.map(|token| {
     EmailSender::new(
       postmark::reqwest::PostmarkClient::builder()
-        .token(token)
+        .server_token(token)
         .build(),
       config
         .email_from

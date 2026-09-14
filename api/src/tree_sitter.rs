@@ -330,7 +330,7 @@ pub fn tree_sitter_language_javascript() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_javascript::language(),
+      tree_sitter_javascript::LANGUAGE.into(),
       "javascript",
       tree_sitter_javascript::HIGHLIGHT_QUERY,
       tree_sitter_javascript::INJECTIONS_QUERY,
@@ -346,7 +346,7 @@ pub fn tree_sitter_language_jsx() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_javascript::language(),
+      tree_sitter_javascript::LANGUAGE.into(),
       "jsx",
       format!(
         "{} {}",
@@ -367,7 +367,7 @@ pub fn tree_sitter_language_typescript() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_typescript::language_typescript(),
+      tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
       "typescript",
       format!(
         "{} {}",
@@ -393,7 +393,7 @@ pub fn tree_sitter_language_tsx() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_typescript::language_tsx(),
+      tree_sitter_typescript::LANGUAGE_TSX.into(),
       "tsx",
       format!(
         "{} {} {}",
@@ -420,7 +420,7 @@ fn tree_sitter_language_json() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_json::language(),
+      tree_sitter_json::LANGUAGE.into(),
       "json",
       tree_sitter_json::HIGHLIGHTS_QUERY,
       "",
@@ -436,7 +436,7 @@ fn tree_sitter_language_css() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_css::language(),
+      tree_sitter_css::LANGUAGE.into(),
       "css",
       tree_sitter_css::HIGHLIGHTS_QUERY,
       "",
@@ -452,7 +452,7 @@ fn tree_sitter_language_markdown() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_md::language(),
+      tree_sitter_md::LANGUAGE.into(),
       "markdown",
       tree_sitter_md::HIGHLIGHT_QUERY_BLOCK,
       tree_sitter_md::INJECTION_QUERY_BLOCK,
@@ -468,7 +468,7 @@ fn tree_sitter_language_xml() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_xml::language_xml(),
+      tree_sitter_xml::LANGUAGE_XML.into(),
       "xml",
       tree_sitter_xml::XML_HIGHLIGHT_QUERY,
       "",
@@ -484,7 +484,7 @@ fn tree_sitter_language_dtd() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_xml::language_dtd(),
+      tree_sitter_xml::LANGUAGE_DTD.into(),
       "dtd",
       tree_sitter_xml::DTD_HIGHLIGHT_QUERY,
       "",
@@ -500,7 +500,7 @@ fn tree_sitter_language_regex() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_regex::language(),
+      tree_sitter_regex::LANGUAGE.into(),
       "regex",
       tree_sitter_regex::HIGHLIGHTS_QUERY,
       "",
@@ -516,7 +516,7 @@ fn tree_sitter_language_rust() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_rust::language(),
+      tree_sitter_rust::LANGUAGE.into(),
       "rust",
       tree_sitter_rust::HIGHLIGHTS_QUERY,
       tree_sitter_rust::INJECTIONS_QUERY,
@@ -532,7 +532,7 @@ fn tree_sitter_language_html() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_html::language(),
+      tree_sitter_html::LANGUAGE.into(),
       "html",
       tree_sitter_html::HIGHLIGHTS_QUERY,
       tree_sitter_html::INJECTIONS_QUERY,
@@ -548,7 +548,7 @@ fn tree_sitter_language_bash() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_bash::language(),
+      tree_sitter_bash::LANGUAGE.into(),
       "bash",
       tree_sitter_bash::HIGHLIGHT_QUERY,
       "",
@@ -564,7 +564,7 @@ fn tree_sitter_language_toml() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_toml_ng::language(),
+      tree_sitter_toml_ng::LANGUAGE.into(),
       "toml",
       tree_sitter_toml_ng::HIGHLIGHTS_QUERY,
       "",
@@ -580,7 +580,7 @@ fn tree_sitter_language_yaml() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_yaml::language(),
+      tree_sitter_yaml::LANGUAGE.into(),
       "yaml",
       tree_sitter_yaml::HIGHLIGHTS_QUERY,
       "",
@@ -596,7 +596,7 @@ fn tree_sitter_language_c() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_c::language(),
+      tree_sitter_c::LANGUAGE.into(),
       "c",
       tree_sitter_c::HIGHLIGHT_QUERY,
       "",
@@ -666,7 +666,9 @@ mod tests {
       .unwrap();
     let mut renderer = tree_sitter_highlight::HtmlRenderer::new();
     renderer
-      .render(events, source, &|highlight| classes(highlight))
+      .render(events, source, &|highlight, out| {
+        out.extend_from_slice(classes(highlight))
+      })
       .unwrap();
     renderer.lines().map(|line| line.to_string()).collect()
   }
