@@ -827,6 +827,10 @@ pub mod tests {
   pub fn create_mock_tarball(name: &str) -> Bytes {
     let mut tar_bytes = Vec::new();
     let mut tar = tar::Builder::new(&mut tar_bytes);
+    // Fixtures such as `big_file/big.txt` are sparse on disk; archive them as
+    // plain regular entries (what a publishing client sends) rather than the
+    // GNU sparse entries `tar` would otherwise emit for them on Linux.
+    tar.sparse(false);
     tar
       .append_dir_all("./", format!("./testdata/tarballs/{name}/"))
       .unwrap();
