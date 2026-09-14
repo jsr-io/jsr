@@ -705,4 +705,40 @@ mod tests {
     let response = bucket.download("does_not_exist.txt").await.unwrap();
     assert!(response.is_none());
   }
+
+  /// Objects stored with `Content-Encoding: gzip` (tarballs, docs) must come
+  /// back as the gzip bytes that were uploaded. The readers inflate them
+  /// themselves, so the S3 client's HTTP layer must not: reqwest does that
+  /// transparently as soon as its `gzip` feature is enabled, which would
+  /// happen if rust-s3 ever shared a reqwest version with the app's (see the
+  /// `reqwest` entry in Cargo.toml).
+  #[tokio::test]
+  async fn gzip_encoded_objects_download_as_stored() {
+    use std::io::Write;
+
+    let tester = FakeS3Tester::new();
+    let bucket = tester.create_bucket("testbucket").await;
+
+    let mut encoder =
+      flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    encoder.write_all(b"hello world").unwrap();
+    let gzipped = Bytes::from(encoder.finish().unwrap());
+    assert_eq!(&gzipped[..2], &[0x1f, 0x8b]);
+
+    bucket
+      .upload(
+        "hello.txt.gz",
+        gzipped.clone(),
+        &S3UploadOptions {
+          content_type: None,
+          cache_control: None,
+          gzip_encoded: true,
+        },
+      )
+      .await
+      .unwrap();
+
+    let response = bucket.download("hello.txt.gz").await.unwrap().unwrap();
+    assert_eq!(response, gzipped);
+  }
 }

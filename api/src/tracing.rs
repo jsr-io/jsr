@@ -15,6 +15,8 @@ use opentelemetry_sdk::propagation::TraceContextPropagator;
 use opentelemetry_sdk::trace::Sampler;
 use opentelemetry_sdk::trace::SdkTracerProvider;
 use rand::Rng;
+use std::sync::OnceLock;
+use tracing::dispatcher::WeakDispatch;
 use tracing_opentelemetry::get_otel_context;
 use tracing_subscriber::Layer;
 use tracing_subscriber::Registry;
@@ -31,6 +33,12 @@ use tracing_subscriber::reload;
 /// Fraction of traces (and their logs) exported to the OTLP backend. The rest
 /// are dropped to cut export volume/cost.
 const SAMPLE_RATIO: f64 = 0.05;
+
+/// The subscriber installed by [`setup_tracing`], for [`span_trace_id`].
+/// Captured once rather than looked up with `dispatcher::get_default` at use:
+/// that helper hands out a no-op dispatcher when called from inside a
+/// subscriber callback while any scoped dispatcher exists in the process.
+static DISPATCH: OnceLock<WeakDispatch> = OnceLock::new();
 
 pub enum TracingExportTarget {
   Otlp {
@@ -115,8 +123,22 @@ pub async fn setup_tracing(
     Vec::new();
   match export_target {
     TracingExportTarget::Otlp { endpoint, headers } => {
+      // One blocking client for both signals: each `reqwest::blocking::Client`
+      // owns a thread with its own runtime and connection pool, and left to
+      // itself the exporter builder would create one per signal. It is built
+      // off the async runtime, which a blocking client refuses to be built on.
+      // The timeout matches the exporter's own default.
+      let http_client = tokio::task::spawn_blocking(|| {
+        reqwest::blocking::Client::builder()
+          .timeout(std::time::Duration::from_secs(10))
+          .build()
+          .expect("failed to build the OTLP reqwest client")
+      })
+      .await
+      .unwrap();
       let span_exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_http()
+        .with_http_client(http_client.clone())
         .with_endpoint(otlp_signal_endpoint(&endpoint, "/v1/traces"))
         .with_protocol(Protocol::HttpBinary)
         .with_headers(headers.clone())
@@ -140,6 +162,7 @@ pub async fn setup_tracing(
 
       let log_exporter = opentelemetry_otlp::LogExporter::builder()
         .with_http()
+        .with_http_client(http_client)
         .with_endpoint(otlp_signal_endpoint(&endpoint, "/v1/logs"))
         .with_protocol(Protocol::HttpBinary)
         .with_headers(headers)
@@ -176,6 +199,11 @@ pub async fn setup_tracing(
     .with(filter)
     .with(fmt);
   tracing::subscriber::set_global_default(subscriber).unwrap();
+  DISPATCH
+    .set(tracing::dispatcher::get_default(|dispatch| {
+      dispatch.downgrade()
+    }))
+    .expect("setup_tracing called twice");
 
   global::set_text_map_propagator(TraceContextPropagator::new());
   (reload_handle, default_filter_directive)
@@ -238,9 +266,8 @@ where
 /// OpenTelemetry layer is installed and the span carries a valid trace id
 /// (its own, or one inherited from a propagated remote parent).
 fn span_trace_id(span_id: &tracing::span::Id) -> Option<TraceId> {
-  let cx = tracing::dispatcher::get_default(|dispatch| {
-    get_otel_context(span_id, dispatch)
-  })?;
+  let dispatch = DISPATCH.get()?.upgrade()?;
+  let cx = get_otel_context(span_id, &dispatch)?;
   let trace_id = cx.span().span_context().trace_id();
   (trace_id != TraceId::INVALID).then_some(trace_id)
 }

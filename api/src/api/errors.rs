@@ -365,58 +365,21 @@ impl From<serde_json::Error> for ApiError {
   }
 }
 
-impl From<crate::util::Oauth2HttpError> for ApiError {
-  fn from(error: crate::util::Oauth2HttpError) -> ApiError {
-    anyhow::Error::from(error).into()
-  }
-}
-
 impl
   From<
     oauth2::RequestTokenError<
-      crate::util::Oauth2HttpError,
+      reqwest::Error,
       oauth2::basic::BasicErrorResponse,
     >,
   > for ApiError
 {
   fn from(
     error: oauth2::RequestTokenError<
-      crate::util::Oauth2HttpError,
+      reqwest::Error,
       oauth2::basic::BasicErrorResponse,
     >,
   ) -> ApiError {
     anyhow::Error::from(error).into()
-  }
-}
-
-impl
-  From<
-    oauth2::RequestTokenError<
-      crate::util::Oauth2HttpError,
-      oauth2::DeviceCodeErrorResponse,
-    >,
-  > for ApiError
-{
-  fn from(
-    error: oauth2::RequestTokenError<
-      crate::util::Oauth2HttpError,
-      oauth2::DeviceCodeErrorResponse,
-    >,
-  ) -> ApiError {
-    anyhow::Error::from(error).into()
-  }
-}
-
-impl From<oauth2::RequestTokenError<ApiError, oauth2::DeviceCodeErrorResponse>>
-  for ApiError
-{
-  fn from(
-    error: oauth2::RequestTokenError<ApiError, oauth2::DeviceCodeErrorResponse>,
-  ) -> ApiError {
-    match error {
-      oauth2::RequestTokenError::Request(e) => e,
-      e => anyhow::Error::from(e).into(),
-    }
   }
 }
 
@@ -429,14 +392,14 @@ impl From<oauth2::ConfigurationError> for ApiError {
 impl
   From<
     oauth2::RequestTokenError<
-      crate::util::Oauth2HttpError,
+      reqwest::Error,
       oauth2::basic::BasicRevocationErrorResponse,
     >,
   > for ApiError
 {
   fn from(
     error: oauth2::RequestTokenError<
-      crate::util::Oauth2HttpError,
+      reqwest::Error,
       oauth2::basic::BasicRevocationErrorResponse,
     >,
   ) -> ApiError {

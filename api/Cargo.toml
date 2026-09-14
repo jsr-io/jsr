@@ -47,12 +47,13 @@ routerify-query = "3"
 # other reqwest user on this version so the features do not unify into it.
 reqwest = { version = "0.13", default-features = false, features = [
     "rustls",
-    "stream",
+    "http2",
     "gzip",
     "brotli",
     "json",
-    "multipart",
     "form",
+    # For the OTLP exporters' client, see `tracing.rs`.
+    "blocking",
 ] }
 rmp-serde = "1"
 serde = { version = "1", features = ["derive"] }
@@ -124,7 +125,11 @@ sitemap-rs = "0.2.1"
 askalono = "0.5.0"
 moka = { version = "0.12", features = ["future", "sync"] }
 
+# tree-sitter-highlight 0.27 and tree-sitter-language 0.1.8 need rustc 1.90;
+# the workspace resolver is not MSRV-aware, so the latter is pinned here
+# rather than only in Cargo.lock. Lift both when the toolchain moves.
 tree-sitter-highlight = "0.26"
+tree-sitter-language = "=0.1.7"
 tree-sitter-javascript = "0.25"
 tree-sitter-typescript = "0.23"
 tree-sitter-json = "0.24"

@@ -48,15 +48,6 @@ pub fn shared_http_client() -> &'static reqwest::Client {
   })
 }
 
-/// Error of [`oauth2_http_request`].
-#[derive(Debug, thiserror::Error)]
-pub enum Oauth2HttpError {
-  #[error(transparent)]
-  Reqwest(#[from] reqwest::Error),
-  #[error(transparent)]
-  Http(#[from] oauth2::http::Error),
-}
-
 /// The HTTP client the OAuth2 flows use to reach the providers' token and
 /// revocation endpoints, in the shape `oauth2` accepts: pass
 /// `&oauth2_http_request` to `request_async`. Separate from
@@ -64,24 +55,25 @@ pub enum Oauth2HttpError {
 /// client that does is open to SSRF.
 pub async fn oauth2_http_request(
   request: oauth2::HttpRequest,
-) -> Result<oauth2::HttpResponse, Oauth2HttpError> {
+) -> Result<oauth2::HttpResponse, reqwest::Error> {
   static CLIENT: std::sync::OnceLock<reqwest::Client> =
     std::sync::OnceLock::new();
   let client = CLIENT.get_or_init(|| {
     reqwest::Client::builder()
       .user_agent(USER_AGENT)
       .connect_timeout(std::time::Duration::from_secs(10))
+      .timeout(std::time::Duration::from_secs(30))
       .redirect(reqwest::redirect::Policy::none())
       .build()
       .expect("failed to build oauth2 reqwest client")
   });
-  let response = client.execute(request.try_into()?).await?;
-  let mut builder = oauth2::http::Response::builder().status(response.status());
-  if let Some(headers) = builder.headers_mut() {
-    *headers = response.headers().clone();
-  }
-  let body = response.bytes().await?.to_vec();
-  Ok(builder.body(body)?)
+  let mut response = client.execute(request.try_into()?).await?;
+  let status = response.status();
+  let headers = std::mem::take(response.headers_mut());
+  let mut converted = oauth2::HttpResponse::new(response.bytes().await?.into());
+  *converted.status_mut() = status;
+  *converted.headers_mut() = headers;
+  Ok(converted)
 }
 
 pub type ApiResult<D> = Result<D, ApiError>;

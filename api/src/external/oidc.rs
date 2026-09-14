@@ -73,8 +73,7 @@ pub async fn verify_token<Claims: DeserializeOwned>(
     );
     return Err(ApiError::InternalServerError);
   }
-  let JwkSet { keys } =
-    res.json().await.context("failed to parse oidc jwks")?;
+  let jwks: JwkSet = res.json().await.context("failed to parse oidc jwks")?;
 
   let header = jsonwebtoken::decode_header(token).map_err(|err| {
     ApiError::InvalidOidcToken {
@@ -85,12 +84,9 @@ pub async fn verify_token<Claims: DeserializeOwned>(
     msg: "missing kid".into(),
   })?;
 
-  let jwk = keys
-    .iter()
-    .find(|k| k.common.key_id.as_deref() == Some(&*kid))
-    .ok_or_else(|| ApiError::InvalidOidcToken {
-      msg: format!("invalid kid: {kid}").into(),
-    })?;
+  let jwk = jwks.find(&kid).ok_or_else(|| ApiError::InvalidOidcToken {
+    msg: format!("invalid kid: {kid}").into(),
+  })?;
 
   let alg: jsonwebtoken::Algorithm = jwk
     .common
