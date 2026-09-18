@@ -2340,21 +2340,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jsr_types"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "chrono",
- "deno_semver",
- "indexmap",
- "postgres-types",
- "serde",
- "serde_json",
- "thiserror 2.0.20",
- "uuid",
-]
-
-[[package]]
 name = "konst"
 version = "0.2.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3553,7 +3538,6 @@ version = "1.1.0"
 dependencies = [
  "ammonia",
  "anyhow",
- "askalono",
  "async-trait",
  "axum",
  "base64 0.21.7",
@@ -3561,9 +3545,7 @@ dependencies = [
  "chrono",
  "clap",
  "comrak",
- "const_format",
  "crc32fast",
- "deadpool-postgres",
  "deno_ast",
  "deno_doc",
  "deno_error",
@@ -3575,34 +3557,23 @@ dependencies = [
  "handlebars 5.1.2",
  "hyper",
  "indexmap",
- "infer",
  "js-sys",
- "jsonc-parser",
  "jsonwebtoken",
- "jsr_types",
  "lazy_static",
  "moka",
  "oauth2",
  "once_cell",
- "opentelemetry",
- "opentelemetry-appender-tracing",
- "opentelemetry-otlp",
- "opentelemetry_sdk",
  "percent-encoding",
- "pin-project",
- "postgres-types",
- "postmark",
  "pretty_assertions",
  "rand 0.8.8",
  "regex",
+ "registry_api_shared",
+ "registry_api_tasks",
  "reqwest",
  "ring",
  "rmp-serde",
- "rustls",
- "rusty-s3",
  "serde",
  "serde_json",
- "sha1",
  "sha2 0.10.9",
  "sitemap-rs",
  "tar",
@@ -3610,14 +3581,9 @@ dependencies = [
  "tikv-jemalloc-ctl",
  "tikv-jemallocator",
  "tokio",
- "tokio-postgres",
- "tokio-postgres-rustls",
  "tokio-stream",
  "tower",
  "tracing",
- "tracing-futures",
- "tracing-opentelemetry",
- "tracing-subscriber",
  "tree-sitter-bash",
  "tree-sitter-c",
  "tree-sitter-css",
@@ -3641,6 +3607,106 @@ dependencies = [
  "worker",
  "worker-sys",
  "x509-parser",
+]
+
+[[package]]
+name = "registry_api_shared"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "askalono",
+ "axum",
+ "bytes",
+ "chrono",
+ "const_format",
+ "crc32fast",
+ "deadpool-postgres",
+ "deno_ast",
+ "deno_doc",
+ "deno_error",
+ "deno_graph",
+ "deno_semver",
+ "dotenvy",
+ "flate2",
+ "futures",
+ "hyper",
+ "indexmap",
+ "js-sys",
+ "jsonwebtoken",
+ "moka",
+ "once_cell",
+ "opentelemetry",
+ "opentelemetry-appender-tracing",
+ "opentelemetry-otlp",
+ "opentelemetry_sdk",
+ "percent-encoding",
+ "pin-project",
+ "postgres-types",
+ "postmark",
+ "rand 0.8.8",
+ "reqwest",
+ "rmp-serde",
+ "rustls",
+ "rusty-s3",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tar",
+ "thiserror 2.0.20",
+ "tokio",
+ "tokio-postgres",
+ "tokio-postgres-rustls",
+ "tower",
+ "tracing",
+ "tracing-opentelemetry",
+ "tracing-subscriber",
+ "url",
+ "uuid",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "worker",
+ "worker-sys",
+]
+
+[[package]]
+name = "registry_api_tasks"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "askalono",
+ "async-trait",
+ "axum",
+ "base64 0.21.7",
+ "bytes",
+ "chrono",
+ "deno_ast",
+ "deno_doc",
+ "deno_error",
+ "deno_graph",
+ "deno_semver",
+ "flate2",
+ "futures",
+ "hyper",
+ "indexmap",
+ "infer",
+ "jsonc-parser",
+ "once_cell",
+ "pretty_assertions",
+ "regex",
+ "registry_api_shared",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2 0.10.9",
+ "tar",
+ "thiserror 2.0.20",
+ "tokio",
+ "tower",
+ "tracing",
+ "url",
+ "uuid",
 ]
 
 [[package]]
@@ -5191,16 +5257,6 @@ checksum = "db97caf9d906fbde555dd62fa95ddba9eecfd14cb388e4f491a66d74cd5fb79a"
 dependencies = [
  "once_cell",
  "valuable",
-]
-
-[[package]]
-name = "tracing-futures"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97d095ae15e245a057c8e8451bab9b3ee1e1f68e9ba2b4fbc18d0ac5237835f2"
-dependencies = [
- "pin-project",
- "tracing",
 ]
 
 [[package]]

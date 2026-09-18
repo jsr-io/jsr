@@ -8,10 +8,11 @@
 use crate::api::ApiError;
 use crate::util::ApiResult;
 use crate::util::Fetch;
-use crate::util::shared_http_client;
 use anyhow::Context;
 use jsonwebtoken::jwk::JwkSet;
 use serde::de::DeserializeOwned;
+use shared::errors::SharedError;
+use shared::util::shared_http_client;
 use tracing::error;
 use tracing::instrument;
 
@@ -72,7 +73,7 @@ pub async fn verify_token<Claims: DeserializeOwned>(
       "failed to download oidc jwks for {}: {body} (status: {status}) ",
       provider.kind.span_kind()
     );
-    return Err(ApiError::InternalServerError);
+    return Err(SharedError::InternalServerError.into());
   }
   let jwks: JwkSet = res.json().await.context("failed to parse oidc jwks")?;
 
@@ -94,7 +95,7 @@ pub async fn verify_token<Claims: DeserializeOwned>(
     .key_algorithm
     .ok_or_else(|| {
       error!("jwk {jwk:?} missing algorithm");
-      ApiError::InternalServerError
+      SharedError::InternalServerError
     })?
     .try_into()
     .map_err(|err| {

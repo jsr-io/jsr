@@ -3,7 +3,7 @@ use clap::ArgAction;
 use clap::Parser;
 use url::Url;
 
-use crate::gcp::MetadataStrategy;
+use shared::gcp::MetadataStrategy;
 
 #[derive(Parser)]
 pub struct Config {

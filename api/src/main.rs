@@ -4,67 +4,57 @@
 #[global_allocator]
 static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
-mod analysis;
 mod api;
 mod auth;
 mod config;
-mod db;
 mod docs;
 mod emails;
-mod errors_internal;
 mod external;
-mod gcp;
 mod iam;
-mod ids;
 #[cfg(not(target_arch = "wasm32"))]
 mod jemalloc_profiling;
-mod metadata;
-mod npm;
 mod object_cache;
 mod provenance;
-mod publish;
-mod router;
-mod s3;
-mod s3_paths;
+#[cfg(test)]
+mod router_tests;
 mod sitemap;
 mod source_links;
-mod tarball;
-mod task_queue;
-mod tasks;
 mod token;
-mod traced_router;
-mod tracing;
 mod tree_sitter;
 mod util;
-#[cfg(target_arch = "wasm32")]
-mod worker_js;
-#[cfg(target_arch = "wasm32")]
-mod worker_spans;
 
 use crate::api::InboundTrustedAuthservId;
 use crate::api::PostmarkWebhookPassword;
-use crate::api::PublishQueue;
 use crate::api::api_router;
 use crate::config::Config;
-use crate::db::Database;
 use crate::emails::EmailQueue;
 use crate::emails::EmailSender;
-use crate::external::algolia::AlgoliaClient;
-use crate::external::cloudflare::CachePurge;
-use crate::external::cloudflare::Turnstile;
-use crate::external::cloudflare::TurnstileClient;
-use crate::gcp::Queue;
-use crate::router::App;
-use crate::router::Data;
-use crate::s3::Buckets;
 use crate::sitemap::packages_sitemap_handler;
 use crate::sitemap::scopes_sitemap_handler;
 use crate::sitemap::sitemap_index_handler;
-use crate::tasks::NpmTarballBuildQueue;
-use crate::tasks::tasks_router;
-use crate::traced_router::TracedRouterService;
-use crate::tracing::TracingExportTarget;
-use crate::tracing::setup_tracing;
+
+use registry_api_tasks::tasks::AnalyticsEngineConfig;
+use registry_api_tasks::tasks::NpmTarballBuildQueue;
+use registry_api_tasks::tasks::tasks_router;
+use shared::FallbackRegistryUrl;
+use shared::NpmUrl;
+use shared::PublishQueue;
+use shared::RegistryUrl;
+use shared::db::Database;
+use shared::external::algolia::AlgoliaClient;
+use shared::external::cloudflare::CachePurge;
+use shared::external::cloudflare::Turnstile;
+use shared::external::cloudflare::TurnstileClient;
+use shared::gcp;
+use shared::gcp::Queue;
+use shared::router;
+use shared::router::App;
+use shared::router::Data;
+use shared::s3;
+use shared::s3::Buckets;
+use shared::traced_router::TracedRouterService;
+use shared::tracing::TracingExportTarget;
+use shared::tracing::setup_tracing;
 
 use axum::Router;
 use axum::routing::get;
@@ -73,7 +63,6 @@ use clap::Parser;
 #[cfg(not(target_arch = "wasm32"))]
 use std::net::SocketAddr;
 use std::time::Duration;
-use tasks::AnalyticsEngineConfig;
 use url::Url;
 
 pub struct MainRouterOptions {
@@ -86,7 +75,7 @@ pub struct MainRouterOptions {
   gitlab_client: auth::gitlab::Oauth2Client,
   algolia_client: Option<AlgoliaClient>,
   email_sender: Option<EmailSender>,
-  license_store: util::LicenseStore,
+  license_store: shared::util::LicenseStore,
   registry_url: Url,
   npm_url: Url,
   fallback_registry_url: Option<Url>,
@@ -94,20 +83,16 @@ pub struct MainRouterOptions {
   npm_tarball_build_queue: Option<Queue>,
   email_queue: Option<Queue>,
   analytics_engine_config: Option<(
-    external::cloudflare::AnalyticsEngineClient,
+    shared::external::cloudflare::AnalyticsEngineClient,
     /* dataset_name */ String,
   )>,
-  cache_purge_client: Option<external::cloudflare::CachePurgeClient>,
+  cache_purge_client: Option<shared::external::cloudflare::CachePurgeClient>,
   turnstile: Turnstile,
   postmark_webhook_password: PostmarkWebhookPassword,
   inbound_trusted_authserv_id: InboundTrustedAuthservId,
   expose_api: bool,
   expose_tasks: bool,
 }
-
-pub struct RegistryUrl(pub Url);
-pub struct NpmUrl(pub Url);
-pub struct FallbackRegistryUrl(pub Option<Url>);
 
 pub(crate) fn main_router(
   MainRouterOptions {
@@ -158,7 +143,7 @@ pub(crate) fn main_router(
     .with(turnstile)
     .with(postmark_webhook_password)
     .with(inbound_trusted_authserv_id)
-    .with(db::DependentCountCache::new());
+    .with(shared::db::DependentCountCache::new());
 
   let router = Router::new();
 
@@ -222,7 +207,7 @@ async fn setup(database: &Database, service_account_token: Option<&str>) {
 async fn setup_command() {
   let config = config::SetupConfig::parse_from(std::env::args().skip(1));
   let tls = match (config.db_client_cert, config.db_client_key) {
-    (Some(client_cert), Some(client_key)) => Some(crate::db::DbTls {
+    (Some(client_cert), Some(client_key)) => Some(shared::db::DbTls {
       client_cert,
       client_key,
     }),
@@ -244,7 +229,7 @@ async fn build_router(config: Config) -> App {
   {
     TracingExportTarget::Otlp {
       endpoint,
-      headers: crate::tracing::parse_otlp_headers(
+      headers: shared::tracing::parse_otlp_headers(
         config.otlp_headers.as_deref(),
       ),
     }
@@ -254,7 +239,7 @@ async fn build_router(config: Config) -> App {
   setup_tracing("api", export_target, config.deployment_environment).await;
 
   let db_tls = match (config.db_client_cert, config.db_client_key) {
-    (Some(client_cert), Some(client_key)) => Some(crate::db::DbTls {
+    (Some(client_cert), Some(client_key)) => Some(shared::db::DbTls {
       client_cert,
       client_key,
     }),
@@ -326,7 +311,7 @@ async fn build_router(config: Config) -> App {
     config.cloudflare_api_token.clone(),
   ) {
     (Some(zone_id), Some(api_token)) => Some(
-      external::cloudflare::CachePurgeClient::new(zone_id, api_token),
+      shared::external::cloudflare::CachePurgeClient::new(zone_id, api_token),
     ),
     _ => None,
   };
@@ -337,7 +322,9 @@ async fn build_router(config: Config) -> App {
     config.cloudflare_analytics_dataset,
   ) {
     (Some(account_id), Some(api_token), Some(dataset_name)) => Some((
-      external::cloudflare::AnalyticsEngineClient::new(account_id, api_token),
+      shared::external::cloudflare::AnalyticsEngineClient::new(
+        account_id, api_token,
+      ),
       dataset_name,
     )),
     _ => None,
@@ -376,10 +363,8 @@ async fn build_router(config: Config) -> App {
   };
 
   let email_sender = config.postmark_token.map(|token| {
-    EmailSender::new(
-      postmark::reqwest::PostmarkClient::builder()
-        .server_token(token)
-        .build(),
+    EmailSender::from_postmark_token(
+      token,
       config
         .email_from
         .expect("email_from must be set when postmark_token is set"),
@@ -389,7 +374,7 @@ async fn build_router(config: Config) -> App {
     )
   });
 
-  let license_store = util::license_store();
+  let license_store = shared::util::license_store();
 
   let generate_ctx_cache = crate::docs::GenerateCtxCache::new();
   let object_cache = crate::object_cache::ObjectCache::new();
@@ -507,7 +492,7 @@ mod worker {
     }
 
     let body = match req.body() {
-      Some(stream) => Body::from_stream(crate::worker_js::body_stream(stream)),
+      Some(stream) => Body::from_stream(shared::worker_js::body_stream(stream)),
       None => Body::empty(),
     };
     builder
@@ -537,7 +522,7 @@ mod worker {
 
     if let Some(stream) = parts
       .extensions
-      .remove::<crate::worker_js::ResponseStream>()
+      .remove::<shared::worker_js::ResponseStream>()
     {
       return web_sys::Response::new_with_opt_readable_stream_and_init(
         Some(&stream.0.0),
@@ -565,8 +550,8 @@ mod worker {
     // Each request runs on its own tokio runtime, so nothing (the DB connection
     // included) can be reused across requests.
     env_into_process(&env);
-    crate::worker_js::set_env(env);
-    if let Some(url) = crate::worker_js::hyperdrive_database_url() {
+    shared::worker_js::set_env(env);
+    if let Some(url) = shared::worker_js::hyperdrive_database_url() {
       // SAFETY: single-threaded emscripten worker; no other threads race here.
       unsafe { std::env::set_var("DATABASE_URL", url) };
     }
@@ -579,15 +564,15 @@ mod worker {
     .map_err(|e| JsValue::from_str(&format!("config: {e}")))?;
     // Keeps the invocation's span active on every poll: the spans the request
     // starts are parented under whichever span is active.
-    ::worker::observability::in_current_span(crate::worker_js::with_background(
-      async {
+    ::worker::observability::in_current_span(
+      shared::worker_js::with_background(async {
         let app = build_router(config).await;
         let hyper_req = to_hyper_request(request).await?;
         let Ok(hyper_resp) =
           TracedRouterService::new(app, true).oneshot(hyper_req).await;
         to_web_response(hyper_resp).await
-      },
-    ))
+      }),
+    )
     .await
   }
 }

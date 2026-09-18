@@ -59,42 +59,15 @@ use uuid::Uuid;
 use crate::FallbackRegistryUrl;
 use crate::NpmUrl;
 use crate::RegistryUrl;
-use crate::analysis::JsrResolver;
-use crate::analysis::ModuleParser;
+use crate::api::ApiMetrics;
+use crate::api::ApiStats;
+use crate::api::ApiStatsPackage;
+use crate::api::ApiStatsPackageVersion;
 use crate::auth;
-use crate::db::CreatePackageResult;
-use crate::db::CreatePublishingTaskResult;
-use crate::db::Database;
-use crate::db::NewGithubRepository;
-use crate::db::NewPublishingTask;
-use crate::db::Package;
-use crate::db::PublishingTaskError;
-use crate::db::PublishingTaskStatus;
-use crate::db::RuntimeCompat;
-use crate::db::User;
-use crate::docs::DocsRequest;
-use crate::docs::GeneratedDocsOutput;
-use crate::external::algolia::AlgoliaClient;
-use crate::external::cloudflare::CachePurge;
-use crate::gcp;
 use crate::iam::IamInfo;
 use crate::iam::ReqIamExt;
-use crate::ids::PackageName;
-use crate::ids::PackagePath;
-use crate::ids::ScopeName;
-use crate::ids::Version;
-use crate::metadata::PackageMetadata;
-use crate::metadata::VersionMetadata;
-use crate::npm::generate_npm_version_manifest;
 use crate::provenance;
-use crate::publish::publish_task;
-use crate::s3::Buckets;
-use crate::s3::CACHE_CONTROL_MANIFEST;
-use crate::s3::S3UploadOptions;
-use crate::s3::UploadTaskBody;
-use crate::tarball::bucket_tarball_path;
 use crate::util;
-use crate::util::LicenseStore;
 use crate::util::RequestIdExt;
 use crate::util::VersionOrLatest;
 use crate::util::decode_json;
@@ -102,6 +75,10 @@ use crate::util::pagination;
 use crate::util::search;
 use crate::util::{ApiResult, docs_queries};
 use crate::util::{CacheDuration, DocsQueries};
+use registry_api_tasks::publish::publish_task;
+use shared::graph::JsrResolver;
+use shared::graph::ModuleParser;
+use shared::util::LicenseStore;
 
 use super::ApiCreatePackageRequest;
 use super::ApiDependency;
@@ -110,7 +87,6 @@ use super::ApiDependent;
 use super::ApiDownloadDataPoint;
 use super::ApiError;
 use super::ApiList;
-use super::ApiMetrics;
 use super::ApiPackage;
 use super::ApiPackageDownloads;
 use super::ApiPackageDownloadsRecentVersion;
@@ -124,21 +100,42 @@ use super::ApiPublishingTask;
 use super::ApiSource;
 use super::ApiSourceDirEntry;
 use super::ApiSourceDirEntryKind;
-use super::ApiStats;
-use super::ApiStatsPackage;
-use super::ApiStatsPackageVersion;
 use super::ApiUpdatePackageGithubRepositoryRequest;
+use shared::db::CreatePackageResult;
+use shared::db::CreatePublishingTaskResult;
+use shared::db::Database;
+use shared::docs::DocsRequest;
+use shared::docs::GeneratedDocsOutput;
+use shared::errors::SharedError;
+use shared::external::algolia::AlgoliaClient;
+use shared::external::cloudflare::CachePurge;
+use shared::ids::PackageName;
+use shared::ids::PackagePath;
+use shared::ids::ScopeName;
+use shared::ids::Version;
+use shared::metadata::PackageMetadata;
+use shared::metadata::VersionMetadata;
+use shared::models::NewGithubRepository;
+use shared::models::NewPublishingTask;
+use shared::models::Package;
+use shared::models::PublishingTaskError;
+use shared::models::PublishingTaskStatus;
+use shared::models::RuntimeCompat;
+use shared::models::User;
+use shared::npm::generate_npm_version_manifest;
+use shared::s3::Buckets;
+use shared::s3::CACHE_CONTROL_MANIFEST;
+use shared::s3::S3UploadOptions;
+use shared::s3::UploadTaskBody;
+use shared::s3_paths::bucket_tarball_path;
+use shared::{MAX_PUBLISH_TARBALL_SIZE, PublishQueue};
 
 use super::ApiUpdatePackageRequest;
 use super::ApiUpdatePackageVersionRequest;
 
-pub const MAX_PUBLISH_TARBALL_SIZE: u64 = 20 * 1024 * 1024; // 20mb
-
 /// The maximum number of downloads a version may have to still be deletable by
 /// a scope admin.
 const MAX_DELETABLE_VERSION_DOWNLOADS: i64 = 10;
-
-pub struct PublishQueue(pub Option<gcp::Queue>);
 
 pub fn package_router() -> Router {
   Router::new()
@@ -446,7 +443,7 @@ pub async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
   let registry_url = &req.data::<RegistryUrl>().unwrap().0;
   let cache_purge = req.data::<CachePurge>().unwrap();
   cache_purge
-    .purge(crate::s3_paths::scope_api_cache_urls(registry_url, &scope))
+    .purge(shared::s3_paths::scope_api_cache_urls(registry_url, &scope))
     .await;
 
   Ok(ApiPackage::from((package, None, Default::default())))
@@ -481,7 +478,7 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiPackage> {
   }
 
   let dependent_count_cache =
-    req.data::<crate::db::DependentCountCache>().unwrap();
+    req.data::<shared::db::DependentCountCache>().unwrap();
   let dependent_count = dependent_count_cache
     .count_package_dependents(db, &scope, &package)
     .await?;
@@ -532,7 +529,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
   // Every update variant mutates the aggressively-cached `:package` response,
   // so cache-bust it (and the scope aggregates) afterwards.
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
-  let purge_urls = crate::s3_paths::package_api_cache_urls(
+  let purge_urls = shared::s3_paths::package_api_cache_urls(
     &registry_url,
     &scope,
     &package_name,
@@ -711,15 +708,21 @@ async fn update_description(
   let description = description.trim().replace('\n', " ").replace('\r', "");
 
   if description.len() > 250 {
-    return Err(ApiError::MalformedRequest {
-      msg: "description must not be longer than 250 characters".into(),
-    });
+    return Err(
+      SharedError::MalformedRequest {
+        msg: "description must not be longer than 250 characters".into(),
+      }
+      .into(),
+    );
   }
 
   if description.contains(|c: char| c.is_control()) {
-    return Err(ApiError::MalformedRequest {
-      msg: "description must not contain control characters".into(),
-    });
+    return Err(
+      SharedError::MalformedRequest {
+        msg: "description must not contain control characters".into(),
+      }
+      .into(),
+    );
   }
 
   let (package, _, meta) = db
@@ -737,7 +740,7 @@ async fn update_description(
   }
 
   let npm_version_manifest_path =
-    crate::s3_paths::npm_version_manifest_path(scope, &package.name);
+    shared::s3_paths::npm_version_manifest_path(scope, &package.name);
   let npm_version_manifest =
     generate_npm_version_manifest(db, npm_url, scope, &package.name).await?;
   let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
@@ -745,7 +748,7 @@ async fn update_description(
     .npm_bucket
     .upload(
       npm_version_manifest_path.into(),
-      crate::s3::UploadTaskBody::Bytes(content.into()),
+      shared::s3::UploadTaskBody::Bytes(content.into()),
       S3UploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
@@ -755,7 +758,7 @@ async fn update_description(
     .await?;
 
   cache_purge
-    .purge(crate::s3_paths::npm_version_manifest_purge_urls(
+    .purge(shared::s3_paths::npm_version_manifest_purge_urls(
       npm_url,
       scope,
       &package.name,
@@ -779,7 +782,7 @@ async fn update_github_repository(
 ) -> Result<ApiPackage, ApiError> {
   let gh_user_id = user.github_id.ok_or_else(|| {
     error!("user is not linked to a GitHub account");
-    ApiError::InternalServerError
+    SharedError::InternalServerError
   })?;
 
   let ghid = db.get_github_identity(gh_user_id).await?;
@@ -836,7 +839,8 @@ async fn upload_package_manifests(
   scope: &ScopeName,
   package: &PackageName,
 ) -> Result<(), ApiError> {
-  let package_metadata_path = crate::s3_paths::package_metadata(scope, package);
+  let package_metadata_path =
+    shared::s3_paths::package_metadata(scope, package);
   let package_metadata = PackageMetadata::create(db, scope, package).await?;
   let content = serde_json::to_vec(&package_metadata)?;
   buckets
@@ -853,7 +857,7 @@ async fn upload_package_manifests(
     .await?;
 
   let npm_version_manifest_path =
-    crate::s3_paths::npm_version_manifest_path(scope, package);
+    shared::s3_paths::npm_version_manifest_path(scope, package);
   let npm_version_manifest =
     generate_npm_version_manifest(db, npm_url, scope, package).await?;
   let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
@@ -871,8 +875,8 @@ async fn upload_package_manifests(
     .await?;
 
   let mut purge_urls =
-    crate::s3_paths::package_metadata_purge_urls(registry_url, scope, package);
-  purge_urls.extend(crate::s3_paths::npm_version_manifest_purge_urls(
+    shared::s3_paths::package_metadata_purge_urls(registry_url, scope, package);
+  purge_urls.extend(shared::s3_paths::npm_version_manifest_purge_urls(
     npm_url, scope, package,
   ));
   cache_purge.purge(purge_urls).await;
@@ -947,7 +951,7 @@ pub async fn delete_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
   let registry_url = &req.data::<RegistryUrl>().unwrap().0;
   let cache_purge = req.data::<CachePurge>().unwrap();
   cache_purge
-    .purge(crate::s3_paths::package_api_cache_urls(
+    .purge(shared::s3_paths::package_api_cache_urls(
       registry_url,
       &scope,
       &package,
@@ -997,7 +1001,7 @@ pub async fn get_version_handler(
     }
   };
 
-  let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
+  let version = maybe_version.ok_or(SharedError::PackageVersionNotFound)?;
 
   Ok(ApiPackageVersion::from(version))
 }
@@ -1019,7 +1023,7 @@ pub async fn version_publish_handler(
   let config_file =
     PackagePath::try_from(&**req.query("config").ok_or_else(|| {
       let msg = "Missing query parameter 'config'".into();
-      ApiError::MalformedRequest { msg }
+      SharedError::MalformedRequest { msg }
     })?)
     .map_err(|err| {
       let msg = format!(
@@ -1027,7 +1031,7 @@ pub async fn version_publish_handler(
         req.query("config").unwrap()
       )
       .into();
-      ApiError::MalformedRequest { msg }
+      SharedError::MalformedRequest { msg }
     })?;
 
   // If there is a content-length header, check it isn't too big.
@@ -1252,7 +1256,7 @@ pub async fn version_provenance_statements_handler(
   let (db_package, github_repository, meta) =
     db.get_package(&scope, &package).await?.ok_or_else(|| {
       error!("package not found when inserting provenance statement");
-      ApiError::InternalServerError
+      SharedError::InternalServerError
     })?;
   let expected_repo = github_repository.map(|repo| (repo.owner, repo.name));
 
@@ -1265,7 +1269,7 @@ pub async fn version_provenance_statements_handler(
       .await?
       .ok_or_else(|| {
         error!("no published manifest for version when verifying provenance");
-        ApiError::InternalServerError
+        SharedError::InternalServerError
       })?;
 
   let name = format!("pkg:jsr/@{}/{}@{}", scope, package, version);
@@ -1302,7 +1306,7 @@ async fn version_manifest_digest(
   package: &PackageName,
   version: &Version,
 ) -> Result<Option<String>, ApiError> {
-  let path = crate::s3_paths::version_metadata(scope, package, version);
+  let path = shared::s3_paths::version_metadata(scope, package, version);
   let Some(manifest) = buckets.modules_bucket.download(path.into()).await?
   else {
     return Ok(None);
@@ -1362,7 +1366,7 @@ pub async fn version_update_handler(
   .await?;
 
   cache_purge
-    .purge(crate::s3_paths::package_api_cache_urls(
+    .purge(shared::s3_paths::package_api_cache_urls(
       registry_url,
       &scope,
       &package,
@@ -1410,7 +1414,7 @@ pub async fn version_delete_handler(
   let package_version = db
     .get_package_version(&scope, &package, &version)
     .await?
-    .ok_or(ApiError::PackageVersionNotFound)?;
+    .ok_or(SharedError::PackageVersionNotFound)?;
 
   if !sudo {
     if Utc::now() - package_version.created_at > chrono::Duration::hours(24) {
@@ -1467,23 +1471,23 @@ pub async fn version_delete_handler(
     .delete_package_version(&user_id, sudo, &scope, &package, &version)
     .await?;
   if !deleted {
-    return Err(ApiError::PackageVersionNotFound);
+    return Err(SharedError::PackageVersionNotFound.into());
   }
 
-  let v1_path = crate::s3_paths::docs_v1_path(&scope, &package, &version);
-  let v2_path = crate::s3_paths::docs_v2_path(&scope, &package, &version);
+  let v1_path = shared::s3_paths::docs_v1_path(&scope, &package, &version);
+  let v2_path = shared::s3_paths::docs_v2_path(&scope, &package, &version);
   buckets.docs_bucket.delete_file(v1_path.into()).await?;
   buckets.docs_bucket.delete_file(v2_path.into()).await?;
 
-  let path = crate::s3_paths::version_metadata(&scope, &package, &version);
+  let path = shared::s3_paths::version_metadata(&scope, &package, &version);
   buckets.modules_bucket.delete_file(path.into()).await?;
 
   let path =
-    crate::s3_paths::file_path_root_directory(&scope, &package, &version);
+    shared::s3_paths::file_path_root_directory(&scope, &package, &version);
   buckets.modules_bucket.delete_directory(path.into()).await?;
 
   for npm_tarball in npm_tarballs {
-    let path = crate::s3_paths::npm_tarball_path(
+    let path = shared::s3_paths::npm_tarball_path(
       &scope,
       &package,
       &version,
@@ -1504,7 +1508,7 @@ pub async fn version_delete_handler(
   .await?;
 
   cache_purge
-    .purge(crate::s3_paths::package_api_cache_urls(
+    .purge(shared::s3_paths::package_api_cache_urls(
       registry_url,
       &scope,
       &package,
@@ -1605,7 +1609,7 @@ pub async fn get_docs_handler(
       let latest = db
         .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
         .await?
-        .ok_or(ApiError::PackageVersionNotFound)?;
+        .ok_or(SharedError::PackageVersionNotFound)?;
       if latest.version != *version {
         return Err(ApiError::DocsOnlyForLatestVersion);
       }
@@ -1614,7 +1618,7 @@ pub async fn get_docs_handler(
     VersionOrLatest::Latest => db
       .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
       .await?
-      .ok_or(ApiError::PackageVersionNotFound)?,
+      .ok_or(SharedError::PackageVersionNotFound)?,
   };
 
   let has_readme = !all_symbols
@@ -1623,7 +1627,7 @@ pub async fn get_docs_handler(
     && version.readme_path.is_some();
 
   let readme_fut = if has_readme {
-    let s3_path = crate::s3_paths::file_path(
+    let s3_path = shared::s3_paths::file_path(
       &scope,
       &package_name,
       &version.version,
@@ -1669,7 +1673,7 @@ pub async fn get_docs_handler(
       "docs not found for {}/{}/{}",
       scope, package_name, version.version
     );
-    ApiError::InternalServerError
+    SharedError::InternalServerError
   })?;
 
   let readme = readme.and_then(|readme| {
@@ -1703,7 +1707,7 @@ pub async fn get_docs_handler(
     crate::docs::render_docs_html(&ctx, req, readme, package.readme_source)
       .map_err(|e| {
         error!("failed to generate docs: {}", e);
-        ApiError::InternalServerError
+        SharedError::InternalServerError
       })?
       .ok_or(ApiError::EntrypointOrSymbolNotFound)?;
 
@@ -1752,7 +1756,7 @@ pub async fn get_docs_search_handler(
       let latest = db
         .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
         .await?
-        .ok_or(ApiError::PackageVersionNotFound)?;
+        .ok_or(SharedError::PackageVersionNotFound)?;
       if latest.version != *version {
         return Err(ApiError::DocsOnlyForLatestVersion);
       }
@@ -1761,7 +1765,7 @@ pub async fn get_docs_search_handler(
     VersionOrLatest::Latest => db
       .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
       .await?
-      .ok_or(ApiError::PackageVersionNotFound)?,
+      .ok_or(SharedError::PackageVersionNotFound)?,
   };
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
@@ -1787,7 +1791,7 @@ pub async fn get_docs_search_handler(
       "docs not found for {}/{}/{}",
       scope, package_name, version.version
     );
-    ApiError::InternalServerError
+    SharedError::InternalServerError
   })?;
 
   if crate::docs::all_symbols_listing_too_large(&ctx) {
@@ -1830,7 +1834,7 @@ pub async fn get_docs_search_structured_handler(
       let latest = db
         .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
         .await?
-        .ok_or(ApiError::PackageVersionNotFound)?;
+        .ok_or(SharedError::PackageVersionNotFound)?;
       if latest.version != *version {
         return Err(ApiError::DocsOnlyForLatestVersion);
       }
@@ -1839,7 +1843,7 @@ pub async fn get_docs_search_structured_handler(
     VersionOrLatest::Latest => db
       .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
       .await?
-      .ok_or(ApiError::PackageVersionNotFound)?,
+      .ok_or(SharedError::PackageVersionNotFound)?,
   };
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
@@ -1865,7 +1869,7 @@ pub async fn get_docs_search_structured_handler(
       "docs not found for {}/{}/{}",
       scope, package_name, version.version
     );
-    ApiError::InternalServerError
+    SharedError::InternalServerError
   })?;
 
   if crate::docs::all_symbols_listing_too_large(&ctx) {
@@ -1881,13 +1885,13 @@ pub async fn get_docs_search_structured_handler(
   )
   .map_err(|e| {
     error!("failed to generate docs: {}", e);
-    ApiError::InternalServerError
+    SharedError::InternalServerError
   })?
   .unwrap();
 
   let search = match docs {
-    GeneratedDocsOutput::Docs(crate::docs::GeneratedDocs {
-      main: crate::docs::GeneratedDocsContent::AllSymbols(main),
+    GeneratedDocsOutput::Docs(shared::docs::GeneratedDocs {
+      main: shared::docs::GeneratedDocsContent::AllSymbols(main),
       ..
     }) => main,
     _ => unreachable!(),
@@ -1930,17 +1934,17 @@ pub async fn get_source_handler(
         .await?
     }
   };
-  let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
+  let version = maybe_version.ok_or(SharedError::PackageVersionNotFound)?;
 
   let file = if path == "meta.json" {
-    let source_file_path = crate::s3_paths::package_metadata(&scope, &package);
+    let source_file_path = shared::s3_paths::package_metadata(&scope, &package);
     buckets
       .modules_bucket
       .download(source_file_path.into())
       .await?
   } else if path == format!("{}_meta.json", version.version) {
     let source_file_path =
-      crate::s3_paths::version_metadata(&scope, &package, &version.version);
+      shared::s3_paths::version_metadata(&scope, &package, &version.version);
     req
       .data::<crate::object_cache::ObjectCache>()
       .unwrap()
@@ -1949,10 +1953,10 @@ pub async fn get_source_handler(
   } else if path != "/" {
     let package_path = PackagePath::try_from(path.as_str()).map_err(|err| {
       let msg = format!("failed to parse path parameter 'path': {err}").into();
-      ApiError::MalformedRequest { msg }
+      SharedError::MalformedRequest { msg }
     })?;
 
-    let source_file_path = crate::s3_paths::file_path(
+    let source_file_path = shared::s3_paths::file_path(
       &scope,
       &package,
       &version.version,
@@ -2121,13 +2125,14 @@ async fn source_specifier_links(
   // through the object cache: without it each source-file view re-downloaded
   // the whole manifest just to read one module's entry.
   let metadata_path =
-    crate::s3_paths::version_metadata(scope, package, version);
+    shared::s3_paths::version_metadata(scope, package, version);
   let metadata = match object_cache
     .download(&buckets.modules_bucket, metadata_path.into())
     .await
   {
     Ok(Some(bytes)) => {
-      match serde_json::from_slice::<crate::metadata::VersionMetadata>(&bytes) {
+      match serde_json::from_slice::<shared::metadata::VersionMetadata>(&bytes)
+      {
         Ok(metadata) => metadata,
         Err(err) => {
           error!("failed to parse version metadata for links: {err}");
@@ -2189,7 +2194,7 @@ pub async fn get_diff_handler(
   let old_version = Version::try_from(old_version.as_str()).map_err(|err| {
     let msg =
       format!("failed to parse path parameter 'old_version': {err}").into();
-    ApiError::MalformedRequest { msg }
+    SharedError::MalformedRequest { msg }
   })?;
   Span::current().record("old_version", field::display(&old_version));
 
@@ -2197,7 +2202,7 @@ pub async fn get_diff_handler(
   let new_version = Version::try_from(new_version.as_str()).map_err(|err| {
     let msg =
       format!("failed to parse path parameter 'new_version': {err}").into();
-    ApiError::MalformedRequest { msg }
+    SharedError::MalformedRequest { msg }
   })?;
   Span::current().record("new_version", field::display(&new_version));
 
@@ -2229,11 +2234,11 @@ pub async fn get_diff_handler(
   let old_version = db
     .get_package_version(&scope, &package_name, &old_version)
     .await?
-    .ok_or(ApiError::PackageVersionNotFound)?;
+    .ok_or(SharedError::PackageVersionNotFound)?;
   let new_version = db
     .get_package_version(&scope, &package_name, &new_version)
     .await?
-    .ok_or(ApiError::PackageVersionNotFound)?;
+    .ok_or(SharedError::PackageVersionNotFound)?;
 
   let (old_doc_nodes, new_doc_nodes) = futures::future::try_join(
     crate::docs::download_doc_nodes(
@@ -2256,14 +2261,14 @@ pub async fn get_diff_handler(
       "docs not found for {}/{}/{}",
       scope, package_name, old_version.version
     );
-    ApiError::InternalServerError
+    SharedError::InternalServerError
   })?;
   let new_doc_nodes = new_doc_nodes.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
       scope, package_name, new_version.version
     );
-    ApiError::InternalServerError
+    SharedError::InternalServerError
   })?;
 
   // diffs are applied on top of the new version
@@ -2317,7 +2322,7 @@ pub async fn get_diff_handler(
     crate::docs::render_docs_html(&ctx, docs_req, None, package.readme_source)
       .map_err(|e| {
         error!("failed to generate docs: {}", e);
-        ApiError::InternalServerError
+        SharedError::InternalServerError
       })?
       .ok_or(ApiError::EntrypointOrSymbolNotFound)?;
 
@@ -2470,7 +2475,7 @@ pub async fn list_dependencies_handler(
 
   db.get_package_version(&scope, &package, &version)
     .await?
-    .ok_or(ApiError::PackageVersionNotFound)?;
+    .ok_or(SharedError::PackageVersionNotFound)?;
 
   let deps = db
     .list_package_version_dependencies(&scope, &package, &version)
@@ -2486,7 +2491,7 @@ pub async fn list_dependencies_handler(
 /// Upper bound on a single fallback-registry request made while building a
 /// dependency graph.
 ///
-/// Deliberately much tighter than [`crate::tarball::FALLBACK_REQUEST_TIMEOUT`],
+/// Deliberately much tighter than the fallback timeout used by publish analysis,
 /// which this used to share. A publish can afford to wait half a minute on a
 /// degraded fallback; a page render cannot, and the probe fires once per object
 /// the modules bucket does not hold — so on a fallback-hosted package the
@@ -2587,8 +2592,8 @@ impl RegistryMetadataCache {
     &self,
     kind: MetadataKind,
     path: Arc<str>,
-    bucket: &crate::s3::BucketWithQueue,
-  ) -> Result<Option<Bytes>, crate::s3::S3Error> {
+    bucket: &shared::s3::BucketWithQueue,
+  ) -> Result<Option<Bytes>, shared::s3::S3Error> {
     let cache = match kind {
       MetadataKind::Version => &self.version,
       MetadataKind::Package => &self.package,
@@ -2654,8 +2659,8 @@ fn metadata_size_key(
 struct DepTreeLoader {
   scope: ScopeName,
   package: PackageName,
-  version: crate::ids::Version,
-  bucket: crate::s3::BucketWithQueue,
+  version: shared::ids::Version,
+  bucket: shared::s3::BucketWithQueue,
   exports: Arc<tokio::sync::Mutex<IndexMap<String, IndexMap<String, String>>>>,
   registry_url: Url,
   fallback_registry_url: Option<Url>,
@@ -2691,7 +2696,7 @@ impl DepTreeLoader {
         async move {
           let Some(bytes) = bucket
             .download(
-              crate::s3_paths::file_path(&scope, &package, &version, &path)
+              shared::s3_paths::file_path(&scope, &package, &version, &path)
                 .into(),
             )
             .await
@@ -2968,7 +2973,7 @@ impl JsrUrlProvider for DepTreeJsrUrlProvider {
 /// the fallback registry, and packages old enough that their metadata predates
 /// `moduleGraph2` — those still get parsed, as before.
 ///
-/// Unlike [`crate::analysis::ModuleAnalyzer`] this keeps nothing: the endpoint
+/// Unlike the publish analysis's module analyzer this keeps nothing: the endpoint
 /// reads dependencies, size and media type off the graph and never looks at a
 /// [`deno_ast::ParsedSource`], so retaining every parse for the life of the
 /// request only cost memory.
@@ -3022,7 +3027,7 @@ lazy_static::lazy_static! {
 struct DepTreeRegistry {
   url: Url,
   fallback_url: Option<Url>,
-  bucket: crate::s3::BucketWithQueue,
+  bucket: shared::s3::BucketWithQueue,
   metadata_cache: RegistryMetadataCache,
 }
 
@@ -3032,7 +3037,7 @@ async fn analyze_deps_tree(
   registry: DepTreeRegistry,
   scope: ScopeName,
   package: PackageName,
-  version: crate::ids::Version,
+  version: shared::ids::Version,
   version_meta: VersionMetadata,
 ) -> Result<
   IndexMap<DependencyKind, DependencyInfo>,
@@ -3439,11 +3444,11 @@ pub async fn get_dependencies_graph_handler(
   // request for a package that is being looked at at all reaches the bucket
   // zero times.
   let s3_path =
-    crate::s3_paths::version_metadata(&scope, &package, &version).into();
+    shared::s3_paths::version_metadata(&scope, &package, &version).into();
   let version_meta = metadata_cache
     .get_or_download(MetadataKind::Version, s3_path, &buckets.modules_bucket)
     .await?
-    .ok_or(ApiError::PackageVersionNotFound)?;
+    .ok_or(SharedError::PackageVersionNotFound)?;
   let version_meta = serde_json::from_slice::<VersionMetadata>(&version_meta)?;
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
@@ -3547,42 +3552,44 @@ mod test {
   use crate::api::ApiPackageVersion;
   use crate::api::ApiPackageVersionDocs;
   use crate::api::ApiPackageVersionSource;
+  use crate::api::ApiPublishingTask;
   use crate::api::ApiSource;
   use crate::api::ApiSourceDirEntry;
   use crate::api::ApiSourceDirEntryKind;
   use crate::api::{ApiDependency, ApiReadmeSource};
-  use crate::db::CreatePackageResult;
-  use crate::db::CreatePublishingTaskResult;
-  use crate::db::DownloadKind;
-  use crate::db::ExportsMap;
-  use crate::db::NewGithubRepository;
-  use crate::db::NewPackageVersion;
-  use crate::db::NewPublishingTask;
-  use crate::db::NewScopeInvite;
-  use crate::db::NewScopeMember;
-  use crate::db::PackagePublishPermission;
-  use crate::db::Permission;
-  use crate::db::Permissions;
-  use crate::db::PublishingTaskStatus;
-  use crate::db::TokenType;
-  use crate::db::VersionDownloadCount;
-  use crate::ids::{
-    PackageName, PackagePath, ScopeDescription, ScopeName, Version,
-  };
-  use crate::publish::tests::create_mock_tarball;
-  use crate::publish::tests::process_tarball_setup;
-  use crate::publish::tests::process_tarball_setup2;
-  use crate::s3::S3UploadOptions;
-  use crate::s3::UploadTaskBody;
   use crate::token::create_token;
   use crate::util::test::ApiResultExt;
   use crate::util::test::FakeFallbackRegistry;
   use crate::util::test::TestSetup;
+  use crate::util::test::process_tarball_setup;
+  use crate::util::test::process_tarball_setup2;
   use axum::body::Body;
   use chrono::Utc;
   use hyper::StatusCode;
   use indexmap::IndexSet;
   use serde_json::json;
+  use shared::MAX_PUBLISH_TARBALL_SIZE;
+  use shared::db::CreatePackageResult;
+  use shared::db::CreatePublishingTaskResult;
+  use shared::ids::{
+    PackageName, PackagePath, ScopeDescription, ScopeName, Version,
+  };
+  use shared::models::DownloadKind;
+  use shared::models::ExportsMap;
+  use shared::models::NewGithubRepository;
+  use shared::models::NewPackageVersion;
+  use shared::models::NewPublishingTask;
+  use shared::models::NewScopeInvite;
+  use shared::models::NewScopeMember;
+  use shared::models::PackagePublishPermission;
+  use shared::models::Permission;
+  use shared::models::Permissions;
+  use shared::models::PublishingTaskStatus;
+  use shared::models::TokenType;
+  use shared::models::VersionDownloadCount;
+  use shared::s3::S3UploadOptions;
+  use shared::s3::UploadTaskBody;
+  use shared::test::create_mock_tarball;
 
   #[tokio::test]
   async fn test_packages_list() {
@@ -4006,7 +4013,7 @@ mod test {
     t.buckets()
       .modules_bucket
       .upload(
-        crate::s3_paths::version_metadata(
+        shared::s3_paths::version_metadata(
           &scope,
           &name,
           &"1.0.0".try_into().unwrap(),
@@ -5104,7 +5111,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     // publish a package that only has a prerelease version (no stable release)
     let package_name = PackageName::try_from("foo").unwrap();
     let version = Version::try_from("1.2.3-alpha.1").unwrap();
-    let task = crate::publish::tests::process_tarball_setup2(
+    let task = process_tarball_setup2(
       &t,
       create_mock_tarball("ok_prerelease"),
       &package_name,
@@ -5191,7 +5198,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
 
     let package_name = PackageName::try_from("bar").unwrap();
     let version = Version::try_from("1.2.3").unwrap();
-    let task = crate::publish::tests::process_tarball_setup2(
+    let task = process_tarball_setup2(
       &t,
       create_mock_tarball("depends_on_ok"),
       &package_name,
@@ -5247,7 +5254,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
 
     let package_name = PackageName::try_from("bar").unwrap();
     let version = Version::try_from("1.2.4").unwrap();
-    let task = crate::publish::tests::process_tarball_setup2(
+    let task = process_tarball_setup2(
       &t,
       create_mock_tarball("depends_on_ok2"),
       &package_name,
@@ -5259,7 +5266,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
 
     let package_name = PackageName::try_from("baz").unwrap();
     let version = Version::try_from("1.2.3").unwrap();
-    let task = crate::publish::tests::process_tarball_setup2(
+    let task = process_tarball_setup2(
       &t,
       create_mock_tarball("depends_on_ok3"),
       &package_name,
@@ -5367,7 +5374,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     // layer (`npm:@jsr/scope__name`) are also counted as dependents.
     let package_name = PackageName::try_from("qux").unwrap();
     let version = Version::try_from("1.2.3").unwrap();
-    let task = crate::publish::tests::process_tarball_setup2(
+    let task = process_tarball_setup2(
       &t,
       create_mock_tarball("depends_on_ok_npm_mapped"),
       &package_name,
@@ -5473,7 +5480,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     // Now publish a package that has a few deps
     let package_name = PackageName::try_from("bar").unwrap();
     let version = Version::try_from("1.2.3").unwrap();
-    let task = crate::publish::tests::process_tarball_setup2(
+    let task = process_tarball_setup2(
       &t,
       create_mock_tarball("depends_on_ok"),
       &package_name,
@@ -5638,7 +5645,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let name = PackageName::try_from("foo").unwrap();
 
     let version = Version::try_from("1.2.3").unwrap();
-    let task = crate::publish::tests::process_tarball_setup2(
+    let task = process_tarball_setup2(
       &t,
       create_mock_tarball("ok"),
       &name,
@@ -6153,7 +6160,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let npm_tarball_paths = npm_tarballs
       .iter()
       .map(|tarball| {
-        crate::s3_paths::npm_tarball_path(
+        shared::s3_paths::npm_tarball_path(
           &scope_name,
           &foo_name,
           &version2,
@@ -6343,5 +6350,152 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       }
       _ => panic!("expected JSR dependency"),
     }
+  }
+
+  // Publishing over HTTP: these exercise the api endpoint in front of the
+  // publish task, so they live here rather than with the task.
+
+  #[tokio::test]
+  async fn payload_too_large() {
+    let body = Body::from(vec![0; MAX_PUBLISH_TARBALL_SIZE as usize + 10]);
+
+    let mut t = TestSetup::new().await;
+    let mut resp = t
+      .http()
+      .post("/api/scopes/scope/packages/foo/versions/1.2.3?config=/jsr.json")
+      .gzip()
+      .body(body)
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(
+        StatusCode::PAYLOAD_TOO_LARGE,
+        "tarballSizeLimitExceeded",
+      )
+      .await;
+  }
+
+  #[tokio::test]
+  async fn payload_too_large_stream() {
+    // Convert the Vec<u8> into a hyper Body with chunked transfer encoding
+    let body = Body::from_stream(tokio_stream::once(Ok::<_, std::io::Error>(
+      vec![0; MAX_PUBLISH_TARBALL_SIZE as usize + 10],
+    )));
+
+    let mut t = TestSetup::new().await;
+    let name = PackageName::new("foo".to_owned()).unwrap();
+    t.db().create_package(&t.scope.scope, &name).await.unwrap();
+    let mut resp = t
+      .http()
+      .post("/api/scopes/scope/packages/foo/versions/1.2.3?config=/jsr.json")
+      .gzip()
+      .body(body)
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(
+        StatusCode::PAYLOAD_TOO_LARGE,
+        "tarballSizeLimitExceeded",
+      )
+      .await;
+
+    // The rejected upload must not leave a `pending` task behind that blocks
+    // publishing this version again (jsr-io/jsr#1554).
+    let body = Body::from_stream(tokio_stream::once(Ok::<_, std::io::Error>(
+      create_mock_tarball("ok"),
+    )));
+    let mut resp = t
+      .http()
+      .post("/api/scopes/scope/packages/foo/versions/1.2.3?config=/jsr.json")
+      .gzip()
+      .body(body)
+      .call()
+      .await
+      .unwrap();
+    resp.expect_ok::<ApiPublishingTask>().await;
+  }
+
+  #[tokio::test]
+  async fn stream_success() {
+    let mut t = TestSetup::new().await;
+    let name = PackageName::new("foo".to_owned()).unwrap();
+    t.db().create_package(&t.scope.scope, &name).await.unwrap();
+
+    let data = create_mock_tarball("ok");
+
+    // Convert the Vec<u8> into a hyper Body with chunked transfer encoding
+    let body_stream = tokio_stream::once(Ok::<_, std::io::Error>(data));
+    let body = Body::from_stream(body_stream);
+
+    let mut resp = t
+      .http()
+      .post("/api/scopes/scope/packages/foo/versions/1.2.3?config=/jsr.json")
+      .gzip()
+      .body(body)
+      .call()
+      .await
+      .unwrap();
+    let _task = resp.expect_ok::<ApiPublishingTask>().await;
+    // todo: await task completion
+  }
+
+  #[tokio::test]
+  async fn not_allowed() {
+    let mut t = TestSetup::new().await;
+
+    let data = create_mock_tarball("ok");
+
+    // Convert the Vec<u8> into a hyper Body with chunked transfer encoding
+    let body_stream = tokio_stream::once(Ok::<_, std::io::Error>(data));
+    let body = Body::from_stream(body_stream);
+
+    let token = t.user2.token.clone();
+
+    let mut resp = t
+      .http()
+      .post("/api/scopes/scope/packages/foo/versions/1.2.3?config=/jsr.json")
+      .gzip()
+      .token(Some(&token))
+      .body(body)
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeMember")
+      .await;
+  }
+
+  #[tokio::test]
+  async fn only_from_ci() {
+    let mut t = TestSetup::new().await;
+
+    let data = create_mock_tarball("ok");
+
+    t.db()
+      .scope_set_require_publishing_from_ci(
+        &t.user1.user.id,
+        false,
+        &t.scope.scope,
+        true,
+      )
+      .await
+      .unwrap();
+
+    let token = t.user2.token.clone();
+
+    let mut resp: hyper::Response<Body> = t
+      .http()
+      .post("/api/scopes/scope/packages/foo/versions/1.2.3?config=/jsr.json")
+      .gzip()
+      .token(Some(&token))
+      .body(Body::from(data))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::FORBIDDEN, "scopeRequiresPublishingFromCi")
+      .await;
   }
 }

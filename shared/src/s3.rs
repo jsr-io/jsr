@@ -1,0 +1,940 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
+use crate::task_queue::DynamicBackgroundTaskQueue;
+use crate::task_queue::RestartableTask;
+use crate::task_queue::RestartableTaskResult;
+use bytes::Bytes;
+use futures::Future;
+use futures::FutureExt;
+use futures::Stream;
+use futures::StreamExt;
+use futures::TryStreamExt;
+use futures::stream::BoxStream;
+use hyper::StatusCode;
+use rusty_s3::S3Action;
+use std::borrow::Cow;
+use std::pin::Pin;
+use std::sync::Arc;
+use std::time::Duration;
+use thiserror::Error;
+use tracing::instrument;
+
+pub const CACHE_CONTROL_IMMUTABLE: &str = "public, max-age=31536000, immutable";
+/// Cache-control used for package and npm version manifests. These change
+/// only on publish / yank / delete / description edit, and we explicitly
+/// purge the Cloudflare cache for the affected URLs from those code paths
+/// (see `CachePurge`). Purging is best-effort — `CachePurge::purge` swallows
+/// errors — so the cache-control must be the durability net on its own.
+///
+/// `s-maxage` is the window during which the edge treats a cached manifest as
+/// *fresh* and will not revalidate. It must stay short, because a freshly
+/// published version only becomes visible to Deno's resolver once the edge
+/// re-fetches the regenerated `meta.json`; if the explicit purge call fails,
+/// `s-maxage` is the longest a just-published version can stay invisible to
+/// the resolver while the version page and immutable `_meta.json` already
+/// exist. We deliberately omit `stale-while-revalidate`: the lb serves a
+/// cached entry on a hit without re-fetching it (see `proxyToR2`), so SWR
+/// would only let the edge keep serving the *stale* manifest without ever
+/// producing fresh content until the entry fully expires — pure added
+/// staleness with no upside. Without it, a request past `s-maxage` is an
+/// unambiguous miss that forces an R2 re-fetch, capping resolver staleness at
+/// `s-maxage`. `max-age` caps client-side staleness.
+pub const CACHE_CONTROL_MANIFEST: &str = "public, max-age=60, s-maxage=60";
+
+const HTTP_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+
+#[derive(Clone)]
+pub struct Buckets {
+  pub publishing_bucket: BucketWithQueue,
+  pub modules_bucket: BucketWithQueue,
+  pub docs_bucket: BucketWithQueue,
+  pub npm_bucket: BucketWithQueue,
+  pub ticket_attachments_bucket: BucketWithQueue,
+}
+
+#[derive(Debug, Error, deno_error::JsError)]
+#[class(generic)]
+pub enum S3Error {
+  #[error("request to S3 timed out")]
+  RequestTimeout,
+  #[error("too many requests to S3")]
+  TooManyRequests,
+  #[error("server error when communicating with S3: {0} ({0:?})")]
+  Server(StatusCode),
+  #[error("client error when communicating with S3: {0} ({0:?})")]
+  Client(StatusCode),
+  #[error(transparent)]
+  Http(reqwest::Error),
+  #[cfg(target_arch = "wasm32")]
+  #[error("R2 binding: {0}")]
+  R2(String),
+  #[error("invalid S3 bucket: {0}")]
+  InvalidBucket(#[from] rusty_s3::BucketError),
+  #[error("invalid S3 list response: {0}")]
+  InvalidListResponse(String),
+  #[error("stream failed: {0}")]
+  Stream(anyhow::Error),
+}
+
+impl S3Error {
+  /// 408, 429, and 5xx errors are retryable.
+  /// https://cloud.google.com/storage/docs/retry-strategy
+  pub fn is_retryable(&self) -> bool {
+    matches!(
+      self,
+      Self::RequestTimeout | Self::TooManyRequests | Self::Server(_)
+    )
+  }
+}
+
+// Presigned URLs carry a signature, so they are kept out of errors.
+impl From<reqwest::Error> for S3Error {
+  fn from(err: reqwest::Error) -> Self {
+    Self::Http(err.without_url())
+  }
+}
+
+#[derive(Debug)]
+pub struct S3UploadOptions<'a> {
+  pub content_type: Option<Cow<'a, str>>,
+  pub cache_control: Option<Cow<'a, str>>,
+  pub gzip_encoded: bool,
+}
+
+const SIGNATURE_EXPIRY: Duration = Duration::from_secs(60 * 60);
+
+#[derive(Clone)]
+pub struct S3Client {
+  http: reqwest::Client,
+  endpoint: url::Url,
+  region: String,
+  credentials: Arc<rusty_s3::Credentials>,
+}
+
+impl S3Client {
+  pub fn new(
+    endpoint: &str,
+    region: String,
+    access_key: String,
+    secret_key: String,
+  ) -> Result<Self, anyhow::Error> {
+    // reqwest is built with `gzip`/`brotli` for the rest of the app, which
+    // would transparently inflate objects we store with
+    // `Content-Encoding: gzip`. Their readers expect the stored bytes.
+    let http = reqwest::Client::builder()
+      .no_gzip()
+      .no_brotli()
+      .timeout(HTTP_CONNECT_TIMEOUT)
+      .build()?;
+    Ok(Self {
+      http,
+      endpoint: if endpoint.contains("://") {
+        endpoint.parse()?
+      } else {
+        format!("https://{endpoint}").parse()?
+      },
+      region,
+      credentials: Arc::new(rusty_s3::Credentials::new(access_key, secret_key)),
+    })
+  }
+}
+
+async fn send(
+  req: reqwest::RequestBuilder,
+) -> Result<reqwest::Response, reqwest::Error> {
+  #[cfg(target_arch = "wasm32")]
+  return Ok(crate::worker_js::fetch(req.build()?, true, false).await);
+  #[cfg(not(target_arch = "wasm32"))]
+  req.send().await
+}
+
+#[derive(Clone)]
+pub struct Bucket {
+  client: S3Client,
+  bucket: Arc<rusty_s3::Bucket>,
+  pub(crate) name: String,
+  #[cfg(target_arch = "wasm32")]
+  r2: Option<crate::worker_js::R2Bucket>,
+}
+
+impl Bucket {
+  pub fn name(&self) -> &str {
+    &self.name
+  }
+
+  pub fn new(client: &S3Client, name: String) -> Result<Self, S3Error> {
+    let bucket = rusty_s3::Bucket::new(
+      client.endpoint.clone(),
+      rusty_s3::UrlStyle::Path,
+      name.clone(),
+      client.region.clone(),
+    )?;
+
+    Ok(Self {
+      client: client.clone(),
+      bucket: Arc::new(bucket),
+      #[cfg(target_arch = "wasm32")]
+      r2: crate::worker_js::R2Bucket::new(&name),
+      name,
+    })
+  }
+
+  fn check_status(status_code: u16) -> Result<(), S3Error> {
+    if status_code == StatusCode::REQUEST_TIMEOUT {
+      return Err(S3Error::RequestTimeout);
+    }
+    if status_code == StatusCode::TOO_MANY_REQUESTS {
+      return Err(S3Error::TooManyRequests);
+    }
+    if (500..600).contains(&status_code) {
+      return Err(S3Error::Server(StatusCode::from_u16(status_code).unwrap()));
+    }
+    if (400..500).contains(&status_code) {
+      return Err(S3Error::Client(StatusCode::from_u16(status_code).unwrap()));
+    }
+    Ok(())
+  }
+
+  fn credentials(&self) -> Option<&rusty_s3::Credentials> {
+    Some(&self.client.credentials)
+  }
+
+  #[cfg(any(test, feature = "testing"))]
+  pub async fn create(
+    client: &S3Client,
+    name: String,
+  ) -> Result<Self, S3Error> {
+    let bucket = Self::new(client, name)?;
+    let url = bucket
+      .bucket
+      .create_bucket(&bucket.client.credentials)
+      .sign(SIGNATURE_EXPIRY);
+    let resp = bucket.client.http.put(url).send().await?;
+    // Tests share one server, so the bucket may already exist.
+    if resp.status() != StatusCode::CONFLICT.as_u16() {
+      Bucket::check_status(resp.status().as_u16())?;
+    }
+    Ok(bucket)
+  }
+
+  #[cfg(any(test, feature = "testing"))]
+  pub async fn get_object(&self, path: &str) -> reqwest::Response {
+    let url = self
+      .bucket
+      .get_object(self.credentials(), path)
+      .sign(SIGNATURE_EXPIRY);
+    self.client.http.get(url).send().await.unwrap()
+  }
+
+  async fn get(
+    &self,
+    path: &str,
+    offset: Option<usize>,
+  ) -> Result<Option<reqwest::Response>, S3Error> {
+    let mut action = self.bucket.get_object(self.credentials(), path);
+    let range = offset.map(|offset| format!("bytes={offset}-"));
+    if let Some(range) = &range {
+      action.headers_mut().insert("range", range.as_str());
+    }
+    let mut req = self.client.http.get(action.sign(SIGNATURE_EXPIRY));
+    if let Some(range) = range {
+      req = req.header(reqwest::header::RANGE, range);
+    }
+    let resp = send(req).await?;
+
+    let status = resp.status().as_u16();
+    if status == 404 || status == 416 {
+      return Ok(None);
+    }
+    Bucket::check_status(status)?;
+    Ok(Some(resp))
+  }
+
+  #[instrument(name = "s3::Bucket::download", skip(self), err, fields(bucket = %self.name))]
+  pub async fn download(&self, path: &str) -> Result<Option<Bytes>, S3Error> {
+    #[cfg(target_arch = "wasm32")]
+    if let Some(r2) = &self.r2 {
+      return r2
+        .get(path, None)
+        .await
+        .map_err(|err| S3Error::R2(err.to_string()));
+    }
+    match self.get(path, None).await? {
+      Some(resp) => Ok(Some(resp.bytes().await?)),
+      None => Ok(None),
+    }
+  }
+
+  #[instrument(name = "s3::Bucket::download_stream", skip(self), err, fields(bucket = %self.name))]
+  pub async fn download_stream(
+    &self,
+    path: &str,
+    offset: Option<usize>,
+  ) -> Result<Option<BoxStream<'static, Result<Bytes, S3Error>>>, S3Error> {
+    #[cfg(target_arch = "wasm32")]
+    if let Some(r2) = &self.r2 {
+      let bytes = r2
+        .get(path, offset)
+        .await
+        .map_err(|err| S3Error::R2(err.to_string()))?;
+      return Ok(
+        bytes.map(|bytes| futures::stream::once(async { Ok(bytes) }).boxed()),
+      );
+    }
+    let resp = self.get(path, offset).await?;
+    Ok(resp.map(|resp| resp.bytes_stream().map_err(S3Error::from).boxed()))
+  }
+
+  #[instrument(name = "s3::Bucket::download_response", skip(self), err, fields(bucket = %self.name))]
+  pub async fn download_response(
+    &self,
+    path: &str,
+  ) -> Result<Option<hyper::Response<axum::body::Body>>, S3Error> {
+    #[cfg(target_arch = "wasm32")]
+    if let Some(r2) = &self.r2 {
+      let stream = r2
+        .get_stream(path)
+        .await
+        .map_err(|err| S3Error::R2(err.to_string()))?;
+      return Ok(stream.map(|stream| {
+        let mut resp = hyper::Response::new(axum::body::Body::empty());
+        resp.extensions_mut().insert(stream);
+        resp
+      }));
+    }
+    let stream = self.download_stream(path, None).await?;
+    Ok(stream.map(|stream| {
+      hyper::Response::new(axum::body::Body::from_stream(stream))
+    }))
+  }
+
+  #[instrument(name = "s3::Bucket::upload", skip(self, data), err, fields(bucket = %self.name, size = %data.len()))]
+  pub async fn upload(
+    &self,
+    path: &str,
+    data: Bytes,
+    options: &S3UploadOptions<'_>,
+  ) -> Result<(), S3Error> {
+    use reqwest::header;
+
+    let content_encoding = if options.gzip_encoded {
+      "gzip"
+    } else {
+      "identity"
+    };
+    #[cfg(target_arch = "wasm32")]
+    if let Some(r2) = &self.r2 {
+      return r2
+        .put(
+          path,
+          &data,
+          options.content_type.as_deref(),
+          options.cache_control.as_deref(),
+          content_encoding,
+        )
+        .await
+        .map_err(|err| S3Error::R2(err.to_string()));
+    }
+    let mut headers = vec![(header::CONTENT_ENCODING, content_encoding)];
+    if let Some(content_type) = &options.content_type {
+      headers.push((header::CONTENT_TYPE, content_type));
+    }
+    if let Some(cache_control) = &options.cache_control {
+      headers.push((header::CACHE_CONTROL, cache_control));
+    }
+
+    let mut action = self.bucket.put_object(self.credentials(), path);
+    for (name, value) in &headers {
+      action.headers_mut().insert(name.as_str(), *value);
+    }
+    let mut req = self.client.http.put(action.sign(SIGNATURE_EXPIRY));
+    for (name, value) in headers {
+      req = req.header(name, value);
+    }
+
+    // hyper leaves out `Content-Length` when the body is empty, and GCS
+    // rejects a PUT without it (411 Length Required), so zero-byte files
+    // could not be published. Always send it explicitly.
+    let resp =
+      send(req.header(header::CONTENT_LENGTH, data.len()).body(data)).await?;
+    Bucket::check_status(resp.status().as_u16())?;
+
+    Ok(())
+  }
+
+  /// The keys of all objects whose key starts with `prefix`.
+  #[instrument(name = "s3::Bucket::list", skip(self), err, fields(bucket = %self.name))]
+  pub async fn list(&self, prefix: &str) -> Result<Vec<String>, S3Error> {
+    #[cfg(target_arch = "wasm32")]
+    if let Some(r2) = &self.r2 {
+      return r2
+        .list(prefix)
+        .await
+        .map_err(|err| S3Error::R2(err.to_string()));
+    }
+    let mut keys = Vec::new();
+    let mut continuation_token = None;
+    loop {
+      let mut action = self.bucket.list_objects_v2(self.credentials());
+      action.query_mut().remove("encoding-type");
+      action.with_prefix(prefix);
+      if let Some(token) = &continuation_token {
+        action.with_continuation_token(token);
+      }
+      let resp =
+        send(self.client.http.get(action.sign(SIGNATURE_EXPIRY))).await?;
+      Bucket::check_status(resp.status().as_u16())?;
+
+      let body = resp.text().await?;
+      let list = rusty_s3::actions::ListObjectsV2::parse_response(&body)
+        .map_err(|e| S3Error::InvalidListResponse(e.to_string()))?;
+      keys.extend(list.contents.into_iter().map(|object| object.key));
+
+      match list.next_continuation_token {
+        Some(token) => continuation_token = Some(token),
+        None => return Ok(keys),
+      }
+    }
+  }
+
+  #[instrument(name = "s3::Bucket::delete", skip(self), err, fields(bucket = %self.name))]
+  pub async fn delete_file(&self, path: &str) -> Result<(), S3Error> {
+    #[cfg(target_arch = "wasm32")]
+    if let Some(r2) = &self.r2 {
+      return r2
+        .delete(path)
+        .await
+        .map_err(|err| S3Error::R2(err.to_string()));
+    }
+    let url = self
+      .bucket
+      .delete_object(self.credentials(), path)
+      .sign(SIGNATURE_EXPIRY);
+    let resp = send(self.client.http.delete(url)).await?;
+
+    if resp.status() == 404 {
+      return Ok(());
+    }
+    Bucket::check_status(resp.status().as_u16())
+  }
+}
+
+#[allow(dead_code)]
+#[derive(Clone)]
+pub struct BucketWithQueue {
+  pub bucket: Bucket,
+  upload_queue: DynamicBackgroundTaskQueue<UploadTask>,
+  download_queue: DynamicBackgroundTaskQueue<DownloadTask>,
+  delete_queue: DynamicBackgroundTaskQueue<DeleteFileTask>,
+  list_queue: DynamicBackgroundTaskQueue<ListDirectoryTask>,
+}
+
+impl BucketWithQueue {
+  pub fn new(bucket: Bucket) -> Self {
+    Self {
+      bucket,
+      upload_queue: DynamicBackgroundTaskQueue::default(),
+      download_queue: DynamicBackgroundTaskQueue::default(),
+      delete_queue: DynamicBackgroundTaskQueue::default(),
+      list_queue: DynamicBackgroundTaskQueue::default(),
+    }
+  }
+
+  #[instrument(
+    name = "BucketWithQueue::upload",
+    skip(self, body, options),
+    err
+  )]
+  pub async fn upload(
+    &self,
+    path: Arc<str>,
+    body: UploadTaskBody,
+    options: S3UploadOptions<'static>,
+  ) -> Result<(), S3Error> {
+    self
+      .upload_queue
+      .run(UploadTask {
+        bucket: self.bucket.clone(),
+        path,
+        body,
+        options,
+      })
+      .await
+  }
+
+  #[allow(dead_code)]
+  #[instrument(name = "BucketWithQueue::download", skip(self), err)]
+  pub async fn download(
+    &self,
+    path: Arc<str>,
+  ) -> Result<Option<Bytes>, S3Error> {
+    self
+      .download_queue
+      .run(DownloadTask {
+        bucket: self.bucket.clone(),
+        path,
+      })
+      .await
+  }
+
+  #[allow(dead_code)]
+  #[instrument(name = "BucketWithQueue::delete_file", skip(self), err)]
+  pub async fn delete_file(&self, path: Arc<str>) -> Result<(), S3Error> {
+    self
+      .delete_queue
+      .run(DeleteFileTask {
+        bucket: self.bucket.clone(),
+        path,
+      })
+      .await
+  }
+
+  #[allow(dead_code)]
+  #[instrument(name = "BucketWithQueue::delete_directory", skip(self), err)]
+  pub async fn delete_directory(&self, path: Arc<str>) -> Result<(), S3Error> {
+    let list = self
+      .list_queue
+      .run(ListDirectoryTask {
+        bucket: self.bucket.clone(),
+        path,
+      })
+      .await?;
+
+    if !list.is_empty() {
+      let stream = futures::stream::iter(list)
+        .map(|key| self.delete_file(key.into()))
+        .buffer_unordered(64);
+
+      let _ = stream.try_collect::<Vec<_>>().await?;
+    }
+
+    Ok(())
+  }
+}
+
+struct UploadTask {
+  bucket: Bucket,
+  path: Arc<str>,
+  body: UploadTaskBody,
+  options: S3UploadOptions<'static>,
+}
+
+pub enum UploadTaskBody {
+  Bytes(Bytes),
+  Stream(
+    Box<
+      dyn Stream<Item = Result<Bytes, std::io::Error>> + Unpin + Send + 'static,
+    >,
+    usize,
+  ),
+}
+
+impl RestartableTask for UploadTask {
+  type Ok = ();
+  type Err = S3Error;
+  type Fut =
+    Pin<Box<dyn Future<Output = RestartableTaskResult<Self>> + Send + 'static>>;
+
+  fn run(self) -> Self::Fut {
+    async move {
+      match self.body {
+        UploadTaskBody::Bytes(data) => {
+          let bytes = data.clone();
+          let res = self.bucket.upload(&self.path, data, &self.options).await;
+          match res {
+            Ok(()) => RestartableTaskResult::Ok(()),
+            Err(e) if e.is_retryable() => {
+              RestartableTaskResult::Backoff(UploadTask {
+                bucket: self.bucket,
+                path: self.path,
+                body: UploadTaskBody::Bytes(bytes),
+                options: self.options,
+              })
+            }
+            Err(e) => RestartableTaskResult::Error(e),
+          }
+        }
+        UploadTaskBody::Stream(mut stream, size_hint) => {
+          let mut buffer = Vec::with_capacity(size_hint);
+          while let Some(res) = stream.next().await {
+            match res {
+              Ok(chunk) => buffer.extend_from_slice(&chunk),
+              Err(e) => {
+                return RestartableTaskResult::Error(S3Error::Stream(e.into()));
+              }
+            }
+          }
+          UploadTask {
+            bucket: self.bucket,
+            path: self.path,
+            body: UploadTaskBody::Bytes(Bytes::from(buffer)),
+            options: self.options,
+          }
+          .run()
+          .await
+        }
+      }
+    }
+    .boxed()
+  }
+}
+
+struct DownloadTask {
+  bucket: Bucket,
+  path: Arc<str>,
+}
+
+impl RestartableTask for DownloadTask {
+  type Ok = Option<Bytes>;
+  type Err = S3Error;
+  type Fut =
+    Pin<Box<dyn Future<Output = RestartableTaskResult<Self>> + Send + 'static>>;
+
+  fn run(self) -> Self::Fut {
+    async move {
+      let res = self.bucket.download(&self.path).await;
+      match res {
+        Ok(data) => RestartableTaskResult::Ok(data),
+        Err(e) if e.is_retryable() => {
+          RestartableTaskResult::Backoff(DownloadTask {
+            bucket: self.bucket,
+            path: self.path,
+          })
+        }
+        Err(e) => RestartableTaskResult::Error(e),
+      }
+    }
+    .boxed()
+  }
+}
+
+struct DeleteFileTask {
+  bucket: Bucket,
+  path: Arc<str>,
+}
+
+impl RestartableTask for DeleteFileTask {
+  type Ok = ();
+  type Err = S3Error;
+  type Fut =
+    Pin<Box<dyn Future<Output = RestartableTaskResult<Self>> + Send + 'static>>;
+
+  fn run(self) -> Self::Fut {
+    async move {
+      let res = self.bucket.delete_file(&self.path).await;
+      match res {
+        Ok(data) => RestartableTaskResult::Ok(data),
+        Err(e) if e.is_retryable() => {
+          RestartableTaskResult::Backoff(DeleteFileTask {
+            bucket: self.bucket,
+            path: self.path,
+          })
+        }
+        Err(e) => RestartableTaskResult::Error(e),
+      }
+    }
+    .boxed()
+  }
+}
+
+struct ListDirectoryTask {
+  bucket: Bucket,
+  path: Arc<str>,
+}
+
+impl RestartableTask for ListDirectoryTask {
+  type Ok = Vec<String>;
+  type Err = S3Error;
+  type Fut =
+    Pin<Box<dyn Future<Output = RestartableTaskResult<Self>> + Send + 'static>>;
+
+  fn run(self) -> Self::Fut {
+    async move {
+      let res = self.bucket.list(&self.path).await;
+      match res {
+        Ok(data) => RestartableTaskResult::Ok(data),
+        Err(e) if e.is_retryable() => {
+          RestartableTaskResult::Backoff(ListDirectoryTask {
+            bucket: self.bucket,
+            path: self.path,
+          })
+        }
+        Err(e) => RestartableTaskResult::Error(e),
+      }
+    }
+    .boxed()
+  }
+}
+
+/// https://github.com/minio/minio
+///
+/// A single shared minio server is started on first use and reused across all
+/// tests.
+#[cfg(any(test, feature = "testing"))]
+pub struct FakeS3Tester {
+  pub port: u16,
+}
+
+#[cfg(any(test, feature = "testing"))]
+static SHARED_S3_PORT: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
+
+#[cfg(any(test, feature = "testing"))]
+/// Global list of child processes to kill on exit.
+static TEST_CHILD_PROCS: std::sync::Mutex<Vec<std::process::Child>> =
+  std::sync::Mutex::new(Vec::new());
+
+#[cfg(any(test, feature = "testing"))]
+/// Register an atexit handler (once) that kills all tracked child processes.
+static ATEXIT_REGISTERED: std::sync::Once = std::sync::Once::new();
+
+#[cfg(any(test, feature = "testing"))]
+pub(crate) fn track_child_proc(proc: std::process::Child) {
+  ATEXIT_REGISTERED.call_once(|| {
+    extern "C" fn kill_children() {
+      if let Ok(mut children) = TEST_CHILD_PROCS.lock() {
+        for child in children.iter_mut() {
+          let _ = child.kill();
+          let _ = child.wait();
+        }
+      }
+    }
+    unsafe extern "C" {
+      fn atexit(cb: extern "C" fn()) -> std::ffi::c_int;
+    }
+    unsafe {
+      atexit(kill_children);
+    }
+  });
+  TEST_CHILD_PROCS.lock().unwrap().push(proc);
+}
+
+#[cfg(any(test, feature = "testing"))]
+fn start_shared_fake_s3() -> u16 {
+  use std::io::BufRead;
+  use std::io::BufReader;
+  use std::process::Stdio;
+
+  #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+  let p = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../tools/bin/darwin-arm64/minio"
+  );
+
+  #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+  let p = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../tools/bin/darwin-amd64/minio"
+  );
+
+  #[cfg(target_os = "linux")]
+  let p = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../tools/bin/linux-amd64/minio"
+  );
+
+  let mut dir = std::env::temp_dir();
+  dir.push("fake-s3-server");
+
+  for attempt in 0..5 {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    drop(listener);
+
+    println!("starting shared fake s3 server on port {port}: {p}");
+    let proc = std::process::Command::new(p)
+      .arg("server")
+      .arg(format!("--address=:{port}"))
+      .arg("--quiet")
+      .arg(&dir)
+      .stderr(Stdio::piped())
+      .spawn();
+
+    let mut proc = match proc {
+      Ok(p) => p,
+      Err(e) => {
+        eprintln!("attempt {attempt}: failed to spawn fake s3 server: {e}");
+        continue;
+      }
+    };
+
+    let stderr = proc.stderr.take().unwrap();
+    let mut stderr = BufReader::new(stderr);
+    let mut first_line = String::new();
+    if stderr.read_line(&mut first_line).is_err() {
+      let _ = proc.kill();
+      eprintln!("attempt {attempt}: failed to read from fake s3 server");
+      continue;
+    }
+    if !first_line.contains("minioadmin:minioadmin") {
+      let _ = proc.kill();
+      eprintln!("attempt {attempt}: unexpected fake s3 output: {first_line}");
+      continue;
+    }
+
+    // Then copy the rest of stderr to a sink to prevent minio from blocking.
+    std::thread::spawn(move || {
+      std::io::copy(&mut stderr.into_inner(), &mut std::io::sink()).ok();
+    });
+
+    track_child_proc(proc);
+    return port;
+  }
+  panic!("failed to start shared fake s3 server after 5 attempts");
+}
+
+#[cfg(any(test, feature = "testing"))]
+impl Default for FakeS3Tester {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
+#[cfg(any(test, feature = "testing"))]
+impl FakeS3Tester {
+  pub fn new() -> Self {
+    let port = *SHARED_S3_PORT.get_or_init(start_shared_fake_s3);
+    Self { port }
+  }
+
+  pub fn endpoint(&self) -> String {
+    format!("http://localhost:{}", self.port)
+  }
+
+  pub async fn create_bucket(&self, bucket: &str) -> Bucket {
+    let client = S3Client::new(
+      &self.endpoint(),
+      "us-east-1".to_string(),
+      "minioadmin".to_string(),
+      "minioadmin".to_string(),
+    )
+    .unwrap();
+    Bucket::create(&client, bucket.to_owned()).await.unwrap()
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn endpoint_without_scheme_is_https() {
+    let client = S3Client::new(
+      "account.r2.cloudflarestorage.com",
+      "auto".to_string(),
+      String::new(),
+      String::new(),
+    )
+    .unwrap();
+    assert_eq!(
+      client.endpoint.as_str(),
+      "https://account.r2.cloudflarestorage.com/"
+    );
+  }
+
+  #[tokio::test]
+  async fn s3_upload_download() {
+    let tester = FakeS3Tester::new();
+    let bucket = tester.create_bucket("testbucket").await;
+
+    bucket
+      .upload(
+        "upload_download.txt",
+        "hello world".as_bytes().to_vec().into(),
+        &S3UploadOptions {
+          content_type: None,
+          cache_control: None,
+          gzip_encoded: false,
+        },
+      )
+      .await
+      .unwrap();
+
+    let response = bucket.download("upload_download.txt").await.unwrap();
+    assert!(response.is_some());
+    assert_eq!(response.unwrap().len(), 11);
+
+    let response = bucket.download("does_not_exist.txt").await.unwrap();
+    assert!(response.is_none());
+  }
+
+  /// Objects stored with `Content-Encoding: gzip` (tarballs, docs) must come
+  /// back as the gzip bytes that were uploaded. The readers inflate them
+  /// themselves, so the S3 client's HTTP layer must not: reqwest does that
+  /// transparently when its `gzip` feature is enabled, as it is for the rest
+  /// of the app, unless the client opts out (see `S3Client::new`).
+  #[tokio::test]
+  async fn gzip_encoded_objects_download_as_stored() {
+    use std::io::Write;
+
+    let tester = FakeS3Tester::new();
+    let bucket = tester.create_bucket("testbucket").await;
+
+    let mut encoder =
+      flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    encoder.write_all(b"hello world").unwrap();
+    let gzipped = Bytes::from(encoder.finish().unwrap());
+    assert_eq!(&gzipped[..2], &[0x1f, 0x8b]);
+
+    bucket
+      .upload(
+        "hello.txt.gz",
+        gzipped.clone(),
+        &S3UploadOptions {
+          content_type: None,
+          cache_control: None,
+          gzip_encoded: true,
+        },
+      )
+      .await
+      .unwrap();
+
+    let response = bucket.download("hello.txt.gz").await.unwrap().unwrap();
+    assert_eq!(response, gzipped);
+  }
+
+  /// GCS answers a PUT without `Content-Length` with 411 Length Required,
+  /// which hyper produces for an empty body unless the header is set
+  /// explicitly. minio accepts such a PUT, so this uses a server that
+  /// enforces the header the way GCS does.
+  #[tokio::test]
+  async fn empty_upload_sends_content_length() {
+    let listener =
+      tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
+        .await
+        .unwrap();
+    let addr = listener.local_addr().unwrap();
+    let app = axum::Router::new().fallback(
+      |req: hyper::Request<axum::body::Body>| async move {
+        match req.headers().get(hyper::header::CONTENT_LENGTH) {
+          Some(len) if len == "0" => StatusCode::OK,
+          Some(_) => StatusCode::BAD_REQUEST,
+          None => StatusCode::LENGTH_REQUIRED,
+        }
+      },
+    );
+    tokio::spawn(async move {
+      let _ = axum::serve(listener, app).await;
+    });
+
+    let client = S3Client::new(
+      &format!("http://{addr}"),
+      "us-east-1".to_string(),
+      "access".to_string(),
+      "secret".to_string(),
+    )
+    .unwrap();
+    let bucket = Bucket::new(&client, "testbucket".to_string()).unwrap();
+
+    bucket
+      .upload(
+        "empty.ts",
+        Bytes::new(),
+        &S3UploadOptions {
+          content_type: None,
+          cache_control: None,
+          gzip_encoded: false,
+        },
+      )
+      .await
+      .unwrap();
+  }
+}

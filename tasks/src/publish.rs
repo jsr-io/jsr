@@ -1,0 +1,1960 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
+use std::collections::HashMap;
+use std::collections::HashSet;
+
+use crate::errors::*;
+use crate::tarball::NpmTarballInfo;
+use crate::tarball::ProcessTarballOutput;
+use crate::tarball::ResolvedDependency;
+use crate::tarball::process_tarball;
+use shared::npm::generate_npm_version_manifest;
+
+use shared::FallbackRegistryUrl;
+use shared::NpmUrl;
+use shared::RegistryUrl;
+use shared::db::Database;
+use shared::external::algolia::AlgoliaClient;
+use shared::external::cloudflare::CachePurge;
+use shared::ids::PackagePath;
+use shared::metadata::ManifestEntry;
+use shared::metadata::PackageMetadata;
+use shared::metadata::VersionMetadata;
+use shared::models::DependencyKind;
+use shared::models::ExportsMap;
+use shared::models::NewNpmTarball;
+use shared::models::NewPackageFile;
+use shared::models::NewPackageVersion;
+use shared::models::NewPackageVersionDependency;
+use shared::models::PackageVersionMeta;
+use shared::models::PublishingTask;
+use shared::models::PublishingTaskError;
+use shared::models::PublishingTaskStatus;
+use shared::npm::NPM_TARBALL_REVISION;
+use shared::s3::Buckets;
+use shared::s3::CACHE_CONTROL_IMMUTABLE;
+use shared::s3::CACHE_CONTROL_MANIFEST;
+use shared::s3::S3UploadOptions;
+use shared::s3::UploadTaskBody;
+use shared::util::LicenseStore;
+use shared::util::decode_json;
+
+use anyhow::Context;
+use axum::body::Body;
+use hyper::Request;
+use indexmap::IndexMap;
+use shared::db::DbError;
+use shared::errors::SharedError;
+use shared::router::RequestExt;
+use tracing::error;
+use tracing::instrument;
+use tracing::warn;
+use url::Url;
+use uuid::Uuid;
+
+/// How many times a publishing task may fail with a retryable error before it
+/// is marked as failed instead of being handed back to the task queue. Without
+/// this bound, a deterministic "retryable" error (e.g. the database rejecting
+/// the version insert, jsr-io/jsr#1505) burns through all of Cloud Tasks'
+/// retries and then strands the task in `pending` forever, with the client
+/// polling indefinitely. Must be below the queue's `max_attempts` (30, see
+/// terraform/queues.tf) or Cloud Tasks gives up first and the failure is
+/// never recorded.
+const MAX_PUBLISH_ATTEMPTS: u32 = 10;
+
+#[instrument(
+  name = "POST /publish",
+  skip(req),
+  err,
+  fields(publishing_task_id, task_retry_count)
+)]
+pub async fn publish_handler(mut req: Request<Body>) -> TaskResult<()> {
+  // Number of times Cloud Tasks has retried this task; 0 on the first
+  // attempt. Absent when the handler is invoked outside Cloud Tasks.
+  let task_retry_count: u32 = req
+    .headers()
+    .get("X-CloudTasks-TaskRetryCount")
+    .and_then(|v| v.to_str().ok())
+    .and_then(|v| v.parse().ok())
+    .unwrap_or(0);
+  tracing::Span::current().record("task_retry_count", task_retry_count);
+  let publishing_task_id: Uuid = decode_json(&mut req).await?;
+
+  let db = req.data::<Database>().unwrap().clone();
+  let buckets = req.data::<Buckets>().unwrap().clone();
+  let license_store = req.data::<LicenseStore>().unwrap().clone();
+  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap().clone();
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
+  let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
+  let fallback_registry_url =
+    req.data::<FallbackRegistryUrl>().unwrap().0.clone();
+  let cache_purge = req.data::<CachePurge>().unwrap().clone();
+
+  publish_task(
+    publishing_task_id,
+    task_retry_count,
+    buckets,
+    license_store,
+    registry_url,
+    npm_url,
+    fallback_registry_url,
+    db,
+    algolia_client,
+    cache_purge,
+  )
+  .await?;
+
+  Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+#[instrument(
+  name = "publish_task",
+  skip(
+    buckets,
+    db,
+    license_store,
+    registry_url,
+    fallback_registry_url,
+    algolia_client,
+    cache_purge
+  ),
+  err
+)]
+pub async fn publish_task(
+  publish_id: Uuid,
+  task_retry_count: u32,
+  buckets: Buckets,
+  license_store: LicenseStore,
+  registry_url: Url,
+  npm_url: Url,
+  fallback_registry_url: Option<Url>,
+  db: Database,
+  algolia_client: Option<AlgoliaClient>,
+  cache_purge: CachePurge,
+) -> Result<(), TaskError> {
+  let (mut publishing_task, _) = db
+    .get_publishing_task(publish_id)
+    .await?
+    .ok_or(SharedError::PublishNotFound)?;
+  loop {
+    // If the task is pending, we can start processing it. If the task is
+    // already processing, don't do anything. If the task is already
+    // processed, we can skip processing and go straight to uploading the
+    // package metadata file. If the task is failed or succeeded, we can
+    // just return.
+    match publishing_task.status {
+      PublishingTaskStatus::Pending => {
+        let res = process_publishing_task(
+          &db,
+          &buckets,
+          &license_store,
+          &algolia_client,
+          registry_url.clone(),
+          fallback_registry_url.clone(),
+          &mut publishing_task,
+        )
+        .await;
+        if let Err(err) = res {
+          // A retryable error on the final allowed attempt is recorded as a
+          // failure so the client stops polling; before that, the task is
+          // handed back to the queue as `pending` for another attempt. The
+          // underlying error is only logged — it can contain infrastructure
+          // internals that don't belong in a user-facing message.
+          if task_retry_count + 1 >= MAX_PUBLISH_ATTEMPTS {
+            error!(
+              "publishing task failed after {} attempts, giving up: {}",
+              task_retry_count + 1,
+              err
+            );
+            db.update_publishing_task_status(
+              None,
+              publishing_task.id,
+              PublishingTaskStatus::Processing,
+              PublishingTaskStatus::Failure,
+              Some(PublishingTaskError {
+                code: "internalError".to_string(),
+                message: "the registry repeatedly failed to process this publish; please retry, and report the problem at https://github.com/jsr-io/jsr/issues if it keeps happening".to_string(),
+              }),
+            )
+            .await?;
+            return Ok(());
+          }
+          db.update_publishing_task_status(
+            None,
+            publishing_task.id,
+            PublishingTaskStatus::Processing,
+            PublishingTaskStatus::Pending,
+            None,
+          )
+          .await?;
+          return Err(err.into());
+        }
+      }
+      PublishingTaskStatus::Processing => {
+        warn!("publishing task already processing");
+        return Ok(());
+      }
+      PublishingTaskStatus::Processed => {
+        upload_package_manifest(
+          &db,
+          &buckets,
+          &registry_url,
+          &cache_purge,
+          &publishing_task,
+        )
+        .await?;
+        upload_npm_version_manifest(
+          &db,
+          &buckets,
+          &npm_url,
+          &cache_purge,
+          &publishing_task,
+        )
+        .await?;
+        publishing_task = db
+          .update_publishing_task_status(
+            None,
+            publishing_task.id,
+            PublishingTaskStatus::Processed,
+            PublishingTaskStatus::Success,
+            None,
+          )
+          .await?;
+      }
+      PublishingTaskStatus::Failure => return Ok(()),
+      PublishingTaskStatus::Success => {
+        if let Some(algolia_client) = algolia_client {
+          let (package, _, meta) = db
+            .get_package(
+              &publishing_task.package_scope,
+              &publishing_task.package_name,
+            )
+            .await?
+            .ok_or_else(|| {
+              error!(
+                "package not found after successful publishing: {}/{}",
+                &publishing_task.package_scope, &publishing_task.package_name
+              );
+              SharedError::InternalServerError
+            })?;
+          algolia_client.upsert_package(&package, &meta);
+        }
+        return Ok(());
+      }
+    }
+  }
+}
+
+// `algolia_client`/`doc_search_json` are unused while symbol indexing is
+// disabled; keep them so re-enabling is just uncommenting the block below.
+#[allow(unused_variables)]
+async fn process_publishing_task(
+  db: &Database,
+  buckets: &Buckets,
+  license_store: &LicenseStore,
+  algolia_client: &Option<AlgoliaClient>,
+  registry_url: Url,
+  fallback_registry_url: Option<Url>,
+  publishing_task: &mut PublishingTask,
+) -> Result<(), anyhow::Error> {
+  *publishing_task = match db
+    .update_publishing_task_status(
+      None,
+      publishing_task.id,
+      PublishingTaskStatus::Pending,
+      PublishingTaskStatus::Processing,
+      None,
+    )
+    .await
+  {
+    Ok(task) => task,
+    Err(DbError::RowNotFound) => {
+      let (task, _) = db
+        .get_publishing_task(publishing_task.id)
+        .await?
+        .context("publishing task disappeared")?;
+      *publishing_task = task;
+      return Ok(());
+    }
+    Err(err) => return Err(err.into()),
+  };
+
+  if db
+    .get_package_version(
+      &publishing_task.package_scope,
+      &publishing_task.package_name,
+      &publishing_task.package_version,
+    )
+    .await?
+    .is_some()
+  {
+    error!("publishing task is for a version that already exists");
+    *publishing_task = db
+      .update_publishing_task_status(
+        None,
+        publishing_task.id,
+        PublishingTaskStatus::Processing,
+        PublishingTaskStatus::Failure,
+        Some(PublishingTaskError {
+          code: "versionAlreadyExists".to_owned(),
+          message: format!(
+            "@{}/{}@{} has already been published",
+            publishing_task.package_scope,
+            publishing_task.package_name,
+            publishing_task.package_version
+          ),
+        }),
+      )
+      .await?;
+    return Ok(());
+  }
+
+  let output = match process_tarball(
+    db,
+    buckets,
+    license_store,
+    registry_url,
+    fallback_registry_url,
+    publishing_task,
+  )
+  .await
+  {
+    Ok(output) => output,
+    Err(err) => match err.user_error_code() {
+      Some(code) => {
+        // non retryable, fatal error
+        error!("Error processing tarball, fatal: {}", err);
+        *publishing_task = db
+          .update_publishing_task_status(
+            None,
+            publishing_task.id,
+            PublishingTaskStatus::Processing,
+            PublishingTaskStatus::Failure,
+            Some(PublishingTaskError {
+              code: code.to_owned(),
+              message: err.to_string(),
+            }),
+          )
+          .await?;
+        return Ok(());
+      }
+      None => {
+        // retryable errors
+        return Err(anyhow::Error::from(err));
+      }
+    },
+  };
+
+  let ProcessTarballOutput {
+    file_infos,
+    module_graph_2,
+    exports,
+    dependencies,
+    npm_tarball_info,
+    readme_path,
+    meta,
+    doc_search_json,
+    license,
+  } = output;
+
+  upload_version_manifest(
+    buckets,
+    publishing_task,
+    &file_infos,
+    exports.clone().into_inner(),
+    module_graph_2,
+  )
+  .await?;
+
+  create_package_version_and_npm_tarball_and_update_publishing_task(
+    db,
+    publishing_task,
+    &file_infos,
+    exports,
+    dependencies,
+    &npm_tarball_info,
+    readme_path,
+    meta,
+    license,
+  )
+  .await?;
+
+  /*if let Some(algolia_client) = algolia_client {
+    algolia_client.upsert_symbols(
+      &publishing_task.package_scope,
+      &publishing_task.package_name,
+      doc_search_json,
+    );
+  }*/
+
+  Ok(())
+}
+
+async fn upload_version_manifest(
+  buckets: &Buckets,
+  publishing_task: &PublishingTask,
+  file_infos: &[crate::tarball::FileInfo],
+  exports: IndexMap<String, String>,
+  module_graph_2: HashMap<String, deno_graph::analysis::ModuleInfo>,
+) -> Result<(), anyhow::Error> {
+  let version_metadata_s3_path = shared::s3_paths::version_metadata(
+    &publishing_task.package_scope,
+    &publishing_task.package_name,
+    &publishing_task.package_version,
+  );
+  let manifest = file_infos
+    .iter()
+    .map(|file_info| {
+      (
+        file_info.path.clone(),
+        ManifestEntry {
+          checksum: file_info.hash.clone(),
+          size: file_info.size as usize,
+        },
+      )
+    })
+    .collect();
+  let version_metadata = VersionMetadata {
+    exports,
+    manifest,
+    module_graph_2,
+  };
+  let content = serde_json::to_vec(&version_metadata)?;
+  buckets
+    .modules_bucket
+    .upload(
+      version_metadata_s3_path.into(),
+      UploadTaskBody::Bytes(content.into()),
+      S3UploadOptions {
+        content_type: Some("application/json".into()),
+        cache_control: Some(CACHE_CONTROL_IMMUTABLE.into()),
+        gzip_encoded: false,
+      },
+    )
+    .await?;
+
+  Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn create_package_version_and_npm_tarball_and_update_publishing_task(
+  db: &Database,
+  publishing_task: &mut PublishingTask,
+  file_infos: &[crate::tarball::FileInfo],
+  exports: ExportsMap,
+  dependencies: HashSet<ResolvedDependency>,
+  npm_tarball_info: &NpmTarballInfo,
+  readme_path: Option<PackagePath>,
+  meta: PackageVersionMeta,
+  license: String,
+) -> Result<(), anyhow::Error> {
+  let uses_npm = dependencies
+    .iter()
+    .any(|dep| dep.kind == DependencyKind::Npm);
+
+  let new_package_version = NewPackageVersion {
+    scope: &publishing_task.package_scope,
+    name: &publishing_task.package_name,
+    version: &publishing_task.package_version,
+    user_id: publishing_task.user_id.as_ref(),
+    readme_path: readme_path.as_ref(),
+    uses_npm,
+    exports: &exports,
+    meta,
+    license,
+  };
+
+  let new_package_files = file_infos
+    .iter()
+    .map(|file| NewPackageFile {
+      scope: &publishing_task.package_scope,
+      name: &publishing_task.package_name,
+      version: &publishing_task.package_version,
+      path: &file.path,
+      size: file.size as i32,
+      checksum: Some(&file.hash),
+    })
+    .collect::<Vec<_>>();
+
+  let new_package_version_dependencies = dependencies
+    .iter()
+    .map(|dep| NewPackageVersionDependency {
+      package_scope: &publishing_task.package_scope,
+      package_name: &publishing_task.package_name,
+      package_version: &publishing_task.package_version,
+      dependency_kind: dep.kind,
+      dependency_name: &dep.req.req.name,
+      dependency_constraint: dep.req.req.version_req.version_text(),
+      dependency_path: dep.req.sub_path.as_deref().unwrap_or(""),
+      dependency_fallback_url: dep.registry_url.as_deref(),
+    })
+    .collect::<Vec<_>>();
+
+  let new_npm_tarball = NewNpmTarball {
+    scope: &publishing_task.package_scope,
+    name: &publishing_task.package_name,
+    version: &publishing_task.package_version,
+    revision: NPM_TARBALL_REVISION as i32,
+    sha1: &npm_tarball_info.sha1,
+    sha512: &npm_tarball_info.sha512,
+    size: npm_tarball_info.size as i32,
+  };
+
+  *publishing_task = db
+    .create_package_version_and_npm_tarball_and_finalize_publishing_task(
+      publishing_task.id,
+      new_package_version,
+      &new_package_files,
+      &new_package_version_dependencies,
+      new_npm_tarball,
+    )
+    .await?;
+
+  Ok(())
+}
+
+async fn upload_package_manifest(
+  db: &Database,
+  buckets: &Buckets,
+  registry_url: &Url,
+  cache_purge: &CachePurge,
+  publishing_task: &PublishingTask,
+) -> Result<(), anyhow::Error> {
+  let package_metadata_s3_path = shared::s3_paths::package_metadata(
+    &publishing_task.package_scope,
+    &publishing_task.package_name,
+  );
+  let package_metadata = PackageMetadata::create(
+    db,
+    &publishing_task.package_scope,
+    &publishing_task.package_name,
+  )
+  .await?;
+  let content = serde_json::to_vec(&package_metadata)?;
+  buckets
+    .modules_bucket
+    .upload(
+      package_metadata_s3_path.into(),
+      UploadTaskBody::Bytes(content.into()),
+      S3UploadOptions {
+        content_type: Some("application/json".into()),
+        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
+        gzip_encoded: false,
+      },
+    )
+    .await?;
+
+  let mut purge_urls = shared::s3_paths::package_metadata_purge_urls(
+    registry_url,
+    &publishing_task.package_scope,
+    &publishing_task.package_name,
+  );
+  purge_urls.extend(shared::s3_paths::package_api_cache_urls(
+    registry_url,
+    &publishing_task.package_scope,
+    &publishing_task.package_name,
+  ));
+  cache_purge.purge(purge_urls).await;
+
+  Ok(())
+}
+
+async fn upload_npm_version_manifest(
+  db: &Database,
+  buckets: &Buckets,
+  npm_url: &Url,
+  cache_purge: &CachePurge,
+  publishing_task: &PublishingTask,
+) -> Result<(), anyhow::Error> {
+  let npm_version_manifest_path_s3_path =
+    shared::s3_paths::npm_version_manifest_path(
+      &publishing_task.package_scope,
+      &publishing_task.package_name,
+    );
+  let npm_version_manifest = generate_npm_version_manifest(
+    db,
+    npm_url,
+    &publishing_task.package_scope,
+    &publishing_task.package_name,
+  )
+  .await?;
+  let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
+  buckets
+    .npm_bucket
+    .upload(
+      npm_version_manifest_path_s3_path.into(),
+      shared::s3::UploadTaskBody::Bytes(content.into()),
+      S3UploadOptions {
+        content_type: Some("application/json".into()),
+        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
+        gzip_encoded: false,
+      },
+    )
+    .await?;
+
+  cache_purge
+    .purge(shared::s3_paths::npm_version_manifest_purge_urls(
+      npm_url,
+      &publishing_task.package_scope,
+      &publishing_task.package_name,
+    ))
+    .await;
+
+  Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::tarball::ConfigFile;
+  use crate::test::process_tarball_setup;
+  use crate::test::process_tarball_setup2;
+  use crate::test::try_process_tarball_setup2;
+  use bytes::Bytes;
+  use deno_graph::analysis::ModuleInfo;
+  use flate2::Compression;
+  use flate2::write::GzEncoder;
+  use serde_json::json;
+  use shared::db::CreatePublishingTaskResult;
+  use shared::ids::ScopeName;
+  use shared::ids::Version;
+  use shared::ids::{PackageName, PackagePath};
+  use shared::metadata::VersionMetadata;
+  use shared::models::NewPublishingTask;
+  use shared::s3_paths::bucket_tarball_path;
+  use shared::test::FakeFallbackRegistry;
+  use shared::test::TestSetup;
+  use shared::test::create_case_insensitive_mock_tarball;
+  use shared::test::create_invalid_path_mock_tarball;
+  use shared::test::create_mock_tarball;
+  use shared::test::unreachable_fallback_url;
+  use std::collections::HashMap;
+  use std::io::Write;
+
+  // Regression test for jsr-io/jsr#1505: a package with many undocumented
+  // entrypoints publishes successfully, and the stored meta records only a
+  // capped list of them.
+  #[tokio::test]
+  async fn publish_many_undocumented_entrypoints() {
+    let n = crate::analysis::MAX_ENTRYPOINTS_WITHOUT_DOCS + 50;
+
+    let mut tar_bytes = Vec::new();
+    let mut tar = tar::Builder::new(&mut tar_bytes);
+    let mut append = |path: &str, content: &[u8]| {
+      let mut header = tar::Header::new_gnu();
+      header.set_size(content.len() as u64);
+      header.set_mode(0o644);
+      header.set_cksum();
+      tar.append_data(&mut header, path, content).unwrap();
+    };
+
+    let mut exports = serde_json::Map::new();
+    exports.insert(".".into(), "./mod.ts".into());
+    append("mod.ts", b"/** Main module. */\nexport const a = 1;\n");
+    for i in 0..n {
+      // No module-level doc comment, so every one of these entrypoints lands
+      // in `meta.entrypoints_without_docs`.
+      append(
+        &format!("e{i}.ts"),
+        format!("export const e{i} = {i};\n").as_bytes(),
+      );
+      exports.insert(format!("./e{i}"), format!("./e{i}.ts").into());
+    }
+    let config = json!({
+      "name": "@scope/foo",
+      "version": "1.2.3",
+      "license": "MIT",
+      "exports": exports,
+    });
+    append("jsr.json", serde_json::to_vec(&config).unwrap().as_slice());
+    tar.finish().unwrap();
+    drop(tar);
+
+    let mut gz_bytes = Vec::new();
+    let mut encoder = GzEncoder::new(&mut gz_bytes, Compression::default());
+    encoder.write_all(&tar_bytes).unwrap();
+    encoder.finish().unwrap();
+
+    let t = TestSetup::new().await;
+    let task = process_tarball_setup(&t, Bytes::from(gz_bytes)).await;
+    assert_eq!(
+      task.status,
+      PublishingTaskStatus::Success,
+      "{:?}",
+      task.error
+    );
+
+    let package_name = PackageName::try_from("foo").unwrap();
+    let version = Version::try_from("1.2.3").unwrap();
+    let package_version = t
+      .db()
+      .get_package_version(
+        &"scope".try_into().unwrap(),
+        &package_name,
+        &version,
+      )
+      .await
+      .unwrap()
+      .unwrap();
+    assert!(!package_version.meta.all_entrypoints_docs);
+    assert_eq!(
+      package_version.meta.entrypoints_without_docs.len(),
+      crate::analysis::MAX_ENTRYPOINTS_WITHOUT_DOCS
+    );
+  }
+
+  /// Create a publishing task for `@scope/<package>@<version>` without
+  /// uploading a tarball for it.
+  async fn create_task_without_tarball(
+    t: &TestSetup,
+    package_name: &PackageName,
+    version: &Version,
+  ) -> PublishingTask {
+    let scope_name = "scope".try_into().unwrap();
+
+    let res = t
+      .db()
+      .create_package(&scope_name, package_name)
+      .await
+      .unwrap();
+    assert!(matches!(res, shared::db::CreatePackageResult::Ok(_)));
+
+    let CreatePublishingTaskResult::Created(task) = t
+      .db()
+      .create_publishing_task(NewPublishingTask {
+        user_id: Some(t.user1.user.id),
+        package_scope: &scope_name,
+        package_name,
+        package_version: version,
+        config_file: &PackagePath::try_from("/jsr.json").unwrap(),
+      })
+      .await
+      .unwrap()
+    else {
+      unreachable!()
+    };
+    task.0
+  }
+
+  #[tokio::test]
+  async fn publish_fails_fast_after_max_attempts() {
+    let t =
+      TestSetup::with_fallback_registry(Some(unreachable_fallback_url())).await;
+    let package_name = PackageName::try_from("fallback-test").unwrap();
+    let version = Version::try_from("1.0.0").unwrap();
+    let task = create_task_without_tarball(&t, &package_name, &version).await;
+    t.buckets
+      .publishing_bucket
+      .upload(
+        bucket_tarball_path(task.id).into(),
+        shared::s3::UploadTaskBody::Bytes(create_mock_tarball(
+          "fallback_import",
+        )),
+        S3UploadOptions {
+          content_type: Some("application/x-tar".into()),
+          cache_control: None,
+          gzip_encoded: true,
+        },
+      )
+      .await
+      .unwrap();
+
+    // The fallback registry can't be reached, so processing fails with a
+    // retryable error. Below the attempt cap the task goes back to `pending`
+    // for the queue to retry, and the error propagates so Cloud Tasks
+    // schedules that retry.
+    let run = |retry_count| {
+      publish_task(
+        task.id,
+        retry_count,
+        t.buckets(),
+        t.license_store(),
+        t.registry_url(),
+        t.npm_url(),
+        t.fallback_registry_url.clone(),
+        t.db(),
+        None,
+        CachePurge(None),
+      )
+    };
+    run(0).await.unwrap_err();
+    let (task_after, _) =
+      t.db().get_publishing_task(task.id).await.unwrap().unwrap();
+    assert_eq!(task_after.status, PublishingTaskStatus::Pending);
+    assert!(task_after.error.is_none());
+
+    // On the final allowed attempt the task is marked as failed instead, so
+    // clients stop polling (jsr-io/jsr#1505).
+    run(MAX_PUBLISH_ATTEMPTS - 1).await.unwrap();
+    let (task_after, _) =
+      t.db().get_publishing_task(task.id).await.unwrap().unwrap();
+    assert_eq!(task_after.status, PublishingTaskStatus::Failure);
+    assert_eq!(task_after.error.unwrap().code, "internalError");
+  }
+
+  /// A task whose tarball upload never completed can't succeed on retry, so
+  /// the first attempt fails it (jsr-io/jsr#1554).
+  #[tokio::test]
+  async fn publish_without_tarball_fails() {
+    let t = TestSetup::new().await;
+    let package_name = PackageName::try_from("foo").unwrap();
+    let version = Version::try_from("1.2.3").unwrap();
+    let task = create_task_without_tarball(&t, &package_name, &version).await;
+
+    publish_task(
+      task.id,
+      0,
+      t.buckets(),
+      t.license_store(),
+      t.registry_url(),
+      t.npm_url(),
+      t.fallback_registry_url.clone(),
+      t.db(),
+      None,
+      CachePurge(None),
+    )
+    .await
+    .unwrap();
+    let (task_after, _) =
+      t.db().get_publishing_task(task.id).await.unwrap().unwrap();
+    assert_eq!(task_after.status, PublishingTaskStatus::Failure);
+    assert_eq!(task_after.error.unwrap().code, "missingTarball");
+  }
+
+  #[tokio::test]
+  async fn publish_duplicate_delivery_is_dropped() {
+    let t = TestSetup::new().await;
+    let package_name = PackageName::try_from("foo").unwrap();
+    let version = Version::try_from("1.2.3").unwrap();
+    let task = create_task_without_tarball(&t, &package_name, &version).await;
+    t.db()
+      .update_publishing_task_status(
+        None,
+        task.id,
+        PublishingTaskStatus::Pending,
+        PublishingTaskStatus::Processing,
+        None,
+      )
+      .await
+      .unwrap();
+
+    publish_task(
+      task.id,
+      0,
+      t.buckets(),
+      t.license_store(),
+      t.registry_url(),
+      t.npm_url(),
+      t.fallback_registry_url.clone(),
+      t.db(),
+      None,
+      CachePurge(None),
+    )
+    .await
+    .unwrap();
+    let (task_after, _) =
+      t.db().get_publishing_task(task.id).await.unwrap().unwrap();
+    assert_eq!(task_after.status, PublishingTaskStatus::Processing);
+  }
+
+  #[tokio::test]
+  async fn publish_lost_claim_keeps_other_delivery() {
+    let t = TestSetup::new().await;
+    let package_name = PackageName::try_from("foo").unwrap();
+    let version = Version::try_from("1.2.3").unwrap();
+    let mut task =
+      create_task_without_tarball(&t, &package_name, &version).await;
+    t.db()
+      .update_publishing_task_status(
+        None,
+        task.id,
+        PublishingTaskStatus::Pending,
+        PublishingTaskStatus::Processing,
+        None,
+      )
+      .await
+      .unwrap();
+
+    process_publishing_task(
+      &t.db(),
+      &t.buckets(),
+      &t.license_store(),
+      &None,
+      t.registry_url(),
+      t.fallback_registry_url.clone(),
+      &mut task,
+    )
+    .await
+    .unwrap();
+    assert_eq!(task.status, PublishingTaskStatus::Processing);
+    let (task_after, _) =
+      t.db().get_publishing_task(task.id).await.unwrap().unwrap();
+    assert_eq!(task_after.status, PublishingTaskStatus::Processing);
+  }
+
+  #[tokio::test]
+  async fn publish_existing_version_is_not_reprocessed() {
+    let t = TestSetup::new().await;
+    let package_name = PackageName::try_from("foo").unwrap();
+    let version = Version::try_from("1.2.3").unwrap();
+
+    let stale = create_task_without_tarball(&t, &package_name, &version).await;
+    t.db()
+      .update_publishing_task_status(
+        None,
+        stale.id,
+        PublishingTaskStatus::Pending,
+        PublishingTaskStatus::Failure,
+        Some(PublishingTaskError {
+          code: "x".to_string(),
+          message: "x".to_string(),
+        }),
+      )
+      .await
+      .unwrap();
+    let task = process_tarball_setup2(
+      &t,
+      create_mock_tarball("ok"),
+      &package_name,
+      &version,
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+
+    let meta_path = shared::s3_paths::version_metadata(
+      &task.package_scope,
+      &task.package_name,
+      &task.package_version,
+    );
+    let meta_before = t
+      .buckets
+      .modules_bucket
+      .bucket
+      .get_object(&meta_path)
+      .await
+      .bytes()
+      .await
+      .unwrap();
+
+    t.db()
+      .update_publishing_task_status(
+        None,
+        stale.id,
+        PublishingTaskStatus::Failure,
+        PublishingTaskStatus::Pending,
+        None,
+      )
+      .await
+      .unwrap();
+    t.buckets
+      .publishing_bucket
+      .upload(
+        bucket_tarball_path(stale.id).into(),
+        shared::s3::UploadTaskBody::Bytes(create_mock_tarball("with_svg")),
+        S3UploadOptions {
+          content_type: Some("application/x-tar".into()),
+          cache_control: None,
+          gzip_encoded: true,
+        },
+      )
+      .await
+      .unwrap();
+    publish_task(
+      stale.id,
+      0,
+      t.buckets(),
+      t.license_store(),
+      t.registry_url(),
+      t.npm_url(),
+      t.fallback_registry_url.clone(),
+      t.db(),
+      None,
+      CachePurge(None),
+    )
+    .await
+    .unwrap();
+
+    let (stale_after, _) =
+      t.db().get_publishing_task(stale.id).await.unwrap().unwrap();
+    assert_eq!(stale_after.status, PublishingTaskStatus::Failure);
+    assert_eq!(stale_after.error.unwrap().code, "versionAlreadyExists");
+    let meta_after = t
+      .buckets
+      .modules_bucket
+      .bucket
+      .get_object(&meta_path)
+      .await
+      .bytes()
+      .await
+      .unwrap();
+    assert_eq!(meta_before, meta_after);
+    let svg = t
+      .buckets
+      .modules_bucket
+      .bucket
+      .get_object("@scope/foo/1.2.3/logo.svg")
+      .await;
+    assert_eq!(svg.status(), 404);
+  }
+
+  #[tokio::test]
+  async fn content_type() {
+    let t = TestSetup::new().await;
+    let task = process_tarball_setup(&t, create_mock_tarball("with_svg")).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success);
+    let response = t
+      .buckets
+      .modules_bucket
+      .bucket
+      .get_object("@scope/foo/1.2.3/jsr.json")
+      .await;
+    assert_eq!(response.status(), 200);
+    assert_eq!(response.headers()["content-type"], "application/json");
+    let response = t
+      .buckets
+      .modules_bucket
+      .bucket
+      .get_object("@scope/foo/1.2.3/mod.ts")
+      .await;
+    assert_eq!(response.status(), 200);
+    assert_eq!(response.headers()["content-type"], "text/typescript");
+    let response = t
+      .buckets
+      .modules_bucket
+      .bucket
+      .get_object("@scope/foo/1.2.3/logo.svg")
+      .await;
+    assert_eq!(response.status(), 200);
+    assert_eq!(response.headers()["content-type"], "image/svg+xml");
+  }
+
+  #[tokio::test]
+  async fn success_data_url() {
+    let t = TestSetup::new().await;
+    let task = process_tarball_setup(&t, create_mock_tarball("data_url")).await;
+    assert_eq!(
+      task.status,
+      PublishingTaskStatus::Success,
+      "publishing task failed {task:?}"
+    );
+  }
+
+  #[tokio::test]
+  async fn success_dynamic_import() {
+    let t = TestSetup::new().await;
+    let task =
+      process_tarball_setup(&t, create_mock_tarball("dynamic_import")).await;
+    assert_eq!(
+      task.status,
+      PublishingTaskStatus::Success,
+      "publishing task failed {task:?}"
+    );
+
+    let dependencies = t
+      .db()
+      .list_package_version_dependencies(
+        &task.package_scope,
+        &task.package_name,
+        &task.package_version,
+      )
+      .await
+      .unwrap();
+
+    assert_eq!(dependencies.len(), 2);
+    assert_eq!(dependencies[0].dependency_kind, DependencyKind::Npm);
+    assert_eq!(dependencies[0].dependency_name, "chalk");
+    assert_eq!(dependencies[1].dependency_kind, DependencyKind::Npm);
+    assert_eq!(dependencies[1].dependency_name, "express");
+  }
+
+  #[tokio::test]
+  async fn success() {
+    let t = TestSetup::new().await;
+    let task = process_tarball_setup(&t, create_mock_tarball("ok")).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success);
+    let json = t
+      .buckets
+      .modules_bucket
+      .download("@scope/foo/1.2.3/jsr.json".into())
+      .await
+      .unwrap()
+      .unwrap();
+    let deno_json: ConfigFile = serde_json::from_slice(&json).unwrap();
+    assert_eq!(deno_json.name.to_string(), "@scope/foo");
+    assert_eq!(deno_json.version.unwrap().to_string(), "1.2.3");
+    {
+      let metadata_json = t
+        .buckets
+        .modules_bucket
+        .download("@scope/foo/1.2.3_meta.json".into())
+        .await
+        .unwrap()
+        .unwrap();
+      let metadata_json: VersionMetadata =
+        serde_json::from_slice(&metadata_json).unwrap();
+      assert_eq!(metadata_json.exports.len(), 1);
+      assert_eq!(metadata_json.exports.get(".").unwrap(), "./mod.ts");
+      assert_eq!(
+        serde_json::to_value(metadata_json.manifest).unwrap(),
+        serde_json::json!({
+            "/jsr.json": {
+                "checksum": "sha256-1c3b44ea2ac86f7133791a4a004f633993784da783a3e0f5c226dd7a4141f9f5",
+                "size": 93
+            },
+            "/mod.ts": {
+                "checksum": "sha256-fcc96c29c74f914ed8f38c0357d07f495d79091d2baea146a1525f140736951b",
+                "size": 155
+            }
+        })
+      );
+      assert_eq!(
+        metadata_json.module_graph_2,
+        HashMap::from_iter([(
+          "/mod.ts".to_string(),
+          ModuleInfo {
+            is_script: false,
+            dependencies: vec![],
+            ts_references: vec![],
+            self_types_specifier: None,
+            jsx_import_source: None,
+            jsx_import_source_types: None,
+            jsdoc_imports: vec![],
+            source_map_url: None,
+          }
+        )])
+      );
+    }
+    let scope_name = ScopeName::try_from("scope").unwrap();
+    let package_name = PackageName::try_from("foo").unwrap();
+    let version = Version::try_from("1.2.3").unwrap();
+    let package_version = t
+      .db()
+      .get_package_version(&scope_name, &package_name, &version)
+      .await
+      .unwrap()
+      .unwrap();
+    assert_eq!(package_version.version, version);
+
+    let files = t
+      .db()
+      .list_package_files(&scope_name, &package_name, &version)
+      .await
+      .unwrap();
+    assert_eq!(files.len(), 2);
+    assert_eq!(files[0].path, "/jsr.json".try_into().unwrap());
+    assert_eq!(files[1].path, "/mod.ts".try_into().unwrap());
+    assert_eq!(
+      files[1].size,
+      include_bytes!("../../shared/testdata/tarballs/ok/mod.ts").len() as i32
+    );
+
+    let package_metadata: PackageMetadata = {
+      let json = t
+        .buckets
+        .modules_bucket
+        .download("@scope/foo/meta.json".into())
+        .await
+        .unwrap()
+        .unwrap();
+      serde_json::from_slice(&json).unwrap()
+    };
+    assert_eq!(package_metadata.name, package_name);
+    assert_eq!(package_metadata.latest, Some(version));
+    assert_eq!(package_metadata.versions.len(), 1);
+  }
+
+  #[tokio::test]
+  async fn module_graph() {
+    let t = TestSetup::new().await;
+    let task =
+      process_tarball_setup(&t, create_mock_tarball("module_graph")).await;
+    assert_eq!(
+      task.status,
+      PublishingTaskStatus::Success,
+      "{:?}",
+      task.error
+    );
+
+    let metadata_json = t
+      .buckets
+      .modules_bucket
+      .download("@scope/foo/1.2.3_meta.json".into())
+      .await
+      .unwrap()
+      .unwrap();
+    let metadata_json: VersionMetadata =
+      serde_json::from_slice(&metadata_json).unwrap();
+
+    println!(
+      "{}",
+      serde_json::to_string(&metadata_json.module_graph_2).unwrap()
+    );
+
+    let expected = json!({
+      "/test.js": {
+        "selfTypesSpecifier": {
+          "text": "./test.d.ts",
+          "range": [[0,18],[0,31]]
+        }
+      },
+      "/mod.tsx": {
+        "dependencies": [
+          {
+            "type": "static",
+            "kind": "import",
+            "specifier": "./test.js",
+            "specifierRange": [[3,15],[3,26]],
+            "sideEffect": true
+          },
+          {
+            "type": "static",
+            "kind": "import",
+            "typesSpecifier":{
+              "text": "./jsr.d.ts",
+              "range": [[5,13],[5,25]]
+            },
+            "specifier": "./jsr.json",
+            "specifierRange": [[6,7],[6,19]],
+            "importAttributes": { "known": { "type" : "json" } },
+            "sideEffect": true
+          }
+        ],
+        "jsxImportSource": {
+          "text": "npm:react@18",
+          "range": [[0,21],[0,33]]
+        },
+        "jsxImportSourceTypes": {
+          "text": "npm:@types/react@18",
+          "range": [[1,26],[1,45]]
+        }
+      },
+      "/test.d.ts": {}
+    });
+    let expected: HashMap<String, ModuleInfo> =
+      serde_json::from_value(expected).unwrap();
+
+    pretty_assertions::assert_eq!(metadata_json.module_graph_2, expected);
+  }
+
+  #[tokio::test]
+  async fn bad_version() {
+    let t = TestSetup::new().await;
+    let task =
+      process_tarball_setup(&t, create_mock_tarball("bad_version")).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "invalidConfigFile");
+  }
+
+  #[tokio::test]
+  async fn name_mismatch() {
+    let t = TestSetup::new().await;
+    let task =
+      process_tarball_setup(&t, create_mock_tarball("name_mismatch")).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "configFileNameMismatch");
+  }
+
+  #[tokio::test]
+  async fn version_mismatch() {
+    let t = TestSetup::new().await;
+    let task =
+      process_tarball_setup(&t, create_mock_tarball("version_mismatch")).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "configFileVersionMismatch");
+  }
+
+  #[tokio::test]
+  async fn big_file() {
+    let t = TestSetup::new().await;
+    let task = process_tarball_setup(&t, create_mock_tarball("big_file")).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "fileTooLarge");
+  }
+
+  #[tokio::test]
+  async fn case_insensitive_duplicate() {
+    let t = TestSetup::new().await;
+    let bytes = create_case_insensitive_mock_tarball();
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "caseInsensitiveDuplicatePath");
+  }
+
+  #[tokio::test]
+  async fn case_insensitive_exports_reference() {
+    let t = TestSetup::new().await;
+    let task = process_tarball_setup(
+      &t,
+      create_mock_tarball("case_insensitive_exports_reference"),
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "configFileExportsInvalid");
+  }
+
+  #[tokio::test]
+  async fn case_insensitive_dep_reference() {
+    let t = TestSetup::new().await;
+    let task = process_tarball_setup(
+      &t,
+      create_mock_tarball("case_insensitive_dep_reference"),
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "graphError");
+    assert_eq!(
+      error.message,
+      "failed to build module graph: Module not found \"file:///Youtube.tsx\".\n    at file:///mod.ts:1:8"
+    );
+  }
+
+  #[tokio::test]
+  async fn no_exports() {
+    let t = TestSetup::new().await;
+    let task =
+      process_tarball_setup(&t, create_mock_tarball("no_exports")).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "configFileExportsInvalid");
+  }
+
+  #[tokio::test]
+  async fn invalid_exports() {
+    let t = TestSetup::new().await;
+    let task =
+      process_tarball_setup(&t, create_mock_tarball("invalid_exports")).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "configFileExportsInvalid");
+  }
+
+  #[tokio::test]
+  async fn exports_not_found() {
+    let t = TestSetup::new().await;
+    let task =
+      process_tarball_setup(&t, create_mock_tarball("exports_not_found")).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "configFileExportsInvalid");
+  }
+
+  #[tokio::test]
+  async fn invalid_path() {
+    let t = TestSetup::new().await;
+    let task =
+      process_tarball_setup(&t, create_invalid_path_mock_tarball()).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "invalidPath");
+  }
+
+  #[tokio::test]
+  async fn import_assertions() {
+    let t = TestSetup::new().await;
+
+    let bytes = create_mock_tarball("import_assertions");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("foo").unwrap(),
+      &Version::try_from("1.2.3").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "bannedImportAssertion");
+    assert_eq!(
+      error.message,
+      "import assertions are not allowed, use import attributes instead (replace 'assert' with 'with') file:///mod.ts:1:29"
+    );
+  }
+
+  #[tokio::test]
+  async fn import_attributes() {
+    let t = TestSetup::new().await;
+
+    let bytes = create_mock_tarball("import_attributes");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("foo").unwrap(),
+      &Version::try_from("1.2.3").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+  }
+
+  #[tokio::test]
+  async fn jsr_jsonc() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("jsr_jsonc");
+    let package_name = PackageName::try_from("foo").unwrap();
+    let version = Version::try_from("1.2.3").unwrap();
+    let task =
+      process_tarball_setup2(&t, bytes, &package_name, &version, true).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+  }
+
+  #[tokio::test]
+  async fn license_file() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("license_file");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+  }
+
+  #[tokio::test]
+  async fn license_alias() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("license_alias");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+  }
+
+  #[tokio::test]
+  async fn no_license() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("no_license");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "missingLicense");
+    assert_eq!(
+      error.message,
+      "No license was specified. Either provide a LICENSE file or specify the \"license\" field in your configuration file."
+    );
+  }
+
+  #[tokio::test]
+  async fn https_import() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("https_import");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "invalidExternalImport");
+    assert_eq!(
+      error.message,
+      "invalid external import to 'https://deno.land/r/std/http/server.ts', only 'jsr:', 'npm:', 'data:', 'bun:', and 'node:' imports are allowed (http(s) import)"
+    );
+  }
+
+  async fn uses_npm(
+    t: &TestSetup,
+    task: &shared::models::PublishingTask,
+  ) -> bool {
+    t.db()
+      .get_package_version(
+        &task.package_scope,
+        &task.package_name,
+        &task.package_version,
+      )
+      .await
+      .unwrap()
+      .unwrap()
+      .uses_npm
+  }
+
+  #[tokio::test]
+  async fn npm_import() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("npm_import");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+    assert!(uses_npm(&t, &task).await);
+  }
+
+  #[tokio::test]
+  async fn bun_import() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("bun_import");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+    assert!(!uses_npm(&t, &task).await);
+  }
+
+  #[tokio::test]
+  async fn virtual_import() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("virtual_import");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+    assert!(!uses_npm(&t, &task).await);
+  }
+
+  #[tokio::test]
+  async fn cloudflare_import() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("cloudflare_import");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+    assert!(!uses_npm(&t, &task).await);
+  }
+
+  #[tokio::test]
+  async fn jsr_import() {
+    let t = TestSetup::new().await;
+
+    let bytes = create_mock_tarball("ok");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+
+    let bytes = create_mock_tarball("jsr_import");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("bar").unwrap(),
+      &Version::try_from("1.2.3").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+    assert!(!uses_npm(&t, &task).await);
+  }
+
+  #[tokio::test]
+  async fn jsr_import_missing_dependency() {
+    let t = TestSetup::new().await;
+
+    let bytes = create_mock_tarball("jsr_import");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("bar").unwrap(),
+      &Version::try_from("1.2.3").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "unresolvableJsrDependency");
+    assert_eq!(
+      error.message,
+      "unresolvable 'jsr:' dependency: '@scope/foo@1', no published version matches the constraint"
+    );
+  }
+
+  #[tokio::test]
+  async fn jsr_import_without_constraint() {
+    let t = TestSetup::new().await;
+
+    let bytes = create_mock_tarball("ok");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+
+    let bytes = create_mock_tarball("jsr_import_without_constraint");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("bar").unwrap(),
+      &Version::try_from("1.2.3").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    assert_eq!(task.error.unwrap().code, "missingConstraint");
+  }
+
+  #[tokio::test]
+  async fn jsr_import_from_fallback_registry() {
+    let fallback = FakeFallbackRegistry::start().await;
+    let t = TestSetup::with_fallback_registry(Some(fallback.url())).await;
+
+    let bytes = create_mock_tarball("fallback_import");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("fallback-test").unwrap(),
+      &Version::try_from("1.0.0").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(
+      task.status,
+      PublishingTaskStatus::Success,
+      "publishing task failed: {task:#?}"
+    );
+
+    let dependencies = t
+      .db()
+      .list_package_version_dependencies(
+        &task.package_scope,
+        &task.package_name,
+        &task.package_version,
+      )
+      .await
+      .unwrap();
+
+    assert_eq!(dependencies.len(), 1);
+    assert_eq!(dependencies[0].dependency_kind, DependencyKind::Jsr);
+    assert_eq!(dependencies[0].dependency_name, "@std/assert");
+    assert_eq!(
+      dependencies[0].dependency_fallback_url,
+      Some(fallback.url().to_string())
+    );
+  }
+
+  /// A fallback registry that can't be reached must not be reported to the
+  /// publisher as "your dependency doesn't exist" — it's our infrastructure
+  /// failing, so the task stays retryable.
+  #[tokio::test]
+  async fn jsr_import_with_unreachable_fallback_is_retryable() {
+    let t =
+      TestSetup::with_fallback_registry(Some(unreachable_fallback_url())).await;
+
+    let bytes = create_mock_tarball("fallback_import");
+    let res = try_process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("fallback-test").unwrap(),
+      &Version::try_from("1.0.0").unwrap(),
+      false,
+    )
+    .await;
+
+    // A retryable error propagates out of `publish_task` rather than marking
+    // the task failed with a user-facing error code.
+    assert!(res.is_err(), "{res:#?}");
+  }
+
+  #[tokio::test]
+  async fn jsr_import_fails_without_fallback_when_missing() {
+    let t = TestSetup::new().await;
+
+    let bytes = create_mock_tarball("fallback_import");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("fallback-test").unwrap(),
+      &Version::try_from("1.0.0").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "unresolvableJsrDependency");
+  }
+
+  /// A package this registry hosts is always served locally — the lb only
+  /// consults the fallback on a bucket miss, and the package's meta.json IS in
+  /// the bucket — so a constraint no local version satisfies must fail the
+  /// publish even with a fallback configured. Consulting the (unreachable)
+  /// fallback would surface a retryable error instead of this fatal user
+  /// error, so the clean failure also proves the fallback was never contacted.
+  #[tokio::test]
+  async fn jsr_import_local_package_with_unsatisfied_constraint_fails_despite_fallback()
+   {
+    let t =
+      TestSetup::with_fallback_registry(Some(unreachable_fallback_url())).await;
+
+    let bytes = create_mock_tarball("ok");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+
+    let bytes = create_mock_tarball("jsr_import_unsatisfied_constraint");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("bar").unwrap(),
+      &Version::try_from("1.2.3").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    assert_eq!(task.error.unwrap().code, "unresolvableJsrDependency");
+  }
+
+  /// Same as above for a subpath no local version exports: the previously
+  /// fatal error must not be suppressed by the fallback.
+  #[tokio::test]
+  async fn jsr_import_local_package_with_invalid_subpath_fails_despite_fallback()
+   {
+    let t =
+      TestSetup::with_fallback_registry(Some(unreachable_fallback_url())).await;
+
+    let bytes = create_mock_tarball("ok");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+
+    let bytes = create_mock_tarball("jsr_import_bad_subpath");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("bar").unwrap(),
+      &Version::try_from("1.2.3").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    assert_eq!(task.error.unwrap().code, "invalidJsrDependencySubPath");
+  }
+
+  /// A `@jsr/`-mapped npm dependency on a package this registry doesn't host
+  /// is served by the npm fallback at install time, so the fallback URL is
+  /// recorded and the frontend links to the registry that actually serves it.
+  #[tokio::test]
+  async fn npm_jsr_import_records_fallback_for_missing_local_package() {
+    let fallback = FakeFallbackRegistry::start().await;
+    let t = TestSetup::with_fallback_registry(Some(fallback.url())).await;
+
+    let bytes = create_mock_tarball("npm_jsr_import");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("bar").unwrap(),
+      &Version::try_from("1.2.3").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+
+    let dependencies = t
+      .db()
+      .list_package_version_dependencies(
+        &task.package_scope,
+        &task.package_name,
+        &task.package_version,
+      )
+      .await
+      .unwrap();
+
+    assert_eq!(dependencies.len(), 1);
+    assert_eq!(dependencies[0].dependency_kind, DependencyKind::Npm);
+    assert_eq!(dependencies[0].dependency_name, "@jsr/std__assert");
+    assert_eq!(
+      dependencies[0].dependency_fallback_url,
+      Some(fallback.url().to_string())
+    );
+  }
+
+  /// A plain npm dependency (not `@jsr/`-mapped) never records a fallback URL.
+  #[tokio::test]
+  async fn npm_import_records_no_fallback() {
+    let fallback = FakeFallbackRegistry::start().await;
+    let t = TestSetup::with_fallback_registry(Some(fallback.url())).await;
+
+    let bytes = create_mock_tarball("npm_import");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+
+    let dependencies = t
+      .db()
+      .list_package_version_dependencies(
+        &task.package_scope,
+        &task.package_name,
+        &task.package_version,
+      )
+      .await
+      .unwrap();
+
+    assert_eq!(dependencies.len(), 1);
+    assert_eq!(dependencies[0].dependency_kind, DependencyKind::Npm);
+    assert_eq!(dependencies[0].dependency_fallback_url, None);
+  }
+
+  #[tokio::test]
+  async fn syntax_error() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("syntax_error");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "graphError");
+    assert_eq!(
+      error.message,
+      "failed to build module graph: SyntaxError: Expression expected\n  |\n1 | const invalidTypeScript = ;\n  |                           ~\n    at file:///mod.ts:1:27"
+    );
+  }
+
+  #[tokio::test]
+  async fn syntax_error_two() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("syntax_error_two");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "graphError");
+    assert_eq!(
+      error.message,
+      "failed to build module graph: SyntaxError: Expression expected\n  |\n1 | +\n  |  ~\n    at file:///mod.ts:1:2"
+    );
+  }
+
+  #[tokio::test]
+  async fn syntax_error_extra_file() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("syntax_error_extra_file");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+  }
+
+  #[tokio::test]
+  async fn syntax_error_in_graph() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("syntax_error_in_graph");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "graphError");
+    assert_eq!(
+      error.message,
+      "failed to build module graph: SyntaxError: Expression expected\n  |\n1 | const invalidJavaScript = ;\n  |                           ~\n    at file:///other.js:1:27"
+    );
+  }
+
+  #[tokio::test]
+  async fn non_utf8() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("non_utf8");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "graphError");
+    assert_eq!(
+      error.message,
+      "failed to build module graph: SyntaxError: Unexpected character '�'\n  |\n2 | ��\n  | ~\n    at file:///mod.ts:2:1"
+    );
+  }
+
+  #[tokio::test]
+  async fn no_jsr_json() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("no_jsr_json");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "missingConfigFile");
+  }
+
+  #[tokio::test]
+  async fn no_long_paths() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("no_long_paths");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "invalidPath");
+    assert!(error.message.contains("a_very_long_filename_created_specifically_to_test_the_limitations_of_the_set_path_method_in_the_rust_tar_crate_exceeding_one_hundred_bytes"));
+  }
+
+  #[tokio::test]
+  async fn global_type_augmentation1() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("global_type_augmentation1");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "globalTypeAugmentation");
+  }
+
+  #[tokio::test]
+  async fn global_type_augmentation2() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("global_type_augmentation2");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "globalTypeAugmentation");
+  }
+
+  #[tokio::test]
+  async fn triple_slash_reference_in_jsdoc() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("triple_slash_reference_in_jsdoc");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+  }
+
+  #[tokio::test]
+  async fn cjs_import() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("cjs_import");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "commonJs");
+  }
+
+  #[tokio::test]
+  async fn npm_tarball() {
+    let t = TestSetup::new().await;
+    let task = process_tarball_setup(&t, create_mock_tarball("ok")).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success);
+
+    let response = t
+      .buckets
+      .npm_bucket
+      .bucket
+      .get_object("@jsr/scope__foo")
+      .await;
+    assert_eq!(response.status(), 200);
+    assert_eq!(response.headers()["content-type"], "application/json");
+    let mut json: serde_json::Value =
+      serde_json::from_slice(&response.bytes().await.unwrap()).unwrap();
+    json.as_object_mut().unwrap().remove("time");
+    let dist = json
+      .as_object_mut()
+      .unwrap()
+      .get_mut("versions")
+      .unwrap()
+      .get_mut("1.2.3")
+      .unwrap()
+      .get_mut("dist")
+      .unwrap()
+      .as_object_mut()
+      .unwrap();
+    dist.remove("shasum");
+    dist.remove("integrity");
+
+    let tarball_url = format!(
+      "http://npm.jsr-tests.test/~/{}/@jsr/scope__foo/1.2.3.tgz",
+      NPM_TARBALL_REVISION
+    );
+    assert_eq!(
+      json,
+      serde_json::json!({
+        "name": "@jsr/scope__foo",
+        "description": "",
+        "dist-tags": {
+          "latest": "1.2.3"
+        },
+        "versions": {
+          "1.2.3": {
+            "name": "@jsr/scope__foo",
+            "version": "1.2.3",
+            "description": "",
+            "dist": {
+              "tarball": tarball_url
+            },
+            "dependencies": {},
+          }
+        },
+      })
+    );
+
+    let res_url =
+      format!("~/{}/@jsr/scope__foo/1.2.3.tgz", NPM_TARBALL_REVISION);
+
+    let response = t
+      .buckets
+      .npm_bucket
+      .bucket
+      .get_object(res_url.as_str())
+      .await;
+    assert_eq!(response.status(), 200);
+    assert_eq!(
+      response.headers()["content-type"],
+      "application/octet-stream"
+    );
+  }
+}

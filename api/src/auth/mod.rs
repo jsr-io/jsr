@@ -2,8 +2,6 @@
 
 use crate::RegistryUrl;
 use crate::api::ApiError;
-use crate::db::*;
-use crate::external::cloudflare::Turnstile;
 use crate::iam::ReqIamExt;
 use crate::router::RequestExt;
 use crate::util::ApiResult;
@@ -15,6 +13,9 @@ use hyper::Response;
 use hyper::StatusCode;
 use hyper::header;
 use oauth2::{AccessToken, RedirectUrl, RefreshToken, StandardRevocableToken};
+use shared::db::*;
+use shared::external::cloudflare::Turnstile;
+use shared::models::*;
 use std::borrow::Cow;
 use tracing::Span;
 use tracing::instrument;
@@ -536,9 +537,9 @@ pub async fn disconnect_handler(
 #[cfg(test)]
 mod tests {
   use crate::api::ApiFullUser;
-  use crate::db::NewOauthState;
   use hyper::StatusCode;
   use serde_json::json;
+  use shared::models::NewOauthState;
 
   //use super::*;
   use crate::util::test::{ApiResultExt, TestSetup};

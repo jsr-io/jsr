@@ -8,11 +8,11 @@ use tracing::Span;
 use tracing::field;
 use tracing::instrument;
 
-use crate::db::Database;
 use crate::util;
 use crate::util::ApiResult;
 use crate::util::CacheDuration;
 use crate::util::RequestIdExt;
+use shared::db::Database;
 
 use super::ApiError;
 use super::ApiPackage;

@@ -54,13 +54,13 @@ async function setupDatabase() {
   const db = new Client(url.href);
   await db.connect();
   const migrations = [];
-  for await (const entry of Deno.readDir(new URL("api/migrations/", root))) {
+  for await (const entry of Deno.readDir(new URL("shared/migrations/", root))) {
     if (entry.name.endsWith(".sql")) migrations.push(entry.name);
   }
   migrations.sort((a, b) => parseInt(a) - parseInt(b));
   for (const name of migrations) {
     const sql = await Deno.readTextFile(
-      new URL(`api/migrations/${name}`, root),
+      new URL(`shared/migrations/${name}`, root),
     );
     try {
       await db.queryArray(sql);
@@ -156,7 +156,7 @@ async function json(
 
 async function tarball(): Promise<Uint8Array<ArrayBuffer>> {
   const { success, stdout } = await new Deno.Command("tar", {
-    args: ["-czf", "-", "-C", "api/testdata/tarballs/ok", "."],
+    args: ["-czf", "-", "-C", "shared/testdata/tarballs/ok", "."],
     cwd: root,
     env: { COPYFILE_DISABLE: "1" },
     stderr: "inherit",

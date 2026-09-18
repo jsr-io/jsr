@@ -60,12 +60,20 @@ The worker also handles CORS, security headers (including a strict Content
 Security Policy for module files), bot detection for SEO, and download analytics
 via the Cloudflare Analytics Engine.
 
-## API (`api/`)
+## API (`api/`, `tasks/`, `shared/`)
 
 The API is a Rust HTTP server built with Hyper and axum. It is the single source
-of truth for all write operations and business logic.
+of truth for all write operations and business logic. It is split into three
+crates:
 
-The same crate is built twice:
+- **`api/`** — the HTTP API, and the binary that is built and deployed. It
+  depends on `tasks/` and serves its `/tasks` routes too.
+- **`tasks/`** — the background tasks (publishing, npm tarball builds, emails)
+  and the periodic ones.
+- **`shared/`** — what both use: the database, storage, external service
+  clients, models and the Workers runtime bindings.
+
+The `api/` crate is built twice:
 
 - **API Worker** — built for `wasm32-unknown-emscripten` by
   `api/build-worker.sh` and deployed as a Cloudflare Worker, which serves all
@@ -94,25 +102,35 @@ api/
 │   │   ├── types.rs         # Request/response types
 │   │   └── errors.rs        # Error definitions
 │   ├── auth/                # OAuth handlers (GitHub, GitLab)
-│   ├── db/                  # Database models and queries (tokio-postgres)
-│   ├── publish.rs           # Publishing pipeline
-│   ├── tarball.rs           # Tarball processing
-│   ├── npm/                 # NPM compatibility tarball generation
-│   ├── docs.rs              # Documentation generation (deno_doc)
-│   ├── analysis.rs          # Code analysis
-│   ├── external/            # External service clients (Cloudflare, Algolia)
+│   ├── docs.rs              # Documentation rendering (deno_doc)
 │   ├── emails/              # Email templates (Postmark)
 │   ├── iam.rs               # Permissions and access control
+│   └── provenance.rs        # Package provenance verification
+├── build-worker.sh          # Builds the Worker (worker-build, emscripten)
+├── wrangler.toml            # Local `wrangler dev` configuration for the Worker
+└── Cargo.toml
+tasks/
+├── src/
+│   ├── tasks.rs             # Background task handlers
+│   ├── publish.rs           # Publishing pipeline
+│   ├── tarball.rs           # Tarball processing
+│   ├── analysis.rs          # Code analysis
+│   └── npm/                 # NPM compatibility tarball generation
+└── Cargo.toml
+shared/
+├── src/
+│   ├── db/                  # Database queries (tokio-postgres)
+│   ├── models.rs            # Database models
 │   ├── ids.rs               # Type-safe identifiers
-│   ├── provenance.rs        # Package provenance verification
+│   ├── docs.rs              # Documentation generation (deno_doc)
+│   ├── external/            # External service clients (Cloudflare, Algolia)
+│   ├── emails.rs            # Email delivery (Postmark)
+│   ├── gcp.rs               # Cloud Tasks client
 │   ├── s3.rs                # R2/S3 storage operations
 │   ├── task_queue.rs        # Rate-limited background job queue
-│   ├── tasks.rs             # Background task handlers
 │   ├── tracing.rs           # Logging and OpenTelemetry setup
 │   ├── worker_js.rs         # Worker only: fetch, R2 and Hyperdrive bindings
 │   └── worker_spans.rs      # Worker only: tracing spans as Workers trace spans
-├── build-worker.sh          # Builds the Worker (worker-build, emscripten)
-├── wrangler.toml            # Local `wrangler dev` configuration for the Worker
 ├── migrations/              # SQL migration files
 └── Cargo.toml
 ```
@@ -252,9 +270,9 @@ database — they live in R2.
 | `ticket_messages`              | Messages on a ticket, in either direction           |
 | `ticket_attachments`           | Files that arrived attached to an inbound email     |
 
-Migrations are in `api/migrations/` and applied by `registry_api setup`
-(`api/src/db/migrate.rs`), which a Cloud Run job runs once per deploy before the
-new version serves. `cargo run` applies them at startup. Version columns use
+Migrations are in `shared/migrations/` and applied by `registry_api setup`
+(`shared/src/db/migrate.rs`), which a Cloud Run job runs once per deploy before
+the new version serves. `cargo run` applies them at startup. Version columns use
 natural collation so `1.10.0` sorts after `1.9.0`.
 
 ## Support tickets

@@ -1,10 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use crate::FallbackRegistryUrl;
-use crate::NpmUrl;
-use crate::RegistryUrl;
-use crate::external::algolia::AlgoliaClient;
-use crate::router::RequestExt;
-use crate::s3::Buckets;
 use axum::Router;
 use axum::body::Body;
 use axum::routing::delete;
@@ -12,6 +6,17 @@ use axum::routing::get;
 use axum::routing::patch;
 use axum::routing::post;
 use hyper::Request;
+use registry_api_tasks::analysis::PackageAnalysisData;
+use registry_api_tasks::analysis::analyze_package;
+use registry_api_tasks::publish::publish_task;
+use shared::FallbackRegistryUrl;
+use shared::NpmUrl;
+use shared::RegistryUrl;
+use shared::external::algolia::AlgoliaClient;
+use shared::ids::PackagePath;
+use shared::router::RequestExt;
+use shared::s3::Buckets;
+use shared::util::LicenseStore;
 use tracing::Instrument;
 use tracing::Span;
 use tracing::field;
@@ -20,21 +25,14 @@ use tracing::instrument;
 use std::borrow::Cow;
 use std::collections::HashMap;
 
-use crate::analysis::PackageAnalysisData;
-use crate::analysis::analyze_package;
-use crate::db::*;
 use crate::emails;
 use crate::emails::EmailArgs;
 use crate::emails::EmailQueue;
 use crate::emails::EmailSender;
 use crate::emails::EmailThread;
 use crate::iam::ReqIamExt;
-use crate::ids::PackagePath;
-use crate::ids::ScopeDescription;
-use crate::publish::publish_task;
 use crate::util;
 use crate::util::ApiResult;
-use crate::util::LicenseStore;
 use crate::util::RequestIdExt;
 use crate::util::decode_json;
 use crate::util::pagination;
@@ -42,9 +40,13 @@ use crate::util::search;
 use crate::util::sort;
 
 use super::ApiError;
-use super::PublishQueue;
 use super::map_unique_violation;
 use super::types::*;
+use shared::PublishQueue;
+use shared::db::*;
+use shared::errors::SharedError;
+use shared::ids::ScopeDescription;
+use shared::models::*;
 
 pub fn admin_router() -> Router {
   Router::new()
@@ -211,9 +213,12 @@ pub async fn create_outreach_ticket(
 
   let subject = subject.trim();
   if subject.is_empty() {
-    return Err(ApiError::MalformedRequest {
-      msg: "'subject' must not be empty".into(),
-    });
+    return Err(
+      SharedError::MalformedRequest {
+        msg: "'subject' must not be empty".into(),
+      }
+      .into(),
+    );
   }
   if message.trim().is_empty() {
     return Err(ApiError::TicketMessageEmpty);
@@ -441,12 +446,12 @@ pub async fn recompute_package_version_meta(
   let package_version = db
     .get_package_version(&scope, &package, &version)
     .await?
-    .ok_or(ApiError::PackageVersionNotFound)?;
+    .ok_or(SharedError::PackageVersionNotFound)?;
 
   let mut files = HashMap::new();
   for file in db.list_package_files(&scope, &package, &version).await? {
     let s3_path =
-      crate::s3_paths::file_path(&scope, &package, &version, &file.path);
+      shared::s3_paths::file_path(&scope, &package, &version, &file.path);
     let bytes = buckets
       .modules_bucket
       .download(s3_path.into())
@@ -552,7 +557,7 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
   let task = db
     .get_publishing_task(publishing_task_id)
     .await?
-    .ok_or(ApiError::PublishNotFound)?;
+    .ok_or(SharedError::PublishNotFound)?;
 
   if task.0.status == PublishingTaskStatus::Processing {
     db.update_publishing_task_status(
@@ -584,7 +589,7 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
     let fallback_registry_url =
       req.data::<FallbackRegistryUrl>().unwrap().0.clone();
     let cache_purge = req
-      .data::<crate::external::cloudflare::CachePurge>()
+      .data::<shared::external::cloudflare::CachePurge>()
       .unwrap()
       .clone();
 
@@ -623,7 +628,7 @@ pub async fn list_tickets(req: Request<Body>) -> ApiResult<ApiList<ApiTicket>> {
   let maybe_status = match req.query("status").map(String::as_str) {
     None | Some("") => None,
     Some(status) => Some(status.parse::<TicketStatus>().map_err(|_| {
-      ApiError::MalformedRequest {
+      SharedError::MalformedRequest {
         msg: "unknown ticket status filter".into(),
       }
     })?),
@@ -657,9 +662,12 @@ pub async fn patch_ticket(mut req: Request<Body>) -> ApiResult<ApiTicket> {
   let ticket = if let Some(status) = status {
     db.update_ticket_status(&staff.id, id, status).await?
   } else {
-    return Err(ApiError::MalformedRequest {
-      msg: "missing 'status' parameter".into(),
-    });
+    return Err(
+      SharedError::MalformedRequest {
+        msg: "missing 'status' parameter".into(),
+      }
+      .into(),
+    );
   };
 
   Ok(ApiTicket::for_viewer(ticket, true))
@@ -706,9 +714,9 @@ mod tests {
     use crate::api::ApiTicket;
     use crate::api::ApiTicketActor;
     use crate::api::ApiTicketMessage;
-    use crate::db::TicketKind;
-    use crate::db::TicketMessageDirection;
-    use crate::db::TicketStatus;
+    use shared::models::TicketKind;
+    use shared::models::TicketMessageDirection;
+    use shared::models::TicketStatus;
 
     let mut t = TestSetup::new().await;
     let staff_token = t.staff_user.token.clone();
@@ -1036,10 +1044,10 @@ mod tests {
     use flate2::write::GzEncoder;
 
     use crate::api::ApiPackageScore;
-    use crate::db::PublishingTaskStatus;
-    use crate::ids::PackageName;
-    use crate::ids::ScopeName;
-    use crate::ids::Version;
+    use shared::ids::PackageName;
+    use shared::ids::ScopeName;
+    use shared::ids::Version;
+    use shared::models::PublishingTaskStatus;
 
     let mut t = TestSetup::new().await;
 
@@ -1075,8 +1083,7 @@ mod tests {
     encoder.finish().unwrap();
 
     let task =
-      crate::publish::tests::process_tarball_setup(&t, Bytes::from(gz_bytes))
-        .await;
+      crate::util::test::process_tarball_setup(&t, Bytes::from(gz_bytes)).await;
     assert_eq!(
       task.status,
       PublishingTaskStatus::Success,

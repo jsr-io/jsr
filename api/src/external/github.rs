@@ -5,8 +5,6 @@ use std::fmt::Display;
 use std::str::FromStr;
 
 use crate::api::ApiError;
-use crate::db::Database;
-use crate::db::Permissions;
 use crate::external::oidc;
 use crate::external::oidc::OidcProvider;
 use crate::external::oidc::OidcProviderKind;
@@ -17,6 +15,8 @@ use crate::util::shared_http_client;
 use reqwest::StatusCode;
 use serde::Deserialize;
 use serde::Deserializer;
+use shared::db::Database;
+use shared::models::Permissions;
 use tracing::Span;
 use tracing::field;
 use tracing::instrument;

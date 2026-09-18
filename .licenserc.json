@@ -2,6 +2,8 @@
   "**/*.{ts,tsx,rs,tf}": "// Copyright 2024 the JSR authors. All rights reserved. MIT license.",
   "ignore": [
     "api/testdata/",
+    "shared/testdata/",
+    "tasks/testdata/",
     "frontend/_fresh/",
     "frontend/node_modules/",
     "frontend/fresh.gen.ts",
