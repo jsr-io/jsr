@@ -1,13 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use hyper::Body;
-use hyper::Response;
+use super::ApiPublishingTask;
+use shared::errors::SharedError;
+use shared::s3::S3Error;
 use std::borrow::Cow;
 
-use super::ApiPublishingTask;
-use crate::errors;
-use crate::s3::S3Error;
-
-errors!(
+shared::errors!(
+  ApiError:
   TarballSizeLimitExceeded {
     status: PAYLOAD_TOO_LARGE,
     fields: { size: u64, max_size: u64 },
@@ -23,10 +21,6 @@ errors!(
     status: BAD_REQUEST,
     "The uploaded content must be gzip encoded, and the content-encoding header must be set to 'gzip'.",
   },
-  PublishNotFound {
-    status: NOT_FOUND,
-    "The requested publish was not found.",
-  },
   UserNotFound {
     status: NOT_FOUND,
     "The requested user was not found. Only users who have logged in to JSR at least once are visible.",
@@ -38,10 +32,6 @@ errors!(
   PackageNotFound {
     status: NOT_FOUND,
     "The requested package was not found.",
-  },
-  PackageVersionNotFound {
-    status: NOT_FOUND,
-    "The requested package version was not found.",
   },
   PackageAnalysisFailed {
     status: BAD_REQUEST,
@@ -75,15 +65,6 @@ errors!(
   TokenNotFound {
     status: NOT_FOUND,
     "The requested token was not found.",
-  },
-  InternalServerError {
-    status: INTERNAL_SERVER_ERROR,
-    "Internal Server Error",
-  },
-  MalformedRequest {
-    status: BAD_REQUEST,
-    fields: { msg: Cow<'static, str> },
-    ({ msg }) => "Malformed request: {msg}.",
   },
   GithubOauthError {
     status: BAD_REQUEST,
@@ -315,6 +296,12 @@ errors!(
   },
 );
 
+impl From<SharedError> for ApiError {
+  fn from(error: SharedError) -> ApiError {
+    anyhow::Error::from(error).into()
+  }
+}
+
 pub fn map_unique_violation(err: sqlx::Error, new_err: ApiError) -> ApiError {
   if let Some(db_err) = err.as_database_error()
     && let Some(code) = db_err.code()
@@ -331,7 +318,7 @@ pub fn map_unique_violation(err: sqlx::Error, new_err: ApiError) -> ApiError {
 impl From<anyhow::Error> for ApiError {
   fn from(error: anyhow::Error) -> ApiError {
     eprintln!("internal server error: {:?}", error);
-    ApiError::InternalServerError
+    SharedError::InternalServerError.into()
   }
 }
 
@@ -456,8 +443,8 @@ impl From<crate::docs::GenerateCtxCacheError> for ApiError {
   }
 }
 
-impl From<crate::docs::DocNodeCacheError> for ApiError {
-  fn from(error: crate::docs::DocNodeCacheError) -> ApiError {
+impl From<shared::docs::DocNodeCacheError> for ApiError {
+  fn from(error: shared::docs::DocNodeCacheError) -> ApiError {
     anyhow::Error::from(error).into()
   }
 }
@@ -478,4 +465,29 @@ impl From<std::string::FromUtf8Error> for ApiError {
   fn from(error: std::string::FromUtf8Error) -> ApiError {
     anyhow::Error::from(error).into()
   }
+}
+
+pub async fn error_handler(
+  err: routerify::RouteError,
+  _: routerify::RequestInfo,
+) -> hyper::Response<hyper::Body> {
+  // Because `routerify::RouteError` is a boxed error, it must be downcast
+  // first. Unwrap for simplicity.
+  let api_err = err.downcast::<ApiError>().unwrap();
+  let is_server_error = api_err.status_code().is_server_error();
+  let span = tracing::Span::current();
+  span.record(
+    "otel.status_code",
+    if is_server_error { "error" } else { "ok" },
+  );
+  // Only server errors (5xx) are logged. Client errors (4xx, e.g. 404s) are
+  // expected and would otherwise pollute error logs and trace error rates. The
+  // route handlers no longer carry `err` on their `#[instrument]`, so this is
+  // the single place a directly-constructed 5xx `ApiError` gets surfaced;
+  // anyhow-backed 5xx are additionally logged at their origin (leaf spans keep
+  // `err`).
+  if is_server_error {
+    tracing::error!(error = %api_err, status = api_err.status_code().as_u16());
+  }
+  api_err.json_response()
 }

@@ -10,9 +10,10 @@ use sitemap_rs::url_builder::UrlBuilder;
 use sitemap_rs::url_set::UrlSet;
 use tracing::error;
 
-use crate::RegistryUrl;
 use crate::api::ApiError;
-use crate::db::Database;
+use shared::RegistryUrl;
+use shared::db::Database;
+use shared::errors::SharedError;
 
 // Sitemaps are unauthenticated, fetched primarily by search-engine
 // crawlers. Allow the CDN to hold a single shared copy for an hour and
@@ -42,13 +43,13 @@ pub async fn sitemap_index_handler(
   ];
   let sitemap_index = SitemapIndex::new(sitemaps).map_err(|err| {
     error!("Failed to build sitemap: {}", err);
-    ApiError::InternalServerError
+    SharedError::InternalServerError
   })?;
 
   let mut bytes = Vec::new();
   sitemap_index.write(&mut bytes).map_err(|err| {
     error!("Failed to write sitemap: {}", err);
-    ApiError::InternalServerError
+    SharedError::InternalServerError
   })?;
 
   let response = Response::builder()
@@ -98,13 +99,13 @@ pub async fn scopes_sitemap_handler(
 
   let url_set = UrlSet::new(urls).map_err(|err| {
     error!("Failed to build sitemap: {}", err);
-    ApiError::InternalServerError
+    SharedError::InternalServerError
   })?;
 
   let mut bytes = Vec::new();
   url_set.write(&mut bytes).map_err(|err| {
     error!("Failed to write sitemap: {}", err);
-    ApiError::InternalServerError
+    SharedError::InternalServerError
   })?;
 
   let response = Response::builder()
@@ -150,13 +151,13 @@ pub async fn packages_sitemap_handler(
 
   let url_set = UrlSet::new(urls).map_err(|err| {
     error!("Failed to build sitemap: {}", err);
-    ApiError::InternalServerError
+    SharedError::InternalServerError
   })?;
 
   let mut bytes = Vec::new();
   url_set.write(&mut bytes).map_err(|err| {
     error!("Failed to write sitemap: {}", err);
-    ApiError::InternalServerError
+    SharedError::InternalServerError
   })?;
 
   let response = Response::builder()

@@ -829,18 +829,19 @@ dependencies = [
 
 [[package]]
 name = "const_format"
-version = "0.2.33"
+version = "0.2.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50c655d81ff1114fb0dcdea9225ea9f0cc712a6f8d189378e82bdf62a473a64b"
+checksum = "4481a617ad9a412be3b97c5d403fef8ed023103368908b9c50af598ff467cc1e"
 dependencies = [
  "const_format_proc_macros",
+ "konst",
 ]
 
 [[package]]
 name = "const_format_proc_macros"
-version = "0.2.33"
+version = "0.2.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eff1a44b93f47b1bac19a27932f5c591e43d1ba357ee4f61526c8a25603f0eb1"
+checksum = "1d57c2eccfb16dbac1f4e61e206105db5820c9d26c3c472bc17c774259ef7744"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2341,18 +2342,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "jsr_types"
-version = "0.1.0"
+name = "konst"
+version = "0.2.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "128133ed7824fcd73d6e7b17957c5eb7bacb885649bd8c69708b2331a10bcefb"
 dependencies = [
- "chrono",
- "deno_semver",
- "indexmap",
- "serde",
- "serde_json",
- "sqlx",
- "thiserror 2.0.12",
- "uuid",
+ "konst_macro_rules",
 ]
+
+[[package]]
+name = "konst_macro_rules"
+version = "0.2.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4933f3f57a8e9d9da04db23fb153356ecaf00cbd14aee46279c33dc80925c37"
 
 [[package]]
 name = "kv-log-macro"
@@ -3464,15 +3466,12 @@ dependencies = [
  "ammonia",
  "anyhow",
  "askalono",
- "async-compression",
- "async-tar",
  "async-trait",
  "base64 0.21.7",
  "bytes",
  "chrono",
  "clap",
  "comrak",
- "const_format",
  "crc32fast",
  "deno_ast",
  "deno_doc",
@@ -3485,11 +3484,8 @@ dependencies = [
  "handlebars 5.1.2",
  "hyper 0.14.30",
  "indexmap",
- "infer",
- "jsonc-parser",
  "jsonwebkey",
  "jsonwebtoken",
- "jsr_types",
  "lazy_static",
  "moka",
  "oauth2",
@@ -3499,12 +3495,10 @@ dependencies = [
  "opentelemetry-otlp",
  "opentelemetry_sdk",
  "percent-encoding",
- "pin-project",
- "postmark",
  "pretty_assertions",
  "rand",
  "regex",
- "registry_api_macros",
+ "registry_api_shared",
  "reqwest 0.11.27",
  "ring 0.17.8",
  "rmp-serde",
@@ -3513,7 +3507,6 @@ dependencies = [
  "rust-s3",
  "serde",
  "serde_json",
- "sha1",
  "sha2",
  "sitemap-rs",
  "sqlx",
@@ -3522,7 +3515,6 @@ dependencies = [
  "tikv-jemalloc-ctl",
  "tikv-jemallocator",
  "tokio",
- "tokio-stream",
  "tracing",
  "tracing-futures",
  "tracing-opentelemetry",
@@ -3554,6 +3546,90 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.90",
+]
+
+[[package]]
+name = "registry_api_shared"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "askalono",
+ "bytes",
+ "chrono",
+ "const_format",
+ "deno_ast",
+ "deno_doc",
+ "deno_error",
+ "deno_graph",
+ "deno_semver",
+ "dotenvy",
+ "flate2",
+ "futures",
+ "hyper 0.14.30",
+ "indexmap",
+ "moka",
+ "once_cell",
+ "percent-encoding",
+ "pin-project",
+ "postmark",
+ "rand",
+ "registry_api_macros",
+ "reqwest 0.11.27",
+ "rmp-serde",
+ "rust-s3",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror 2.0.12",
+ "tokio",
+ "tracing",
+ "url",
+ "uuid",
+]
+
+[[package]]
+name = "registry_api_tasks"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "askalono",
+ "async-compression",
+ "async-tar",
+ "async-trait",
+ "base64 0.21.7",
+ "bytes",
+ "chrono",
+ "deno_ast",
+ "deno_doc",
+ "deno_error",
+ "deno_graph",
+ "deno_semver",
+ "dotenvy",
+ "flate2",
+ "futures",
+ "hyper 0.14.30",
+ "indexmap",
+ "infer",
+ "jsonc-parser",
+ "once_cell",
+ "regex",
+ "registry_api_shared",
+ "reqwest 0.11.27",
+ "routerify",
+ "routerify-query",
+ "rust-s3",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2",
+ "sqlx",
+ "tar",
+ "thiserror 2.0.12",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "url",
+ "uuid",
 ]
 
 [[package]]

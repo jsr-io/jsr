@@ -12,11 +12,6 @@ use tracing::instrument;
 use std::borrow::Cow;
 
 use crate::RegistryUrl;
-use crate::db::Database;
-use crate::db::PackagePublishPermission;
-use crate::db::Permission;
-use crate::db::TokenType;
-use crate::db::UserPublic;
 use crate::emails;
 use crate::emails::EmailArgs;
 use crate::emails::EmailQueue;
@@ -26,6 +21,11 @@ use crate::util;
 use crate::util::ApiResult;
 use crate::util::RequestIdExt;
 use crate::util::decode_json;
+use shared::db::Database;
+use shared::models::PackagePublishPermission;
+use shared::models::Permission;
+use shared::models::TokenType;
+use shared::models::UserPublic;
 
 use super::ApiCreateTokenRequest;
 use super::ApiCreatedToken;

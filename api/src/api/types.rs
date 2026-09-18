@@ -1,14 +1,18 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use std::borrow::Cow;
 
-use crate::db::*;
-use crate::docs::GeneratedDocsContent;
-use crate::ids::PackageName;
-use crate::ids::PackagePath;
-use crate::ids::ScopeDescription;
-use crate::ids::ScopeName;
-use crate::ids::Version;
 use crate::provenance::ProvenanceBundle;
+
+use shared::docs::GeneratedDocsContent;
+use shared::ids::PackageName;
+use shared::ids::PackagePath;
+use shared::ids::ScopeDescription;
+use shared::ids::ScopeName;
+use shared::ids::Version;
+use shared::models::*;
+
+pub use shared::api::*;
+
 use chrono::DateTime;
 use chrono::Utc;
 use serde::Deserialize;
@@ -340,108 +344,6 @@ impl From<(ScopeInvite, UserPublic, UserPublic)> for ApiScopeInvite {
       requesting_user: requesting_user.into(),
       updated_at: scope_invite.updated_at,
       created_at: scope_invite.created_at,
-    }
-  }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ApiPackageScore {
-  pub has_readme: bool,
-  pub has_readme_examples: bool,
-  pub all_entrypoints_docs: bool,
-  pub entrypoints_without_docs: Vec<String>,
-  pub percentage_documented_symbols: f32,
-  pub all_fast_check: bool,
-  pub has_provenance: bool,
-
-  // package wide
-  pub has_description: bool,
-  pub at_least_one_runtime_compatible: bool,
-  pub multiple_runtimes_compatible: bool,
-
-  pub total: u32,
-}
-
-impl ApiPackageScore {
-  pub const MAX_SCORE: u32 = 17;
-
-  pub fn score_percentage(&self) -> u32 {
-    u32::min((self.total * 100) / Self::MAX_SCORE, 100)
-  }
-}
-
-impl From<(&PackageVersionMeta, &Package)> for ApiPackageScore {
-  fn from((meta, package): (&PackageVersionMeta, &Package)) -> Self {
-    let mut score = 0;
-
-    if meta.has_readme {
-      score += 2;
-    }
-
-    if meta.has_readme_examples {
-      score += 1;
-    }
-
-    if meta.all_entrypoints_docs {
-      score += 1;
-    }
-
-    if meta.has_provenance {
-      score += 1;
-    }
-
-    // You only need to document 80% of your symbols to get all the points.
-    score += ((meta.percentage_documented_symbols / 0.8).min(1.0) * 5.0).floor()
-      as u32;
-
-    if meta.all_fast_check {
-      score += 5;
-    }
-
-    // package wide
-
-    if !package.description.is_empty() {
-      score += 1;
-    }
-
-    let mut compatible_runtimes_count = 0;
-    if package.runtime_compat.deno.is_some_and(|compat| compat) {
-      compatible_runtimes_count += 1;
-    }
-    if package.runtime_compat.bun.is_some_and(|compat| compat) {
-      compatible_runtimes_count += 1;
-    }
-    if package.runtime_compat.node.is_some_and(|compat| compat) {
-      compatible_runtimes_count += 1;
-    }
-    if package.runtime_compat.browser.is_some_and(|compat| compat) {
-      compatible_runtimes_count += 1;
-    }
-    if package.runtime_compat.workerd.is_some_and(|compat| compat) {
-      compatible_runtimes_count += 1;
-    }
-
-    if compatible_runtimes_count >= 1 {
-      score += 1;
-    }
-
-    if compatible_runtimes_count >= 2 {
-      score += 1;
-    }
-
-    Self {
-      has_readme: meta.has_readme,
-      has_readme_examples: meta.has_readme_examples,
-      all_entrypoints_docs: meta.all_entrypoints_docs,
-      entrypoints_without_docs: meta.entrypoints_without_docs.clone(),
-      percentage_documented_symbols: meta.percentage_documented_symbols,
-      all_fast_check: meta.all_fast_check,
-      has_provenance: meta.has_provenance,
-      has_description: !package.description.is_empty(),
-      at_least_one_runtime_compatible: compatible_runtimes_count >= 1,
-      multiple_runtimes_compatible: compatible_runtimes_count >= 2,
-      total: score,
     }
   }
 }
@@ -825,15 +727,51 @@ pub enum ApiUpdateScopeRequest {
   Description(Option<String>),
 }
 
-// `ApiStats`, `ApiStatsPackage`, `ApiStatsPackageVersion`, and `ApiMetrics` now
-// live in the shared, wasm-safe `jsr_types` crate so the workers-rs front serves
-// byte-identical JSON for the ported `GET /api/stats` and `GET /api/metrics`
-// endpoints. Re-exported here so existing `crate::api::types::*` paths keep
-// working.
-pub use jsr_types::api::ApiMetrics;
-pub use jsr_types::api::ApiStats;
-pub use jsr_types::api::ApiStatsPackage;
-pub use jsr_types::api::ApiStatsPackageVersion;
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiStats {
+  pub newest: Vec<ApiStatsPackage>,
+  pub updated: Vec<ApiStatsPackageVersion>,
+  pub featured: Vec<ApiStatsPackage>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiStatsPackage {
+  pub scope: ScopeName,
+  pub name: PackageName,
+  pub description: String,
+}
+
+impl From<StatsPackage> for ApiStatsPackage {
+  fn from(p: StatsPackage) -> Self {
+    Self {
+      scope: p.scope,
+      name: p.name,
+      description: p.description,
+    }
+  }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiStatsPackageVersion {
+  pub scope: ScopeName,
+  pub package: PackageName,
+  pub version: Version,
+  pub description: String,
+}
+
+impl From<StatsPackageVersion> for ApiStatsPackageVersion {
+  fn from(v: StatsPackageVersion) -> Self {
+    Self {
+      scope: v.scope,
+      package: v.name,
+      version: v.version,
+      description: v.description,
+    }
+  }
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

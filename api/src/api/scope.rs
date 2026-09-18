@@ -25,12 +25,13 @@ use super::errors::map_unique_violation;
 use super::types::*;
 
 use crate::auth;
-use crate::db::*;
 use crate::util;
 use crate::util::ApiResult;
 use crate::util::CacheDuration;
 use crate::util::RequestIdExt;
 use crate::util::decode_json;
+use shared::db::*;
+use shared::models::*;
 
 pub fn scope_router() -> Router<Body, ApiError> {
   Router::builder()
@@ -492,10 +493,10 @@ pub async fn delete_invite_handler(
 #[cfg(test)]
 pub mod tests {
   use super::*;
-  use crate::ids::{PackageName, ScopeDescription, ScopeName};
   use crate::util::test::ApiResultExt;
   use crate::util::test::TestSetup;
   use serde_json::json;
+  use shared::ids::{PackageName, ScopeDescription, ScopeName};
   use uuid::Uuid;
 
   #[tokio::test]

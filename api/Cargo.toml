@@ -5,54 +5,30 @@ edition = "2024"
 resolver = "2"
 
 [dependencies]
-sqlx = { version = "0.8.6", default-features = false, features = [
-    "runtime-tokio",
-    "tls-rustls",
-    "migrate",
-    "postgres",
-    "macros",
-    "uuid",
-    "chrono",
-    "json",
-    "ipnetwork",
-] }
+sqlx.workspace = true
 urlencoding = "2.1.3"
-anyhow = "1"
-base64 = "0.21"
-bytes = "1"
-chrono = { version = "0.4", features = ["serde"] }
+anyhow.workspace = true
+base64.workspace = true
+bytes.workspace = true
+chrono.workspace = true
 oauth2 = "4.4.1"
-futures = "0.3"
-hyper = { version = "0.14", features = [
-    "http1",
-    "http2",
-    "client",
-    "server",
-    "stream",
-] }
-once_cell = "1"
-percent-encoding = "2"
-rand = "0.8"
+futures.workspace = true
+hyper.workspace = true
+once_cell.workspace = true
+percent-encoding.workspace = true
+rand.workspace = true
 ring = "0.17"
-sha2 = "0.10.7"
+sha2.workspace = true
 crc32fast = "1.3.2"
-routerify = "3"
-routerify-query = "3"
-reqwest = { version = "0.11.18", default-features = false, features = [
-    "rustls-tls",
-    "stream",
-    "gzip",
-    "brotli",
-    "json",
-    "multipart",
-] }
-rmp-serde = "1"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-tokio = { version = "1", features = ["full"] }
-tokio-stream = "0.1"
-url = "2.5.4"
-uuid = { version = "1", features = ["v4", "serde"] }
+routerify.workspace = true
+routerify-query.workspace = true
+reqwest.workspace = true
+rmp-serde.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+url.workspace = true
+uuid.workspace = true
 clap = { version = "4", default-features = false, features = [
     "derive",
     "std",
@@ -62,10 +38,9 @@ clap = { version = "4", default-features = false, features = [
     "error-context",
     "suggestions",
 ] }
-dotenvy = "0.15.7"
-const_format = { version = "0.2", features = ["const_generics"] }
-tar = "0.4"
-tracing = "0.1"
+dotenvy.workspace = true
+tar.workspace = true
+tracing.workspace = true
 tracing-futures = "0.2"
 tracing-opentelemetry = "0.28"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
@@ -89,33 +64,24 @@ opentelemetry-otlp = { version = "0.27", default-features = false, features = [
     "http-proto",
     "reqwest-client",
 ] }
-rust-s3 = { version = "0.37.1", default-features = false, features = ["tokio-rustls-tls"] }
-deno_semver = "0.10.1"
-flate2 = "1"
-thiserror = "2"
-async-tar = "0.4.2"
-async-compression = { version = "0.4", features = ["futures-io", "gzip"] }
-deno_graph = "=0.111.0"
-deno_ast = { version = "0.53.0", features = ["view"] }
-# sync with frontend/deno.json
-deno_doc = { version = "=0.207.0", features = ["comrak"] }
-deno_error = "0.7.0"
-comrak = { version = "0.29.0", default-features = false }
+rust-s3.workspace = true
+deno_semver.workspace = true
+flate2.workspace = true
+thiserror.workspace = true
+deno_graph.workspace = true
+deno_ast.workspace = true
+deno_doc.workspace = true
+deno_error.workspace = true
+comrak.workspace = true
 ammonia = "4.0.0"
-async-trait = "0.1.73"
+async-trait.workspace = true
 jsonwebkey = { version = "0.3.5", features = ["jsonwebtoken", "jwt-convert"] }
 jsonwebtoken = "8.3.0"
-indexmap = { version = "2.13.0", features = ["serde"] }
-pin-project = "1.1.3"
-regex = "1.10.2"
-postmark = { version = "=0.10.0", features = ["reqwest-rustls-tls"] }
+indexmap.workspace = true
+regex.workspace = true
 handlebars = "5.0.0"
-jsonc-parser = { version = "0.26.3", features = ["serde"] }
-sha1 = "0.10.6"
-infer = "0.15.0"
 x509-parser = { version = "0.15.1", features = ["verify"] }
 sitemap-rs = "0.2.1"
-askalono = "0.5.0"
 moka = { version = "0.12", features = ["future", "sync"] }
 
 tree-sitter-highlight = "0.22.6"
@@ -135,14 +101,13 @@ tree-sitter-c = "0.21.4"
 lazy_static = "1.5.0"
 tikv-jemallocator = { version = "0.6", features = ["profiling"] }
 tikv-jemalloc-ctl = { version = "0.6", features = ["stats"] }
-registry_api_macros = { path = "macros" }
-jsr_types = { path = "../crates/jsr_types", features = ["sqlx"] }
+shared = { path = "../shared", package = "registry_api_shared" }
 
 [build-dependencies]
 askalono = "0.5.0"
 
 [dev-dependencies]
-flate2 = "1"
+flate2.workspace = true
 deno_semver = "0.10.1"
 pretty_assertions = "1.4.0"
-jsr_types = { path = "../crates/jsr_types", features = ["sqlx", "testing"] }
+shared = { path = "../shared", package = "registry_api_shared", features = ["testing"] }

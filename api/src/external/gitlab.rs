@@ -1,8 +1,8 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
-use crate::util::shared_http_client;
 use hyper::StatusCode;
 use serde::Deserialize;
+use shared::util::shared_http_client;
 use tracing::instrument;
 
 pub struct GitLabUserClient {

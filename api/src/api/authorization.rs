@@ -11,14 +11,14 @@ use sha2::Digest;
 use url::Url;
 
 use crate::RegistryUrl;
-use crate::db::Database;
-use crate::db::NewAuthorization;
-use crate::db::TokenType;
 use crate::iam::ReqIamExt;
 use crate::token::create_token;
 use crate::util;
 use crate::util::ApiResult;
 use crate::util::decode_json;
+use shared::db::Database;
+use shared::models::NewAuthorization;
+use shared::models::TokenType;
 
 use super::ApiAuthorization;
 use super::ApiAuthorizationExchangeRequest;
@@ -259,11 +259,11 @@ mod tests {
   use crate::api::ApiAuthorizationExchangeResponse;
   use crate::api::ApiCreateAuthorizationResponse;
   use crate::api::ApiFullUser;
-  use crate::db::PackagePublishPermission;
-  use crate::db::Permission;
-  use crate::db::Permissions;
   use crate::util::test::ApiResultExt;
   use crate::util::test::TestSetup;
+  use shared::models::PackagePublishPermission;
+  use shared::models::Permission;
+  use shared::models::Permissions;
 
   fn new_verifier_and_challenge() -> (String, String) {
     let verifier = Uuid::new_v4().to_string();

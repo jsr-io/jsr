@@ -2,8 +2,6 @@
 use percent_encoding::AsciiSet;
 use percent_encoding::CONTROLS;
 
-pub mod algolia;
-pub mod cloudflare;
 pub mod github;
 pub mod gitlab;
 pub mod oidc;

@@ -20,10 +20,10 @@ use deno_graph::analysis::TypeScriptReference;
 use deno_semver::RangeSetOrTag;
 use url::Url;
 
-use crate::ids::PackageName;
-use crate::ids::ScopeName;
-use crate::ids::Version;
 use crate::tree_sitter::SourceLink;
+use shared::ids::PackageName;
+use shared::ids::ScopeName;
+use shared::ids::Version;
 
 /// Everything needed to turn a specifier into a URL on this site.
 pub struct LinkContext<'a> {

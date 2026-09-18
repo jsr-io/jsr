@@ -1,7 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 use crate::api::ApiError;
-use crate::db::*;
 use crate::util::ApiResult;
 use chrono::DateTime;
 use chrono::Duration;
@@ -15,6 +14,8 @@ use oauth2::basic::BasicRevocationErrorResponse;
 use oauth2::basic::BasicTokenType;
 use oauth2::reqwest::async_http_client;
 use oauth2::{EmptyExtraTokenFields, RedirectUrl, RevocationUrl};
+use shared::db::*;
+use shared::models::*;
 use tracing::instrument;
 use url::Url;
 

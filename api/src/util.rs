@@ -23,79 +23,20 @@ use url::Url;
 use uuid::Uuid;
 
 use crate::api::ApiError;
-use crate::db::Database;
 use crate::external::github;
 use crate::external::oidc::OidcProviderKind;
 use crate::iam::IamInfo;
 use crate::iam::ReqIamExt as _;
-use crate::ids::PackageName;
-use crate::ids::ScopeName;
-use crate::ids::Version;
+use shared::db::Database;
+use shared::errors::SharedError;
+use shared::ids::PackageName;
+use shared::ids::ScopeName;
+use shared::ids::Version;
 
-pub const USER_AGENT: &str = "JSR";
-
-/// A shared `reqwest::Client` for all outbound HTTP requests. Reusing a single
-/// client avoids per-request connection pool and TLS session allocation.
-pub fn shared_http_client() -> &'static reqwest::Client {
-  static CLIENT: std::sync::OnceLock<reqwest::Client> =
-    std::sync::OnceLock::new();
-  CLIENT.get_or_init(|| {
-    reqwest::Client::builder()
-      .user_agent(USER_AGENT)
-      .connect_timeout(std::time::Duration::from_secs(10))
-      .build()
-      .expect("failed to build shared reqwest client")
-  })
-}
+pub use shared::util::*;
 
 pub type ApiResult<D> = Result<D, ApiError>;
-
-pub type ApiHandlerFuture<D> =
-  Pin<Box<dyn Future<Output = ApiResult<D>> + Send>>;
-
-/// Wrap an endpoint handler converting it's success return value into a JSON response
-///
-/// Uses [`respond_json`] under the hood, with a 200 status code.
-pub fn json<D, H, HF>(
-  handler: H,
-) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
-where
-  D: Serialize,
-  H: Fn(Request<Body>) -> HF,
-  HF: Future<Output = ApiResult<D>> + Send + 'static,
-{
-  move |req: Request<Body>| {
-    let fut = handler(req);
-    async move {
-      let data = fut.await?;
-      Ok::<Response<Body>, ApiError>(respond_json(&data, StatusCode::OK))
-    }
-    .boxed()
-  }
-}
-
-pub fn respond_json<V: ?Sized + Serialize>(
-  value: &V,
-  status_code: StatusCode,
-) -> Response<Body> {
-  let body = serde_json::to_string(value).unwrap();
-  create_response(status_code, "application/json", body)
-}
-
-pub fn create_response<B>(
-  status: StatusCode,
-  mime: &str, // TODO mime::Mime,
-  body: B,
-) -> Response<Body>
-where
-  B: Into<Body>,
-{
-  Response::builder()
-    .status(status)
-    .header(header::CONTENT_TYPE, mime)
-    .body(body.into())
-    .expect("expected to be able to create response")
-}
+pub type ApiHandlerFuture<D> = HandlerFuture<D, ApiError>;
 
 /// Wrap a handler so its response is explicitly uncacheable
 /// (`Cache-Control: no-store`).
@@ -596,21 +537,6 @@ fn extract_token_and_sudo(
   None
 }
 
-pub async fn decode_json<T>(req: &mut Request<Body>) -> ApiResult<T>
-where
-  T: DeserializeOwned,
-{
-  let bytes = body::to_bytes(req.body_mut())
-    .await
-    .map_err(anyhow::Error::from)?;
-  let data = serde_json::from_slice(&bytes).map_err(|error| {
-    ApiError::MalformedRequest {
-      msg: error.to_string().into(),
-    }
-  })?;
-  Ok(data)
-}
-
 pub fn search(req: &Request<Body>) -> Option<&str> {
   req.query("query").map(|q| q.as_str())
 }
@@ -658,9 +584,12 @@ pub fn docs_queries(req: &Request<Body>) -> Result<DocsQueries<'_>, ApiError> {
     .transpose()?;
 
   if all_symbols && (entrypoint.is_some() || symbol.is_some()) {
-    return Err(ApiError::MalformedRequest {
-      msg: "Cannot specify both all_symbols and entrypoint".into(),
-    });
+    return Err(
+      SharedError::MalformedRequest {
+        msg: "Cannot specify both all_symbols and entrypoint".into(),
+      }
+      .into(),
+    );
   }
 
   Ok(DocsQueries {
@@ -716,7 +645,7 @@ pub fn param<'a>(
 ) -> Result<&'a String, ApiError> {
   req.param(name).ok_or_else(|| {
     let msg = format!("missing path parameter '{name}'").into();
-    ApiError::MalformedRequest { msg }
+    SharedError::MalformedRequest { msg }.into()
   })
 }
 
@@ -742,7 +671,7 @@ impl RequestIdExt for Request<Body> {
       let msg =
         format!("failed to parse path parameter '{name}' as uuid: {err}")
           .into();
-      ApiError::MalformedRequest { msg }
+      SharedError::MalformedRequest { msg }.into()
     })
   }
 
@@ -750,7 +679,7 @@ impl RequestIdExt for Request<Body> {
     let value = param(self, "scope")?;
     ScopeName::try_from(value.as_str()).map_err(|err| {
       let msg = format!("failed to parse path parameter 'scope': {err}").into();
-      ApiError::MalformedRequest { msg }
+      SharedError::MalformedRequest { msg }.into()
     })
   }
 
@@ -759,7 +688,7 @@ impl RequestIdExt for Request<Body> {
     PackageName::try_from(value.as_str()).map_err(|err| {
       let msg =
         format!("failed to parse path parameter 'package': {err}").into();
-      ApiError::MalformedRequest { msg }
+      SharedError::MalformedRequest { msg }.into()
     })
   }
 
@@ -768,7 +697,7 @@ impl RequestIdExt for Request<Body> {
     Version::try_from(value.as_str()).map_err(|err| {
       let msg =
         format!("failed to parse path parameter 'version': {err}").into();
-      ApiError::MalformedRequest { msg }
+      SharedError::MalformedRequest { msg }.into()
     })
   }
 
@@ -780,56 +709,29 @@ impl RequestIdExt for Request<Body> {
       let version = Version::try_from(value.as_str()).map_err(|err| {
         let msg =
           format!("failed to parse path parameter 'version': {err}").into();
-        ApiError::MalformedRequest { msg }
+        SharedError::MalformedRequest { msg }.into()
       })?;
       Ok(VersionOrLatest::Version(version))
     }
   }
 }
 
-#[derive(Clone)]
-pub struct LicenseStore(pub Arc<askalono::Store>);
-
-impl LicenseStore {
-  /// Check if a license identifier is recognized, either as a primary key
-  /// or as an alias of another license (e.g. GPL-3.0-or-later is an alias
-  /// of GPL-3.0-only because they share the same license text).
-  pub fn is_recognized(&self, name: &str) -> bool {
-    if self.0.get_original(name).is_some() {
-      return true;
-    }
-    self.0.licenses().any(|key| {
-      self
-        .0
-        .aliases(key)
-        .is_ok_and(|aliases| aliases.iter().any(|a| a == name))
-    })
-  }
-}
-
-pub fn license_store() -> LicenseStore {
-  static CACHE: &[u8] =
-    include_bytes!(concat!(env!("OUT_DIR"), "/license-store.cache"));
-  let store = askalono::Store::from_cache(CACHE).unwrap();
-  LicenseStore(Arc::new(store))
-}
-
 #[cfg(test)]
 pub mod test {
   use crate::ApiError;
   use crate::MainRouterOptions;
-  use crate::db::Database;
-  use crate::db::EphemeralDatabase;
-  use crate::db::NewGithubIdentity;
-  use crate::db::NewGitlabIdentity;
-  use crate::db::NewUser;
-  use crate::db::User;
-  use crate::errors_internal::ApiErrorStruct;
-  use crate::ids::ScopeDescription;
-  use crate::s3::BucketWithQueue;
-  use crate::s3::Buckets;
-  use crate::s3::FakeS3Tester;
-  use crate::util::LicenseStore;
+  use shared::db::Database;
+  use shared::db::EphemeralDatabase;
+  use shared::errors_internal::ErrorStruct;
+  use shared::ids::ScopeDescription;
+  use shared::models::NewGithubIdentity;
+  use shared::models::NewGitlabIdentity;
+  use shared::models::NewUser;
+  use shared::models::User;
+  use shared::s3::BucketWithQueue;
+  use shared::s3::Buckets;
+  use shared::s3::FakeS3Tester;
+  use shared::util::LicenseStore;
 
   static SERVERS_STARTED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
   static LICENSE_STORE: std::sync::OnceLock<LicenseStore> =
@@ -988,7 +890,7 @@ pub mod test {
     pub user3: TestUser,
     pub staff_user: TestUser,
     #[allow(dead_code)]
-    pub scope: crate::db::Scope,
+    pub scope: shared::models::Scope,
     #[allow(dead_code)]
     pub github_oauth2_client: crate::auth::github::Oauth2Client,
     #[allow(dead_code)]
@@ -1034,11 +936,11 @@ pub mod test {
         s3.create_bucket(&ticket_attachments_name),
       );
       let buckets = Buckets {
-        publishing_bucket: crate::s3::BucketWithQueue::new(publishing_bucket),
+        publishing_bucket: shared::s3::BucketWithQueue::new(publishing_bucket),
         modules_bucket: BucketWithQueue::new(modules_bucket),
-        docs_bucket: crate::s3::BucketWithQueue::new(docs_bucket),
-        npm_bucket: crate::s3::BucketWithQueue::new(npm_bucket),
-        ticket_attachments_bucket: crate::s3::BucketWithQueue::new(
+        docs_bucket: shared::s3::BucketWithQueue::new(docs_bucket),
+        npm_bucket: shared::s3::BucketWithQueue::new(npm_bucket),
+        ticket_attachments_bucket: shared::s3::BucketWithQueue::new(
           ticket_attachments_bucket,
         ),
       };
@@ -1138,8 +1040,9 @@ pub mod test {
 
       db.add_bad_word_for_test("somebadword").await.unwrap();
 
-      let license_store =
-        LICENSE_STORE.get_or_init(super::license_store).clone();
+      let license_store = LICENSE_STORE
+        .get_or_init(shared::util::license_store)
+        .clone();
 
       let router = crate::main_router(MainRouterOptions {
         database: db,
@@ -1162,15 +1065,13 @@ pub mod test {
         analytics_engine_config: None, // no analytics engine locally
         cache_purge_client: None,      // no Cloudflare purge locally
         // No secret key, so the login captcha is not verified in tests.
-        turnstile: crate::external::cloudflare::Turnstile(None),
+        turnstile: shared::external::cloudflare::Turnstile(None),
         postmark_webhook_password: crate::api::PostmarkWebhookPassword(Some(
           TEST_POSTMARK_WEBHOOK_PASSWORD.to_owned(),
         )),
         inbound_trusted_authserv_id: crate::api::InboundTrustedAuthservId(
           Some(TEST_TRUSTED_AUTHSERV_ID.to_owned()),
         ),
-        expose_api: true,   // api enabled
-        expose_tasks: true, // task endpoints enabled
       });
 
       let service = routerify::RequestServiceBuilder::new(router)
@@ -1221,7 +1122,7 @@ pub mod test {
       let token = crate::token::create_token(
         db,
         user.id,
-        crate::db::TokenType::Web,
+        shared::models::TokenType::Web,
         None,
         Some(chrono::Utc::now() + chrono::Duration::try_days(7).unwrap()),
         None,
@@ -1418,7 +1319,7 @@ pub mod test {
     async fn expect_ok_no_content(&mut self);
 
     #[track_caller]
-    async fn expect_err(&mut self, status: StatusCode) -> ApiErrorStruct {
+    async fn expect_err(&mut self, status: StatusCode) -> ErrorStruct {
       self.expect_json(status).await
     }
 
@@ -1427,8 +1328,8 @@ pub mod test {
       &mut self,
       status: StatusCode,
       code: &str,
-    ) -> ApiErrorStruct {
-      let err: ApiErrorStruct = self.expect_json(status).await;
+    ) -> ErrorStruct {
+      let err: ErrorStruct = self.expect_json(status).await;
       assert_eq!(err.code, code, "{}", err.message);
       err
     }

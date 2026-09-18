@@ -1,0 +1,47 @@
+[package]
+name = "registry_api_tasks"
+version = "0.1.0"
+edition = "2024"
+resolver = "2"
+
+[dependencies]
+anyhow.workspace = true
+base64.workspace = true
+bytes.workspace = true
+chrono.workspace = true
+deno_ast.workspace = true
+deno_doc.workspace = true
+deno_error.workspace = true
+deno_graph.workspace = true
+deno_semver.workspace = true
+dotenvy.workspace = true
+futures.workspace = true
+hyper.workspace = true
+indexmap.workspace = true
+once_cell.workspace = true
+regex.workspace = true
+reqwest.workspace = true
+routerify-query.workspace = true
+routerify.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tar.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+url.workspace = true
+uuid.workspace = true
+flate2.workspace = true
+askalono.workspace = true
+sqlx.workspace = true
+rust-s3.workspace = true
+async-trait.workspace = true
+
+async-compression = { version = "0.4", features = ["futures-io", "gzip"] }
+async-tar = "0.4.2"
+infer = "0.15.0"
+jsonc-parser = { version = "0.26.3", features = ["serde"] }
+shared = { path = "../shared", package = "registry_api_shared" }
+tokio-stream = "0.1"
+sha1 = "0.10.6"

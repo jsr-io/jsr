@@ -21,11 +21,6 @@ use tracing::instrument;
 use uuid::Uuid;
 
 use crate::RegistryUrl;
-use crate::db::Database;
-use crate::db::NewEmailTicket;
-use crate::db::NewTicketAttachment;
-use crate::db::NewTicketEmailMessage;
-use crate::db::NewTicketSystemMessage;
 use crate::emails;
 use crate::emails::EmailArgs;
 use crate::emails::EmailQueue;
@@ -36,6 +31,12 @@ use crate::s3::S3UploadOptions;
 use crate::s3::UploadTaskBody;
 use crate::util;
 use crate::util::ApiResult;
+use shared::db::Database;
+use shared::errors::SharedError;
+use shared::models::NewEmailTicket;
+use shared::models::NewTicketAttachment;
+use shared::models::NewTicketEmailMessage;
+use shared::models::NewTicketSystemMessage;
 
 use super::ApiError;
 
@@ -305,9 +306,12 @@ pub async fn postmark_inbound_handler(
     // on every Postmark retry. A 400 is honest: the message is malformed, and
     // Postmark will not keep retrying it.
     tracing::warn!("rejecting inbound email with no Message-ID header");
-    return Err(ApiError::MalformedRequest {
-      msg: Cow::Borrowed("inbound email is missing its Message-ID header"),
-    });
+    return Err(
+      SharedError::MalformedRequest {
+        msg: Cow::Borrowed("inbound email is missing its Message-ID header"),
+      }
+      .into(),
+    );
   };
 
   let db = req.data::<Database>().unwrap();
@@ -754,7 +758,6 @@ mod test {
 mod integration {
   use crate::api::ApiTicket;
   use crate::api::ApiTicketActor;
-  use crate::db::TicketStatus;
   use crate::util::test::ApiResultExt;
   use crate::util::test::TEST_POSTMARK_WEBHOOK_PASSWORD;
   use crate::util::test::TestSetup;
@@ -762,6 +765,7 @@ mod integration {
   use hyper::StatusCode;
   use serde_json::Value;
   use serde_json::json;
+  use shared::models::TicketStatus;
 
   fn basic_auth(password: &str) -> hyper::header::HeaderValue {
     let encoded = base64::engine::general_purpose::STANDARD
@@ -848,7 +852,7 @@ mod integration {
   async fn ticket_messages(
     t: &TestSetup,
     ticket_id: uuid::Uuid,
-  ) -> Vec<crate::db::TicketMessage> {
+  ) -> Vec<shared::models::TicketMessage> {
     t.ephemeral_database
       .database
       .as_ref()
@@ -1084,7 +1088,7 @@ mod integration {
     let db = t.ephemeral_database.database.as_ref().unwrap();
 
     let id = db
-      .enqueue_email(crate::db::NewEmailDelivery {
+      .enqueue_email(shared::models::NewEmailDelivery {
         to_address: "someone@example.com".to_owned(),
         subject: "[TICKET-20260824-00001] Support request".to_owned(),
         body_text: "hello".to_owned(),
@@ -1123,7 +1127,7 @@ mod integration {
     let db = t.ephemeral_database.database.as_ref().unwrap();
 
     let id = db
-      .enqueue_email(crate::db::NewEmailDelivery {
+      .enqueue_email(shared::models::NewEmailDelivery {
         to_address: "someone@example.com".to_owned(),
         subject: "subject".to_owned(),
         body_text: "text".to_owned(),
@@ -1160,7 +1164,7 @@ mod integration {
     let db = t.ephemeral_database.database.as_ref().unwrap();
 
     let id = db
-      .enqueue_email(crate::db::NewEmailDelivery {
+      .enqueue_email(shared::models::NewEmailDelivery {
         to_address: "nobody@example.invalid".to_owned(),
         subject: "subject".to_owned(),
         body_text: "text".to_owned(),
@@ -1225,7 +1229,10 @@ mod integration {
       .unwrap();
     let reply: crate::api::ApiTicketMessage = resp.expect_ok().await;
     assert_eq!(reply.message, "Have you tried publishing again?");
-    assert_eq!(reply.direction, crate::db::TicketMessageDirection::Outbound);
+    assert_eq!(
+      reply.direction,
+      shared::models::TicketMessageDirection::Outbound
+    );
 
     // Staff spoke last, so the reporter is the one now owed a response.
     let after = all_tickets(&mut t).await.remove(0);
@@ -1358,7 +1365,7 @@ mod integration {
       .post("/api/tickets")
       .token(Some(&staff_token))
       .body_json(json!({
-        "kind": crate::db::TicketKind::Other,
+        "kind": shared::models::TicketKind::Other,
         "meta": {},
         "message": "my own ticket",
       }))
@@ -1381,7 +1388,10 @@ mod integration {
     assert!(note.internal);
     // A note is from the JSR side whoever writes it, so it is outbound even
     // here. Anything else violates the check constraint on the table.
-    assert_eq!(note.direction, crate::db::TicketMessageDirection::Outbound);
+    assert_eq!(
+      note.direction,
+      shared::models::TicketMessageDirection::Outbound
+    );
   }
 
   #[tokio::test]
@@ -1410,7 +1420,7 @@ mod integration {
       .post("/api/tickets")
       .token(Some(&user_token))
       .body_json(json!({
-        "kind": crate::db::TicketKind::Other,
+        "kind": shared::models::TicketKind::Other,
         "meta": {},
         "message": "hello",
       }))

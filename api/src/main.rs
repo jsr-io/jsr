@@ -3,31 +3,18 @@
 #[global_allocator]
 static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
-mod analysis;
 mod api;
 mod auth;
 mod config;
-mod db;
 mod docs;
 mod emails;
-mod errors_internal;
 mod external;
-mod gcp;
 mod iam;
-mod ids;
 mod jemalloc_profiling;
-mod metadata;
-mod npm;
 mod object_cache;
 mod provenance;
-mod publish;
-mod s3;
-mod s3_paths;
 mod sitemap;
 mod source_links;
-mod tarball;
-mod task_queue;
-mod tasks;
 mod token;
 mod traced_router;
 mod tracing;
@@ -37,27 +24,30 @@ mod util;
 use crate::api::ApiError;
 use crate::api::InboundTrustedAuthservId;
 use crate::api::PostmarkWebhookPassword;
-use crate::api::PublishQueue;
 use crate::api::api_router;
+use crate::api::error_handler;
 use crate::config::Config;
-use crate::db::Database;
 use crate::emails::EmailQueue;
 use crate::emails::EmailSender;
-use crate::errors_internal::error_handler;
-use crate::external::algolia::AlgoliaClient;
-use crate::external::cloudflare::CachePurge;
-use crate::external::cloudflare::Turnstile;
-use crate::external::cloudflare::TurnstileClient;
-use crate::gcp::Queue;
-use crate::s3::Buckets;
 use crate::sitemap::packages_sitemap_handler;
 use crate::sitemap::scopes_sitemap_handler;
 use crate::sitemap::sitemap_index_handler;
-use crate::tasks::NpmTarballBuildQueue;
-use crate::tasks::tasks_router;
 use crate::traced_router::TracedRouterService;
 use crate::tracing::TracingExportTarget;
 use crate::tracing::setup_tracing;
+
+use shared::FallbackRegistryUrl;
+use shared::NpmUrl;
+use shared::PublishQueue;
+use shared::RegistryUrl;
+use shared::db::Database;
+use shared::external::algolia::AlgoliaClient;
+use shared::external::cloudflare::CachePurge;
+use shared::external::cloudflare::Turnstile;
+use shared::external::cloudflare::TurnstileClient;
+use shared::external::gcp::Queue;
+use shared::s3;
+use shared::s3::Buckets;
 
 use clap::Parser;
 use hyper::Body;
@@ -65,7 +55,6 @@ use hyper::Server;
 use routerify::Router;
 use std::net::SocketAddr;
 use std::time::Duration;
-use tasks::AnalyticsEngineConfig;
 use url::Url;
 
 pub struct MainRouterOptions {
@@ -78,7 +67,7 @@ pub struct MainRouterOptions {
   gitlab_client: auth::gitlab::Oauth2Client,
   algolia_client: Option<AlgoliaClient>,
   email_sender: Option<EmailSender>,
-  license_store: util::LicenseStore,
+  license_store: shared::util::LicenseStore,
   registry_url: Url,
   npm_url: Url,
   fallback_registry_url: Option<Url>,
@@ -86,20 +75,14 @@ pub struct MainRouterOptions {
   npm_tarball_build_queue: Option<Queue>,
   email_queue: Option<Queue>,
   analytics_engine_config: Option<(
-    external::cloudflare::AnalyticsEngineClient,
+    shared::external::cloudflare::AnalyticsEngineClient,
     /* dataset_name */ String,
   )>,
-  cache_purge_client: Option<external::cloudflare::CachePurgeClient>,
+  cache_purge_client: Option<shared::external::cloudflare::CachePurgeClient>,
   turnstile: Turnstile,
   postmark_webhook_password: PostmarkWebhookPassword,
   inbound_trusted_authserv_id: InboundTrustedAuthservId,
-  expose_api: bool,
-  expose_tasks: bool,
 }
-
-pub struct RegistryUrl(pub Url);
-pub struct NpmUrl(pub Url);
-pub struct FallbackRegistryUrl(pub Option<Url>);
 
 pub(crate) fn main_router(
   MainRouterOptions {
@@ -124,11 +107,9 @@ pub(crate) fn main_router(
     turnstile,
     postmark_webhook_password,
     inbound_trusted_authserv_id,
-    expose_api,
-    expose_tasks,
   }: MainRouterOptions,
 ) -> Router<Body, ApiError> {
-  let builder = Router::builder()
+  Router::builder()
     .data(database)
     .data(buckets)
     .data(generate_ctx_cache)
@@ -143,50 +124,36 @@ pub(crate) fn main_router(
     .data(NpmUrl(npm_url))
     .data(FallbackRegistryUrl(fallback_registry_url))
     .data(PublishQueue(publish_queue))
-    .data(NpmTarballBuildQueue(npm_tarball_build_queue))
     .data(EmailQueue(email_queue))
-    .data(AnalyticsEngineConfig(analytics_engine_config))
     .data(CachePurge(cache_purge_client))
     .data(turnstile)
     .data(postmark_webhook_password)
     .data(inbound_trusted_authserv_id)
-    .data(db::DependentCountCache::new())
+    .data(shared::db::DependentCountCache::new())
     .middleware(routerify_query::query_parser())
-    .err_handler_with_info(error_handler);
-
-  let builder = if expose_api {
-    builder
-      .scope("/api", api_router())
-      .get("/sitemap.xml", sitemap_index_handler)
-      .get("/sitemap-scopes.xml", scopes_sitemap_handler)
-      .get("/sitemap-packages.xml", packages_sitemap_handler)
-      // POST, not GET: the login form carries the Turnstile response token in
-      // its body, which keeps it out of URLs, logs and `Referer` headers. It
-      // also means a bare link to this route can no longer start a login flow,
-      // so the captcha cannot be sidestepped by navigating straight here.
-      .post("/login/:service", auth::login_handler)
-      .get("/login/callback/:service", auth::login_callback_handler)
-      .get("/logout", auth::logout_handler)
-      .get("/connect/:service", util::full_auth(auth::connect_handler))
-      .get(
-        "/connect/callback/:service",
-        util::full_auth(auth::connect_callback_handler),
-      )
-      .get(
-        "/disconnect/:service",
-        util::full_auth(auth::disconnect_handler),
-      )
-  } else {
-    builder
-  };
-
-  let builder = if expose_tasks {
-    builder.scope("/tasks", tasks_router())
-  } else {
-    builder
-  };
-
-  builder.build().unwrap()
+    .err_handler_with_info(error_handler)
+    .scope("/api", api_router())
+    .get("/sitemap.xml", sitemap_index_handler)
+    .get("/sitemap-scopes.xml", scopes_sitemap_handler)
+    .get("/sitemap-packages.xml", packages_sitemap_handler)
+    // POST, not GET: the login form carries the Turnstile response token in
+    // its body, which keeps it out of URLs, logs and `Referer` headers. It
+    // also means a bare link to this route can no longer start a login flow,
+    // so the captcha cannot be sidestepped by navigating straight here.
+    .post("/login/:service", auth::login_handler)
+    .get("/login/callback/:service", auth::login_callback_handler)
+    .get("/logout", auth::logout_handler)
+    .get("/connect/:service", util::full_auth(auth::connect_handler))
+    .get(
+      "/connect/callback/:service",
+      util::full_auth(auth::connect_callback_handler),
+    )
+    .get(
+      "/disconnect/:service",
+      util::full_auth(auth::disconnect_handler),
+    )
+    .build()
+    .unwrap()
 }
 
 #[tokio::main]
@@ -214,7 +181,7 @@ async fn main() {
   setup_tracing("api", export_target, config.deployment_environment).await;
 
   let db_tls = match (config.db_client_cert, config.db_client_key) {
-    (Some(client_cert), Some(client_key)) => Some(crate::db::DbTls {
+    (Some(client_cert), Some(client_key)) => Some(shared::db::DbTls {
       client_cert,
       client_key,
     }),
@@ -242,7 +209,7 @@ async fn main() {
     expiration: None,
   };
 
-  let gcp_client = gcp::Client::new(config.metadata_strategy);
+  let gcp_client = shared::external::gcp::Client::new(config.metadata_strategy);
   let publishing_bucket = s3::BucketWithQueue::new(
     s3::Bucket::new(
       config.publishing_bucket,
@@ -308,7 +275,7 @@ async fn main() {
     config.cloudflare_api_token.clone(),
   ) {
     (Some(zone_id), Some(api_token)) => Some(
-      external::cloudflare::CachePurgeClient::new(zone_id, api_token),
+      shared::external::cloudflare::CachePurgeClient::new(zone_id, api_token),
     ),
     _ => None,
   };
@@ -319,7 +286,9 @@ async fn main() {
     config.cloudflare_analytics_dataset,
   ) {
     (Some(account_id), Some(api_token), Some(dataset_name)) => Some((
-      external::cloudflare::AnalyticsEngineClient::new(account_id, api_token),
+      shared::external::cloudflare::AnalyticsEngineClient::new(
+        account_id, api_token,
+      ),
       dataset_name,
     )),
     _ => None,
@@ -371,7 +340,7 @@ async fn main() {
     )
   });
 
-  let license_store = util::license_store();
+  let license_store = shared::util::license_store();
 
   let generate_ctx_cache = crate::docs::GenerateCtxCache::new();
   let object_cache = crate::object_cache::ObjectCache::new();
@@ -403,8 +372,6 @@ async fn main() {
     inbound_trusted_authserv_id: InboundTrustedAuthservId(
       config.inbound_trusted_authserv_id,
     ),
-    expose_api: config.api,
-    expose_tasks: config.tasks,
   });
 
   // Create a Service from the router above to handle incoming requests.

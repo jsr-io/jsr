@@ -14,12 +14,6 @@ use tracing::instrument;
 use uuid::Uuid;
 
 use crate::RegistryUrl;
-use crate::db::FullTicket;
-use crate::db::FullTicketMessage;
-use crate::db::NewTicket;
-use crate::db::NewTicketMessage;
-use crate::db::Ticket;
-use crate::db::{Database, UserPublic};
 use crate::emails;
 use crate::emails::EmailArgs;
 use crate::emails::EmailQueue;
@@ -31,6 +25,13 @@ use crate::util;
 use crate::util::ApiResult;
 use crate::util::RequestIdExt;
 use crate::util::decode_json;
+use shared::db::Database;
+use shared::models::FullTicket;
+use shared::models::FullTicketMessage;
+use shared::models::NewTicket;
+use shared::models::NewTicketMessage;
+use shared::models::Ticket;
+use shared::models::UserPublic;
 
 use super::ApiError;
 use super::ApiTicket;
@@ -454,11 +455,11 @@ fn content_disposition_attachment(filename: &str) -> String {
 mod test {
   use crate::api::ApiTicket;
   use crate::api::ApiTicketMessage;
-  use crate::db::TicketKind;
   use crate::util::test::ApiResultExt;
   use crate::util::test::TestSetup;
   use hyper::StatusCode;
   use serde_json::json;
+  use shared::models::TicketKind;
 
   #[tokio::test]
   async fn test_ticket() {
