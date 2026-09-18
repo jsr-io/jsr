@@ -55,8 +55,6 @@ use uuid::Uuid;
 use crate::FallbackRegistryUrl;
 use crate::NpmUrl;
 use crate::RegistryUrl;
-use crate::analysis::JsrResolver;
-use crate::analysis::ModuleParser;
 use crate::api::ApiMetrics;
 use crate::api::ApiStats;
 use crate::api::ApiStatsPackage;
@@ -65,8 +63,7 @@ use crate::auth;
 use crate::iam::IamInfo;
 use crate::iam::ReqIamExt;
 use crate::provenance;
-use crate::publish::publish_task;
-use crate::tarball::bucket_tarball_path;
+use crate::task_dispatch::TaskDispatch;
 use crate::util;
 use crate::util::RequestIdExt;
 use crate::util::VersionOrLatest;
@@ -75,6 +72,8 @@ use crate::util::pagination;
 use crate::util::search;
 use crate::util::{ApiResult, docs_queries};
 use crate::util::{CacheDuration, DocsQueries};
+use shared::graph::JsrResolver;
+use shared::graph::ModuleParser;
 
 use super::ApiCreatePackageRequest;
 use super::ApiDependency;
@@ -105,7 +104,6 @@ use shared::docs::GeneratedDocsOutput;
 use shared::errors::SharedError;
 use shared::external::algolia::AlgoliaClient;
 use shared::external::cloudflare::CachePurge;
-use shared::external::gcp;
 use shared::ids::PackageName;
 use shared::ids::PackagePath;
 use shared::ids::ScopeName;
@@ -123,7 +121,6 @@ use shared::s3::CACHE_CONTROL_MANIFEST;
 use shared::s3::S3UploadOptions;
 use shared::s3::UploadTaskBody;
 use shared::s3_paths::bucket_tarball_path;
-use shared::util::LicenseStore;
 use shared::{MAX_PUBLISH_TARBALL_SIZE, PublishQueue};
 
 use super::ApiUpdatePackageRequest;
@@ -1034,14 +1031,8 @@ pub async fn version_publish_handler(
 
   let db = req.data::<Database>().unwrap().clone();
   let buckets = req.data::<Buckets>().unwrap().clone();
-  let license_store = req.data::<LicenseStore>().unwrap().clone();
-  let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
-  let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
-  let fallback_registry_url =
-    req.data::<FallbackRegistryUrl>().unwrap().0.clone();
   let publish_queue = req.data::<PublishQueue>().unwrap().0.clone();
-  let cache_purge = req.data::<CachePurge>().unwrap().clone();
-  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap().clone();
+  let task_dispatch = req.data::<TaskDispatch>().unwrap().clone();
 
   let iam = req.iam();
   let (access_restriction, user_id) = iam
@@ -1141,21 +1132,12 @@ pub async fn version_publish_handler(
     let body = serde_json::to_vec(&publishing_task.id).unwrap();
     queue.task_buffer(None, Some(body.into())).await?;
   } else {
-    let span = Span::current();
-    let fut = publish_task(
-      publishing_task.id,
-      0,
-      buckets,
-      license_store,
-      registry_url,
-      npm_url,
-      fallback_registry_url,
-      db,
-      algolia_client,
-      cache_purge,
-    )
-    .instrument(span);
-    tokio::spawn(fut);
+    // No queue (local development): run the publish in-process.
+    tokio::spawn(
+      task_dispatch
+        .publish(publishing_task.id)
+        .instrument(Span::current()),
+    );
   }
 
   Ok((publishing_task, user).into())
@@ -1831,8 +1813,8 @@ pub async fn get_docs_search_structured_handler(
   .unwrap();
 
   let search = match docs {
-    GeneratedDocsOutput::Docs(crate::docs::GeneratedDocs {
-      main: crate::docs::GeneratedDocsContent::AllSymbols(main),
+    GeneratedDocsOutput::Docs(shared::docs::GeneratedDocs {
+      main: shared::docs::GeneratedDocsContent::AllSymbols(main),
       ..
     }) => main,
     _ => unreachable!(),
@@ -2072,7 +2054,8 @@ async fn source_specifier_links(
     .await
   {
     Ok(Some(bytes)) => {
-      match serde_json::from_slice::<crate::metadata::VersionMetadata>(&bytes) {
+      match serde_json::from_slice::<shared::metadata::VersionMetadata>(&bytes)
+      {
         Ok(metadata) => metadata,
         Err(err) => {
           error!("failed to parse version metadata for links: {err}");
@@ -2431,7 +2414,7 @@ pub async fn list_dependencies_handler(
 /// Upper bound on a single fallback-registry request made while building a
 /// dependency graph.
 ///
-/// Deliberately much tighter than [`crate::tarball::FALLBACK_REQUEST_TIMEOUT`],
+/// Deliberately much tighter than the fallback timeout used by publish analysis,
 /// which this used to share. A publish can afford to wait half a minute on a
 /// degraded fallback; a page render cannot, and the probe fires once per object
 /// the modules bucket does not hold — so on a fallback-hosted package the
@@ -2913,7 +2896,7 @@ impl JsrUrlProvider for DepTreeJsrUrlProvider {
 /// the fallback registry, and packages old enough that their metadata predates
 /// `moduleGraph2` — those still get parsed, as before.
 ///
-/// Unlike [`crate::analysis::ModuleAnalyzer`] this keeps nothing: the endpoint
+/// Unlike the publish analysis's module analyzer this keeps nothing: the endpoint
 /// reads dependencies, size and media type off the graph and never looks at a
 /// [`deno_ast::ParsedSource`], so retaining every parse for the life of the
 /// request only cost memory.
@@ -2977,7 +2960,7 @@ async fn analyze_deps_tree(
   registry: DepTreeRegistry,
   scope: ScopeName,
   package: PackageName,
-  version: crate::ids::Version,
+  version: shared::ids::Version,
   version_meta: VersionMetadata,
 ) -> Result<
   IndexMap<DependencyKind, DependencyInfo>,
@@ -3485,22 +3468,23 @@ mod test {
   use crate::api::ApiPackageVersion;
   use crate::api::ApiPackageVersionDocs;
   use crate::api::ApiPackageVersionSource;
+  use crate::api::ApiPublishingTask;
   use crate::api::ApiSource;
   use crate::api::ApiSourceDirEntry;
   use crate::api::ApiSourceDirEntryKind;
   use crate::api::{ApiDependency, ApiReadmeSource};
-  use crate::publish::tests::create_mock_tarball;
-  use crate::publish::tests::process_tarball_setup;
-  use crate::publish::tests::process_tarball_setup2;
   use crate::token::create_token;
   use crate::util::test::ApiResultExt;
   use crate::util::test::FakeFallbackRegistry;
   use crate::util::test::TestSetup;
+  use crate::util::test::process_tarball_setup;
+  use crate::util::test::process_tarball_setup2;
   use chrono::Utc;
   use hyper::Body;
   use hyper::StatusCode;
   use indexmap::IndexSet;
   use serde_json::json;
+  use shared::MAX_PUBLISH_TARBALL_SIZE;
   use shared::db::CreatePackageResult;
   use shared::db::CreatePublishingTaskResult;
   use shared::ids::{
@@ -3521,6 +3505,7 @@ mod test {
   use shared::models::VersionDownloadCount;
   use shared::s3::S3UploadOptions;
   use shared::s3::UploadTaskBody;
+  use shared::test::create_mock_tarball;
 
   #[tokio::test]
   async fn test_packages_list() {
@@ -5042,7 +5027,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     // publish a package that only has a prerelease version (no stable release)
     let package_name = PackageName::try_from("foo").unwrap();
     let version = Version::try_from("1.2.3-alpha.1").unwrap();
-    let task = crate::publish::tests::process_tarball_setup2(
+    let task = process_tarball_setup2(
       &t,
       create_mock_tarball("ok_prerelease"),
       &package_name,
@@ -5129,7 +5114,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
 
     let package_name = PackageName::try_from("bar").unwrap();
     let version = Version::try_from("1.2.3").unwrap();
-    let task = crate::publish::tests::process_tarball_setup2(
+    let task = process_tarball_setup2(
       &t,
       create_mock_tarball("depends_on_ok"),
       &package_name,
@@ -5185,7 +5170,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
 
     let package_name = PackageName::try_from("bar").unwrap();
     let version = Version::try_from("1.2.4").unwrap();
-    let task = crate::publish::tests::process_tarball_setup2(
+    let task = process_tarball_setup2(
       &t,
       create_mock_tarball("depends_on_ok2"),
       &package_name,
@@ -5197,7 +5182,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
 
     let package_name = PackageName::try_from("baz").unwrap();
     let version = Version::try_from("1.2.3").unwrap();
-    let task = crate::publish::tests::process_tarball_setup2(
+    let task = process_tarball_setup2(
       &t,
       create_mock_tarball("depends_on_ok3"),
       &package_name,
@@ -5305,7 +5290,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     // layer (`npm:@jsr/scope__name`) are also counted as dependents.
     let package_name = PackageName::try_from("qux").unwrap();
     let version = Version::try_from("1.2.3").unwrap();
-    let task = crate::publish::tests::process_tarball_setup2(
+    let task = process_tarball_setup2(
       &t,
       create_mock_tarball("depends_on_ok_npm_mapped"),
       &package_name,
@@ -5411,7 +5396,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     // Now publish a package that has a few deps
     let package_name = PackageName::try_from("bar").unwrap();
     let version = Version::try_from("1.2.3").unwrap();
-    let task = crate::publish::tests::process_tarball_setup2(
+    let task = process_tarball_setup2(
       &t,
       create_mock_tarball("depends_on_ok"),
       &package_name,
@@ -5576,7 +5561,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let name = PackageName::try_from("foo").unwrap();
 
     let version = Version::try_from("1.2.3").unwrap();
-    let task = crate::publish::tests::process_tarball_setup2(
+    let task = process_tarball_setup2(
       &t,
       create_mock_tarball("ok"),
       &name,
@@ -6281,5 +6266,136 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       }
       _ => panic!("expected JSR dependency"),
     }
+  }
+
+  // Publishing over HTTP: these exercise the api endpoint in front of the
+  // publish task, so they live here rather than with the task.
+  #[tokio::test]
+  async fn payload_too_large() {
+    let body = Body::from(vec![0; MAX_PUBLISH_TARBALL_SIZE as usize + 10]);
+
+    let mut t = TestSetup::new().await;
+    let mut resp = t
+      .http()
+      .post("/api/scopes/scope/packages/foo/versions/1.2.3?config=/jsr.json")
+      .gzip()
+      .body(body)
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(
+        StatusCode::PAYLOAD_TOO_LARGE,
+        "tarballSizeLimitExceeded",
+      )
+      .await;
+  }
+
+  #[tokio::test]
+  async fn payload_too_large_stream() {
+    // Convert the Vec<u8> into a hyper Body with chunked transfer encoding
+    let body = Body::wrap_stream(tokio_stream::once(Ok::<_, std::io::Error>(
+      vec![0; MAX_PUBLISH_TARBALL_SIZE as usize + 10],
+    )));
+
+    let mut t = TestSetup::new().await;
+    let name = PackageName::new("foo".to_owned()).unwrap();
+    t.db().create_package(&t.scope.scope, &name).await.unwrap();
+    let mut resp = t
+      .http()
+      .post("/api/scopes/scope/packages/foo/versions/1.2.3?config=/jsr.json")
+      .gzip()
+      .body(body)
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(
+        StatusCode::PAYLOAD_TOO_LARGE,
+        "tarballSizeLimitExceeded",
+      )
+      .await;
+  }
+
+  #[tokio::test]
+  async fn stream_success() {
+    let mut t = TestSetup::new().await;
+    let name = PackageName::new("foo".to_owned()).unwrap();
+    t.db().create_package(&t.scope.scope, &name).await.unwrap();
+
+    let data = create_mock_tarball("ok");
+
+    // Convert the Vec<u8> into a hyper Body with chunked transfer encoding
+    let body_stream = tokio_stream::once(Ok::<_, std::io::Error>(data));
+    let body = Body::wrap_stream(body_stream);
+
+    let mut resp = t
+      .http()
+      .post("/api/scopes/scope/packages/foo/versions/1.2.3?config=/jsr.json")
+      .gzip()
+      .body(body)
+      .call()
+      .await
+      .unwrap();
+    let _task = resp.expect_ok::<ApiPublishingTask>().await;
+    // todo: await task completion
+  }
+
+  #[tokio::test]
+  async fn not_allowed() {
+    let mut t = TestSetup::new().await;
+
+    let data = create_mock_tarball("ok");
+
+    // Convert the Vec<u8> into a hyper Body with chunked transfer encoding
+    let body_stream = tokio_stream::once(Ok::<_, std::io::Error>(data));
+    let body = Body::wrap_stream(body_stream);
+
+    let token = t.user2.token.clone();
+
+    let mut resp = t
+      .http()
+      .post("/api/scopes/scope/packages/foo/versions/1.2.3?config=/jsr.json")
+      .gzip()
+      .token(Some(&token))
+      .body(body)
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeMember")
+      .await;
+  }
+
+  #[tokio::test]
+  async fn only_from_ci() {
+    let mut t = TestSetup::new().await;
+
+    let data = create_mock_tarball("ok");
+
+    t.db()
+      .scope_set_require_publishing_from_ci(
+        &t.user1.user.id,
+        false,
+        &t.scope.scope,
+        true,
+      )
+      .await
+      .unwrap();
+
+    let token = t.user2.token.clone();
+
+    let mut resp: hyper::Response<Body> = t
+      .http()
+      .post("/api/scopes/scope/packages/foo/versions/1.2.3?config=/jsr.json")
+      .gzip()
+      .token(Some(&token))
+      .body(Body::from(data))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::FORBIDDEN, "scopeRequiresPublishingFromCi")
+      .await;
   }
 }

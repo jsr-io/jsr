@@ -3,11 +3,11 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 use crate::errors::*;
-use crate::npm::generate_npm_version_manifest;
 use crate::tarball::NpmTarballInfo;
 use crate::tarball::ProcessTarballOutput;
 use crate::tarball::ResolvedDependency;
 use crate::tarball::process_tarball;
+use shared::npm::generate_npm_version_manifest;
 
 use shared::FallbackRegistryUrl;
 use shared::NpmUrl;
@@ -559,131 +559,31 @@ async fn upload_npm_version_manifest(
 }
 
 #[cfg(test)]
-pub mod tests {
+mod tests {
   use super::*;
   use crate::tarball::ConfigFile;
-  use crate::tarball::bucket_tarball_path;
-  use crate::util::test::FakeFallbackRegistry;
-  use crate::util::test::TaskResultExt;
-  use crate::util::test::TestSetup;
-  use crate::util::test::unreachable_fallback_url;
+  use crate::test::process_tarball_setup;
+  use crate::test::process_tarball_setup2;
+  use crate::test::try_process_tarball_setup2;
   use bytes::Bytes;
   use deno_graph::analysis::ModuleInfo;
   use flate2::Compression;
   use flate2::write::GzEncoder;
-  use hyper::StatusCode;
   use serde_json::json;
-  use shared::MAX_PUBLISH_TARBALL_SIZE;
-  use shared::api::ApiPublishingTask;
-  use shared::db::CreatePackageResult;
   use shared::db::CreatePublishingTaskResult;
   use shared::ids::ScopeName;
   use shared::ids::Version;
   use shared::ids::{PackageName, PackagePath};
   use shared::metadata::VersionMetadata;
   use shared::models::NewPublishingTask;
+  use shared::test::FakeFallbackRegistry;
+  use shared::test::TestSetup;
+  use shared::test::create_case_insensitive_mock_tarball;
+  use shared::test::create_invalid_path_mock_tarball;
+  use shared::test::create_mock_tarball;
+  use shared::test::unreachable_fallback_url;
   use std::collections::HashMap;
   use std::io::Write;
-
-  pub async fn process_tarball_setup(
-    t: &TestSetup,
-    tarball_data: Bytes,
-  ) -> PublishingTask {
-    let package_name = PackageName::try_from("foo").unwrap();
-    let version = Version::try_from("1.2.3").unwrap();
-    process_tarball_setup2(t, tarball_data, &package_name, &version, false)
-      .await
-  }
-
-  pub async fn process_tarball_setup2(
-    t: &TestSetup,
-    tarball_data: Bytes,
-    package_name: &PackageName,
-    version: &Version,
-    jsonc: bool,
-  ) -> PublishingTask {
-    try_process_tarball_setup2(t, tarball_data, package_name, version, jsonc)
-      .await
-      .unwrap()
-  }
-
-  /// Like [`process_tarball_setup2`], but surfaces a retryable publish failure
-  /// instead of panicking on it.
-  pub async fn try_process_tarball_setup2(
-    t: &TestSetup,
-    tarball_data: Bytes,
-    package_name: &PackageName,
-    version: &Version,
-    jsonc: bool,
-  ) -> Result<PublishingTask, TaskError> {
-    let scope_name = "scope".try_into().unwrap();
-
-    let res = t
-      .db()
-      .create_package(&scope_name, package_name)
-      .await
-      .unwrap();
-    assert!(
-      matches!(res, CreatePackageResult::Ok(_))
-        || matches!(res, CreatePackageResult::AlreadyExists)
-    );
-
-    let CreatePublishingTaskResult::Created(task) = t
-      .db()
-      .create_publishing_task(NewPublishingTask {
-        user_id: Some(t.user1.user.id),
-        package_scope: &scope_name,
-        package_name,
-        package_version: version,
-        config_file: &PackagePath::try_from(format!(
-          "/jsr.json{}",
-          if jsonc { "c" } else { "" }
-        ))
-        .unwrap(),
-      })
-      .await
-      .unwrap()
-    else {
-      unreachable!()
-    };
-
-    let tarball_path = bucket_tarball_path(task.0.id);
-    t.buckets
-      .publishing_bucket
-      .upload(
-        tarball_path.into(),
-        shared::s3::UploadTaskBody::Bytes(tarball_data),
-        S3UploadOptions {
-          content_type: Some("application/x-tar".into()),
-          cache_control: None,
-          gzip_encoded: true,
-        },
-      )
-      .await
-      .unwrap();
-
-    publish_task(
-      task.0.id,
-      0,
-      t.buckets(),
-      t.license_store(),
-      t.registry_url(),
-      t.npm_url(),
-      t.fallback_registry_url.clone(),
-      t.db(),
-      None,
-      CachePurge(None),
-    )
-    .await?;
-    Ok(
-      t.db()
-        .get_publishing_task(task.0.id)
-        .await
-        .unwrap()
-        .unwrap()
-        .0,
-    )
-  }
 
   // Regression test for jsr-io/jsr#1505: a package with many undocumented
   // entrypoints publishes successfully, and the stored meta records only a
@@ -769,7 +669,7 @@ pub mod tests {
       .create_package(&scope_name, &package_name)
       .await
       .unwrap();
-    assert!(matches!(res, crate::db::CreatePackageResult::Ok(_)));
+    assert!(matches!(res, shared::db::CreatePackageResult::Ok(_)));
 
     let CreatePublishingTaskResult::Created(task) = t
       .db()
@@ -826,133 +726,6 @@ pub mod tests {
     assert_eq!(task_after.error.unwrap().code, "internalError");
   }
 
-  pub fn create_mock_tarball(name: &str) -> Bytes {
-    let mut tar_bytes = Vec::new();
-    let mut tar = tar::Builder::new(&mut tar_bytes);
-    tar
-      .append_dir_all("./", format!("./testdata/tarballs/{name}/"))
-      .unwrap();
-    tar.finish().unwrap();
-    drop(tar);
-
-    let mut gz_bytes = Vec::new();
-    let mut encoder = GzEncoder::new(&mut gz_bytes, Compression::default());
-    encoder.write_all(&tar_bytes).unwrap();
-    encoder.finish().unwrap();
-
-    Bytes::from(gz_bytes)
-  }
-
-  pub fn create_case_insensitive_mock_tarball() -> Bytes {
-    let mut tar_bytes = Vec::new();
-    let mut tar = tar::Builder::new(&mut tar_bytes);
-    tar
-      .append_dir_all("./", "./testdata/tarballs/case_insensitive/")
-      .unwrap();
-    let mut file =
-      std::fs::File::open("./testdata/tarballs/case_insensitive/README.md")
-        .unwrap();
-    tar.append_file("./readme.md", &mut file).unwrap();
-    tar.finish().unwrap();
-    drop(tar);
-
-    let mut gz_bytes = Vec::new();
-    let mut encoder = GzEncoder::new(&mut gz_bytes, Compression::default());
-    encoder.write_all(&tar_bytes).unwrap();
-    encoder.finish().unwrap();
-
-    Bytes::from(gz_bytes)
-  }
-
-  pub fn create_invalid_path_mock_tarball() -> Bytes {
-    let mut tar_bytes = Vec::new();
-    let mut tar = tar::Builder::new(&mut tar_bytes);
-    tar.append_dir_all("./", "./testdata/tarballs/ok/").unwrap();
-    let mut file =
-      std::fs::File::open("./testdata/tarballs/ok/mod.ts").unwrap();
-    tar.append_file("./CON.ts", &mut file).unwrap();
-    tar.finish().unwrap();
-    drop(tar);
-
-    let mut gz_bytes = Vec::new();
-    let mut encoder = GzEncoder::new(&mut gz_bytes, Compression::default());
-    encoder.write_all(&tar_bytes).unwrap();
-    encoder.finish().unwrap();
-
-    gz_bytes.into()
-  }
-
-  #[tokio::test]
-  async fn payload_too_large() {
-    let body = Body::from(vec![0; MAX_PUBLISH_TARBALL_SIZE as usize + 10]);
-
-    let mut t = TestSetup::new().await;
-    let mut resp = t
-      .http()
-      .post("/api/scopes/scope/packages/foo/versions/1.2.3?config=/jsr.json")
-      .gzip()
-      .body(body)
-      .call()
-      .await
-      .unwrap();
-    resp
-      .expect_err_code(
-        StatusCode::PAYLOAD_TOO_LARGE,
-        "tarballSizeLimitExceeded",
-      )
-      .await;
-  }
-
-  #[tokio::test]
-  async fn payload_too_large_stream() {
-    // Convert the Vec<u8> into a hyper Body with chunked transfer encoding
-    let body = Body::wrap_stream(tokio_stream::once(Ok::<_, std::io::Error>(
-      vec![0; MAX_PUBLISH_TARBALL_SIZE as usize + 10],
-    )));
-
-    let mut t = TestSetup::new().await;
-    let name = PackageName::new("foo".to_owned()).unwrap();
-    t.db().create_package(&t.scope.scope, &name).await.unwrap();
-    let mut resp = t
-      .http()
-      .post("/api/scopes/scope/packages/foo/versions/1.2.3?config=/jsr.json")
-      .gzip()
-      .body(body)
-      .call()
-      .await
-      .unwrap();
-    resp
-      .expect_err_code(
-        StatusCode::PAYLOAD_TOO_LARGE,
-        "tarballSizeLimitExceeded",
-      )
-      .await;
-  }
-
-  #[tokio::test]
-  async fn stream_success() {
-    let mut t = TestSetup::new().await;
-    let name = PackageName::new("foo".to_owned()).unwrap();
-    t.db().create_package(&t.scope.scope, &name).await.unwrap();
-
-    let data = create_mock_tarball("ok");
-
-    // Convert the Vec<u8> into a hyper Body with chunked transfer encoding
-    let body_stream = tokio_stream::once(Ok::<_, std::io::Error>(data));
-    let body = Body::wrap_stream(body_stream);
-
-    let mut resp = t
-      .http()
-      .post("/api/scopes/scope/packages/foo/versions/1.2.3?config=/jsr.json")
-      .gzip()
-      .body(body)
-      .call()
-      .await
-      .unwrap();
-    let _task = resp.expect_ok::<ApiPublishingTask>().await;
-    // todo: await task completion
-  }
-
   #[tokio::test]
   async fn content_type() {
     let t = TestSetup::new().await;
@@ -962,7 +735,7 @@ pub mod tests {
       .buckets
       .modules_bucket
       .bucket
-      .bucket
+      .raw()
       .get_object("@scope/foo/1.2.3/jsr.json")
       .await
       .unwrap();
@@ -972,7 +745,7 @@ pub mod tests {
       .buckets
       .modules_bucket
       .bucket
-      .bucket
+      .raw()
       .get_object("@scope/foo/1.2.3/mod.ts")
       .await
       .unwrap();
@@ -982,7 +755,7 @@ pub mod tests {
       .buckets
       .modules_bucket
       .bucket
-      .bucket
+      .raw()
       .get_object("@scope/foo/1.2.3/logo.svg")
       .await
       .unwrap();
@@ -1027,64 +800,6 @@ pub mod tests {
     assert_eq!(dependencies[0].dependency_name, "chalk");
     assert_eq!(dependencies[1].dependency_kind, DependencyKind::Npm);
     assert_eq!(dependencies[1].dependency_name, "express");
-  }
-
-  #[tokio::test]
-  async fn not_allowed() {
-    let mut t = TestSetup::new().await;
-
-    let data = create_mock_tarball("ok");
-
-    // Convert the Vec<u8> into a hyper Body with chunked transfer encoding
-    let body_stream = tokio_stream::once(Ok::<_, std::io::Error>(data));
-    let body = Body::wrap_stream(body_stream);
-
-    let token = t.user2.token.clone();
-
-    let mut resp = t
-      .http()
-      .post("/api/scopes/scope/packages/foo/versions/1.2.3?config=/jsr.json")
-      .gzip()
-      .token(Some(&token))
-      .body(body)
-      .call()
-      .await
-      .unwrap();
-    resp
-      .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeMember")
-      .await;
-  }
-
-  #[tokio::test]
-  async fn only_from_ci() {
-    let mut t = TestSetup::new().await;
-
-    let data = create_mock_tarball("ok");
-
-    t.db()
-      .scope_set_require_publishing_from_ci(
-        &t.user1.user.id,
-        false,
-        &t.scope.scope,
-        true,
-      )
-      .await
-      .unwrap();
-
-    let token = t.user2.token.clone();
-
-    let mut resp: hyper::Response<Body> = t
-      .http()
-      .post("/api/scopes/scope/packages/foo/versions/1.2.3?config=/jsr.json")
-      .gzip()
-      .token(Some(&token))
-      .body(Body::from(data))
-      .call()
-      .await
-      .unwrap();
-    resp
-      .expect_err_code(StatusCode::FORBIDDEN, "scopeRequiresPublishingFromCi")
-      .await;
   }
 
   #[tokio::test]
@@ -1165,7 +880,7 @@ pub mod tests {
     assert_eq!(files[1].path, "/mod.ts".try_into().unwrap());
     assert_eq!(
       files[1].size,
-      include_bytes!("../testdata/tarballs/ok/mod.ts").len() as i32
+      include_bytes!("../../shared/testdata/tarballs/ok/mod.ts").len() as i32
     );
 
     let package_metadata: PackageMetadata = {
@@ -1468,7 +1183,10 @@ pub mod tests {
     );
   }
 
-  async fn uses_npm(t: &TestSetup, task: &crate::db::PublishingTask) -> bool {
+  async fn uses_npm(
+    t: &TestSetup,
+    task: &shared::models::PublishingTask,
+  ) -> bool {
     t.db()
       .get_package_version(
         &task.package_scope,
@@ -1911,7 +1629,7 @@ pub mod tests {
       .buckets
       .npm_bucket
       .bucket
-      .bucket
+      .raw()
       .get_object("@jsr/scope__foo")
       .await
       .unwrap();
@@ -1967,7 +1685,7 @@ pub mod tests {
       .buckets
       .npm_bucket
       .bucket
-      .bucket
+      .raw()
       .get_object(res_url.as_str())
       .await
       .unwrap();

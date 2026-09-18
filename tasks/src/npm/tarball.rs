@@ -28,7 +28,6 @@ use url::Url;
 use shared::ids::PackageName;
 use shared::ids::PackagePath;
 use shared::ids::ScopeName;
-use shared::ids::ScopedPackageName;
 use shared::ids::Version;
 use shared::models::DependencyKind;
 use shared::models::ExportsMap;
@@ -36,6 +35,7 @@ use shared::npm::NPM_TARBALL_REVISION;
 use shared::npm::NpmExportConditions;
 use shared::npm::NpmMappedJsrPackageName;
 use shared::npm::NpmPackageJson;
+use shared::npm::create_npm_dependencies;
 use shared::s3::BucketWithQueue;
 
 use super::emit::transpile_to_dts;
@@ -541,32 +541,6 @@ fn rewrite_specifiers(
   apply_text_changes(source_text_info.text_str(), text_changes)
 }
 
-pub fn create_npm_dependencies<'a>(
-  dependencies: impl Iterator<Item = Cow<'a, (DependencyKind, PackageReqReference)>>,
-) -> Result<IndexMap<String, String>, anyhow::Error> {
-  let mut npm_dependencies = IndexMap::new();
-  for dep in dependencies {
-    let (kind, req) = &*dep;
-    match kind {
-      DependencyKind::Jsr => {
-        let jsr_name = ScopedPackageName::new(req.req.name.to_string())?;
-        let npm_name = NpmMappedJsrPackageName {
-          scope: &jsr_name.scope,
-          package: &jsr_name.package,
-        };
-        npm_dependencies
-          .insert(npm_name.to_string(), req.req.version_req.to_string());
-      }
-      DependencyKind::Npm => {
-        npm_dependencies
-          .insert(req.req.name.to_string(), req.req.version_req.to_string());
-      }
-    }
-  }
-  npm_dependencies.sort_keys();
-  Ok(npm_dependencies)
-}
-
 pub fn create_npm_exports(
   exports: &ExportsMap,
   package_files: &IndexMap<String, Vec<u8>>,
@@ -638,12 +612,12 @@ mod tests {
   use futures::StreamExt;
   use url::Url;
 
-  use crate::analysis::JsrResolver;
   use crate::analysis::ModuleAnalyzer;
-  use crate::analysis::PassthroughJsrUrlProvider;
   use crate::npm::tests::helpers;
   use crate::npm::tests::helpers::Spec;
   use crate::tarball::exports_map_from_json;
+  use shared::graph::JsrResolver;
+  use shared::graph::PassthroughJsrUrlProvider;
   use shared::ids::PackagePath;
   use shared::models::DependencyKind;
   use shared::npm::NPM_TARBALL_REVISION;
@@ -821,8 +795,10 @@ mod tests {
 
   #[tokio::test]
   async fn test_npm_tarballs() {
-    let specs =
-      helpers::get_specs_in_dir(Path::new("testdata/specs/npm_tarballs"));
+    let specs = helpers::get_specs_in_dir(Path::new(concat!(
+      env!("CARGO_MANIFEST_DIR"),
+      "/testdata/specs/npm_tarballs"
+    )));
     for (path, spec) in specs {
       test_npm_tarball(&path, spec)
         .await

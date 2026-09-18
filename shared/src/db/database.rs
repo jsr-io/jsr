@@ -225,7 +225,7 @@ impl Database {
     Ok((total_users as usize, users))
   }
 
-  #[cfg(test)]
+  #[cfg(any(test, feature = "testing"))]
   #[instrument(
     name = "Database::insert_user",
     skip(self, new_user),
@@ -449,7 +449,7 @@ impl Database {
     Ok(user)
   }
 
-  #[cfg(test)]
+  #[cfg(any(test, feature = "testing"))]
   #[instrument(name = "Database::delete_user", skip(self), err)]
   pub async fn delete_user(&self, id: Uuid) -> Result<Option<User>> {
     query_concat_as!(
@@ -1237,7 +1237,7 @@ gitlab_id: r.user_gitlab_id,
     Ok((total_scopes as usize, scopes))
   }
 
-  #[cfg(test)]
+  #[cfg(any(test, feature = "testing"))]
   #[instrument(name = "Database::list_scopes_created_by_user", skip(self), err)]
   pub async fn list_scopes_created_by_user(
     &self,
@@ -2131,7 +2131,7 @@ gitlab_id: r.user_gitlab_id,
     Ok(task)
   }
 
-  #[cfg(test)]
+  #[cfg(any(test, feature = "testing"))]
   #[instrument(name = "Database::create_package_version_for_test", skip(
     self,
     new_package_version
@@ -2294,7 +2294,7 @@ gitlab_id: r.user_gitlab_id,
     .await
   }
 
-  #[cfg(test)]
+  #[cfg(any(test, feature = "testing"))]
   #[instrument(name = "Database::create_package_file_for_test", skip(
     self,
     new_package_file
@@ -2464,7 +2464,7 @@ gitlab_id: r.user_gitlab_id,
     Ok(scope_invite)
   }
 
-  #[cfg(test)]
+  #[cfg(any(test, feature = "testing"))]
   #[instrument(name = "Database::add_user_to_scope", skip(
     self,
     new_scope_member
@@ -3120,7 +3120,7 @@ gitlab_id: r.user_gitlab_id,
     Ok(CreatePublishingTaskResult::Created(task))
   }
 
-  #[cfg(test)]
+  #[cfg(any(test, feature = "testing"))]
   pub async fn backdate_publishing_task_updated_at(
     &self,
     id: Uuid,
@@ -3940,7 +3940,7 @@ gitlab_id: r.user_gitlab_id,
     Ok(res.is_some())
   }
 
-  #[cfg(test)]
+  #[cfg(any(test, feature = "testing"))]
   #[instrument(name = "Database::add_bad_word_for_test", skip(self), err)]
   pub async fn add_bad_word_for_test(&self, word: &str) -> Result<()> {
     sqlx::query!("INSERT INTO bad_words (word) VALUES ($1)", word)
@@ -3950,7 +3950,7 @@ gitlab_id: r.user_gitlab_id,
     Ok(())
   }
 
-  #[cfg(test)]
+  #[cfg(any(test, feature = "testing"))]
   #[instrument(
     name = "Database::set_package_version_created_at_for_test",
     skip(self),
@@ -5501,6 +5501,12 @@ pub enum CreatePublishingTaskResult {
 #[derive(Clone)]
 pub struct DependentCountCache {
   cache: moka::future::Cache<String, usize>,
+}
+
+impl Default for DependentCountCache {
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl DependentCountCache {

@@ -121,7 +121,13 @@ impl Bucket {
     Ok(())
   }
 
-  #[cfg(test)]
+  /// The underlying S3 client, for tests that inspect stored objects.
+  #[cfg(any(test, feature = "testing"))]
+  pub fn raw(&self) -> &s3::Bucket {
+    &self.bucket
+  }
+
+  #[cfg(any(test, feature = "testing"))]
   pub async fn create(
     name: String,
     region: s3::Region,
@@ -533,24 +539,24 @@ impl RestartableTask for ListDirectoryTask {
 ///
 /// A single shared minio server is started on first use and reused across all
 /// tests.
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 pub struct FakeS3Tester {
   pub port: u16,
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 static SHARED_S3_PORT: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
 
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 /// Global list of child processes to kill on exit.
 static TEST_CHILD_PROCS: std::sync::Mutex<Vec<std::process::Child>> =
   std::sync::Mutex::new(Vec::new());
 
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 /// Register an atexit handler (once) that kills all tracked child processes.
 static ATEXIT_REGISTERED: std::sync::Once = std::sync::Once::new();
 
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 pub(crate) fn track_child_proc(proc: std::process::Child) {
   ATEXIT_REGISTERED.call_once(|| {
     extern "C" fn kill_children() {
@@ -571,7 +577,7 @@ pub(crate) fn track_child_proc(proc: std::process::Child) {
   TEST_CHILD_PROCS.lock().unwrap().push(proc);
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 fn start_shared_fake_s3() -> u16 {
   use std::io::BufRead;
   use std::io::BufReader;
@@ -645,7 +651,14 @@ fn start_shared_fake_s3() -> u16 {
   panic!("failed to start shared fake s3 server after 5 attempts");
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
+impl Default for FakeS3Tester {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
+#[cfg(any(test, feature = "testing"))]
 impl FakeS3Tester {
   pub fn new() -> Self {
     let port = *SHARED_S3_PORT.get_or_init(start_shared_fake_s3);

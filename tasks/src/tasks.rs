@@ -27,7 +27,7 @@ use tracing::instrument;
 use crate::analysis::RebuildNpmTarballData;
 use crate::analysis::rebuild_npm_tarball;
 use crate::errors::*;
-use crate::npm::generate_npm_version_manifest;
+use shared::npm::generate_npm_version_manifest;
 
 use shared::NpmUrl;
 use shared::PublishQueue;
@@ -66,6 +66,81 @@ pub struct AnalyticsEngineConfig(
     /* dataset name */ String,
   )>,
 );
+
+/// The routes for the background task handlers.
+///
+/// Generic over the router's error type so the api binary can mount these
+/// under its own `ApiError` router (behind `--tasks`) until the tasks service
+/// is deployed as its own binary.
+pub fn tasks_router<E>() -> routerify::Router<Body, E>
+where
+  E: From<TaskError>
+    + Into<Box<dyn std::error::Error + Send + Sync>>
+    + Send
+    + Sync
+    + 'static,
+{
+  routerify::Router::builder()
+    .post("/publish", json(crate::publish::publish_handler))
+    .post("/npm_tarball_build", json(npm_tarball_build_handler))
+    .post("/npm_tarball_enqueue", json(npm_tarball_enqueue_handler))
+    .post(
+      "/scrape_download_counts",
+      json(scrape_download_counts_handler),
+    )
+    .post("/clean_oauth_states", json(clean_oauth_states_handler))
+    .post("/send_email", raw(send_email_handler))
+    .post("/sweep_pending_emails", json(sweep_pending_emails_handler))
+    .post(
+      "/clean_download_counts_4h",
+      json(clean_download_counts_4h_handler),
+    )
+    .post(
+      "/requeue_stuck_publishing_tasks",
+      json(requeue_stuck_publishing_tasks_handler),
+    )
+    .build()
+    .unwrap()
+}
+
+/// Like [`util::json`], but converts the handler's [`TaskError`] into the
+/// router's error type.
+fn json<E, D, H, HF>(
+  handler: H,
+) -> impl Fn(Request<Body>) -> util::HandlerFuture<Response<Body>, E>
+where
+  E: From<TaskError> + 'static,
+  D: Serialize,
+  H: Fn(Request<Body>) -> HF,
+  HF: Future<Output = TaskResult<D>> + Send + 'static,
+{
+  use futures::FutureExt;
+  move |req: Request<Body>| {
+    let fut = handler(req);
+    async move {
+      let data = fut.await?;
+      Ok(util::respond_json(&data, StatusCode::OK))
+    }
+    .boxed()
+  }
+}
+
+/// Passes a handler's response through, converting its [`TaskError`] into the
+/// router's error type.
+fn raw<E, H, HF>(
+  handler: H,
+) -> impl Fn(Request<Body>) -> util::HandlerFuture<Response<Body>, E>
+where
+  E: From<TaskError> + 'static,
+  H: Fn(Request<Body>) -> HF,
+  HF: Future<Output = TaskResult<Response<Body>>> + Send + 'static,
+{
+  use futures::FutureExt;
+  move |req: Request<Body>| {
+    let fut = handler(req);
+    async move { Ok(fut.await?) }.boxed()
+  }
+}
 
 /// Re-drive publishing tasks that got stranded in a non-terminal state.
 ///

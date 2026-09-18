@@ -23,9 +23,7 @@ use deno_graph::WorkspaceFastCheckOption;
 use deno_graph::WorkspaceMember;
 use deno_graph::analysis::ModuleInfo;
 use deno_graph::ast::CapturingModuleAnalyzer;
-use deno_graph::ast::DefaultEsParser;
 use deno_graph::ast::ParsedSourceStore;
-use deno_graph::source::JsrUrlProvider;
 use deno_graph::source::LoadError;
 use deno_graph::source::LoadOptions;
 use deno_graph::source::NullFileSystem;
@@ -33,7 +31,6 @@ use deno_graph::source::load_data_url;
 use deno_semver::StackString;
 use deno_semver::jsr::JsrPackageReqReference;
 use deno_semver::npm::NpmPackageReqReference;
-use deno_semver::package::PackageNv;
 use deno_semver::package::PackageReqReference;
 use futures::FutureExt;
 use once_cell::sync::Lazy;
@@ -49,6 +46,9 @@ use crate::npm::NpmTarballOptions;
 use crate::npm::create_npm_tarball;
 use crate::tarball::PublishError;
 
+use shared::graph::JsrResolver;
+use shared::graph::ModuleParser;
+use shared::graph::PassthroughJsrUrlProvider;
 use shared::ids::PackageName;
 use shared::ids::PackagePath;
 use shared::ids::ScopeName;
@@ -276,7 +276,9 @@ async fn analyze_package_inner(
     None,
     Default::default(),
     Default::default(),
-    Default::default(),
+    // only the search index is taken from this ctx, so a plain markdown
+    // renderer without highlighting or sanitizing is enough
+    deno_doc::html::comrak::create_renderer(None, None, None),
   );
   meta.symbol_count = Some(count_symbols(&ctx));
   let search_index = deno_doc::html::generate_search_index(&ctx);
@@ -505,66 +507,6 @@ fn percentage_of_symbols_with_docs(documents_by_url: &ParseOutput) -> f32 {
   }
 
   (documented_symbols as f32) / (total_symbols as f32)
-}
-
-pub struct PassthroughJsrUrlProvider;
-
-impl JsrUrlProvider for PassthroughJsrUrlProvider {
-  fn url(&self) -> &Url {
-    unreachable!(
-      "BuildOptions::passthrough_jsr_specifiers should be set to true"
-    )
-  }
-
-  fn package_url(&self, _nv: &PackageNv) -> Url {
-    unreachable!(
-      "BuildOptions::passthrough_jsr_specifiers should be set to true"
-    )
-  }
-
-  fn package_url_to_nv(&self, _url: &Url) -> Option<PackageNv> {
-    None
-  }
-}
-
-#[derive(Debug)]
-pub struct JsrResolver {
-  pub member: WorkspaceMember,
-}
-
-impl deno_graph::source::Resolver for JsrResolver {
-  fn resolve(
-    &self,
-    specifier_text: &str,
-    referrer_range: &deno_graph::Range,
-    _kind: deno_graph::source::ResolutionKind,
-  ) -> Result<ModuleSpecifier, deno_graph::source::ResolveError> {
-    if let Ok(package_ref) = JsrPackageReqReference::from_str(specifier_text)
-      && self.member.name == package_ref.req().name
-      && self
-        .member
-        .version
-        .as_ref()
-        .map(|v| package_ref.req().version_req.matches(v))
-        .unwrap_or(true)
-    {
-      let export_name = package_ref.sub_path().unwrap_or(".");
-      let Some(export) = self.member.exports.get(export_name) else {
-        return Err(deno_graph::source::ResolveError::Other(
-          JsErrorBox::generic(format!(
-            "export '{}' not found in jsr:{}",
-            export_name, self.member.name
-          )),
-        ));
-      };
-      return Ok(self.member.base.join(export).unwrap());
-    }
-
-    Ok(deno_graph::resolve_import(
-      specifier_text,
-      &referrer_range.specifier,
-    )?)
-  }
 }
 
 struct SyncLoader<'a> {
@@ -810,22 +752,6 @@ impl deno_graph::source::Loader for S3Loader<'_> {
     _options: LoadOptions,
   ) -> deno_graph::source::LoadFuture {
     self.load_inner(specifier)
-  }
-}
-
-#[derive(Default)]
-pub struct ModuleParser(DefaultEsParser);
-
-impl deno_graph::ast::EsParser for ModuleParser {
-  fn parse_program(
-    &self,
-    options: deno_graph::ast::ParseOptions,
-  ) -> Result<ParsedSource, deno_ast::ParseDiagnostic> {
-    let source = self.0.parse_program(options)?;
-    if let Some(err) = source.diagnostics().first() {
-      return Err(err.clone());
-    }
-    Ok(source)
   }
 }
 

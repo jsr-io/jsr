@@ -97,7 +97,7 @@ resource "google_cloud_run_v2_service" "registry_api" {
     containers {
       image = var.api_image_id
       args = [
-        "--database_pool_size=4"
+        "--api", "--tasks=false", "--database_pool_size=4"
       ]
 
       resources {
@@ -277,7 +277,7 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
     containers {
       image = var.api_image_id
       args = [
-        "--tasks", "--database_pool_size=1"
+        "--tasks", "--api=false", "--database_pool_size=1"
       ]
 
       # Analyzing a package with ~20k modules peaks near 512Mi (the default

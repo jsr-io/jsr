@@ -4,16 +4,12 @@ use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
-use hyper::body;
 use hyper::header;
 use hyper::header::COOKIE;
 use oauth2::http::HeaderName;
 use routerify::prelude::RequestExt;
 use routerify_query::RequestQueryExt;
-use serde::Serialize;
-use serde::de::DeserializeOwned;
 use std::future::Future;
-use std::pin::Pin;
 use std::sync::Arc;
 use tracing::Span;
 use tracing::error;
@@ -645,7 +641,7 @@ pub fn param<'a>(
 ) -> Result<&'a String, ApiError> {
   req.param(name).ok_or_else(|| {
     let msg = format!("missing path parameter '{name}'").into();
-    SharedError::MalformedRequest { msg }.into()
+    ApiError::MalformedRequest { msg }
   })
 }
 
@@ -671,7 +667,7 @@ impl RequestIdExt for Request<Body> {
       let msg =
         format!("failed to parse path parameter '{name}' as uuid: {err}")
           .into();
-      SharedError::MalformedRequest { msg }.into()
+      ApiError::MalformedRequest { msg }
     })
   }
 
@@ -679,7 +675,7 @@ impl RequestIdExt for Request<Body> {
     let value = param(self, "scope")?;
     ScopeName::try_from(value.as_str()).map_err(|err| {
       let msg = format!("failed to parse path parameter 'scope': {err}").into();
-      SharedError::MalformedRequest { msg }.into()
+      ApiError::MalformedRequest { msg }
     })
   }
 
@@ -688,7 +684,7 @@ impl RequestIdExt for Request<Body> {
     PackageName::try_from(value.as_str()).map_err(|err| {
       let msg =
         format!("failed to parse path parameter 'package': {err}").into();
-      SharedError::MalformedRequest { msg }.into()
+      ApiError::MalformedRequest { msg }
     })
   }
 
@@ -697,7 +693,7 @@ impl RequestIdExt for Request<Body> {
     Version::try_from(value.as_str()).map_err(|err| {
       let msg =
         format!("failed to parse path parameter 'version': {err}").into();
-      SharedError::MalformedRequest { msg }.into()
+      ApiError::MalformedRequest { msg }
     })
   }
 
@@ -709,7 +705,7 @@ impl RequestIdExt for Request<Body> {
       let version = Version::try_from(value.as_str()).map_err(|err| {
         let msg =
           format!("failed to parse path parameter 'version': {err}").into();
-        SharedError::MalformedRequest { msg }.into()
+        ApiError::MalformedRequest { msg }
       })?;
       Ok(VersionOrLatest::Version(version))
     }
@@ -720,25 +716,20 @@ impl RequestIdExt for Request<Body> {
 pub mod test {
   use crate::ApiError;
   use crate::MainRouterOptions;
+  use bytes::Bytes;
+  use shared::db::CreatePackageResult;
+  use shared::db::CreatePublishingTaskResult;
   use shared::db::Database;
-  use shared::db::EphemeralDatabase;
   use shared::errors_internal::ErrorStruct;
-  use shared::ids::ScopeDescription;
-  use shared::models::NewGithubIdentity;
-  use shared::models::NewGitlabIdentity;
-  use shared::models::NewUser;
+  use shared::ids::PackageName;
+  use shared::ids::PackagePath;
+  use shared::ids::Version;
+  use shared::models::NewPublishingTask;
+  use shared::models::PublishingTask;
   use shared::models::User;
-  use shared::s3::BucketWithQueue;
-  use shared::s3::Buckets;
-  use shared::s3::FakeS3Tester;
-  use shared::util::LicenseStore;
-
-  static SERVERS_STARTED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
-  static LICENSE_STORE: std::sync::OnceLock<LicenseStore> =
-    std::sync::OnceLock::new();
-
-  static TEST_INSTANCE_COUNTER: std::sync::atomic::AtomicU64 =
-    std::sync::atomic::AtomicU64::new(0);
+  use shared::s3::S3UploadOptions;
+  use shared::s3::UploadTaskBody;
+  use shared::s3_paths::bucket_tarball_path;
 
   /// The password the inbound email webhook accepts under test.
   pub const TEST_POSTMARK_WEBHOOK_PASSWORD: &str = "test-webhook-password";
@@ -747,12 +738,6 @@ pub mod test {
   /// under test.
   pub const TEST_TRUSTED_AUTHSERV_ID: &str = "mx.test.example";
 
-  /// Ensure fake s3 server is running. The first call starts S3; subsequent calls return immediately.
-  fn ensure_servers_started() {
-    SERVERS_STARTED.get_or_init(|| {
-      FakeS3Tester::new();
-    });
-  }
   use crate::util::sanitize_redirect_url;
   use hyper::Body;
   use hyper::HeaderMap;
@@ -776,127 +761,32 @@ pub mod test {
     pub github_name: String,
   }
 
-  /// An in-process stand-in for a fallback JSR registry, serving the handful of
-  /// artifacts the fallback path asks for: package metadata, version metadata,
-  /// and module files.
-  ///
-  /// The fallback tests used to point at the real jsr.io, which made them
-  /// depend on network access and on whatever `@std/assert` happens to publish.
-  /// This serves a fixed `@std/assert@1.0.0` instead, so the tests assert the
-  /// fallback *mechanism* and nothing else.
-  pub struct FakeFallbackRegistry {
-    url: Url,
-    shutdown: Option<tokio::sync::oneshot::Sender<()>>,
-  }
+  pub use shared::test::FakeFallbackRegistry;
 
-  impl FakeFallbackRegistry {
-    pub async fn start() -> Self {
-      let listener =
-        std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
-      let addr = listener.local_addr().unwrap();
-
-      let (tx, rx) = tokio::sync::oneshot::channel();
-      let server = hyper::Server::from_tcp(listener)
-        .unwrap()
-        .serve(hyper::service::make_service_fn(|_| async {
-          Ok::<_, hyper::Error>(hyper::service::service_fn(
-            |req: hyper::Request<Body>| async move {
-              Ok::<_, hyper::Error>(Self::respond(req.uri().path()))
-            },
-          ))
-        }))
-        .with_graceful_shutdown(async {
-          let _ = rx.await;
-        });
-      tokio::spawn(server);
-
-      Self {
-        url: Url::parse(&format!("http://{addr}/")).unwrap(),
-        shutdown: Some(tx),
-      }
-    }
-
-    pub fn url(&self) -> Url {
-      self.url.clone()
-    }
-
-    fn respond(path: &str) -> Response<Body> {
-      let (content_type, body) = match path {
-        "/@std/assert/meta.json" => (
-          "application/json",
-          r#"{
-            "scope": "std",
-            "name": "assert",
-            "latest": "1.0.0",
-            "versions": { "1.0.0": { "createdAt": "2024-01-01T00:00:00Z" } }
-          }"#
-            .to_owned(),
-        ),
-        "/@std/assert/1.0.0_meta.json" => (
-          "application/json",
-          r#"{
-            "manifest": {},
-            "moduleGraph2": {},
-            "exports": { ".": "./mod.ts" }
-          }"#
-            .to_owned(),
-        ),
-        "/@std/assert/1.0.0/mod.ts" => (
-          "text/typescript",
-          "export function assert(cond: unknown): asserts cond {\n  if (!cond) throw new Error(\"assertion failed\");\n}\n"
-            .to_owned(),
-        ),
-        _ => {
-          return Response::builder()
-            .status(StatusCode::NOT_FOUND)
-            .body(Body::from("not found"))
-            .unwrap();
-        }
-      };
-
-      Response::builder()
-        .status(StatusCode::OK)
-        .header(hyper::header::CONTENT_TYPE, content_type)
-        .body(Body::from(body))
-        .unwrap()
-    }
-  }
-
-  impl Drop for FakeFallbackRegistry {
-    fn drop(&mut self) {
-      if let Some(tx) = self.shutdown.take() {
-        let _ = tx.send(());
-      }
-    }
-  }
-
-  /// A loopback URL with nothing listening on it, so connections are refused
-  /// immediately. For exercising the "fallback registry is down" path without
-  /// waiting on a DNS or connect timeout.
-  pub fn unreachable_fallback_url() -> Url {
-    let listener =
-      std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
-    let addr = listener.local_addr().unwrap();
-    drop(listener);
-    Url::parse(&format!("http://{addr}/")).unwrap()
-  }
-
+  /// The shared harness (database, buckets, users, scope) plus the api router,
+  /// its task dispatch and a web token for each user. Derefs to the inner harness, so
+  /// `t.db()`, `t.scope` and friends work as before, and `&t` can be handed to
+  /// the publish test helpers.
   pub struct TestSetup {
-    pub ephemeral_database: EphemeralDatabase,
-    pub buckets: Buckets,
-    pub license_store: LicenseStore,
+    inner: shared::test::TestSetup,
     pub user1: TestUser,
     pub user2: TestUser,
     pub user3: TestUser,
     pub staff_user: TestUser,
     #[allow(dead_code)]
-    pub scope: shared::models::Scope,
-    #[allow(dead_code)]
     pub github_oauth2_client: crate::auth::github::Oauth2Client,
     #[allow(dead_code)]
     pub gitlab_oauth2_client: crate::auth::gitlab::Oauth2Client,
     pub service: RequestService<Body, ApiError>,
-    pub fallback_registry_url: Option<Url>,
+    pub task_dispatch: crate::task_dispatch::TaskDispatch,
+  }
+
+  impl std::ops::Deref for TestSetup {
+    type Target = shared::test::TestSetup;
+
+    fn deref(&self) -> &Self::Target {
+      &self.inner
+    }
   }
 
   impl TestSetup {
@@ -911,40 +801,13 @@ pub mod test {
     pub async fn with_fallback_registry(
       fallback_registry_url: Option<Url>,
     ) -> Self {
-      ensure_servers_started();
-      let test_id = TEST_INSTANCE_COUNTER
-        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-      let ephemeral_database = EphemeralDatabase::create().await;
-      let db = ephemeral_database.database.clone().unwrap();
-      let s3 = FakeS3Tester::new();
-      let publishing_name = format!("publishing-{test_id}");
-      let modules_name = format!("modules-{test_id}");
-      let docs_name = format!("docs-{test_id}");
-      let npm_name = format!("npm-{test_id}");
-      let ticket_attachments_name = format!("ticket-attachments-{test_id}");
-      let (
-        publishing_bucket,
-        modules_bucket,
-        docs_bucket,
-        npm_bucket,
-        ticket_attachments_bucket,
-      ) = tokio::join!(
-        s3.create_bucket(&publishing_name),
-        s3.create_bucket(&modules_name),
-        s3.create_bucket(&docs_name),
-        s3.create_bucket(&npm_name),
-        s3.create_bucket(&ticket_attachments_name),
-      );
-      let buckets = Buckets {
-        publishing_bucket: shared::s3::BucketWithQueue::new(publishing_bucket),
-        modules_bucket: BucketWithQueue::new(modules_bucket),
-        docs_bucket: shared::s3::BucketWithQueue::new(docs_bucket),
-        npm_bucket: shared::s3::BucketWithQueue::new(npm_bucket),
-        ticket_attachments_bucket: shared::s3::BucketWithQueue::new(
-          ticket_attachments_bucket,
-        ),
-      };
-      let registry_url = "http://jsr-tests.test".parse().unwrap();
+      let inner = shared::test::TestSetup::with_fallback_registry(
+        fallback_registry_url.clone(),
+      )
+      .await;
+      let db = inner.db();
+
+      let registry_url = inner.registry_url();
       let github_oauth2_client = crate::auth::github::Oauth2Client::new(
         &registry_url,
         "".to_string(),
@@ -956,97 +819,25 @@ pub mod test {
         "".to_string(),
       );
 
-      let user1 = Self::create_user(
-        &db,
-        NewUser {
-          name: "User 1",
-          email: None,
-          avatar_url: "https://avatars0.githubusercontent.com/u/952?v=4",
-          github_id: Some(101),
-          gitlab_id: Some(101),
-          is_blocked: false,
-          is_staff: false,
-        },
-        "ry",
-      )
-      .await;
+      let user1 = Self::with_token(&db, &inner.user1).await;
+      let user2 = Self::with_token(&db, &inner.user2).await;
+      let user3 = Self::with_token(&db, &inner.user3).await;
+      let staff_user = Self::with_token(&db, &inner.staff_user).await;
 
-      let user2 = Self::create_user(
-        &db,
-        NewUser {
-          name: "User 2",
-          email: None,
-          avatar_url: "",
-          github_id: Some(102),
-          gitlab_id: Some(102),
-          is_blocked: false,
-          is_staff: false,
-        },
-        "lucacasonato",
-      )
-      .await;
-
-      let user3 = Self::create_user(
-        &db,
-        NewUser {
-          name: "User 3",
-          email: None,
-          avatar_url: "",
-          github_id: Some(103),
-          gitlab_id: Some(103),
-          is_blocked: false,
-          is_staff: false,
-        },
-        "crowlkats",
-      )
-      .await;
-
-      let staff_user = Self::create_user(
-        &db,
-        NewUser {
-          name: "User 4",
-          email: None,
-          avatar_url: "",
-          github_id: Some(104),
-          gitlab_id: Some(104),
-          is_blocked: false,
-          is_staff: true,
-        },
-        "bartlomieju",
-      )
-      .await;
-
-      let scope_name = "scope".try_into().unwrap();
-
-      db.create_scope(
-        &user1.user.id,
-        false,
-        &scope_name,
-        user1.user.id,
-        &ScopeDescription::default(),
-      )
-      .await
-      .unwrap();
-      let (scope, _, _) = db
-        .update_scope_limits(
-          &staff_user.user.id,
-          &scope_name,
-          Some(250),
-          Some(200),
-          Some(1000),
-        )
-        .await
-        .unwrap();
-
-      db.add_bad_word_for_test("somebadword").await.unwrap();
-
-      let license_store = LICENSE_STORE
-        .get_or_init(shared::util::license_store)
-        .clone();
+      let task_dispatch = crate::in_process_task_dispatch(
+        db.clone(),
+        inner.buckets(),
+        inner.license_store(),
+        registry_url.clone(),
+        inner.npm_url(),
+        fallback_registry_url.clone(),
+        None, // no algolia locally
+        None, // no Cloudflare purge locally
+      );
 
       let router = crate::main_router(MainRouterOptions {
         database: db,
-        buckets: buckets.clone(),
+        buckets: inner.buckets(),
         generate_ctx_cache: crate::docs::GenerateCtxCache::new(),
         object_cache: crate::object_cache::ObjectCache::new(),
         registry_metadata_cache: crate::api::RegistryMetadataCache::new(),
@@ -1054,10 +845,10 @@ pub mod test {
         gitlab_client: gitlab_oauth2_client.clone(),
         algolia_client: None,
         email_sender: None,
-        license_store: license_store.clone(),
+        license_store: inner.license_store(),
         registry_url,
-        npm_url: "http://npm.jsr-tests.test".parse().unwrap(),
-        fallback_registry_url: fallback_registry_url.clone(),
+        npm_url: inner.npm_url(),
+        fallback_registry_url,
         publish_queue: None,           // no queue locally
         npm_tarball_build_queue: None, // no queue locally
         // No Cloud Tasks locally, so queued email is delivered inline.
@@ -1072,6 +863,9 @@ pub mod test {
         inbound_trusted_authserv_id: crate::api::InboundTrustedAuthservId(
           Some(TEST_TRUSTED_AUTHSERV_ID.to_owned()),
         ),
+        task_dispatch: task_dispatch.clone(),
+        expose_api: true,   // api enabled
+        expose_tasks: true, // task endpoints enabled
       });
 
       let service = routerify::RequestServiceBuilder::new(router)
@@ -1079,49 +873,25 @@ pub mod test {
         .build(SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 8080)));
 
       Self {
-        ephemeral_database,
-        buckets,
-        license_store,
+        inner,
         user1,
         user2,
         user3,
         staff_user,
-        scope,
         github_oauth2_client,
         gitlab_oauth2_client,
         service,
-        fallback_registry_url,
+        task_dispatch,
       }
     }
 
-    async fn create_user<'a>(
+    async fn with_token(
       db: &Database,
-      new_user: NewUser<'a>,
-      github_name: &str,
+      user: &shared::test::TestUser,
     ) -> TestUser {
-      db.upsert_github_identity(NewGithubIdentity {
-        github_id: new_user.github_id.unwrap(),
-        access_token: None,
-        access_token_expires_at: None,
-        refresh_token: None,
-        refresh_token_expires_at: None,
-      })
-      .await
-      .unwrap();
-      db.upsert_gitlab_identity(NewGitlabIdentity {
-        gitlab_id: new_user.gitlab_id.unwrap(),
-        access_token: None,
-        access_token_expires_at: None,
-        refresh_token: None,
-      })
-      .await
-      .unwrap();
-
-      let user = db.insert_user(new_user).await.unwrap();
-
       let token = crate::token::create_token(
         db,
-        user.id,
+        user.user.id,
         shared::models::TokenType::Web,
         None,
         Some(chrono::Utc::now() + chrono::Duration::try_days(7).unwrap()),
@@ -1131,30 +901,10 @@ pub mod test {
       .unwrap();
 
       TestUser {
-        user,
+        user: user.user.clone(),
         token,
-        github_name: github_name.to_string(),
+        github_name: user.github_name.clone(),
       }
-    }
-
-    pub fn db(&self) -> Database {
-      self.ephemeral_database.database.clone().unwrap()
-    }
-
-    pub fn buckets(&self) -> Buckets {
-      self.buckets.clone()
-    }
-
-    pub fn license_store(&self) -> LicenseStore {
-      self.license_store.clone()
-    }
-
-    pub fn registry_url(&self) -> Url {
-      Url::parse("http://jsr-tests.test").unwrap()
-    }
-
-    pub fn npm_url(&self) -> Url {
-      Url::parse("http://npm.jsr-tests.test").unwrap()
     }
 
     pub fn http(&'_ mut self) -> TestHttpClient<'_, '_> {
@@ -1170,6 +920,84 @@ pub mod test {
         auth: None,
       }
     }
+  }
+
+  /// Publishes `tarball_data` as `@scope/foo@1.2.3` and returns the finished
+  /// publishing task.
+  pub async fn process_tarball_setup(
+    t: &TestSetup,
+    tarball_data: Bytes,
+  ) -> PublishingTask {
+    let package_name = PackageName::try_from("foo").unwrap();
+    let version = Version::try_from("1.2.3").unwrap();
+    process_tarball_setup2(t, tarball_data, &package_name, &version, false)
+      .await
+  }
+
+  /// Publishes `tarball_data` as the given version the way the upload
+  /// endpoint does: a publishing task row, the tarball in the publishing
+  /// bucket, then the publish run through the api's task dispatch.
+  pub async fn process_tarball_setup2(
+    t: &TestSetup,
+    tarball_data: Bytes,
+    package_name: &PackageName,
+    version: &Version,
+    jsonc: bool,
+  ) -> PublishingTask {
+    let scope_name = "scope".try_into().unwrap();
+
+    let res = t
+      .db()
+      .create_package(&scope_name, package_name)
+      .await
+      .unwrap();
+    assert!(
+      matches!(res, CreatePackageResult::Ok(_))
+        || matches!(res, CreatePackageResult::AlreadyExists)
+    );
+
+    let CreatePublishingTaskResult::Created(task) = t
+      .db()
+      .create_publishing_task(NewPublishingTask {
+        user_id: Some(t.user1.user.id),
+        package_scope: &scope_name,
+        package_name,
+        package_version: version,
+        config_file: &PackagePath::try_from(format!(
+          "/jsr.json{}",
+          if jsonc { "c" } else { "" }
+        ))
+        .unwrap(),
+      })
+      .await
+      .unwrap()
+    else {
+      unreachable!()
+    };
+
+    let tarball_path = bucket_tarball_path(task.0.id);
+    t.buckets
+      .publishing_bucket
+      .upload(
+        tarball_path.into(),
+        UploadTaskBody::Bytes(tarball_data),
+        S3UploadOptions {
+          content_type: Some("application/x-tar".into()),
+          cache_control: None,
+          gzip_encoded: true,
+        },
+      )
+      .await
+      .unwrap();
+
+    t.task_dispatch.publish(task.0.id).await;
+
+    t.db()
+      .get_publishing_task(task.0.id)
+      .await
+      .unwrap()
+      .unwrap()
+      .0
   }
 
   pub struct TestHttpClient<'s, 't> {

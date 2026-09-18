@@ -37,6 +37,12 @@ crate::errors!(
 impl From<anyhow::Error> for SharedError {
   fn from(error: anyhow::Error) -> SharedError {
     eprintln!("internal server error: {:?}", error);
-    SharedError::InternalServerError.into()
+    SharedError::InternalServerError
+  }
+}
+
+impl From<sqlx::Error> for SharedError {
+  fn from(error: sqlx::Error) -> SharedError {
+    anyhow::Error::from(error).into()
   }
 }

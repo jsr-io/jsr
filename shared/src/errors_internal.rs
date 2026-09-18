@@ -67,7 +67,7 @@ macro_rules! errors {
 
       pub fn code(&self) -> &'static str {
         match self {
-          $(Self::$name { .. } => $crate::errors_internal::const_format::map_ascii_case!(const_format::Case::Camel, stringify!($name))),*
+          $(Self::$name { .. } => $crate::errors_internal::const_format::map_ascii_case!($crate::errors_internal::const_format::Case::Camel, stringify!($name))),*
         }
       }
 

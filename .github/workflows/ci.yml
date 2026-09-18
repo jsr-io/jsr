@@ -113,7 +113,6 @@ jobs:
 
       - name: Format
         run: cargo fmt --all -- --check
-        working-directory: api
 
       - name: Setup postgres for tests
         run: docker compose up -d
@@ -126,13 +125,12 @@ jobs:
         run: |
           cargo sqlx migrate run
           cargo sqlx prepare --check -- --all-targets
-        working-directory: api
+        working-directory: shared
         env:
           DATABASE_URL: postgres://user:password@localhost/registry
 
       - name: Lint
-        run: cargo clippy --all-targets --all-features -- -D warnings
-        working-directory: api
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
   test:
     runs-on: ubuntu-22.04
@@ -152,12 +150,10 @@ jobs:
         run: docker compose up -d
 
       - name: Build
-        run: cargo build --all-targets --tests
-        working-directory: api
+        run: cargo build --workspace --all-targets --tests
 
       - name: Test
-        run: cargo test
-        working-directory: api
+        run: cargo test --workspace
 
   docker-images:
     if: github.event_name == 'merge_group' || github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'test-on-staging'))

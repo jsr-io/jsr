@@ -17,6 +17,7 @@ pub mod emails;
 pub mod errors;
 pub mod errors_internal;
 pub mod external;
+pub mod graph;
 pub mod ids;
 pub mod metadata;
 pub mod models;
@@ -24,7 +25,8 @@ pub mod npm;
 pub mod s3;
 pub mod s3_paths;
 pub mod task_queue;
-pub mod util;
-
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 pub mod test;
+pub mod traced_router;
+pub mod tracing;
+pub mod util;

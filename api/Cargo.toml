@@ -42,28 +42,6 @@ dotenvy.workspace = true
 tar.workspace = true
 tracing.workspace = true
 tracing-futures = "0.2"
-tracing-opentelemetry = "0.28"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-opentelemetry = { version = "0.27", features = ["trace", "logs"] }
-opentelemetry_sdk = { version = "0.27", features = [
-    "rt-tokio",
-    "trace",
-    "logs",
-] }
-# Bridges `tracing` events into OpenTelemetry log records so the same logs we
-# print to stdout are also exported over OTLP (to Grafana Cloud Loki).
-opentelemetry-appender-tracing = "0.27"
-# OTLP over HTTP/protobuf (not gRPC): the managed Grafana Cloud OTLP gateway only
-# speaks OTLP/HTTP. `reqwest-client` routes export through reqwest (its own
-# reqwest 0.12, separate from the app's reqwest 0.11). Default `grpc-tonic` is
-# off. `http-proto` enables trace+metrics; `logs` is listed explicitly because
-# it does not.
-opentelemetry-otlp = { version = "0.27", default-features = false, features = [
-    "trace",
-    "logs",
-    "http-proto",
-    "reqwest-client",
-] }
 rust-s3.workspace = true
 deno_semver.workspace = true
 flate2.workspace = true
@@ -102,12 +80,11 @@ lazy_static = "1.5.0"
 tikv-jemallocator = { version = "0.6", features = ["profiling"] }
 tikv-jemalloc-ctl = { version = "0.6", features = ["stats"] }
 shared = { path = "../shared", package = "registry_api_shared" }
-
-[build-dependencies]
-askalono = "0.5.0"
+tasks = { path = "../tasks", package = "registry_api_tasks" }
 
 [dev-dependencies]
 flate2.workspace = true
 deno_semver = "0.10.1"
 pretty_assertions = "1.4.0"
+tokio-stream = "0.1"
 shared = { path = "../shared", package = "registry_api_shared", features = ["testing"] }

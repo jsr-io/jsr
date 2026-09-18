@@ -56,6 +56,20 @@ impl EmailSender {
     }
   }
 
+  /// Builds a sender that delivers through Postmark's HTTP API with the given
+  /// server token.
+  pub fn from_postmark_token(
+    token: String,
+    from: String,
+    from_name: String,
+  ) -> Self {
+    Self::new(
+      PostmarkClient::builder().token(token).build(),
+      from,
+      from_name,
+    )
+  }
+
   /// Sends an already-rendered email. Callers reach this through
   /// [`enqueue`] rather than directly, so that a Postmark failure retries out
   /// of band instead of failing the request that triggered the mail.

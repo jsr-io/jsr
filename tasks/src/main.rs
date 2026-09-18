@@ -1,32 +1,65 @@
-mod analysis;
-mod errors;
-mod npm;
-mod publish;
-mod tarball;
-mod tasks;
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
+mod config;
+
+use clap::Parser;
+use hyper::Body;
+use hyper::Server;
 use routerify::Router;
-use routerify::ext::RequestExt;
 use std::net::SocketAddr;
 use std::time::Duration;
+use url::Url;
 
-use crate::errors::TaskError;
-use shared::external::gcp;
+use registry_api_tasks::errors::TaskError;
+use registry_api_tasks::errors::error_handler;
+use registry_api_tasks::tasks::AnalyticsEngineConfig;
+use registry_api_tasks::tasks::NpmTarballBuildQueue;
+use registry_api_tasks::tasks::tasks_router;
+
+use shared::FallbackRegistryUrl;
+use shared::NpmUrl;
+use shared::PublishQueue;
+use shared::RegistryUrl;
+use shared::db::Database;
+use shared::emails::EmailQueue;
+use shared::emails::EmailSender;
+use shared::external::algolia::AlgoliaClient;
+use shared::external::cloudflare::CachePurge;
+use shared::external::gcp::Queue;
 use shared::s3;
-use shared::util;
+use shared::s3::Buckets;
+use shared::traced_router::TracedRouterService;
+use shared::tracing::TracingExportTarget;
+use shared::tracing::setup_tracing;
 
-pub(crate) fn main_router(
+use crate::config::Config;
+
+pub struct MainRouterOptions {
+  database: Database,
+  buckets: Buckets,
+  algolia_client: Option<AlgoliaClient>,
+  email_sender: Option<EmailSender>,
+  license_store: shared::util::LicenseStore,
+  registry_url: Url,
+  npm_url: Url,
+  fallback_registry_url: Option<Url>,
+  publish_queue: Option<Queue>,
+  npm_tarball_build_queue: Option<Queue>,
+  email_queue: Option<Queue>,
+  analytics_engine_config: Option<(
+    shared::external::cloudflare::AnalyticsEngineClient,
+    /* dataset_name */ String,
+  )>,
+  cache_purge_client: Option<shared::external::cloudflare::CachePurgeClient>,
+}
+
+fn main_router(
   MainRouterOptions {
     database,
     buckets,
-    generate_ctx_cache,
-    object_cache,
-    registry_metadata_cache,
-    github_client,
-    gitlab_client,
     algolia_client,
-    license_store,
     email_sender,
+    license_store,
     registry_url,
     npm_url,
     fallback_registry_url,
@@ -35,66 +68,28 @@ pub(crate) fn main_router(
     email_queue,
     analytics_engine_config,
     cache_purge_client,
-    turnstile,
-    postmark_webhook_password,
-    inbound_trusted_authserv_id,
   }: MainRouterOptions,
-) -> Router<hyper::Body, TaskError> {
+) -> Router<Body, TaskError> {
   Router::builder()
     .data(database)
     .data(buckets)
-    .data(generate_ctx_cache)
-    .data(object_cache)
-    .data(registry_metadata_cache)
-    .data(github_client)
-    .data(gitlab_client)
     .data(algolia_client)
     .data(email_sender)
     .data(license_store)
-    .data(shared::RegistryUrl(registry_url))
-    .data(shared::NpmUrl(npm_url))
-    .data(shared::FallbackRegistryUrl(fallback_registry_url))
-    .data(shared::PublishQueue(publish_queue))
+    .data(RegistryUrl(registry_url))
+    .data(NpmUrl(npm_url))
+    .data(FallbackRegistryUrl(fallback_registry_url))
+    .data(PublishQueue(publish_queue))
     .data(NpmTarballBuildQueue(npm_tarball_build_queue))
     .data(EmailQueue(email_queue))
     .data(AnalyticsEngineConfig(analytics_engine_config))
     .data(CachePurge(cache_purge_client))
-    .data(turnstile)
-    .data(postmark_webhook_password)
-    .data(inbound_trusted_authserv_id)
-    .data(shared::db::DependentCountCache::new())
     .middleware(routerify_query::query_parser())
-    .err_handler_with_info(errors::error_handler)
-    .post("/publish", util::json(publish::publish_handler))
-    .post(
-      "/npm_tarball_build",
-      util::json(tasks::npm_tarball_build_handler),
-    )
-    .post(
-      "/npm_tarball_enqueue",
-      util::json(tasks::npm_tarball_enqueue_handler),
-    )
-    .post(
-      "/scrape_download_counts",
-      util::json(tasks::scrape_download_counts_handler),
-    )
-    .post(
-      "/clean_oauth_states",
-      util::json(tasks::clean_oauth_states_handler),
-    )
-    .post("/send_email", tasks::send_email_handler)
-    .post(
-      "/sweep_pending_emails",
-      util::json(tasks::sweep_pending_emails_handler),
-    )
-    .post(
-      "/clean_download_counts_4h",
-      util::json(tasks::clean_download_counts_4h_handler),
-    )
-    .post(
-      "/requeue_stuck_publishing_tasks",
-      util::json(tasks::requeue_stuck_publishing_tasks_handler),
-    )
+    .err_handler_with_info(error_handler)
+    // Cloud Tasks queues and Cloud Scheduler jobs (see terraform/) address the
+    // handlers under `/tasks`, the prefix they had when they were served by
+    // the api binary.
+    .scope("/tasks", tasks_router::<TaskError>())
     .build()
     .unwrap()
 }
@@ -114,17 +109,17 @@ async fn main() {
   {
     TracingExportTarget::Otlp {
       endpoint,
-      headers: crate::tracing::parse_otlp_headers(
+      headers: shared::tracing::parse_otlp_headers(
         config.otlp_headers.as_deref(),
       ),
     }
   } else {
     TracingExportTarget::None
   };
-  setup_tracing("api", export_target, config.deployment_environment).await;
+  setup_tracing("tasks", export_target, config.deployment_environment).await;
 
   let db_tls = match (config.db_client_cert, config.db_client_key) {
-    (Some(client_cert), Some(client_key)) => Some(crate::db::DbTls {
+    (Some(client_cert), Some(client_key)) => Some(shared::db::DbTls {
       client_cert,
       client_key,
     }),
@@ -152,7 +147,7 @@ async fn main() {
     expiration: None,
   };
 
-  let gcp_client = gcp::Client::new(config.metadata_strategy);
+  let gcp_client = shared::external::gcp::Client::new(config.metadata_strategy);
   let publishing_bucket = s3::BucketWithQueue::new(
     s3::Bucket::new(
       config.publishing_bucket,
@@ -218,7 +213,7 @@ async fn main() {
     config.cloudflare_api_token.clone(),
   ) {
     (Some(zone_id), Some(api_token)) => Some(
-      external::cloudflare::CachePurgeClient::new(zone_id, api_token),
+      shared::external::cloudflare::CachePurgeClient::new(zone_id, api_token),
     ),
     _ => None,
   };
@@ -229,26 +224,13 @@ async fn main() {
     config.cloudflare_analytics_dataset,
   ) {
     (Some(account_id), Some(api_token), Some(dataset_name)) => Some((
-      external::cloudflare::AnalyticsEngineClient::new(account_id, api_token),
+      shared::external::cloudflare::AnalyticsEngineClient::new(
+        account_id, api_token,
+      ),
       dataset_name,
     )),
     _ => None,
   };
-
-  let turnstile =
-    Turnstile(config.turnstile_secret_key.map(TurnstileClient::new));
-
-  let github_client = auth::github::Oauth2Client::new(
-    &config.registry_url,
-    config.github_client_id,
-    config.github_client_secret,
-  );
-
-  let gitlab_client = auth::gitlab::Oauth2Client::new(
-    &config.registry_url,
-    config.gitlab_client_id,
-    config.gitlab_client_secret,
-  );
 
   let algolia_client = if let Some(algolia_app_id) = config.algolia_app_id {
     Some(AlgoliaClient::new(
@@ -268,10 +250,8 @@ async fn main() {
   };
 
   let email_sender = config.postmark_token.map(|token| {
-    EmailSender::new(
-      postmark::reqwest::PostmarkClient::builder()
-        .token(token)
-        .build(),
+    EmailSender::from_postmark_token(
+      token,
       config
         .email_from
         .expect("email_from must be set when postmark_token is set"),
@@ -283,17 +263,9 @@ async fn main() {
 
   let license_store = shared::util::license_store();
 
-  let object_cache = crate::object_cache::ObjectCache::new();
-  let registry_metadata_cache = crate::api::RegistryMetadataCache::new();
-
   let router = main_router(MainRouterOptions {
     database,
     buckets,
-    generate_ctx_cache,
-    object_cache,
-    registry_metadata_cache,
-    github_client,
-    gitlab_client,
     algolia_client,
     email_sender,
     license_store,
@@ -305,15 +277,6 @@ async fn main() {
     email_queue,
     analytics_engine_config,
     cache_purge_client,
-    turnstile,
-    postmark_webhook_password: PostmarkWebhookPassword(
-      config.postmark_webhook_password,
-    ),
-    inbound_trusted_authserv_id: InboundTrustedAuthservId(
-      config.inbound_trusted_authserv_id,
-    ),
-    expose_api: config.api,
-    expose_tasks: config.tasks,
   });
 
   // Create a Service from the router above to handle incoming requests.
@@ -325,7 +288,7 @@ async fn main() {
   // Create a server by passing the created service to `.serve` method.
   let server = Server::bind(&addr).serve(service);
 
-  println!("App is running on: {}", addr);
+  println!("Tasks server is running on: {}", addr);
   if let Err(err) = server.await {
     eprintln!("Server error: {}", err);
   }

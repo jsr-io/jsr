@@ -15,9 +15,8 @@ mod object_cache;
 mod provenance;
 mod sitemap;
 mod source_links;
+mod task_dispatch;
 mod token;
-mod traced_router;
-mod tracing;
 mod tree_sitter;
 mod util;
 
@@ -32,9 +31,6 @@ use crate::emails::EmailSender;
 use crate::sitemap::packages_sitemap_handler;
 use crate::sitemap::scopes_sitemap_handler;
 use crate::sitemap::sitemap_index_handler;
-use crate::traced_router::TracedRouterService;
-use crate::tracing::TracingExportTarget;
-use crate::tracing::setup_tracing;
 
 use shared::FallbackRegistryUrl;
 use shared::NpmUrl;
@@ -48,14 +44,25 @@ use shared::external::cloudflare::TurnstileClient;
 use shared::external::gcp::Queue;
 use shared::s3;
 use shared::s3::Buckets;
+use shared::traced_router::TracedRouterService;
+use shared::tracing::TracingExportTarget;
+use shared::tracing::setup_tracing;
+use tasks::tasks::AnalyticsEngineConfig;
+use tasks::tasks::NpmTarballBuildQueue;
+use tasks::tasks::tasks_router;
+
+use crate::task_dispatch::AnalyzeVersionError;
+use crate::task_dispatch::TaskDispatch;
 
 use clap::Parser;
 use hyper::Body;
 use hyper::Server;
 use routerify::Router;
 use std::net::SocketAddr;
+use std::sync::Arc;
 use std::time::Duration;
 use url::Url;
+use uuid::Uuid;
 
 pub struct MainRouterOptions {
   database: Database,
@@ -82,6 +89,80 @@ pub struct MainRouterOptions {
   turnstile: Turnstile,
   postmark_webhook_password: PostmarkWebhookPassword,
   inbound_trusted_authserv_id: InboundTrustedAuthservId,
+  task_dispatch: TaskDispatch,
+  expose_api: bool,
+  expose_tasks: bool,
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn in_process_task_dispatch(
+  database: Database,
+  buckets: Buckets,
+  license_store: shared::util::LicenseStore,
+  registry_url: Url,
+  npm_url: Url,
+  fallback_registry_url: Option<Url>,
+  algolia_client: Option<AlgoliaClient>,
+  cache_purge_client: Option<shared::external::cloudflare::CachePurgeClient>,
+) -> TaskDispatch {
+  use futures::FutureExt;
+
+  let analysis_registry_url = registry_url.clone();
+  let publish = Arc::new(move |publishing_task_id: Uuid| {
+    let fut = tasks::publish::publish_task(
+      publishing_task_id,
+      0,
+      buckets.clone(),
+      license_store.clone(),
+      registry_url.clone(),
+      npm_url.clone(),
+      fallback_registry_url.clone(),
+      database.clone(),
+      algolia_client.clone(),
+      CachePurge(cache_purge_client.clone()),
+    );
+    // `publish_task` records its own outcome on the publishing task and logs
+    // failures, so there is nothing left to do with the result here.
+    async move {
+      let _ = fut.await;
+    }
+    .boxed()
+  });
+
+  let analyze =
+    Arc::new(move |req: crate::task_dispatch::AnalyzeVersionRequest| {
+      let registry_url = analysis_registry_url.clone();
+      let span = tracing::Span::current();
+      async move {
+        tokio::task::spawn_blocking(move || {
+          tasks::analysis::analyze_package(
+            span,
+            registry_url,
+            req.scope,
+            req.package,
+            req.version,
+            req.config_file,
+            tasks::analysis::PackageAnalysisData {
+              exports: req.exports,
+              files: req.files,
+            },
+          )
+        })
+        .await
+        .map_err(|join_error| {
+          AnalyzeVersionError::Internal(anyhow::anyhow!(
+            "analysis task panicked: {join_error:?}"
+          ))
+        })?
+        .map(|output| output.meta)
+        .map_err(|analysis_error| {
+          AnalyzeVersionError::Failed(analysis_error.to_string())
+        })
+      }
+      .boxed()
+    });
+
+  TaskDispatch::new(publish, analyze)
 }
 
 pub(crate) fn main_router(
@@ -107,9 +188,12 @@ pub(crate) fn main_router(
     turnstile,
     postmark_webhook_password,
     inbound_trusted_authserv_id,
+    task_dispatch,
+    expose_api,
+    expose_tasks,
   }: MainRouterOptions,
 ) -> Router<Body, ApiError> {
-  Router::builder()
+  let builder = Router::builder()
     .data(database)
     .data(buckets)
     .data(generate_ctx_cache)
@@ -124,36 +208,53 @@ pub(crate) fn main_router(
     .data(NpmUrl(npm_url))
     .data(FallbackRegistryUrl(fallback_registry_url))
     .data(PublishQueue(publish_queue))
+    .data(NpmTarballBuildQueue(npm_tarball_build_queue))
     .data(EmailQueue(email_queue))
+    .data(AnalyticsEngineConfig(analytics_engine_config))
     .data(CachePurge(cache_purge_client))
     .data(turnstile)
     .data(postmark_webhook_password)
     .data(inbound_trusted_authserv_id)
+    .data(task_dispatch)
     .data(shared::db::DependentCountCache::new())
     .middleware(routerify_query::query_parser())
-    .err_handler_with_info(error_handler)
-    .scope("/api", api_router())
-    .get("/sitemap.xml", sitemap_index_handler)
-    .get("/sitemap-scopes.xml", scopes_sitemap_handler)
-    .get("/sitemap-packages.xml", packages_sitemap_handler)
-    // POST, not GET: the login form carries the Turnstile response token in
-    // its body, which keeps it out of URLs, logs and `Referer` headers. It
-    // also means a bare link to this route can no longer start a login flow,
-    // so the captcha cannot be sidestepped by navigating straight here.
-    .post("/login/:service", auth::login_handler)
-    .get("/login/callback/:service", auth::login_callback_handler)
-    .get("/logout", auth::logout_handler)
-    .get("/connect/:service", util::full_auth(auth::connect_handler))
-    .get(
-      "/connect/callback/:service",
-      util::full_auth(auth::connect_callback_handler),
-    )
-    .get(
-      "/disconnect/:service",
-      util::full_auth(auth::disconnect_handler),
-    )
-    .build()
-    .unwrap()
+    .err_handler_with_info(error_handler);
+
+  let builder = if expose_api {
+    builder
+      .scope("/api", api_router())
+      .get("/sitemap.xml", sitemap_index_handler)
+      .get("/sitemap-scopes.xml", scopes_sitemap_handler)
+      .get("/sitemap-packages.xml", packages_sitemap_handler)
+      // POST, not GET: the login form carries the Turnstile response token in
+      // its body, which keeps it out of URLs, logs and `Referer` headers. It
+      // also means a bare link to this route can no longer start a login flow,
+      // so the captcha cannot be sidestepped by navigating straight here.
+      .post("/login/:service", auth::login_handler)
+      .get("/login/callback/:service", auth::login_callback_handler)
+      .get("/logout", auth::logout_handler)
+      .get("/connect/:service", util::full_auth(auth::connect_handler))
+      .get(
+        "/connect/callback/:service",
+        util::full_auth(auth::connect_callback_handler),
+      )
+      .get(
+        "/disconnect/:service",
+        util::full_auth(auth::disconnect_handler),
+      )
+  } else {
+    builder
+  };
+
+  // The task handlers live in the tasks crate, but are still served from this
+  // binary until the tasks service is deployed on its own.
+  let builder = if expose_tasks {
+    builder.scope("/tasks", tasks_router())
+  } else {
+    builder
+  };
+
+  builder.build().unwrap()
 }
 
 #[tokio::main]
@@ -171,7 +272,7 @@ async fn main() {
   {
     TracingExportTarget::Otlp {
       endpoint,
-      headers: crate::tracing::parse_otlp_headers(
+      headers: shared::tracing::parse_otlp_headers(
         config.otlp_headers.as_deref(),
       ),
     }
@@ -327,10 +428,8 @@ async fn main() {
   };
 
   let email_sender = config.postmark_token.map(|token| {
-    EmailSender::new(
-      postmark::reqwest::PostmarkClient::builder()
-        .token(token)
-        .build(),
+    EmailSender::from_postmark_token(
+      token,
       config
         .email_from
         .expect("email_from must be set when postmark_token is set"),
@@ -345,6 +444,17 @@ async fn main() {
   let generate_ctx_cache = crate::docs::GenerateCtxCache::new();
   let object_cache = crate::object_cache::ObjectCache::new();
   let registry_metadata_cache = crate::api::RegistryMetadataCache::new();
+
+  let task_dispatch = in_process_task_dispatch(
+    database.clone(),
+    buckets.clone(),
+    license_store.clone(),
+    config.registry_url.clone(),
+    config.npm_url.clone(),
+    config.fallback_registry_url.clone(),
+    algolia_client.clone(),
+    cache_purge_client.clone(),
+  );
 
   let router = main_router(MainRouterOptions {
     database,
@@ -372,6 +482,9 @@ async fn main() {
     inbound_trusted_authserv_id: InboundTrustedAuthservId(
       config.inbound_trusted_authserv_id,
     ),
+    task_dispatch,
+    expose_api: config.api,
+    expose_tasks: config.tasks,
   });
 
   // Create a Service from the router above to handle incoming requests.

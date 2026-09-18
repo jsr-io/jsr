@@ -1,6 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use crate::FallbackRegistryUrl;
-use crate::NpmUrl;
 use crate::RegistryUrl;
 use crate::s3::Buckets;
 use hyper::Body;
@@ -16,8 +14,6 @@ use tracing::instrument;
 use std::borrow::Cow;
 use std::collections::HashMap;
 
-use crate::analysis::PackageAnalysisData;
-use crate::analysis::analyze_package;
 use crate::emails;
 use crate::emails::EmailArgs;
 use crate::emails::EmailQueue;
@@ -26,7 +22,6 @@ use crate::emails::EmailThread;
 use crate::iam::ReqIamExt;
 use crate::util;
 use crate::util::ApiResult;
-use crate::util::LicenseStore;
 use crate::util::RequestIdExt;
 use crate::util::decode_json;
 use crate::util::pagination;
@@ -36,14 +31,14 @@ use crate::util::sort;
 use super::ApiError;
 use super::map_unique_violation;
 use super::types::*;
+use crate::task_dispatch::AnalyzeVersionRequest;
+use crate::task_dispatch::TaskDispatch;
 use shared::PublishQueue;
 use shared::db::*;
 use shared::errors::SharedError;
-use shared::external::algolia::AlgoliaClient;
 use shared::ids::PackagePath;
 use shared::ids::ScopeDescription;
 use shared::models::*;
-use shared::publish::publish_task;
 
 pub fn admin_router() -> Router<Body, ApiError> {
   Router::builder()
@@ -388,7 +383,6 @@ pub async fn recompute_package_version_meta(
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap();
-  let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
 
   let (pkg, _, _) = db
     .get_package(&scope, &package)
@@ -428,35 +422,17 @@ pub async fn recompute_package_version_meta(
     .find(|path| files.contains_key(path))
     .unwrap_or_else(|| PackagePath::new("/jsr.json".to_string()).unwrap());
 
-  let span = Span::current();
-  let analysis_scope = scope.clone();
-  let analysis_package = package.clone();
-  let analysis_version = version.clone();
-  let data = PackageAnalysisData {
-    exports: package_version.exports.clone(),
-    files,
-  };
-  let output = tokio::task::spawn_blocking(move || {
-    analyze_package(
-      span,
-      registry_url,
-      analysis_scope,
-      analysis_package,
-      analysis_version,
+  let task_dispatch = req.data::<TaskDispatch>().unwrap();
+  let mut meta = task_dispatch
+    .analyze(AnalyzeVersionRequest {
+      scope: scope.clone(),
+      package: package.clone(),
+      version: version.clone(),
       config_file,
-      data,
-    )
-  })
-  .await
-  .map_err(|join_error| {
-    tracing::error!("analysis task panicked: {join_error:?}");
-    SharedError::InternalServerError
-  })?
-  .map_err(|analysis_error| ApiError::PackageAnalysisFailed {
-    msg: analysis_error.to_string(),
-  })?;
-
-  let mut meta = output.meta;
+      exports: package_version.exports.clone(),
+      files,
+    })
+    .await?;
   // provenance is recorded post-publish and not derivable from the files
   meta.has_provenance = package_version.meta.has_provenance;
 
@@ -522,43 +498,23 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
   }
 
   let publish_queue = req.data::<PublishQueue>().unwrap().0.clone();
-  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap().clone();
 
   if let Some(queue) = publish_queue {
     let body = serde_json::to_vec(&publishing_task_id)?;
     queue.task_buffer(None, Some(body.into())).await?;
   } else {
-    let buckets = req.data::<Buckets>().unwrap().clone();
-    let license_store = req.data::<LicenseStore>().unwrap().clone();
-    let registry = req.data::<RegistryUrl>().unwrap().0.clone();
-    let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
-    // Re-runs against the fallback registry configured *now*, which may differ
-    // from the one the task originally resolved its dependencies against. That
-    // is intentional — the requeue re-resolves from scratch — but it means a
-    // requeue can record different `dependency_fallback_url`s than the original
-    // run did.
-    let fallback_registry_url =
-      req.data::<FallbackRegistryUrl>().unwrap().0.clone();
-    let cache_purge = req
-      .data::<shared::external::cloudflare::CachePurge>()
-      .unwrap()
-      .clone();
-
-    let span = Span::current();
-    let fut = publish_task(
-      publishing_task_id,
-      0,
-      buckets,
-      license_store,
-      registry,
-      npm_url,
-      fallback_registry_url,
-      db,
-      algolia_client,
-      cache_purge,
-    )
-    .instrument(span);
-    tokio::spawn(fut);
+    // No queue (local development): run the publish in-process. It re-runs
+    // against the fallback registry configured *now*, which may differ from
+    // the one the task originally resolved its dependencies against. That is
+    // intentional — the requeue re-resolves from scratch — but it means a
+    // requeue can record different `dependency_fallback_url`s than the
+    // original run did.
+    let task_dispatch = req.data::<TaskDispatch>().unwrap().clone();
+    tokio::spawn(
+      task_dispatch
+        .publish(publishing_task_id)
+        .instrument(Span::current()),
+    );
   }
 
   Ok(())
@@ -946,8 +902,7 @@ mod tests {
     encoder.finish().unwrap();
 
     let task =
-      crate::publish::tests::process_tarball_setup(&t, Bytes::from(gz_bytes))
-        .await;
+      crate::util::test::process_tarball_setup(&t, Bytes::from(gz_bytes)).await;
     assert_eq!(
       task.status,
       PublishingTaskStatus::Success,

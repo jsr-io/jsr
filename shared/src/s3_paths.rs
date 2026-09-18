@@ -1,4 +1,3 @@
-use uuid::Uuid;
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 //! Collect them all in one place for easy viewing.
 use crate::ids::PackageName;
@@ -6,6 +5,7 @@ use crate::ids::PackagePath;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 use crate::npm::NpmMappedJsrPackageName;
+use uuid::Uuid;
 
 pub fn file_path(
   scope: &ScopeName,

@@ -490,6 +490,7 @@ pub fn get_generate_ctx(
   registry_url: String,
   diff: Option<(deno_doc::diff::DocDiff, bool)>,
 ) -> GenerateCtx {
+  let package_name = format!("@{scope}/{package}");
   let url_rewriter_base = format!("/{package_name}/{version}");
 
   let url_rewriter =

@@ -1,9 +1,27 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use shared::errors::SharedError;
+use shared::s3::S3Error;
 use std::borrow::Cow;
 
 shared::errors!(
   TaskError:
+  InternalServerError {
+    status: INTERNAL_SERVER_ERROR,
+    "Internal Server Error",
+  },
+  MalformedRequest {
+    status: BAD_REQUEST,
+    fields: { msg: Cow<'static, str> },
+    ({ msg }) => "Malformed request: {msg}.",
+  },
+  PackageVersionNotFound {
+    status: NOT_FOUND,
+    "The requested package version was not found.",
+  },
+  PublishNotFound {
+    status: NOT_FOUND,
+    "The requested publish was not found.",
+  },
   MissingTurnstileToken {
     status: BAD_REQUEST,
     "The captcha was not completed. Please complete the captcha and try again.",
@@ -20,14 +38,26 @@ shared::errors!(
 
 impl From<SharedError> for TaskError {
   fn from(error: SharedError) -> TaskError {
-    anyhow::Error::from(error).into()
+    match error {
+      SharedError::InternalServerError => TaskError::InternalServerError,
+      SharedError::MalformedRequest { msg } => {
+        TaskError::MalformedRequest { msg }
+      }
+      SharedError::PackageVersionNotFound => TaskError::PackageVersionNotFound,
+      SharedError::PublishNotFound => TaskError::PublishNotFound,
+      SharedError::MissingTurnstileToken => TaskError::MissingTurnstileToken,
+      SharedError::InvalidTurnstileToken => TaskError::InvalidTurnstileToken,
+      SharedError::TurnstileVerificationFailed => {
+        TaskError::TurnstileVerificationFailed
+      }
+    }
   }
 }
 
 impl From<anyhow::Error> for TaskError {
   fn from(error: anyhow::Error) -> TaskError {
     eprintln!("internal server error: {:?}", error);
-    SharedError::InternalServerError.into()
+    TaskError::InternalServerError
   }
 }
 
@@ -43,6 +73,12 @@ impl From<serde_json::Error> for TaskError {
   }
 }
 
+impl From<S3Error> for TaskError {
+  fn from(error: S3Error) -> TaskError {
+    anyhow::Error::from(error).into()
+  }
+}
+
 pub type TaskResult<D> = Result<D, TaskError>;
 
 pub async fn error_handler(
@@ -51,21 +87,18 @@ pub async fn error_handler(
 ) -> hyper::Response<hyper::Body> {
   // Because `routerify::RouteError` is a boxed error, it must be downcast
   // first. Unwrap for simplicity.
-  let api_err = err.downcast::<TaskError>().unwrap();
-  let is_server_error = api_err.status_code().is_server_error();
+  let task_err = err.downcast::<TaskError>().unwrap();
+  let is_server_error = task_err.status_code().is_server_error();
   let span = tracing::Span::current();
   span.record(
     "otel.status_code",
     if is_server_error { "error" } else { "ok" },
   );
-  // Only server errors (5xx) are logged. Client errors (4xx, e.g. 404s) are
-  // expected and would otherwise pollute error logs and trace error rates. The
-  // route handlers no longer carry `err` on their `#[instrument]`, so this is
-  // the single place a directly-constructed 5xx `ApiError` gets surfaced;
-  // anyhow-backed 5xx are additionally logged at their origin (leaf spans keep
-  // `err`).
+  // Only server errors (5xx) are logged. Client errors (4xx) are expected and
+  // would otherwise pollute error logs and trace error rates. anyhow-backed
+  // 5xx are additionally logged at their origin (leaf spans keep `err`).
   if is_server_error {
-    tracing::error!(error = %api_err, status = api_err.status_code().as_u16());
+    tracing::error!(error = %task_err, status = task_err.status_code().as_u16());
   }
-  api_err.json_response()
+  task_err.json_response()
 }

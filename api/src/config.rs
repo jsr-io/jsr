@@ -1,4 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+use clap::ArgAction;
 use clap::Parser;
 use url::Url;
 
@@ -140,6 +141,31 @@ pub struct Config {
   /// that are not available locally. This allows self-hosted instances to
   /// depend on packages from jsr.io or other instances.
   pub fallback_registry_url: Option<Url>,
+
+  #[clap(
+    long = "api",
+    default_missing_value("true"),
+    default_value("true"),
+    num_args(0..=1),
+    require_equals(true),
+    action = ArgAction::Set,
+  )]
+  /// Enable serving the /api/* routes on the server, which enable users to make
+  /// API calls to the service. This also enables the /login, /login/callback,
+  /// and /logout routes.
+  pub api: bool,
+
+  #[clap(
+    long = "tasks",
+    default_missing_value("true"),
+    default_value("true"),
+    num_args(0..=1),
+    require_equals(true),
+    action = ArgAction::Set,
+  )]
+  /// Enable serving the /tasks/* routes on the server, which trigger async
+  /// background task processing.
+  pub tasks: bool,
 
   #[clap(long = "publish_queue_id", env = "PUBLISH_QUEUE_ID")]
   /// The ID of the publish queue.

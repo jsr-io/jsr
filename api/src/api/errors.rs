@@ -3,9 +3,27 @@ use super::ApiPublishingTask;
 use shared::errors::SharedError;
 use shared::s3::S3Error;
 use std::borrow::Cow;
+use tasks::errors::TaskError;
 
 shared::errors!(
   ApiError:
+  InternalServerError {
+    status: INTERNAL_SERVER_ERROR,
+    "Internal Server Error",
+  },
+  MalformedRequest {
+    status: BAD_REQUEST,
+    fields: { msg: Cow<'static, str> },
+    ({ msg }) => "Malformed request: {msg}.",
+  },
+  PackageVersionNotFound {
+    status: NOT_FOUND,
+    "The requested package version was not found.",
+  },
+  PublishNotFound {
+    status: NOT_FOUND,
+    "The requested publish was not found.",
+  },
   TarballSizeLimitExceeded {
     status: PAYLOAD_TOO_LARGE,
     fields: { size: u64, max_size: u64 },
@@ -298,7 +316,48 @@ shared::errors!(
 
 impl From<SharedError> for ApiError {
   fn from(error: SharedError) -> ApiError {
-    anyhow::Error::from(error).into()
+    match error {
+      SharedError::InternalServerError => ApiError::InternalServerError,
+      SharedError::MalformedRequest { msg } => {
+        ApiError::MalformedRequest { msg }
+      }
+      SharedError::PackageVersionNotFound => ApiError::PackageVersionNotFound,
+      SharedError::PublishNotFound => ApiError::PublishNotFound,
+      SharedError::MissingTurnstileToken => ApiError::MissingTurnstileToken,
+      SharedError::InvalidTurnstileToken => ApiError::InvalidTurnstileToken,
+      SharedError::TurnstileVerificationFailed => {
+        ApiError::TurnstileVerificationFailed
+      }
+    }
+  }
+}
+
+impl From<crate::task_dispatch::AnalyzeVersionError> for ApiError {
+  fn from(error: crate::task_dispatch::AnalyzeVersionError) -> ApiError {
+    match error {
+      crate::task_dispatch::AnalyzeVersionError::Failed(msg) => {
+        ApiError::PackageAnalysisFailed { msg }
+      }
+      crate::task_dispatch::AnalyzeVersionError::Internal(err) => err.into(),
+    }
+  }
+}
+
+/// The task handlers are mounted under this router (see `main_router`), so
+/// their errors have to render as api errors.
+impl From<TaskError> for ApiError {
+  fn from(error: TaskError) -> ApiError {
+    match error {
+      TaskError::InternalServerError => ApiError::InternalServerError,
+      TaskError::MalformedRequest { msg } => ApiError::MalformedRequest { msg },
+      TaskError::PackageVersionNotFound => ApiError::PackageVersionNotFound,
+      TaskError::PublishNotFound => ApiError::PublishNotFound,
+      TaskError::MissingTurnstileToken => ApiError::MissingTurnstileToken,
+      TaskError::InvalidTurnstileToken => ApiError::InvalidTurnstileToken,
+      TaskError::TurnstileVerificationFailed => {
+        ApiError::TurnstileVerificationFailed
+      }
+    }
   }
 }
 
@@ -318,7 +377,7 @@ pub fn map_unique_violation(err: sqlx::Error, new_err: ApiError) -> ApiError {
 impl From<anyhow::Error> for ApiError {
   fn from(error: anyhow::Error) -> ApiError {
     eprintln!("internal server error: {:?}", error);
-    SharedError::InternalServerError.into()
+    ApiError::InternalServerError
   }
 }
 

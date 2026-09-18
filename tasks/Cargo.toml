@@ -45,3 +45,16 @@ jsonc-parser = { version = "0.26.3", features = ["serde"] }
 shared = { path = "../shared", package = "registry_api_shared" }
 tokio-stream = "0.1"
 sha1 = "0.10.6"
+clap = { version = "4", default-features = false, features = [
+    "derive",
+    "std",
+    "env",
+    "help",
+    "usage",
+    "error-context",
+    "suggestions",
+] }
+
+[dev-dependencies]
+pretty_assertions = "1.4.0"
+shared = { path = "../shared", package = "registry_api_shared", features = ["testing"] }

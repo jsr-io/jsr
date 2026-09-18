@@ -3,8 +3,8 @@
     "dev": "deno run -A ./tools/dev.ts",
     "prod:frontend": "deno run -A --watch ./tools/prod_proxy.ts & cd frontend && PROD_PROXY=1 API_ROOT=https://api.jsr.io deno task dev",
 
-    "db:prepare": "cd api && cargo sqlx prepare -- --all-targets",
-    "db:migrate": "cd api && sqlx migrate run",
+    "db:prepare": "cd shared && cargo sqlx prepare -- --all-targets",
+    "db:migrate": "cd shared && sqlx migrate run",
     "db:switch": "deno run --allow-read --allow-write --allow-run --allow-env ./tools/db-switch.ts",
 
     "lint": "deno task lint:frontend && deno task lint:tools && deno task lint:license && deno task lint:lb",
@@ -20,8 +20,8 @@
     "tools:deno_symbols": "deno run --allow-run --allow-read --allow-env --allow-net --allow-write tools/generate_global_symbols.ts",
     "tools:web_symbols": "deno run --allow-write tools/generate_web_symbols.ts",
 
-    "sqlx:prepare": "cd api && cargo sqlx prepare -- --all-targets",
-    "sqlx:migrate": "cd api && cargo sqlx migrate run",
+    "sqlx:prepare": "cd shared && cargo sqlx prepare -- --all-targets",
+    "sqlx:migrate": "cd shared && cargo sqlx migrate run",
 
     "tf:infra:init": "gcloud config set project deno-registry3-infra && cd terraform_infra && terraform init -backend-config bucket=deno-registry3-infra-terraform",
     "tf:infra:plan": "cd terraform_infra && terraform plan -var-file=infra.tfvars -out=infra.tfplan -input=false",
