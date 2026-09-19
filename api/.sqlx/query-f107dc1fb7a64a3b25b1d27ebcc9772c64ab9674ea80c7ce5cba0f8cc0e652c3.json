@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE packages\n      SET readme_source = $3\n      WHERE scope = $1 AND name = $2\n      RETURNING scope as \"scope: ScopeName\", name as \"name: PackageName\", description, github_repository_id, runtime_compat as \"runtime_compat: RuntimeCompat\", readme_source as \"readme_source: ReadmeSource\", when_featured, is_archived, updated_at, created_at,\n        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as \"version_count!\",\n        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as \"latest_version\"",
+  "query": "INSERT INTO packages (scope, name)\n      VALUES ($1, $2)\n      RETURNING scope as \"scope: ScopeName\", name as \"name: PackageName\", description, github_repository_id, runtime_compat as \"runtime_compat: RuntimeCompat\", readme_source as \"readme_source: ReadmeSource\", when_featured, is_archived, updated_at, created_at,\n        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as \"version_count!\",\n        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND is_yanked = false ORDER BY (version NOT LIKE '%-%') DESC, version DESC LIMIT 1) as \"latest_version\"\n      ",
   "describe": {
     "columns": [
       {
@@ -77,18 +77,7 @@
     "parameters": {
       "Left": [
         "Text",
-        "Text",
-        {
-          "Custom": {
-            "name": "package_readme_source",
-            "kind": {
-              "Enum": [
-                "readme",
-                "jsdoc"
-              ]
-            }
-          }
-        }
+        "Text"
       ]
     },
     "nullable": [
@@ -106,5 +95,5 @@
       null
     ]
   },
-  "hash": "b43a8cac5abc471e9e2781341c713f8b4c8c7c1b32d28b911b7449ab69ba43fc"
+  "hash": "f107dc1fb7a64a3b25b1d27ebcc9772c64ab9674ea80c7ce5cba0f8cc0e652c3"
 }

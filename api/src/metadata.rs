@@ -65,9 +65,12 @@ impl PackageMetadata {
       .list_package_versions_for_metadata(scope, package_name)
       .await?;
     versions.sort_by(|a, b| b.version.cmp(&a.version));
+    // The latest unyanked stable version, or - for packages that only have
+    // prerelease versions - the latest unyanked prerelease version.
     let latest = versions
       .iter()
       .find(|v| !v.is_yanked && v.version.0.pre.is_empty())
+      .or_else(|| versions.iter().find(|v| !v.is_yanked))
       .map(|v| v.version.clone());
     let mut out = Self {
       scope: scope.to_owned(),

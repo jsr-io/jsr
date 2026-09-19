@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT packages.scope \"package_scope: ScopeName\", packages.name \"package_name: PackageName\", packages.description \"package_description\", packages.github_repository_id \"package_github_repository_id\", packages.runtime_compat \"package_runtime_compat: RuntimeCompat\", packages.readme_source \"package_readme_source: ReadmeSource\", packages.when_featured \"package_when_featured\", packages.is_archived \"package_is_archived\", packages.updated_at \"package_updated_at\", packages.created_at \"package_created_at\",\n      COALESCE(pv_count.cnt, 0) as \"package_version_count!\", pv_latest.version as \"package_latest_version?\", pv_latest.meta as \"package_version_meta?: PackageVersionMeta\",\n      github_repositories.id \"github_repository_id?\", github_repositories.owner \"github_repository_owner?\", github_repositories.name \"github_repository_name?\", github_repositories.updated_at \"github_repository_updated_at?\", github_repositories.created_at \"github_repository_created_at?\"\n      FROM (\n        SELECT package_scope, package_name, MAX(created_at) as last_published_at\n        FROM publishing_tasks\n        WHERE user_id = $1 AND status = 'success'\n        GROUP BY package_scope, package_name\n        ORDER BY last_published_at DESC\n        LIMIT 10\n      ) recently_published\n      JOIN packages\n        ON packages.scope = recently_published.package_scope\n        AND packages.name = recently_published.package_name\n      LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id\n      LEFT JOIN LATERAL (SELECT COUNT(*) as cnt FROM package_versions WHERE scope = packages.scope AND name = packages.name) pv_count ON true LEFT JOIN LATERAL (SELECT version, meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) pv_latest ON true\n      ORDER BY recently_published.last_published_at DESC",
+  "query": "SELECT packages.scope \"package_scope: ScopeName\", packages.name \"package_name: PackageName\", packages.description \"package_description\", packages.github_repository_id \"package_github_repository_id\", packages.runtime_compat \"package_runtime_compat: RuntimeCompat\", packages.readme_source \"package_readme_source: ReadmeSource\", packages.when_featured \"package_when_featured\", packages.is_archived \"package_is_archived\", packages.updated_at \"package_updated_at\", packages.created_at \"package_created_at\",\n      COALESCE(pv_count.cnt, 0) as \"package_version_count!\", pv_latest.version as \"package_latest_version?\", pv_latest.meta as \"package_version_meta?: PackageVersionMeta\",\n      github_repositories.id \"github_repository_id?\", github_repositories.owner \"github_repository_owner?\", github_repositories.name \"github_repository_name?\", github_repositories.updated_at \"github_repository_updated_at?\", github_repositories.created_at \"github_repository_created_at?\"\n      FROM packages\n      LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id\n      LEFT JOIN LATERAL (SELECT COUNT(*) as cnt FROM package_versions WHERE scope = packages.scope AND name = packages.name) pv_count ON true LEFT JOIN LATERAL (SELECT version, meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND is_yanked = false ORDER BY (version NOT LIKE '%-%') DESC, version DESC LIMIT 1) pv_latest ON true\n      WHERE packages.scope = $1 AND ($2 = true OR packages.is_archived = false)\n      ORDER BY packages.is_archived ASC, packages.name\n      OFFSET $3 LIMIT $4",
   "describe": {
     "columns": [
       {
@@ -106,7 +106,10 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Text",
+        "Bool",
+        "Int8",
+        "Int8"
       ]
     },
     "nullable": [
@@ -121,14 +124,14 @@
       false,
       false,
       null,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
     ]
   },
-  "hash": "0f5262205c110d6cb318147208ac25f73fd81d499c5c9afbdc40bb2678ae6560"
+  "hash": "8bdfc89a391c6382101278f0692c50674f51012f984796a7b0c61a91fde02298"
 }

@@ -163,8 +163,18 @@ pub async fn generate_npm_version_manifest<'a>(
     );
   }
 
-  if let Some((version, _)) = out.versions.first() {
-    out.dist_tags.insert("latest".to_string(), version.clone());
+  // The `latest` dist-tag points at the newest (by semver) unyanked stable
+  // version, or - for packages that only have prerelease versions - the
+  // newest unyanked prerelease version.
+  let latest = out
+    .versions
+    .keys()
+    .filter(|v| v.0.pre.is_empty())
+    .max()
+    .or_else(|| out.versions.keys().max())
+    .cloned();
+  if let Some(version) = latest {
+    out.dist_tags.insert("latest".to_string(), version);
   }
 
   Ok(out)
