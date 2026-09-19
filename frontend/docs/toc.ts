@@ -54,6 +54,11 @@ export default [
     group: "Guide",
   },
   {
+    title: "Working behind a proxy",
+    id: "working-with-http-proxy",
+    group: "Guide",
+  },
+  {
     "title": "FAQ",
     "id": "faq",
     group: "Guide",
