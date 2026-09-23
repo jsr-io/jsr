@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE tickets\n          SET creator = $3, claim_token = NULL, reporter_email = NULL, reporter_name = NULL\n          WHERE id = $1 AND claim_token = $2\n          RETURNING id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "bdfc9fc0feb2bd80eae688888733efb1b4d59f3a0fa9d007abe85f367bb4ec58"
+}

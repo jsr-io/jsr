@@ -188,6 +188,7 @@ pub async fn create_npm_tarball<'a>(
           .unwrap();
         let specifier_rewriter = SpecifierRewriter {
           base_specifier: &js.specifier,
+          module_specifier: &js.specifier,
           source_rewrites: &source_rewrites,
           declaration_rewrites: &declaration_rewrites,
           dependencies: &js.dependencies,
@@ -209,6 +210,7 @@ pub async fn create_npm_tarball<'a>(
           .unwrap();
         let specifier_rewriter = SpecifierRewriter {
           base_specifier: &js.specifier,
+          module_specifier: &js.specifier,
           source_rewrites: &source_rewrites,
           declaration_rewrites: &declaration_rewrites,
           dependencies: &js.dependencies,
@@ -227,6 +229,7 @@ pub async fn create_npm_tarball<'a>(
         let source_target = source_rewrites.get(&js.specifier).unwrap();
         let specifier_rewriter = SpecifierRewriter {
           base_specifier: source_target,
+          module_specifier: &js.specifier,
           source_rewrites: &source_rewrites,
           declaration_rewrites: &declaration_rewrites,
           dependencies: &js.dependencies,
@@ -246,6 +249,7 @@ pub async fn create_npm_tarball<'a>(
           .unwrap();
         let specifier_rewriter = SpecifierRewriter {
           base_specifier: &js.specifier,
+          module_specifier: &js.specifier,
           source_rewrites: &source_rewrites,
           declaration_rewrites: &declaration_rewrites,
           dependencies: &js.dependencies,
@@ -263,6 +267,7 @@ pub async fn create_npm_tarball<'a>(
         let source_target = source_rewrites.get(&js.specifier).unwrap();
         let specifier_rewriter = SpecifierRewriter {
           base_specifier: source_target,
+          module_specifier: &js.specifier,
           source_rewrites: &source_rewrites,
           declaration_rewrites: &declaration_rewrites,
           dependencies: &js.dependencies,
@@ -279,6 +284,7 @@ pub async fn create_npm_tarball<'a>(
             declaration_rewrites.get(&js.specifier).unwrap();
           let specifier_rewriter = SpecifierRewriter {
             base_specifier: declaration_target,
+            module_specifier: &js.specifier,
             source_rewrites: &source_rewrites,
             declaration_rewrites: &declaration_rewrites,
             dependencies: &js.dependencies,

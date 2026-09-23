@@ -47,6 +47,20 @@ resource "google_secret_manager_secret_version" "postmark_token" {
   secret_data = var.postmark_token
 }
 
+// The password Postmark authenticates with when delivering inbound support
+// email. See api/src/api/hooks.rs.
+resource "google_secret_manager_secret" "postmark_webhook_password" {
+  secret_id = "postmark-webhook-password"
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "postmark_webhook_password" {
+  secret      = google_secret_manager_secret.postmark_webhook_password.id
+  secret_data = var.postmark_webhook_password
+}
+
 resource "google_secret_manager_secret" "algolia_write_api_key" {
   secret_id = "algolia-write-api-key"
   replication {

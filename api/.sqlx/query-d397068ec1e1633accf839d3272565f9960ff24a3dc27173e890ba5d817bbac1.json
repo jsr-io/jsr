@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO ticket_messages (ticket_id, author, direction, message)\n          VALUES ($1, $2, 'inbound', $3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d397068ec1e1633accf839d3272565f9960ff24a3dc27173e890ba5d817bbac1"
+}

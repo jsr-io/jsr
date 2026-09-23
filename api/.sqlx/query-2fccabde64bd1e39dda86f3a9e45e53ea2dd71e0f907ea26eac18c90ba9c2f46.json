@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE email_deliveries SET sent_at = now(), attempts = attempts + 1 WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2fccabde64bd1e39dda86f3a9e45e53ea2dd71e0f907ea26eac18c90ba9c2f46"
+}

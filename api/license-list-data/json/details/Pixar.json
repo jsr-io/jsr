@@ -11,10 +11,19 @@
   "crossRef": [
     {
       "match": "false",
+      "url": "https://github.com/PixarAnimationStudios/OpenSubdiv/blob/v3_5_0/opensubdiv/version.cpp#L2-L22",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-08-27T17:05:44Z",
+      "isWayBackLink": false,
+      "order": 2
+    },
+    {
+      "match": "false",
       "url": "https://graphics.pixar.com/opensubdiv/docs/license.html",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-07-16T09:30:29Z",
+      "timestamp": "2026-08-27T17:05:45Z",
       "isWayBackLink": false,
       "order": 1
     },
@@ -23,18 +32,9 @@
       "url": "https://github.com/PixarAnimationStudios/OpenSubdiv/raw/v3_5_0/LICENSE.txt",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-07-16T09:30:29Z",
+      "timestamp": "2026-08-27T17:05:46Z",
       "isWayBackLink": false,
       "order": 0
-    },
-    {
-      "match": "false",
-      "url": "https://github.com/PixarAnimationStudios/OpenSubdiv/blob/v3_5_0/opensubdiv/version.cpp#L2-L22",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-07-16T09:30:30Z",
-      "isWayBackLink": false,
-      "order": 2
     }
   ],
   "seeAlso": [

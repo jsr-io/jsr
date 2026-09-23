@@ -1,7 +1,12 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import type { WorkerEnv } from "./types.ts";
-import { type ExecutionCtx, proxyToBackend, proxyToR2 } from "./proxy.ts";
+import {
+  type ExecutionCtx,
+  isBucketCachePath,
+  proxyToBackend,
+  proxyToR2,
+} from "./proxy.ts";
 import {
   handleCORSPreflight,
   isCORSPreflight,
@@ -47,6 +52,19 @@ export async function route(
 ): Promise<Response> {
   const url = new URL(request.url);
   const hostname = url.hostname.toLowerCase();
+
+  // Reserved namespace the lb keys its own bucket cache entries under (see
+  // BUCKET_CACHE_PREFIX). Nothing is served from here; rejecting it up front —
+  // before any backend, and before any cache read or write — keeps a crafted
+  // request from planting a response under, or reading, a bucket cache key.
+  if (isBucketCachePath(url.pathname)) {
+    return new Response("404 - Not Found", {
+      status: 404,
+      headers: {
+        "Content-Type": "text/plain",
+      },
+    });
+  }
 
   if (hostname === env.API_DOMAIN) {
     return await handleAPIRequest(request, env, true, ctx);
@@ -110,6 +128,7 @@ export async function handleNPMRequest(
       return path;
     },
     ctx,
+    env.FALLBACK_NPM_URL,
   );
 
   setSecurityHeaders(response, NPM);
@@ -294,6 +313,17 @@ async function rateLimitGuard(
   return response;
 }
 
+/**
+ * Serves module files out of the modules bucket, falling back to
+ * `FALLBACK_ROOT_URL` for artifacts this instance does not host.
+ *
+ * The fallback is deliberately limited to artifacts: a package resolved from
+ * the fallback at publish time is *linked*, not mirrored, so the API
+ * (`/api/scopes/…`, package/version metadata, search) still 404s for it and the
+ * frontend links out to the fallback registry instead of rendering a local
+ * page. Do not "fix" that by wiring the fallback into the API routes — a
+ * package this registry does not have must not appear to be one it does.
+ */
 async function handleModuleFileRoute(
   request: Request,
   env: WorkerEnv,
@@ -305,6 +335,7 @@ async function handleModuleFileRoute(
     env.MODULES_BUCKET,
     undefined,
     ctx,
+    env.FALLBACK_ROOT_URL,
   );
 
   setSecurityHeaders(response, MODULES);

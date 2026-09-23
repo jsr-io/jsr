@@ -11,6 +11,10 @@ import TbAlertTriangleFilled from "tb-icons/TbAlertTriangleFilled";
 import TbExternalLink from "tb-icons/TbExternalLink";
 import TbRosetteDiscountCheck from "tb-icons/TbRosetteDiscountCheck";
 import { Tooltip } from "../../../components/Tooltip.tsx";
+import {
+  getSourceProvider,
+  PROVIDER_DISPLAY,
+} from "../../../utils/source_repository.ts";
 import twas from "twas";
 import { greaterThan, parse } from "@std/semver";
 import { DownloadWidget } from "../(_islands)/DownloadWidget.tsx";
@@ -138,7 +142,11 @@ export function PackageHeader({
               </div>
 
               {selectedVersion?.rekorLogId && (
-                <Tooltip tooltip="Built and signed on GitHub Actions">
+                <Tooltip
+                  tooltip={`Built and signed on ${
+                    PROVIDER_DISPLAY[getSourceProvider(pkg) ?? "github"].label
+                  }`}
+                >
                   <TbRosetteDiscountCheck class="stroke-green-500 size-6" />
                 </Tooltip>
               )}

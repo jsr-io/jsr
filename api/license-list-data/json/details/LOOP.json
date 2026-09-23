@@ -10,7 +10,7 @@
       "url": "https://gitlab.com/embeddable-common-lisp/ecl/-/blob/develop/src/lsp/loop.lsp",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-07-16T09:30:53Z",
+      "timestamp": "2026-08-27T17:03:36Z",
       "isWayBackLink": false,
       "order": 0
     },
@@ -19,7 +19,7 @@
       "url": "https://gitlab.common-lisp.net/cmucl/cmucl/-/blob/master/src/code/loop.lisp",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-07-16T09:30:54Z",
+      "timestamp": "2026-08-27T17:03:37Z",
       "isWayBackLink": false,
       "order": 5
     },
@@ -28,7 +28,7 @@
       "url": "https://sourceforge.net/p/sbcl/sbcl/ci/master/tree/src/code/loop.lisp",
       "isValid": true,
       "isLive": false,
-      "timestamp": "2026-07-16T09:30:54Z",
+      "timestamp": "2026-08-27T17:03:37Z",
       "isWayBackLink": false,
       "order": 2
     },
@@ -37,7 +37,7 @@
       "url": "http://git.savannah.gnu.org/cgit/gcl.git/tree/gcl/lsp/gcl_loop.lsp?h\u003dVersion_2_6_13pre",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-07-16T09:30:54Z",
+      "timestamp": "2026-08-27T17:03:38Z",
       "isWayBackLink": false,
       "order": 1
     },
@@ -46,7 +46,7 @@
       "url": "https://github.com/blakemcbride/eclipse-lisp/blob/master/lisp/loop.lisp",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-07-16T09:31:10Z",
+      "timestamp": "2026-08-27T17:03:40Z",
       "isWayBackLink": false,
       "order": 4
     },
@@ -55,7 +55,7 @@
       "url": "https://github.com/cl-adams/adams/blob/master/LICENSE.md",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-07-16T09:31:10Z",
+      "timestamp": "2026-08-27T17:03:41Z",
       "isWayBackLink": false,
       "order": 3
     }

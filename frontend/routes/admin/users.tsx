@@ -67,31 +67,55 @@ export default define.page<typeof handler>(function Users({ data, url }) {
               {twas(new Date(user.createdAt).getTime())}
             </TableData>
             <TableData align="right">
-              <EditModal
-                style="primary"
-                path={path`/admin/users/${user.id}`}
-                title={`Edit user '${user.name}'`}
-                fields={[
-                  {
-                    name: "scopeLimit",
-                    label: "scope limit",
-                    type: "number",
-                    value: user.scopeLimit,
-                  },
-                  {
-                    name: "isStaff",
-                    label: "is staff",
-                    type: "boolean",
-                    value: user.isStaff,
-                  },
-                  {
-                    name: "isBlocked",
-                    label: "is blocked",
-                    type: "boolean",
-                    value: user.isBlocked,
-                  },
-                ]}
-              />
+              <div class="flex gap-2 justify-end">
+                <EditModal
+                  style="primary"
+                  path={path`/admin/users/${user.id}/tickets`}
+                  title={`Contact '${user.name}'`}
+                  label="contact"
+                  method="post"
+                  redirect="/ticket/{id}"
+                  fields={[
+                    {
+                      name: "subject",
+                      label: "subject",
+                      type: "input",
+                      required: true,
+                    },
+                    {
+                      name: "message",
+                      label: "message",
+                      type: "textarea",
+                      required: true,
+                    },
+                  ]}
+                />
+                <EditModal
+                  style="primary"
+                  path={path`/admin/users/${user.id}`}
+                  title={`Edit user '${user.name}'`}
+                  fields={[
+                    {
+                      name: "scopeLimit",
+                      label: "scope limit",
+                      type: "number",
+                      value: user.scopeLimit,
+                    },
+                    {
+                      name: "isStaff",
+                      label: "is staff",
+                      type: "boolean",
+                      value: user.isStaff,
+                    },
+                    {
+                      name: "isBlocked",
+                      label: "is blocked",
+                      type: "boolean",
+                      value: user.isBlocked,
+                    },
+                  ]}
+                />
+              </div>
             </TableData>
           </TableRow>
         ))}

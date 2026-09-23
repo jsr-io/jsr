@@ -31,6 +31,7 @@ export default define.page<typeof handler>(function Score(
         versionCount={data.package.versionCount}
         dependencyCount={data.package.dependencyCount}
         dependentCount={data.package.dependentCount}
+        symbolCount={data.package.symbolCount}
         iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
@@ -129,6 +130,17 @@ function ScoreInfo(props: {
             module doc
           </a>{" "}
           summarizing what is defined in that module.
+          {score.entrypointsWithoutDocs.length > 0 && (
+            <span>
+              Entrypoints missing module docs:{" "}
+              {score.entrypointsWithoutDocs.map((ep, i) => (
+                <span key={ep}>
+                  {i > 0 && ", "}
+                  <code class="text-xs">{ep}</code>
+                </span>
+              ))}
+            </span>
+          )}
         </ScoreItem>
         <ScoreItem
           value={Math.min(score.percentageDocumentedSymbols / 0.8, 1)}

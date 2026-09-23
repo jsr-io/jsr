@@ -12,10 +12,10 @@ use crate::db::Permissions;
 use crate::db::Token;
 use crate::db::TokenType;
 use crate::db::User;
+use crate::external::oidc::OidcProviderKind;
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
 use crate::ids::Version;
-use crate::util::GithubOidcTokenAud;
 
 pub struct IamHandler<'s> {
   db: &'s Database,
@@ -50,7 +50,7 @@ impl<'s> IamHandler<'s> {
           Err(ApiError::ActorNotScopeMember)
         }
       }
-      Principal::GitHubActions { .. } => Err(ApiError::ActorNotAuthorized),
+      Principal::OidcCi { .. } => Err(ApiError::ActorNotAuthorized),
       Principal::Anonymous => Err(ApiError::MissingAuthentication),
     }
   }
@@ -91,7 +91,7 @@ impl<'s> IamHandler<'s> {
           Ok((user, false))
         }
       }
-      Principal::GitHubActions { .. } => Err(ApiError::ActorNotAuthorized),
+      Principal::OidcCi { .. } => Err(ApiError::ActorNotAuthorized),
       Principal::Anonymous => Err(ApiError::MissingAuthentication),
     }
   }
@@ -120,7 +120,7 @@ impl<'s> IamHandler<'s> {
         }
         Ok(())
       }
-      Principal::GitHubActions { .. } => Err(ApiError::ActorNotAuthorized),
+      Principal::OidcCi { .. } => Err(ApiError::ActorNotAuthorized),
       Principal::Anonymous => Err(ApiError::MissingAuthentication),
     }
   }
@@ -187,7 +187,11 @@ impl<'s> IamHandler<'s> {
           .ok_or(ApiError::ActorNotScopeMember)?;
         Ok((access_restriction, Some(user.id)))
       }
-      Principal::GitHubActions { repo_id, user } => {
+      Principal::OidcCi {
+        provider,
+        repository_external_id,
+        user,
+      } => {
         let scope = self
           .db
           .get_scope(scope_)
@@ -206,7 +210,14 @@ impl<'s> IamHandler<'s> {
           .get_package(scope_, package_)
           .await?
           .ok_or(ApiError::PackageNotFound)?;
-        if package.github_repository_id != Some(*repo_id) {
+        let expected_external_id = match provider {
+          OidcProviderKind::GitHub => {
+            package.github_repository_id.map(|id| id.to_string())
+          }
+        };
+        if expected_external_id.as_deref()
+          != Some(repository_external_id.as_str())
+        {
           return Err(ApiError::ActorNotAuthorized);
         }
         Ok((access_restriction, user.as_ref().map(|user| user.id)))
@@ -223,7 +234,7 @@ impl<'s> IamHandler<'s> {
     }
     match &self.principal {
       Principal::User(user) => Ok(user),
-      Principal::GitHubActions { .. } => Err(ApiError::ActorNotUser),
+      Principal::OidcCi { .. } => Err(ApiError::ActorNotUser),
       Principal::Anonymous => Err(ApiError::MissingAuthentication),
     }
   }
@@ -238,7 +249,7 @@ impl<'s> IamHandler<'s> {
     match &self.principal {
       Principal::User(user) if self.interactive => Ok(user),
       Principal::User(_) => Err(ApiError::CredentialNotInteractive),
-      Principal::GitHubActions { .. } => Err(ApiError::ActorNotUser),
+      Principal::OidcCi { .. } => Err(ApiError::ActorNotUser),
       Principal::Anonymous => Err(ApiError::MissingAuthentication),
     }
   }
@@ -247,7 +258,7 @@ impl<'s> IamHandler<'s> {
     match &self.principal {
       Principal::User(user) if user.is_staff => Ok(user),
       Principal::User(_) => Err(ApiError::ActorNotAuthorized),
-      Principal::GitHubActions { .. } => Err(ApiError::ActorNotAuthorized),
+      Principal::OidcCi { .. } => Err(ApiError::ActorNotAuthorized),
       Principal::Anonymous => Err(ApiError::MissingAuthentication),
     }
   }
@@ -260,7 +271,15 @@ pub struct PublishAccessRestriction {
 #[derive(Clone)]
 pub enum Principal {
   User(User),
-  GitHubActions { repo_id: i64, user: Option<User> },
+  /// A CI workload that authenticated with an OIDC token. `provider`
+  /// identifies the issuer; `repository_external_id` is the provider-native
+  /// repo identifier (GitHub `repository_id`, GitLab `project_id`, ...)
+  /// stringified for cross-provider compatibility.
+  OidcCi {
+    provider: OidcProviderKind,
+    repository_external_id: String,
+    user: Option<User>,
+  },
   Anonymous,
 }
 
@@ -302,19 +321,6 @@ impl From<(Token, User, bool)> for IamInfo {
       permissions: token.permissions,
       interactive: token.r#type == TokenType::Web,
       sudo,
-    }
-  }
-}
-
-impl From<(i64, GithubOidcTokenAud, Option<User>)> for IamInfo {
-  fn from(
-    (repo_id, aud, user): (i64, GithubOidcTokenAud, Option<User>),
-  ) -> Self {
-    IamInfo {
-      principal: Principal::GitHubActions { repo_id, user },
-      permissions: Some(aud.permissions),
-      interactive: false,
-      sudo: false,
     }
   }
 }

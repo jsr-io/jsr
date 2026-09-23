@@ -10,6 +10,9 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
         const renamedOldName = item.diff_status?.kind === "renamed"
           ? item.diff_status.old_name
           : undefined;
+        // a symbol documented only by `@deprecated <message>` falls back to
+        // that message rather than reading as undocumented
+        const docs = item.docs ?? item.deprecated_doc;
 
         return (
           <div
@@ -67,13 +70,13 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
                 </div>
 
                 <div>
-                  {item.docs
+                  {docs
                     ? (
                       <span
                         class="highlightable text-sm leading-5"
                         // jsdoc rendering
                         // deno-lint-ignore react-no-danger
-                        dangerouslySetInnerHTML={{ __html: item.docs }}
+                        dangerouslySetInnerHTML={{ __html: docs }}
                       />
                     )
                     : (

@@ -17,7 +17,9 @@ use crate::db::PackagePublishPermission;
 use crate::db::Permission;
 use crate::db::TokenType;
 use crate::db::UserPublic;
+use crate::emails;
 use crate::emails::EmailArgs;
+use crate::emails::EmailQueue;
 use crate::emails::EmailSender;
 use crate::iam::ReqIamExt;
 use crate::util;
@@ -271,13 +273,18 @@ async fn create_token(
         registry_name: Cow::Borrowed(&email_sender.from_name),
         support_email: Cow::Borrowed(&email_sender.from),
       };
-      email_sender
-        .send(email.clone(), email_args)
-        .await
-        .map_err(|e| {
-          tracing::error!("failed to send email: {:?}", e);
-          ApiError::InternalServerError
-        })?;
+      if let Err(err) = emails::enqueue(
+        db,
+        email_sender,
+        req.data::<EmailQueue>().unwrap(),
+        email.clone(),
+        email_args,
+        None,
+      )
+      .await
+      {
+        tracing::error!("failed to queue email: {:?}", err);
+      }
     }
   }
 
@@ -315,7 +322,15 @@ pub async fn list_tickets(req: Request<Body>) -> ApiResult<Vec<ApiTicket>> {
   let db = req.data::<Database>().unwrap();
 
   let tickets = db.list_tickets_for_user(current_user.id).await?;
-  Ok(tickets.into_iter().map(|scope| scope.into()).collect())
+  // Somebody's own tickets, read as themselves: staff notes are withheld even
+  // if the reader happens to be staff, because this is the account view rather
+  // than the admin one.
+  Ok(
+    tickets
+      .into_iter()
+      .map(|ticket| ApiTicket::for_viewer(ticket, false))
+      .collect(),
+  )
 }
 
 #[cfg(test)]

@@ -10,11 +10,20 @@
   "standardLicenseHeader": "This Source Code Form is subject to the terms of the MVT License, v. 1.1. If a copy of the MVT License was not distributed with this file, You can obtain one at https://license.mvt.re/1.1/.\n\n",
   "crossRef": [
     {
+      "match": "true",
+      "url": "https://license.mvt.re/1.1/",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-08-27T16:58:48Z",
+      "isWayBackLink": false,
+      "order": 0
+    },
+    {
       "match": "false",
       "url": "https://github.com/mvt-project/mvt/blob/main/LICENSE",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-07-16T09:21:01Z",
+      "timestamp": "2026-08-27T16:58:49Z",
       "isWayBackLink": false,
       "order": 2
     },
@@ -23,18 +32,9 @@
       "url": "https://docs.mvt.re/en/latest/license/",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-07-16T09:21:01Z",
+      "timestamp": "2026-08-27T16:58:49Z",
       "isWayBackLink": false,
       "order": 1
-    },
-    {
-      "match": "true",
-      "url": "https://license.mvt.re/1.1/",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-07-16T09:21:01Z",
-      "isWayBackLink": false,
-      "order": 0
     }
   ],
   "seeAlso": [

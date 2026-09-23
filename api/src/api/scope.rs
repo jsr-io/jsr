@@ -4,7 +4,9 @@ use std::sync::OnceLock;
 
 use crate::RegistryUrl;
 use crate::api::package::package_router;
+use crate::emails;
 use crate::emails::EmailArgs;
+use crate::emails::EmailQueue;
 use crate::emails::EmailSender;
 use crate::iam::ReqIamExt;
 use hyper::Body;
@@ -315,13 +317,18 @@ async fn invite_member_handler(
         support_email: Cow::Borrowed(&email_sender.from),
         inviter_name: Cow::Borrowed(&current_user.name),
       };
-      email_sender
-        .send(email.clone(), email_args)
-        .await
-        .map_err(|e| {
-          tracing::error!("failed to send email: {:?}", e);
-          ApiError::InternalServerError
-        })?;
+      if let Err(err) = emails::enqueue(
+        db,
+        email_sender,
+        req.data::<EmailQueue>().unwrap(),
+        email.clone(),
+        email_args,
+        None,
+      )
+      .await
+      {
+        tracing::error!("failed to queue email: {:?}", err);
+      }
     }
   }
 

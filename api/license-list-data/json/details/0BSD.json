@@ -10,16 +10,16 @@
       "url": "https://opensource.org/license/0BSD",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-07-16T09:30:27Z",
+      "timestamp": "2026-08-27T17:03:00Z",
       "isWayBackLink": false,
       "order": 1
     },
     {
-      "match": "N/A",
+      "match": "true",
       "url": "http://landley.net/toybox/license.html",
       "isValid": true,
-      "isLive": false,
-      "timestamp": "2026-07-16T09:30:27Z",
+      "isLive": true,
+      "timestamp": "2026-08-27T17:03:00Z",
       "isWayBackLink": false,
       "order": 0
     }
