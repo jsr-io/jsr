@@ -5,6 +5,11 @@ on:
     - cron: "0 6 1 * *"
   workflow_dispatch:
 
+# Least privilege by default. Jobs that need more (deploy credentials,
+# opening a pull request) declare it themselves.
+permissions:
+  contents: read
+
 jobs:
   sync-license-data:
     runs-on: ubuntu-latest
@@ -14,7 +19,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Shallow clone SPDX license-list-data
         run: |
@@ -51,7 +56,7 @@ jobs:
 
       - name: Create Pull Request
         if: steps.check-changes.outputs.changes == 'true'
-        uses: peter-evans/create-pull-request@v8
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           commit-message: |
             feat: update SPDX license data
