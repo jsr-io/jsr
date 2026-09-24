@@ -5,8 +5,7 @@ on:
     - cron: "0 6 1 * *"
   workflow_dispatch:
 
-# Least privilege by default. Jobs that need more (deploy credentials,
-# opening a pull request) declare it themselves.
+# Read-only by default; the job below raises it to open a pull request.
 permissions:
   contents: read
 
@@ -20,6 +19,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # This job's token can write to the repository and the steps below
+          # run third-party code, so don't leave it in .git/config for them.
+          # create-pull-request pushes with its own token regardless.
+          persist-credentials: false
 
       - name: Shallow clone SPDX license-list-data
         run: |

@@ -11,8 +11,7 @@ on:
           - staging
         required: true
 
-# Least privilege by default. Jobs that need more (deploy credentials,
-# opening a pull request) declare it themselves.
+# The job needs nothing from the repository token beyond the checkout.
 permissions:
   contents: read
 

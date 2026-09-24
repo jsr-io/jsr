@@ -4,7 +4,7 @@
 # workspace member that depends on the workspace-local `crates/jsr_types` path
 # crate. CI builds it with `context: .` and `file: api/Dockerfile`.
 
-FROM rust:bookworm@sha256:93ce27a88655056a51dbdd8f5f2d7ddc071c7b0070fb288a37b5a285fc83971e AS build
+FROM rust:1.98.1-bookworm@sha256:93ce27a88655056a51dbdd8f5f2d7ddc071c7b0070fb288a37b5a285fc83971e AS build
 
 WORKDIR /app
 
