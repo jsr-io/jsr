@@ -34,7 +34,7 @@ pub use self::tarball::create_npm_tarball;
 pub use self::types::NpmMappedJsrPackageName;
 use self::types::NpmVersionInfo;
 
-pub const NPM_TARBALL_REVISION: u32 = 11;
+pub const NPM_TARBALL_REVISION: u32 = 12;
 
 pub async fn generate_npm_version_manifest<'a>(
   db: &Database,

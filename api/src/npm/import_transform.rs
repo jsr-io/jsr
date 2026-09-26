@@ -14,10 +14,27 @@ use deno_ast::swc::ecma_visit::VisitMutWith;
 
 use super::specifiers::RewriteKind;
 use super::specifiers::SpecifierRewriter;
+use super::specifiers::rewrite_npm_and_jsr_specifier;
 
 pub struct ImportRewriteTransformer<'a> {
   pub specifier_rewriter: SpecifierRewriter<'a>,
   pub kind: RewriteKind,
+}
+
+impl ImportRewriteTransformer<'_> {
+  fn remap(&self, value: &str) -> Option<String> {
+    self
+      .specifier_rewriter
+      .rewrite(value, self.kind)
+      .or_else(|| rewrite_npm_and_jsr_specifier(value))
+  }
+
+  fn remap_declaration(&self, value: &str) -> Option<String> {
+    self
+      .specifier_rewriter
+      .rewrite(value, RewriteKind::Declaration)
+      .or_else(|| rewrite_npm_and_jsr_specifier(value))
+  }
 }
 
 impl VisitMut for ImportRewriteTransformer<'_> {
@@ -25,7 +42,7 @@ impl VisitMut for ImportRewriteTransformer<'_> {
     node.visit_mut_children_with(self);
 
     if let Some(value) = node.src.value.as_str()
-      && let Some(remapped) = self.specifier_rewriter.rewrite(value, self.kind)
+      && let Some(remapped) = self.remap(value)
     {
       node.src = Box::new(remapped.into());
     }
@@ -36,7 +53,7 @@ impl VisitMut for ImportRewriteTransformer<'_> {
 
     if let Some(src) = &node.src
       && let Some(value) = src.value.as_str()
-      && let Some(remapped) = self.specifier_rewriter.rewrite(value, self.kind)
+      && let Some(remapped) = self.remap(value)
     {
       node.src = Some(Box::new(remapped.into()));
     }
@@ -46,7 +63,7 @@ impl VisitMut for ImportRewriteTransformer<'_> {
     node.visit_mut_children_with(self);
 
     if let Some(value) = node.src.value.as_str()
-      && let Some(remapped) = self.specifier_rewriter.rewrite(value, self.kind)
+      && let Some(remapped) = self.remap(value)
     {
       node.src = Box::new(remapped.into());
     }
@@ -56,9 +73,7 @@ impl VisitMut for ImportRewriteTransformer<'_> {
     n.visit_mut_children_with(self);
 
     if let Some(value) = n.arg.value.as_str()
-      && let Some(remapped) = self
-        .specifier_rewriter
-        .rewrite(value, RewriteKind::Declaration)
+      && let Some(remapped) = self.remap_declaration(value)
     {
       n.arg = remapped.into();
     }
@@ -72,7 +87,7 @@ impl VisitMut for ImportRewriteTransformer<'_> {
       && let Expr::Lit(Lit::Str(lit_str)) = *arg.expr.clone()
       && let Some(value) = lit_str.value.as_str()
     {
-      let maybe_rewritten = self.specifier_rewriter.rewrite(value, self.kind);
+      let maybe_rewritten = self.remap(value);
       if let Some(rewritten) = maybe_rewritten {
         let replacer = Expr::Lit(Lit::Str(Str {
           span: lit_str.span,
