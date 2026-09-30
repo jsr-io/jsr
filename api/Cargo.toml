@@ -80,7 +80,6 @@ lazy_static = "1.5.0"
 tikv-jemallocator = { version = "0.6", features = ["profiling"] }
 tikv-jemalloc-ctl = { version = "0.6", features = ["stats"] }
 shared = { path = "../shared", package = "registry_api_shared" }
-tasks = { path = "../tasks", package = "registry_api_tasks" }
 
 [dev-dependencies]
 flate2.workspace = true

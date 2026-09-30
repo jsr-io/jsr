@@ -97,7 +97,7 @@ resource "google_cloud_run_v2_service" "registry_api" {
     containers {
       image = var.api_image_id
       args = [
-        "--api", "--tasks=false", "--database_pool_size=4"
+        "--database_pool_size=4"
       ]
 
       resources {
@@ -113,6 +113,13 @@ resource "google_cloud_run_v2_service" "registry_api" {
           name  = env.key
           value = env.value
         }
+      }
+
+      # The tasks service, which the api calls (as its own service account, see
+      # api_invokes_tasks below) for work that runs in the task handlers.
+      env {
+        name  = "TASKS_URL"
+        value = google_cloud_run_v2_service.registry_api_tasks.uri
       }
 
       env {
@@ -275,9 +282,9 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
     timeout = "600s"
 
     containers {
-      image = var.api_image_id
+      image = var.task_image_id
       args = [
-        "--tasks", "--api=false", "--database_pool_size=1"
+        "--database_pool_size=1"
       ]
 
       # Analyzing a package with ~20k modules peaks near 512Mi (the default
@@ -298,27 +305,6 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
         }
       }
 
-      env {
-        name = "GITHUB_CLIENT_SECRET"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.github_client_secret.id
-            version = "latest"
-          }
-        }
-      }
-
-
-      env {
-        name = "GITLAB_CLIENT_SECRET"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.gitlab_client_secret.id
-            version = "latest"
-          }
-        }
-      }
-
       // Outgoing email is delivered by /tasks/send_email, which runs here
       // rather than on the API service, so the Postmark credential has to be
       // present on this service too.
@@ -327,16 +313,6 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.postmark_token.id
-            version = "latest"
-          }
-        }
-      }
-
-      env {
-        name = "TURNSTILE_SECRET_KEY"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.turnstile_secret_key.id
             version = "latest"
           }
         }
@@ -371,6 +347,14 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
 }
 
 ### IAM
+
+resource "google_cloud_run_service_iam_member" "api_invokes_tasks" {
+  location = google_cloud_run_v2_service.registry_api_tasks.location
+  project  = google_cloud_run_v2_service.registry_api_tasks.project
+  service  = google_cloud_run_v2_service.registry_api_tasks.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.registry_api.email}"
+}
 
 resource "google_service_account" "registry_api" {
   account_id   = "registry-api"

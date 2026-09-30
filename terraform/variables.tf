@@ -12,6 +12,11 @@ variable "api_image_id" {
   type        = string
 }
 
+variable "task_image_id" {
+  description = "the Docker image ID for the task service"
+  type        = string
+}
+
 variable "github_client_id" {
   type = string
 }

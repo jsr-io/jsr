@@ -1,5 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use clap::ArgAction;
 use clap::Parser;
 use url::Url;
 
@@ -143,40 +142,19 @@ pub struct Config {
   pub fallback_registry_url: Option<Url>,
 
   #[clap(
-    long = "api",
-    default_missing_value("true"),
-    default_value("true"),
-    num_args(0..=1),
-    require_equals(true),
-    action = ArgAction::Set,
+    long = "tasks_url",
+    env = "TASKS_URL",
+    default_value = "http://127.0.0.1:8002/",
+    value_parser = parse_base_url
   )]
-  /// Enable serving the /api/* routes on the server, which enable users to make
-  /// API calls to the service. This also enables the /login, /login/callback,
-  /// and /logout routes.
-  pub api: bool,
-
-  #[clap(
-    long = "tasks",
-    default_missing_value("true"),
-    default_value("true"),
-    num_args(0..=1),
-    require_equals(true),
-    action = ArgAction::Set,
-  )]
-  /// Enable serving the /tasks/* routes on the server, which trigger async
-  /// background task processing.
-  pub tasks: bool,
+  /// The base URL of the tasks service, which serves the `/tasks/*` routes.
+  /// The api calls it for work that runs in the task handlers: publishing when
+  /// no publish queue is configured, and admin re-analysis.
+  pub tasks_url: Url,
 
   #[clap(long = "publish_queue_id", env = "PUBLISH_QUEUE_ID")]
   /// The ID of the publish queue.
   pub publish_queue_id: Option<String>,
-
-  #[clap(
-    long = "npm_tarball_build_queue_id",
-    env = "NPM_TARBALL_BUILD_QUEUE_ID"
-  )]
-  /// The ID of the npm tarball build queue.
-  pub npm_tarball_build_queue_id: Option<String>,
 
   #[clap(long = "email_queue_id", env = "EMAIL_QUEUE_ID")]
   /// The ID of the queue that delivers outgoing email. Email is sent inline if
@@ -196,13 +174,6 @@ pub struct Config {
   /// package and npm version manifests when a package is published or
   /// mutated. Cache purge is skipped if unset.
   pub cloudflare_zone_id: Option<String>,
-
-  #[clap(
-    long = "cloudflare_analytics_dataset",
-    env = "CLOUDFLARE_ANALYTICS_DATASET"
-  )]
-  /// The Cloudflare Analytics Engine dataset name for download tracking.
-  pub cloudflare_analytics_dataset: Option<String>,
 
   #[clap(long = "turnstile_secret_key", env = "TURNSTILE_SECRET_KEY")]
   /// The Cloudflare Turnstile secret key, used to verify the captcha response
@@ -270,11 +241,8 @@ impl std::fmt::Debug for Config {
       .field("otlp_headers", &self.otlp_headers.as_ref().map(|_| "***"))
       .field("deployment_environment", &self.deployment_environment)
       .field("registry_url", &self.registry_url)
+      .field("tasks_url", &self.tasks_url)
       .field("publish_queue_id", &self.publish_queue_id)
-      .field(
-        "npm_tarball_build_queue_id",
-        &self.npm_tarball_build_queue_id,
-      )
       .field(
         "turnstile_secret_key",
         &self.turnstile_secret_key.as_ref().map(|_| "***"),

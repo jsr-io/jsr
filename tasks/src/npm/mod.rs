@@ -11,4 +11,3 @@ pub use self::tarball::NpmTarballFiles;
 pub use self::tarball::NpmTarballOptions;
 pub use self::tarball::create_npm_tarball;
 pub use shared::npm::NpmMappedJsrPackageName;
-pub use shared::npm::generate_npm_version_manifest;

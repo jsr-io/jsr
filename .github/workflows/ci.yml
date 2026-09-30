@@ -163,8 +163,10 @@ jobs:
       id-token: write
     env:
       API_IMAGE_ID_BASE: us-central1-docker.pkg.dev/deno-registry3-infra/registry/api
+      TASKS_IMAGE_ID_BASE: us-central1-docker.pkg.dev/deno-registry3-infra/registry/tasks
     outputs:
       api_image_id: ${{ steps.api_image_id.outputs.image_id }}
+      tasks_image_id: ${{ steps.tasks_image_id.outputs.image_id }}
     steps:
       - name: Clone repository
         uses: actions/checkout@v6
@@ -190,7 +192,8 @@ jobs:
         if: github.event_name == 'push'
         id: check_existing
         run: |
-          if docker manifest inspect ${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }} > /dev/null 2>&1; then
+          if docker manifest inspect ${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }} > /dev/null 2>&1 \
+            && docker manifest inspect ${{ env.TASKS_IMAGE_ID_BASE }}:${{ github.sha }} > /dev/null 2>&1; then
             echo "exists=true" >> $GITHUB_OUTPUT
           else
             echo "exists=false" >> $GITHUB_OUTPUT
@@ -217,6 +220,18 @@ jobs:
           cache-from: type=registry,ref=${{ env.API_IMAGE_ID_BASE }}:buildcache
           cache-to: type=registry,ref=${{ env.API_IMAGE_ID_BASE }}:buildcache,mode=max,image-manifest=true,oci-mediatypes=true
 
+      - name: Build and push tasks docker image
+        if: github.event_name != 'push' || steps.check_existing.outputs.exists != 'true'
+        uses: docker/build-push-action@v5
+        id: tasks_push
+        with:
+          context: .
+          file: tasks/Dockerfile
+          push: true
+          tags: ${{ env.TASKS_IMAGE_ID_BASE }}:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.TASKS_IMAGE_ID_BASE }}:buildcache
+          cache-to: type=registry,ref=${{ env.TASKS_IMAGE_ID_BASE }}:buildcache,mode=max,image-manifest=true,oci-mediatypes=true
+
       - name: Set api_image_id output
         id: api_image_id
         run: |
@@ -224,6 +239,15 @@ jobs:
             echo "image_id=${{ env.API_IMAGE_ID_BASE }}@${{ steps.api_push.outputs.imageid }}" >> $GITHUB_OUTPUT
           else
             echo "image_id=${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set tasks_image_id output
+        id: tasks_image_id
+        run: |
+          if [ -n "${{ steps.tasks_push.outputs.imageid }}" ]; then
+            echo "image_id=${{ env.TASKS_IMAGE_ID_BASE }}@${{ steps.tasks_push.outputs.imageid }}" >> $GITHUB_OUTPUT
+          else
+            echo "image_id=${{ env.TASKS_IMAGE_ID_BASE }}:${{ github.sha }}" >> $GITHUB_OUTPUT
           fi
 
   staging:
@@ -272,6 +296,7 @@ jobs:
           deno task tf:staging:plan
         env:
           API_IMAGE_ID: ${{ needs.docker-images.outputs.api_image_id }}
+          TASKS_IMAGE_ID: ${{ needs.docker-images.outputs.tasks_image_id }}
           TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
           TF_VAR_gitlab_client_secret: ${{ secrets.GITLAB_CLIENT_SECRET }}
           TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
@@ -340,6 +365,7 @@ jobs:
           deno task tf:prod:plan
         env:
           API_IMAGE_ID: ${{ needs.docker-images.outputs.api_image_id }}
+          TASKS_IMAGE_ID: ${{ needs.docker-images.outputs.tasks_image_id }}
           TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
           TF_VAR_gitlab_client_secret: ${{ secrets.GITLAB_CLIENT_SECRET }}
           TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}

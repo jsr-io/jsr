@@ -1,8 +1,8 @@
 # This Dockerfile is adapted from https://whitfin.io/blog/speeding-up-rust-docker-builds/
 #
 # The build context is the repository ROOT (not api/), because registry_api is a
-# workspace member that depends on the workspace-local `shared`, `tasks` and
-# `macros` path crates. CI builds it with `context: .` and `file: api/Dockerfile`.
+# workspace member that depends on the workspace-local `shared` and `macros`
+# path crates. CI builds it with `context: .` and `file: api/Dockerfile`.
 
 FROM rust:bookworm AS build
 
@@ -22,7 +22,7 @@ COPY ./tasks/Cargo.toml ./tasks/Cargo.toml
 RUN mkdir -p api/src macros/src shared/src tasks/src \
   && echo 'fn main() {}' > api/src/main.rs \
   && echo 'fn main() {}' > tasks/src/main.rs \
-  && touch macros/src/lib.rs shared/src/lib.rs tasks/src/lib.rs
+  && touch macros/src/lib.rs shared/src/lib.rs
 
 # Enable jemalloc heap profiling support at compile time.
 # prof:true enables the profiler; prof_active:true keeps sampling on so heap
@@ -39,7 +39,6 @@ COPY ./macros/src ./macros/src
 COPY ./shared/src ./shared/src
 COPY ./shared/migrations ./shared/migrations
 COPY ./shared/.sqlx ./shared/.sqlx
-COPY ./tasks/src ./tasks/src
 
 # build for release
 RUN rm -f ./target/release/deps/registry_api* ./target/release/deps/libregistry_api*

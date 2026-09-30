@@ -17,6 +17,7 @@ use routerify::ext::RequestExt;
 use routerify_query::RequestQueryExt;
 use serde::Deserialize;
 use serde::Serialize;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::str::FromStr;
 use tracing::Span;
@@ -24,7 +25,9 @@ use tracing::error;
 use tracing::field;
 use tracing::instrument;
 
+use crate::analysis::PackageAnalysisData;
 use crate::analysis::RebuildNpmTarballData;
+use crate::analysis::analyze_package;
 use crate::analysis::rebuild_npm_tarball;
 use crate::errors::*;
 use shared::npm::generate_npm_version_manifest;
@@ -43,10 +46,12 @@ use shared::external::cloudflare;
 use shared::external::cloudflare::CachePurge;
 use shared::external::gcp;
 use shared::ids::PackageName;
+use shared::ids::PackagePath;
 use shared::ids::ScopeName;
 use shared::ids::Version;
 use shared::models::DownloadKind;
 use shared::models::NewNpmTarball;
+use shared::models::PackageVersionMeta;
 use shared::models::PublishingTaskStatus;
 use shared::models::VersionDownloadCount;
 use shared::npm::NPM_TARBALL_REVISION;
@@ -68,78 +73,130 @@ pub struct AnalyticsEngineConfig(
 );
 
 /// The routes for the background task handlers.
-///
-/// Generic over the router's error type so the api binary can mount these
-/// under its own `ApiError` router (behind `--tasks`) until the tasks service
-/// is deployed as its own binary.
-pub fn tasks_router<E>() -> routerify::Router<Body, E>
-where
-  E: From<TaskError>
-    + Into<Box<dyn std::error::Error + Send + Sync>>
-    + Send
-    + Sync
-    + 'static,
-{
+pub fn tasks_router() -> routerify::Router<Body, TaskError> {
   routerify::Router::builder()
-    .post("/publish", json(crate::publish::publish_handler))
-    .post("/npm_tarball_build", json(npm_tarball_build_handler))
-    .post("/npm_tarball_enqueue", json(npm_tarball_enqueue_handler))
+    .post("/publish", util::json(crate::publish::publish_handler))
+    .post("/npm_tarball_build", util::json(npm_tarball_build_handler))
+    .post(
+      "/npm_tarball_enqueue",
+      util::json(npm_tarball_enqueue_handler),
+    )
     .post(
       "/scrape_download_counts",
-      json(scrape_download_counts_handler),
+      util::json(scrape_download_counts_handler),
     )
-    .post("/clean_oauth_states", json(clean_oauth_states_handler))
-    .post("/send_email", raw(send_email_handler))
-    .post("/sweep_pending_emails", json(sweep_pending_emails_handler))
+    .post(
+      "/clean_oauth_states",
+      util::json(clean_oauth_states_handler),
+    )
+    .post("/send_email", send_email_handler)
+    .post(
+      "/sweep_pending_emails",
+      util::json(sweep_pending_emails_handler),
+    )
     .post(
       "/clean_download_counts_4h",
-      json(clean_download_counts_4h_handler),
+      util::json(clean_download_counts_4h_handler),
     )
     .post(
       "/requeue_stuck_publishing_tasks",
-      json(requeue_stuck_publishing_tasks_handler),
+      util::json(requeue_stuck_publishing_tasks_handler),
+    )
+    .post(
+      "/recompute_version_meta",
+      util::json(recompute_version_meta_handler),
     )
     .build()
     .unwrap()
 }
 
-/// Like [`util::json`], but converts the handler's [`TaskError`] into the
-/// router's error type.
-fn json<E, D, H, HF>(
-  handler: H,
-) -> impl Fn(Request<Body>) -> util::HandlerFuture<Response<Body>, E>
-where
-  E: From<TaskError> + 'static,
-  D: Serialize,
-  H: Fn(Request<Body>) -> HF,
-  HF: Future<Output = TaskResult<D>> + Send + 'static,
-{
-  use futures::FutureExt;
-  move |req: Request<Body>| {
-    let fut = handler(req);
-    async move {
-      let data = fut.await?;
-      Ok(util::respond_json(&data, StatusCode::OK))
-    }
-    .boxed()
-  }
+#[derive(Debug, Deserialize)]
+struct RecomputeVersionMetaJob {
+  scope: ScopeName,
+  name: PackageName,
+  version: Version,
 }
 
-/// Passes a handler's response through, converting its [`TaskError`] into the
-/// router's error type.
-fn raw<E, H, HF>(
-  handler: H,
-) -> impl Fn(Request<Body>) -> util::HandlerFuture<Response<Body>, E>
-where
-  E: From<TaskError> + 'static,
-  H: Fn(Request<Body>) -> HF,
-  HF: Future<Output = TaskResult<Response<Body>>> + Send + 'static,
-{
-  use futures::FutureExt;
-  move |req: Request<Body>| {
-    let fut = handler(req);
-    async move { Ok(fut.await?) }.boxed()
+/// Re-runs the publish analysis over a published version's stored files and
+/// returns the recomputed meta, or the analysis error message when the
+/// analysis rejects the package. Called by the api's admin "recompute meta"
+/// endpoint.
+#[instrument(
+  name = "POST /recompute_version_meta",
+  skip(req),
+  err,
+  fields(job)
+)]
+pub async fn recompute_version_meta_handler(
+  mut req: Request<Body>,
+) -> TaskResult<Result<PackageVersionMeta, String>> {
+  let job: RecomputeVersionMetaJob = decode_json(&mut req).await?;
+  Span::current().record("job", field::debug(&job));
+
+  let db = req.data::<Database>().unwrap().clone();
+  let buckets = req.data::<Buckets>().unwrap().clone();
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
+
+  let package_version = db
+    .get_package_version(&job.scope, &job.name, &job.version)
+    .await?
+    .ok_or(SharedError::PackageVersionNotFound)?;
+
+  let mut files = HashMap::new();
+  for file in db
+    .list_package_files(&job.scope, &job.name, &job.version)
+    .await?
+  {
+    let s3_path =
+      s3_paths::file_path(&job.scope, &job.name, &job.version, &file.path);
+    let bytes = buckets
+      .modules_bucket
+      .download(s3_path.into())
+      .await?
+      .ok_or_else(|| {
+        error!(
+          "module file '{}' of @{}/{}@{} is missing from the modules bucket",
+          file.path, job.scope, job.name, job.version
+        );
+        SharedError::InternalServerError
+      })?;
+    files.insert(file.path, bytes.to_vec());
   }
+
+  // the config file path is only used in analysis error messages; the
+  // exports driving the analysis come from the database
+  let config_file = ["/jsr.json", "/jsr.jsonc", "/deno.json", "/deno.jsonc"]
+    .into_iter()
+    .map(|path| PackagePath::new(path.to_string()).unwrap())
+    .find(|path| files.contains_key(path))
+    .unwrap_or_else(|| PackagePath::new("/jsr.json".to_string()).unwrap());
+
+  let span = Span::current();
+  let output = tokio::task::spawn_blocking(move || {
+    analyze_package(
+      span,
+      registry_url,
+      job.scope,
+      job.name,
+      job.version,
+      config_file,
+      PackageAnalysisData {
+        exports: package_version.exports,
+        files,
+      },
+    )
+  })
+  .await
+  .map_err(|join_error| {
+    error!("analysis task panicked: {join_error:?}");
+    SharedError::InternalServerError
+  })?;
+
+  Ok(
+    output
+      .map(|output| output.meta)
+      .map_err(|analysis_error| analysis_error.to_string()),
+  )
 }
 
 /// Re-drive publishing tasks that got stranded in a non-terminal state.

@@ -88,6 +88,14 @@ function getProcessDefs(noDockerPostgres: boolean): ProcessDef[] {
   });
 
   defs.push({
+    name: "tasks",
+    cmd: "cargo",
+    args: ["run"],
+    cwd: `${rootDir}/tasks`,
+    color: blue,
+  });
+
+  defs.push({
     name: "frontend",
     cmd: Deno.execPath(),
     args: ["task", "dev"],

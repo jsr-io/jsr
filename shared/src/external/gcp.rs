@@ -3,6 +3,7 @@
 use bytes::Bytes;
 use hyper::StatusCode;
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -53,6 +54,7 @@ impl Client {
     Self(Arc::new(ClientInner {
       http_without_compression,
       access_token: Mutex::new(None),
+      identity_tokens: Mutex::new(HashMap::new()),
       metadata_strategy,
     }))
   }
@@ -71,7 +73,15 @@ pub struct ClientInner {
   http_without_compression: reqwest::Client,
   metadata_strategy: MetadataStrategy,
   access_token: Mutex<Option<(String, Instant)>>,
+  /// OIDC identity tokens by audience, with the instant they are treated as
+  /// expired.
+  identity_tokens: Mutex<HashMap<String, (String, Instant)>>,
 }
+
+/// How long an identity token is reused. The metadata server mints them with
+/// a one hour lifetime; refreshing well before that keeps clock skew and a
+/// long request from presenting an expired token.
+const IDENTITY_TOKEN_TTL: Duration = Duration::from_secs(45 * 60);
 
 #[allow(dead_code)]
 impl ClientInner {
@@ -122,6 +132,52 @@ impl ClientInner {
         Ok(token.access_token)
       }
       MetadataStrategy::Testing => Ok("testing.access.token".to_owned()),
+    }
+  }
+
+  /// An OIDC identity token for `audience`, minted for this instance's service
+  /// account. This is what a Cloud Run service that only admits authenticated
+  /// invokers checks. `None` under the testing strategy, where nothing checks
+  /// it.
+  pub async fn get_identity_token(
+    &self,
+    audience: &str,
+  ) -> Result<Option<String>, anyhow::Error> {
+    match self.metadata_strategy {
+      MetadataStrategy::InstanceMetadata => {
+        {
+          let guard = self.identity_tokens.lock().unwrap();
+          if let Some((token, expires_at)) = guard.get(audience)
+            && *expires_at > Instant::now()
+          {
+            return Ok(Some(token.clone()));
+          }
+        }
+        let url = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity";
+        let resp = self
+          .http()
+          .get(url)
+          .query(&[("audience", audience)])
+          .header("Metadata-Flavor", "Google")
+          .send()
+          .await?;
+        if resp.status() != StatusCode::OK {
+          let status = resp.status();
+          let text = resp.text().await?;
+          return Err(anyhow::anyhow!(
+            "failed to get identity token from metadata server: status={} text='{}'",
+            status,
+            text
+          ));
+        }
+        let token = resp.text().await?;
+        self.identity_tokens.lock().unwrap().insert(
+          audience.to_owned(),
+          (token.clone(), Instant::now() + IDENTITY_TOKEN_TTL),
+        );
+        Ok(Some(token))
+      }
+      MetadataStrategy::Testing => Ok(None),
     }
   }
 }

@@ -162,6 +162,8 @@ pub struct TestSetup {
   pub staff_user: TestUser,
   pub scope: crate::models::Scope,
   pub fallback_registry_url: Option<Url>,
+  /// The fake S3 server the buckets live on.
+  pub s3_endpoint: String,
 }
 
 impl TestSetup {
@@ -305,6 +307,7 @@ impl TestSetup {
       staff_user,
       scope,
       fallback_registry_url,
+      s3_endpoint: s3.endpoint(),
     }
   }
 
@@ -337,6 +340,12 @@ impl TestSetup {
       user,
       github_name: github_name.to_string(),
     }
+  }
+
+  /// The connection URL of this harness's database, for handing to another
+  /// process.
+  pub fn database_url(&self) -> &str {
+    &self.ephemeral_database.database_url
   }
 
   pub fn db(&self) -> Database {

@@ -3,7 +3,6 @@ use super::ApiPublishingTask;
 use shared::errors::SharedError;
 use shared::s3::S3Error;
 use std::borrow::Cow;
-use tasks::errors::TaskError;
 
 shared::errors!(
   ApiError:
@@ -339,24 +338,6 @@ impl From<crate::task_dispatch::AnalyzeVersionError> for ApiError {
         ApiError::PackageAnalysisFailed { msg }
       }
       crate::task_dispatch::AnalyzeVersionError::Internal(err) => err.into(),
-    }
-  }
-}
-
-/// The task handlers are mounted under this router (see `main_router`), so
-/// their errors have to render as api errors.
-impl From<TaskError> for ApiError {
-  fn from(error: TaskError) -> ApiError {
-    match error {
-      TaskError::InternalServerError => ApiError::InternalServerError,
-      TaskError::MalformedRequest { msg } => ApiError::MalformedRequest { msg },
-      TaskError::PackageVersionNotFound => ApiError::PackageVersionNotFound,
-      TaskError::PublishNotFound => ApiError::PublishNotFound,
-      TaskError::MissingTurnstileToken => ApiError::MissingTurnstileToken,
-      TaskError::InvalidTurnstileToken => ApiError::InvalidTurnstileToken,
-      TaskError::TurnstileVerificationFailed => {
-        ApiError::TurnstileVerificationFailed
-      }
     }
   }
 }

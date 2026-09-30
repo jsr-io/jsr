@@ -1132,11 +1132,15 @@ pub async fn version_publish_handler(
     let body = serde_json::to_vec(&publishing_task.id).unwrap();
     queue.task_buffer(None, Some(body.into())).await?;
   } else {
-    // No queue (local development): run the publish in-process.
+    // No queue (local development): ask the tasks service to publish now.
+    let publishing_task_id = publishing_task.id;
     tokio::spawn(
-      task_dispatch
-        .publish(publishing_task.id)
-        .instrument(Span::current()),
+      async move {
+        if let Err(err) = task_dispatch.publish(publishing_task_id).await {
+          error!("publish of {publishing_task_id} failed: {err:?}");
+        }
+      }
+      .instrument(Span::current()),
     );
   }
 

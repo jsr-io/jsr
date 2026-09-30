@@ -1,6 +1,15 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
+mod analysis;
 mod config;
+mod errors;
+mod npm;
+mod publish;
+mod tarball;
+mod tasks;
+
+#[cfg(test)]
+mod test;
 
 use clap::Parser;
 use hyper::Body;
@@ -10,11 +19,11 @@ use std::net::SocketAddr;
 use std::time::Duration;
 use url::Url;
 
-use registry_api_tasks::errors::TaskError;
-use registry_api_tasks::errors::error_handler;
-use registry_api_tasks::tasks::AnalyticsEngineConfig;
-use registry_api_tasks::tasks::NpmTarballBuildQueue;
-use registry_api_tasks::tasks::tasks_router;
+use errors::TaskError;
+use errors::error_handler;
+use tasks::AnalyticsEngineConfig;
+use tasks::NpmTarballBuildQueue;
+use tasks::tasks_router;
 
 use shared::FallbackRegistryUrl;
 use shared::NpmUrl;
@@ -86,10 +95,9 @@ fn main_router(
     .data(CachePurge(cache_purge_client))
     .middleware(routerify_query::query_parser())
     .err_handler_with_info(error_handler)
-    // Cloud Tasks queues and Cloud Scheduler jobs (see terraform/) address the
-    // handlers under `/tasks`, the prefix they had when they were served by
-    // the api binary.
-    .scope("/tasks", tasks_router::<TaskError>())
+    // Cloud Tasks queues, Cloud Scheduler jobs (see terraform/) and the api
+    // address the handlers under `/tasks`.
+    .scope("/tasks", tasks_router())
     .build()
     .unwrap()
 }
@@ -288,7 +296,9 @@ async fn main() {
   // Create a server by passing the created service to `.serve` method.
   let server = Server::bind(&addr).serve(service);
 
-  println!("Tasks server is running on: {}", addr);
+  // The bound address, since `--port=0` lets the OS pick one: the api's test
+  // harness starts this binary that way and reads the port off this line.
+  println!("Tasks server is running on: {}", server.local_addr());
   if let Err(err) = server.await {
     eprintln!("Server error: {}", err);
   }

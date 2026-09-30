@@ -1,6 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use crate::RegistryUrl;
-use crate::s3::Buckets;
 use hyper::Body;
 use hyper::Request;
 use routerify::Router;
@@ -12,7 +11,6 @@ use tracing::field;
 use tracing::instrument;
 
 use std::borrow::Cow;
-use std::collections::HashMap;
 
 use crate::emails;
 use crate::emails::EmailArgs;
@@ -31,12 +29,10 @@ use crate::util::sort;
 use super::ApiError;
 use super::map_unique_violation;
 use super::types::*;
-use crate::task_dispatch::AnalyzeVersionRequest;
 use crate::task_dispatch::TaskDispatch;
 use shared::PublishQueue;
 use shared::db::*;
 use shared::errors::SharedError;
-use shared::ids::PackagePath;
 use shared::ids::ScopeDescription;
 use shared::models::*;
 
@@ -382,7 +378,7 @@ pub async fn recompute_package_version_meta(
   Span::current().record("version", field::display(&version));
 
   let db = req.data::<Database>().unwrap();
-  let buckets = req.data::<Buckets>().unwrap();
+  let task_dispatch = req.data::<TaskDispatch>().unwrap();
 
   let (pkg, _, _) = db
     .get_package(&scope, &package)
@@ -393,45 +389,8 @@ pub async fn recompute_package_version_meta(
     .await?
     .ok_or(SharedError::PackageVersionNotFound)?;
 
-  let mut files = HashMap::new();
-  for file in db.list_package_files(&scope, &package, &version).await? {
-    let s3_path =
-      shared::s3_paths::file_path(&scope, &package, &version, &file.path);
-    let bytes = buckets
-      .modules_bucket
-      .download(s3_path.into())
-      .await?
-      .ok_or_else(|| {
-        tracing::error!(
-          "module file '{}' of @{}/{}@{} is missing from the modules bucket",
-          file.path,
-          scope,
-          package,
-          version
-        );
-        SharedError::InternalServerError
-      })?;
-    files.insert(file.path, bytes.to_vec());
-  }
-
-  // the config file path is only used in analysis error messages; the
-  // exports driving the analysis come from the database
-  let config_file = ["/jsr.json", "/jsr.jsonc", "/deno.json", "/deno.jsonc"]
-    .into_iter()
-    .map(|path| PackagePath::new(path.to_string()).unwrap())
-    .find(|path| files.contains_key(path))
-    .unwrap_or_else(|| PackagePath::new("/jsr.json".to_string()).unwrap());
-
-  let task_dispatch = req.data::<TaskDispatch>().unwrap();
   let mut meta = task_dispatch
-    .analyze(AnalyzeVersionRequest {
-      scope: scope.clone(),
-      package: package.clone(),
-      version: version.clone(),
-      config_file,
-      exports: package_version.exports.clone(),
-      files,
-    })
+    .recompute_version_meta(&scope, &package, &version)
     .await?;
   // provenance is recorded post-publish and not derivable from the files
   meta.has_provenance = package_version.meta.has_provenance;
@@ -503,7 +462,8 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
     let body = serde_json::to_vec(&publishing_task_id)?;
     queue.task_buffer(None, Some(body.into())).await?;
   } else {
-    // No queue (local development): run the publish in-process. It re-runs
+    // No queue (local development): ask the tasks service to publish now. It
+    // re-runs
     // against the fallback registry configured *now*, which may differ from
     // the one the task originally resolved its dependencies against. That is
     // intentional — the requeue re-resolves from scratch — but it means a
@@ -511,9 +471,12 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
     // original run did.
     let task_dispatch = req.data::<TaskDispatch>().unwrap().clone();
     tokio::spawn(
-      task_dispatch
-        .publish(publishing_task_id)
-        .instrument(Span::current()),
+      async move {
+        if let Err(err) = task_dispatch.publish(publishing_task_id).await {
+          tracing::error!("publish of {publishing_task_id} failed: {err:?}");
+        }
+      }
+      .instrument(Span::current()),
     );
   }
 

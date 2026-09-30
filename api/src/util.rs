@@ -763,11 +763,141 @@ pub mod test {
 
   pub use shared::test::FakeFallbackRegistry;
 
+  /// The tasks service for one [`TestSetup`]: the workspace's own
+  /// `registry_api_tasks` binary, run against the harness's database and
+  /// buckets, so the api's task dispatch goes over HTTP exactly as it does in
+  /// production.
+  pub struct TasksProcess {
+    child: std::process::Child,
+    pub url: Url,
+  }
+
+  static TASKS_BINARY: std::sync::OnceLock<std::path::PathBuf> =
+    std::sync::OnceLock::new();
+
+  impl TasksProcess {
+    /// The `registry_api_tasks` binary, built if it is not there yet.
+    /// `cargo test --workspace` (what CI runs) builds it as a matter of
+    /// course; `cargo test -p registry_api` on its own does not.
+    fn binary() -> &'static std::path::Path {
+      TASKS_BINARY.get_or_init(|| {
+        let workspace_root =
+          std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let target_dir = std::env::var_os("CARGO_TARGET_DIR")
+          .map(std::path::PathBuf::from)
+          .unwrap_or_else(|| workspace_root.join("target"));
+        let profile = if cfg!(debug_assertions) {
+          "debug"
+        } else {
+          "release"
+        };
+        let binary = target_dir.join(profile).join(format!(
+          "registry_api_tasks{}",
+          std::env::consts::EXE_SUFFIX
+        ));
+        if !binary.exists() {
+          println!("building registry_api_tasks for the test harness");
+          let mut cmd = std::process::Command::new(env!("CARGO"));
+          cmd.args(["build", "-p", "registry_api_tasks"]);
+          if profile == "release" {
+            cmd.arg("--release");
+          }
+          let status = cmd.current_dir(&workspace_root).status().unwrap();
+          assert!(status.success(), "failed to build registry_api_tasks");
+        }
+        binary
+      })
+    }
+
+    fn start(inner: &shared::test::TestSetup, registry_url: &Url) -> Self {
+      use std::io::BufRead;
+
+      let mut cmd = std::process::Command::new(Self::binary());
+      // Nothing from the test process's environment (which includes whatever
+      // `.env` holds) should leak in: every setting is passed explicitly.
+      cmd
+        .env_clear()
+        .env("PATH", std::env::var_os("PATH").unwrap_or_default())
+        // An empty directory, so no `.env` file is picked up either.
+        .current_dir(std::env::temp_dir())
+        .args(["--port=0", "--database_pool_size=1"])
+        .env("DATABASE_URL", inner.database_url())
+        .env("METADATA_STRATEGY", "testing")
+        .env("S3_REGION", "us-east-1")
+        .env("S3_ENDPOINT", &inner.s3_endpoint)
+        .env("S3_ACCESS_KEY", "minioadmin")
+        .env("S3_SECRET_KEY", "minioadmin")
+        .env(
+          "PUBLISHING_BUCKET",
+          inner.buckets.publishing_bucket.bucket.name(),
+        )
+        .env("MODULES_BUCKET", inner.buckets.modules_bucket.bucket.name())
+        .env("DOCS_BUCKET", inner.buckets.docs_bucket.bucket.name())
+        .env("NPM_BUCKET", inner.buckets.npm_bucket.bucket.name())
+        .env(
+          "TICKET_ATTACHMENTS_BUCKET",
+          inner.buckets.ticket_attachments_bucket.bucket.name(),
+        )
+        .env("REGISTRY_URL", registry_url.as_str())
+        .env("NPM_URL", inner.npm_url().as_str())
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+      if let Some(url) = &inner.fallback_registry_url {
+        cmd.env("FALLBACK_REGISTRY_URL", url.as_str());
+      }
+      let mut child = cmd.spawn().expect("failed to start registry_api_tasks");
+
+      // Wait for the bound port, which the binary prints once it is serving.
+      let stdout = child.stdout.take().unwrap();
+      let mut stdout = std::io::BufReader::new(stdout);
+      let port = loop {
+        let mut line = String::new();
+        if stdout.read_line(&mut line).unwrap() == 0 {
+          let _ = child.kill();
+          let mut stderr = String::new();
+          if let Some(mut err) = child.stderr.take() {
+            let _ = std::io::Read::read_to_string(&mut err, &mut stderr);
+          }
+          panic!("registry_api_tasks exited before serving:\n{stderr}");
+        }
+        if let Some(addr) =
+          line.trim().strip_prefix("Tasks server is running on: ")
+        {
+          break addr.rsplit(':').next().unwrap().parse::<u16>().unwrap();
+        }
+      };
+      // Keep draining its output so it never blocks on a full pipe.
+      std::thread::spawn(move || {
+        std::io::copy(&mut stdout.into_inner(), &mut std::io::sink()).ok();
+      });
+      let mut stderr = child.stderr.take().unwrap();
+      std::thread::spawn(move || {
+        std::io::copy(&mut stderr, &mut std::io::sink()).ok();
+      });
+
+      Self {
+        child,
+        url: Url::parse(&format!("http://127.0.0.1:{port}/")).unwrap(),
+      }
+    }
+  }
+
+  impl Drop for TasksProcess {
+    fn drop(&mut self) {
+      let _ = self.child.kill();
+      let _ = self.child.wait();
+    }
+  }
+
   /// The shared harness (database, buckets, users, scope) plus the api router,
-  /// its task dispatch and a web token for each user. Derefs to the inner harness, so
+  /// a tasks service and a web token for each user. Derefs to the inner harness, so
   /// `t.db()`, `t.scope` and friends work as before, and `&t` can be handed to
   /// the publish test helpers.
   pub struct TestSetup {
+    // Declared first so it is shut down before the database it uses is
+    // dropped.
+    _tasks_process: TasksProcess,
     inner: shared::test::TestSetup,
     pub user1: TestUser,
     pub user2: TestUser,
@@ -824,15 +954,12 @@ pub mod test {
       let user3 = Self::with_token(&db, &inner.user3).await;
       let staff_user = Self::with_token(&db, &inner.staff_user).await;
 
-      let task_dispatch = crate::in_process_task_dispatch(
-        db.clone(),
-        inner.buckets(),
-        inner.license_store(),
-        registry_url.clone(),
-        inner.npm_url(),
-        fallback_registry_url.clone(),
-        None, // no algolia locally
-        None, // no Cloudflare purge locally
+      let tasks_process = TasksProcess::start(&inner, &registry_url);
+      let task_dispatch = crate::task_dispatch::TaskDispatch::new(
+        tasks_process.url.clone(),
+        shared::external::gcp::Client::new(
+          shared::external::gcp::MetadataStrategy::Testing,
+        ),
       );
 
       let router = crate::main_router(MainRouterOptions {
@@ -849,12 +976,10 @@ pub mod test {
         registry_url,
         npm_url: inner.npm_url(),
         fallback_registry_url,
-        publish_queue: None,           // no queue locally
-        npm_tarball_build_queue: None, // no queue locally
+        publish_queue: None, // no queue locally
         // No Cloud Tasks locally, so queued email is delivered inline.
         email_queue: None,
-        analytics_engine_config: None, // no analytics engine locally
-        cache_purge_client: None,      // no Cloudflare purge locally
+        cache_purge_client: None, // no Cloudflare purge locally
         // No secret key, so the login captcha is not verified in tests.
         turnstile: shared::external::cloudflare::Turnstile(None),
         postmark_webhook_password: crate::api::PostmarkWebhookPassword(Some(
@@ -864,8 +989,6 @@ pub mod test {
           Some(TEST_TRUSTED_AUTHSERV_ID.to_owned()),
         ),
         task_dispatch: task_dispatch.clone(),
-        expose_api: true,   // api enabled
-        expose_tasks: true, // task endpoints enabled
       });
 
       let service = routerify::RequestServiceBuilder::new(router)
@@ -873,6 +996,7 @@ pub mod test {
         .build(SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 8080)));
 
       Self {
+        _tasks_process: tasks_process,
         inner,
         user1,
         user2,
@@ -990,7 +1114,7 @@ pub mod test {
       .await
       .unwrap();
 
-    t.task_dispatch.publish(task.0.id).await;
+    t.task_dispatch.publish(task.0.id).await.unwrap();
 
     t.db()
       .get_publishing_task(task.0.id)

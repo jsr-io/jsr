@@ -93,6 +93,10 @@ pub struct Bucket {
 }
 
 impl Bucket {
+  pub fn name(&self) -> &str {
+    &self.name
+  }
+
   pub fn new(
     name: String,
     region: s3::Region,
