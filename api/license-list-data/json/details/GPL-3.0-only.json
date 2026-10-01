@@ -12,21 +12,21 @@
   "crossRef": [
     {
       "match": "N/A",
-      "url": "https://opensource.org/license/GPL-3.0-only",
-      "isValid": true,
-      "isLive": false,
-      "timestamp": "2026-08-27T16:59:20Z",
-      "isWayBackLink": false,
-      "order": 1
-    },
-    {
-      "match": "N/A",
       "url": "https://www.gnu.org/licenses/gpl-3.0-standalone.html",
       "isValid": true,
       "isLive": false,
-      "timestamp": "2026-08-27T16:59:50Z",
+      "timestamp": "2026-09-16T17:02:56Z",
       "isWayBackLink": false,
       "order": 0
+    },
+    {
+      "match": "N/A",
+      "url": "https://opensource.org/license/GPL-3.0-only",
+      "isValid": true,
+      "isLive": false,
+      "timestamp": "2026-09-16T17:02:56Z",
+      "isWayBackLink": false,
+      "order": 1
     }
   ],
   "seeAlso": [

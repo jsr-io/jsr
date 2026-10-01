@@ -7,10 +7,19 @@
   "crossRef": [
     {
       "match": "false",
+      "url": "https://gitlab.freedesktop.org/xorg/font/screen-cyrillic/-/blob/master/COPYING",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-09-16T17:08:11Z",
+      "isWayBackLink": false,
+      "order": 3
+    },
+    {
+      "match": "false",
       "url": "https://gitlab.freedesktop.org/xorg/font/misc-cyrillic/-/blob/master/COPYING",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T17:06:17Z",
+      "timestamp": "2026-09-16T17:08:11Z",
       "isWayBackLink": false,
       "order": 2
     },
@@ -19,25 +28,16 @@
       "url": "https://gitlab.freedesktop.org/xorg/font/cronyx-cyrillic/-/blob/master/COPYING",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T17:06:17Z",
+      "timestamp": "2026-09-16T17:08:12Z",
       "isWayBackLink": false,
       "order": 1
-    },
-    {
-      "match": "false",
-      "url": "https://gitlab.freedesktop.org/xorg/font/screen-cyrillic/-/blob/master/COPYING",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-08-27T17:06:18Z",
-      "isWayBackLink": false,
-      "order": 3
     },
     {
       "match": "false",
       "url": "https://gitlab.freedesktop.org/xorg/font/alias/-/blob/master/COPYING",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T17:06:18Z",
+      "timestamp": "2026-09-16T17:08:13Z",
       "isWayBackLink": false,
       "order": 0
     }

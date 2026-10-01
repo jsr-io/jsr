@@ -7,22 +7,22 @@
   "licenseId": "Zlib",
   "crossRef": [
     {
-      "match": "true",
-      "url": "http://www.zlib.net/zlib_license.html",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-08-27T17:04:12Z",
-      "isWayBackLink": false,
-      "order": 0
-    },
-    {
       "match": "N/A",
       "url": "https://opensource.org/license/Zlib",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T17:04:12Z",
+      "timestamp": "2026-09-16T16:59:35Z",
       "isWayBackLink": false,
       "order": 1
+    },
+    {
+      "match": "true",
+      "url": "http://www.zlib.net/zlib_license.html",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-09-16T16:59:35Z",
+      "isWayBackLink": false,
+      "order": 0
     }
   ],
   "seeAlso": [

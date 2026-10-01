@@ -10,7 +10,7 @@
       "url": "https://github.com/ncbi/datasets/blob/master/LICENSE.md",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T16:55:21Z",
+      "timestamp": "2026-09-16T17:06:34Z",
       "isWayBackLink": false,
       "order": 4
     },
@@ -19,16 +19,25 @@
       "url": "https://github.com/ncbi/egapx/blob/08930b9dec0c69b2d1a05e5153c7b95ef0a3eb0f/LICENSE",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T16:55:22Z",
+      "timestamp": "2026-09-16T17:06:34Z",
       "isWayBackLink": false,
       "order": 3
+    },
+    {
+      "match": "false",
+      "url": "https://github.com/ncbi/sra-tools/blob/e8e5b6af4edc460156ad9ce5902d0779cffbf685/LICENSE",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-09-16T17:06:35Z",
+      "isWayBackLink": false,
+      "order": 0
     },
     {
       "match": "false",
       "url": "https://github.com/ncbi/gprobe/blob/de64d30fee8b4c4013094d7d3139ea89b5dd1ace/LICENSE",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T16:55:23Z",
+      "timestamp": "2026-09-16T17:06:35Z",
       "isWayBackLink": false,
       "order": 2
     },
@@ -37,18 +46,9 @@
       "url": "https://github.com/ncbi/datasets/blob/0ea4cd16b61e5b799d9cc55aecfa016d6c9bd2bf/LICENSE.md",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T16:55:23Z",
+      "timestamp": "2026-09-16T17:06:36Z",
       "isWayBackLink": false,
       "order": 1
-    },
-    {
-      "match": "false",
-      "url": "https://github.com/ncbi/sra-tools/blob/e8e5b6af4edc460156ad9ce5902d0779cffbf685/LICENSE",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-08-27T16:55:24Z",
-      "isWayBackLink": false,
-      "order": 0
     }
   ],
   "seeAlso": [
