@@ -135,7 +135,10 @@ impl<
           headers.insert(k.to_string(), v.to_str().unwrap().to_string());
         }
         let cx = propagator.extract(&headers);
-        span.set_parent(cx);
+        // Fails only when no OpenTelemetry layer is installed (export target
+        // `None`) or the span has already been started, neither of which
+        // matters here: there is nothing to attach the parent to.
+        let _ = span.set_parent(cx);
       });
     }
 

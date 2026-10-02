@@ -11,14 +11,16 @@ import { scopeIAM } from "../../../utils/iam.ts";
 
 function getDependencyLink(dep: Dependency) {
   if (dep.kind === "jsr") {
-    return `/${dep.name}`;
+    return `${dep.fallbackUrl ?? "/"}${dep.name}`;
   }
   const result = /^@jsr\/(?<scope>[a-z0-9-]+)__(?<package>[a-z0-9-]+)/
     .exec(
       dep.name,
     );
   if (result?.groups?.scope && result?.groups?.package) {
-    return `/@${result.groups.scope}/${result.groups.package}`;
+    return `${
+      dep.fallbackUrl ?? "/"
+    }@${result.groups.scope}/${result.groups.package}`;
   }
   return `https://www.npmjs.com/package/${dep.name}`;
 }
@@ -71,6 +73,8 @@ export default define.page<typeof handler>(function Deps(
         versionCount={data.package.versionCount}
         dependencyCount={data.package.dependencyCount}
         dependentCount={data.package.dependentCount}
+        symbolCount={data.selectedVersion?.symbolCount ??
+          data.package.symbolCount}
         iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}

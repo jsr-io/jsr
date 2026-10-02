@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE email_deliveries\n          SET attempts = attempts + 1,\n              last_error = $2,\n              abandoned_at = CASE WHEN attempts + 1 >= $3 THEN now() ELSE NULL END\n          WHERE id = $1\n          RETURNING abandoned_at IS NOT NULL as \"abandoned!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "abandoned!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "0e0a848b25606acf10c9e7b4245ca8d4155b3aabcdf5c9e3a125636809598c8a"
+}

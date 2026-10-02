@@ -392,7 +392,7 @@ body .ddoc {
       @apply bg-jsr-cyan-100/50 dark:bg-jsr-cyan-900/50;
     }
 
-    a:not(.no_color) {
+    a:not(.no_color, .anchor) {
       @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 underline
         decoration-jsr-cyan-700/50 underline-offset-2 outline-none
         focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm
@@ -417,6 +417,18 @@ body .ddoc {
         > span {
           @apply block target:bg-yellow-200 dark:target:bg-yellow-900/70;
         }
+      }
+
+      /* Import/export specifiers in the file view. These keep the syntax
+         colour of the string they sit in (hence `no_color` on the anchor) and
+         only announce themselves as links on hover and focus. */
+      .specifierLink {
+        @apply underline decoration-dotted underline-offset-2
+          decoration-jsr-gray-400 rounded-sm outline-none
+          hover:decoration-solid hover:decoration-jsr-cyan-700
+          focus-visible:ring-2 ring-jsr-cyan-700
+          dark:decoration-jsr-gray-500 dark:hover:decoration-cyan-400
+          dark:ring-cyan-400;
       }
 
       /*!
@@ -657,6 +669,14 @@ body .ddoc {
   .copyButton {
     @apply z-10 rounded no-underline p-1.5 cursor-pointer bg-inherit leading-0
       hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-900 transition duration-75;
+  }
+
+  /* Base styles for anchor links. The Anchor component applies these as
+     utility classes, but anchors embedded in rendered markdown (heading
+     anchor links) arrive as plain markup with only `class="anchor"`. */
+  .anchor {
+    @apply hidden float-left leading-none text-stone-600 ml-[-24px] p-1 pr-1
+      pt-1 top-0 bottom-0 dark:text-stone-400;
   }
 
   .anchorable {

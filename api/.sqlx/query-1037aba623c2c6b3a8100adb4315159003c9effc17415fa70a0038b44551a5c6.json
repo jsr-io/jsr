@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE package_versions SET created_at = $4 WHERE scope = $1 AND name = $2 AND version = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1037aba623c2c6b3a8100adb4315159003c9effc17415fa70a0038b44551a5c6"
+}

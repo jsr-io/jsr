@@ -8,7 +8,7 @@ export function Example(
   },
 ) {
   return (
-    <div class="anchorable">
+    <div class="anchorable" id={anchor.id}>
       <Anchor anchor={anchor} />
       <h3
         class="font-bold text-lg mb-3"

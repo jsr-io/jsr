@@ -7,7 +7,7 @@ use hyper::StatusCode;
 use hyper::body;
 use hyper::header;
 use hyper::header::COOKIE;
-use oauth2::http::HeaderName;
+use hyper::http::HeaderName;
 use routerify::prelude::RequestExt;
 use routerify_query::RequestQueryExt;
 use serde::Serialize;
@@ -46,6 +46,34 @@ pub fn shared_http_client() -> &'static reqwest::Client {
       .build()
       .expect("failed to build shared reqwest client")
   })
+}
+
+/// The HTTP client the OAuth2 flows use to reach the providers' token and
+/// revocation endpoints, in the shape `oauth2` accepts: pass
+/// `&oauth2_http_request` to `request_async`. Separate from
+/// [`shared_http_client`] because it must not follow redirects: an OAuth2
+/// client that does is open to SSRF.
+pub async fn oauth2_http_request(
+  request: oauth2::HttpRequest,
+) -> Result<oauth2::HttpResponse, reqwest::Error> {
+  static CLIENT: std::sync::OnceLock<reqwest::Client> =
+    std::sync::OnceLock::new();
+  let client = CLIENT.get_or_init(|| {
+    reqwest::Client::builder()
+      .user_agent(USER_AGENT)
+      .connect_timeout(std::time::Duration::from_secs(10))
+      .timeout(std::time::Duration::from_secs(30))
+      .redirect(reqwest::redirect::Policy::none())
+      .build()
+      .expect("failed to build oauth2 reqwest client")
+  });
+  let mut response = client.execute(request.try_into()?).await?;
+  let status = response.status();
+  let headers = std::mem::take(response.headers_mut());
+  let mut converted = oauth2::HttpResponse::new(response.bytes().await?.into());
+  *converted.status_mut() = status;
+  *converted.headers_mut() = headers;
+  Ok(converted)
 }
 
 pub type ApiResult<D> = Result<D, ApiError>;
@@ -209,7 +237,8 @@ fn error_response(
   res
 }
 
-/// Short negative-cache `Cache-Control` for a `404` on a cached route. Anonymous
+/// Short negative-cache `Cache-Control` for a cacheable error (see
+/// [`is_cacheable_error_status`]) on a cached route. Anonymous
 /// (and identity-independent `shared`) requests get a brief `public` window;
 /// other authenticated requests are never cached (the lb skips its shared cache
 /// when an `Authorization` header or `token=` cookie is present, so a `public`
@@ -226,18 +255,36 @@ fn short_negative_cache_control(public: bool) -> header::HeaderValue {
   .unwrap()
 }
 
-/// A missing entrypoint/symbol on an immutable (non-"latest") version can never
-/// appear later, so it is as cacheable as a normal `200` for that version —
-/// unlike other 404s (package/version not found, or anything on "latest"), which
-/// only get the brief negative-cache window. Returns the long-lived value to use
-/// for such an error, or `None` to fall back to short negative caching.
+/// Errors that are a deterministic property of an immutable (non-"latest")
+/// version can never resolve differently later, so they are as cacheable as a
+/// normal `200` for that version — unlike other 404s (package/version not
+/// found, or anything on "latest"), which only get the brief negative-cache
+/// window. Returns the long-lived value to use for such an error, or `None` to
+/// fall back to short negative caching.
 fn immutable_miss_cache_control(
   err: &ApiError,
   is_latest: bool,
   long_lived: impl FnOnce() -> header::HeaderValue,
 ) -> Option<header::HeaderValue> {
-  (matches!(err, ApiError::EntrypointOrSymbolNotFound) && !is_latest)
-    .then(long_lived)
+  let deterministic_for_version = matches!(
+    err,
+    // The symbol is absent from this version's docs.
+    ApiError::EntrypointOrSymbolNotFound
+      // This version has more symbols than the listing can carry; that is a
+      // property of its published contents, so it will not change.
+      | ApiError::DocsSymbolListingTooLarge
+  );
+  (deterministic_for_version && !is_latest).then(long_lived)
+}
+
+/// Statuses whose error responses carry `Cache-Control` on a cached route.
+///
+/// `404` has always been here. `413` joined it because the docs symbol-listing
+/// refusal is deterministic per version: without a cache header every retry
+/// reached the origin, which is how one crawler produced 871 identical failing
+/// requests in an hour.
+fn is_cacheable_error_status(status: StatusCode) -> bool {
+  status == StatusCode::NOT_FOUND || status == StatusCode::PAYLOAD_TOO_LARGE
 }
 
 /// Cache an immutable-ish response for `duration`. See [`cache_shared`] for the
@@ -312,7 +359,7 @@ where
         req.param("version").map(|v| v == "latest").unwrap_or(false);
       let mut res = match handler(req).await {
         Ok(res) => res,
-        Err(err) if err.status_code() == StatusCode::NOT_FOUND => {
+        Err(err) if is_cacheable_error_status(err.status_code()) => {
           let long_lived = || if public { value } else { private_value };
           let cc = immutable_miss_cache_control(&err, is_latest, long_lived)
             .unwrap_or_else(|| short_negative_cache_control(public));
@@ -425,7 +472,7 @@ where
         req.param("version").map(|v| v == "latest").unwrap_or(true);
       let mut res = match handler(req).await {
         Ok(res) => res,
-        Err(err) if err.status_code() == StatusCode::NOT_FOUND => {
+        Err(err) if is_cacheable_error_status(err.status_code()) => {
           let long_lived = || {
             if public {
               versioned_value
@@ -819,6 +866,13 @@ pub mod test {
   static TEST_INSTANCE_COUNTER: std::sync::atomic::AtomicU64 =
     std::sync::atomic::AtomicU64::new(0);
 
+  /// The password the inbound email webhook accepts under test.
+  pub const TEST_POSTMARK_WEBHOOK_PASSWORD: &str = "test-webhook-password";
+
+  /// The upstream whose `Authentication-Results` the inbound webhook trusts
+  /// under test.
+  pub const TEST_TRUSTED_AUTHSERV_ID: &str = "mx.test.example";
+
   /// Ensure fake s3 server is running. The first call starts S3; subsequent calls return immediately.
   fn ensure_servers_started() {
     SERVERS_STARTED.get_or_init(|| {
@@ -848,6 +902,111 @@ pub mod test {
     pub github_name: String,
   }
 
+  /// An in-process stand-in for a fallback JSR registry, serving the handful of
+  /// artifacts the fallback path asks for: package metadata, version metadata,
+  /// and module files.
+  ///
+  /// The fallback tests used to point at the real jsr.io, which made them
+  /// depend on network access and on whatever `@std/assert` happens to publish.
+  /// This serves a fixed `@std/assert@1.0.0` instead, so the tests assert the
+  /// fallback *mechanism* and nothing else.
+  pub struct FakeFallbackRegistry {
+    url: Url,
+    shutdown: Option<tokio::sync::oneshot::Sender<()>>,
+  }
+
+  impl FakeFallbackRegistry {
+    pub async fn start() -> Self {
+      let listener =
+        std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+      let addr = listener.local_addr().unwrap();
+
+      let (tx, rx) = tokio::sync::oneshot::channel();
+      let server = hyper::Server::from_tcp(listener)
+        .unwrap()
+        .serve(hyper::service::make_service_fn(|_| async {
+          Ok::<_, hyper::Error>(hyper::service::service_fn(
+            |req: hyper::Request<Body>| async move {
+              Ok::<_, hyper::Error>(Self::respond(req.uri().path()))
+            },
+          ))
+        }))
+        .with_graceful_shutdown(async {
+          let _ = rx.await;
+        });
+      tokio::spawn(server);
+
+      Self {
+        url: Url::parse(&format!("http://{addr}/")).unwrap(),
+        shutdown: Some(tx),
+      }
+    }
+
+    pub fn url(&self) -> Url {
+      self.url.clone()
+    }
+
+    fn respond(path: &str) -> Response<Body> {
+      let (content_type, body) = match path {
+        "/@std/assert/meta.json" => (
+          "application/json",
+          r#"{
+            "scope": "std",
+            "name": "assert",
+            "latest": "1.0.0",
+            "versions": { "1.0.0": { "createdAt": "2024-01-01T00:00:00Z" } }
+          }"#
+            .to_owned(),
+        ),
+        "/@std/assert/1.0.0_meta.json" => (
+          "application/json",
+          r#"{
+            "manifest": {},
+            "moduleGraph2": {},
+            "exports": { ".": "./mod.ts" }
+          }"#
+            .to_owned(),
+        ),
+        "/@std/assert/1.0.0/mod.ts" => (
+          "text/typescript",
+          "export function assert(cond: unknown): asserts cond {\n  if (!cond) throw new Error(\"assertion failed\");\n}\n"
+            .to_owned(),
+        ),
+        _ => {
+          return Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .body(Body::from("not found"))
+            .unwrap();
+        }
+      };
+
+      Response::builder()
+        .status(StatusCode::OK)
+        .header(hyper::header::CONTENT_TYPE, content_type)
+        .body(Body::from(body))
+        .unwrap()
+    }
+  }
+
+  impl Drop for FakeFallbackRegistry {
+    fn drop(&mut self) {
+      if let Some(tx) = self.shutdown.take() {
+        let _ = tx.send(());
+      }
+    }
+  }
+
+  /// A loopback URL with nothing listening on it, so connections are refused
+  /// immediately. For exercising the "fallback registry is down" path without
+  /// waiting on a DNS or connect timeout.
+  pub fn unreachable_fallback_url() -> Url {
+    let listener =
+      std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    let addr = listener.local_addr().unwrap();
+    drop(listener);
+    Url::parse(&format!("http://{addr}/")).unwrap()
+  }
+
   pub struct TestSetup {
     pub ephemeral_database: EphemeralDatabase,
     pub buckets: Buckets,
@@ -863,10 +1022,21 @@ pub mod test {
     #[allow(dead_code)]
     pub gitlab_oauth2_client: crate::auth::gitlab::Oauth2Client,
     pub service: RequestService<Body, ApiError>,
+    pub fallback_registry_url: Option<Url>,
   }
 
   impl TestSetup {
     pub async fn new() -> Self {
+      Self::with_fallback_registry(None).await
+    }
+
+    /// Like [`TestSetup::new`], but with a fallback registry configured. The URL
+    /// has to be passed here rather than assigned to `fallback_registry_url`
+    /// afterwards: the router is built once, and handlers read the URL out of
+    /// its request data.
+    pub async fn with_fallback_registry(
+      fallback_registry_url: Option<Url>,
+    ) -> Self {
       ensure_servers_started();
       let test_id = TEST_INSTANCE_COUNTER
         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -877,17 +1047,28 @@ pub mod test {
       let modules_name = format!("modules-{test_id}");
       let docs_name = format!("docs-{test_id}");
       let npm_name = format!("npm-{test_id}");
-      let (publishing_bucket, modules_bucket, docs_bucket, npm_bucket) = tokio::join!(
+      let ticket_attachments_name = format!("ticket-attachments-{test_id}");
+      let (
+        publishing_bucket,
+        modules_bucket,
+        docs_bucket,
+        npm_bucket,
+        ticket_attachments_bucket,
+      ) = tokio::join!(
         s3.create_bucket(&publishing_name),
         s3.create_bucket(&modules_name),
         s3.create_bucket(&docs_name),
         s3.create_bucket(&npm_name),
+        s3.create_bucket(&ticket_attachments_name),
       );
       let buckets = Buckets {
         publishing_bucket: crate::s3::BucketWithQueue::new(publishing_bucket),
         modules_bucket: BucketWithQueue::new(modules_bucket),
         docs_bucket: crate::s3::BucketWithQueue::new(docs_bucket),
         npm_bucket: crate::s3::BucketWithQueue::new(npm_bucket),
+        ticket_attachments_bucket: crate::s3::BucketWithQueue::new(
+          ticket_attachments_bucket,
+        ),
       };
       let registry_url = "http://jsr-tests.test".parse().unwrap();
       let github_oauth2_client = crate::auth::github::Oauth2Client::new(
@@ -992,6 +1173,8 @@ pub mod test {
         database: db,
         buckets: buckets.clone(),
         generate_ctx_cache: crate::docs::GenerateCtxCache::new(),
+        object_cache: crate::object_cache::ObjectCache::new(),
+        registry_metadata_cache: crate::api::RegistryMetadataCache::new(),
         github_client: github_oauth2_client.clone(),
         gitlab_client: gitlab_oauth2_client.clone(),
         algolia_client: None,
@@ -999,12 +1182,21 @@ pub mod test {
         license_store: license_store.clone(),
         registry_url,
         npm_url: "http://npm.jsr-tests.test".parse().unwrap(),
+        fallback_registry_url: fallback_registry_url.clone(),
         publish_queue: None,           // no queue locally
         npm_tarball_build_queue: None, // no queue locally
+        // No Cloud Tasks locally, so queued email is delivered inline.
+        email_queue: None,
         analytics_engine_config: None, // no analytics engine locally
         cache_purge_client: None,      // no Cloudflare purge locally
         // No secret key, so the login captcha is not verified in tests.
         turnstile: crate::external::cloudflare::Turnstile(None),
+        postmark_webhook_password: crate::api::PostmarkWebhookPassword(Some(
+          TEST_POSTMARK_WEBHOOK_PASSWORD.to_owned(),
+        )),
+        inbound_trusted_authserv_id: crate::api::InboundTrustedAuthservId(
+          Some(TEST_TRUSTED_AUTHSERV_ID.to_owned()),
+        ),
         expose_api: true,   // api enabled
         expose_tasks: true, // task endpoints enabled
       });
@@ -1025,6 +1217,7 @@ pub mod test {
         github_oauth2_client,
         gitlab_oauth2_client,
         service,
+        fallback_registry_url,
       }
     }
 

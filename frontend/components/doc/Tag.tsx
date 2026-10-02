@@ -31,7 +31,8 @@ export function Tag(
             </span>
           );
         }
-        return titleCase(tag.value as string);
+        // "other" tags carry preformatted text (e.g. "Since 1.2.3")
+        return tag.value;
       }
       return titleCase(tag.kind);
     }

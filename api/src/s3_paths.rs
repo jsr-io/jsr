@@ -70,30 +70,56 @@ pub fn npm_version_manifest_path(
   format!("{npm_mapped_package_name}")
 }
 
-/// Public URL of the package-level `meta.json` that the registry serves
-/// to `deno install` / browser module resolution. Pass `registry_url`
-/// as `https://jsr.io/` (must end with a slash).
-pub fn package_metadata_url(
+/// Path prefix the lb Worker namespaces its bucket (R2) cache entries under, so
+/// that a `/@scope/...` URL cached as a module file cannot collide with the same
+/// URL cached as an HTML page. Must stay in sync with `BUCKET_CACHE_PREFIX` in
+/// `lb/proxy.ts`.
+///
+/// Bucket-backed responses are therefore *never* cached under their public URL,
+/// and purging only the public URL leaves the served copy in place — which is
+/// how a freshly regenerated `meta.json` stayed invisible to Deno's resolver
+/// until its edge TTL lapsed. Every purge of a bucket-backed manifest must
+/// cover both forms; `bucket_backed_purge_urls` builds the pair.
+const BUCKET_CACHE_PREFIX: &str = "__bucket-cache";
+
+/// The URLs a bucket-backed object at `path` (relative to `base`, which must end
+/// with a slash) is cached under: the public URL, plus the lb's namespaced
+/// bucket cache key. Both are purged, since a browser navigation to the same
+/// public URL is served — and cached — by the frontend instead.
+fn bucket_backed_purge_urls(base: &url::Url, path: &str) -> Vec<String> {
+  vec![
+    format!("{base}{path}"),
+    format!("{base}{BUCKET_CACHE_PREFIX}/{path}"),
+  ]
+}
+
+/// Cache URLs of the package-level `meta.json` that the registry serves to
+/// `deno install` / browser module resolution, to purge when it is regenerated.
+/// Pass `registry_url` as `https://jsr.io/` (must end with a slash).
+pub fn package_metadata_purge_urls(
   registry_url: &url::Url,
   scope: &ScopeName,
   package_name: &PackageName,
-) -> String {
-  format!("{registry_url}@{scope}/{package_name}/meta.json")
+) -> Vec<String> {
+  bucket_backed_purge_urls(
+    registry_url,
+    &format!("@{scope}/{package_name}/meta.json"),
+  )
 }
 
-/// Public URL of the npm version manifest the registry serves to
-/// `npm install` / `pnpm install` / etc. Pass `npm_url` as
-/// `https://npm.jsr.io/` (must end with a slash).
-pub fn npm_version_manifest_url(
+/// Cache URLs of the npm version manifest the registry serves to
+/// `npm install` / `pnpm install` / etc., to purge when it is regenerated. Pass
+/// `npm_url` as `https://npm.jsr.io/` (must end with a slash).
+pub fn npm_version_manifest_purge_urls(
   npm_url: &url::Url,
   scope: &ScopeName,
   package_name: &PackageName,
-) -> String {
+) -> Vec<String> {
   let npm_mapped_package_name = NpmMappedJsrPackageName {
     scope,
     package: package_name,
   };
-  format!("{npm_url}{npm_mapped_package_name}")
+  bucket_backed_purge_urls(npm_url, &format!("{npm_mapped_package_name}"))
 }
 
 /// Base URL of the public API host (`https://api.jsr.io/`), derived from the
@@ -195,6 +221,43 @@ mod tests {
     ));
     assert!(urls.contains(&"https://jsr.io/api/scopes/std".into()));
     assert!(urls.contains(&"https://api.jsr.io/api/scopes/std".into()));
+  }
+
+  // A bucket-backed manifest is cached by the lb under its namespaced key, not
+  // its public URL, so the purge must cover both — purging only the public URL
+  // leaves the copy the resolver actually reads in place (jsr-io/jsr#1455).
+  #[test]
+  fn package_metadata_purge_covers_the_bucket_cache_key() {
+    let registry_url = url::Url::parse("https://jsr.io/").unwrap();
+    let scope = ScopeName::try_from("std").unwrap();
+    let package = PackageName::try_from("fs").unwrap();
+    let urls =
+      super::package_metadata_purge_urls(&registry_url, &scope, &package);
+
+    assert_eq!(
+      urls,
+      vec![
+        "https://jsr.io/@std/fs/meta.json".to_string(),
+        "https://jsr.io/__bucket-cache/@std/fs/meta.json".to_string(),
+      ]
+    );
+  }
+
+  #[test]
+  fn npm_version_manifest_purge_covers_the_bucket_cache_key() {
+    let npm_url = url::Url::parse("https://npm.jsr.io/").unwrap();
+    let scope = ScopeName::try_from("std").unwrap();
+    let package = PackageName::try_from("yaml").unwrap();
+    let urls =
+      super::npm_version_manifest_purge_urls(&npm_url, &scope, &package);
+
+    assert_eq!(
+      urls,
+      vec![
+        "https://npm.jsr.io/@jsr/std__yaml".to_string(),
+        "https://npm.jsr.io/__bucket-cache/@jsr/std__yaml".to_string(),
+      ]
+    );
   }
 
   #[test]

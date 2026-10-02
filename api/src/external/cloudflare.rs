@@ -140,8 +140,13 @@ pub struct CachePurge(pub Option<CachePurgeClient>);
 impl CachePurge {
   /// Purge `urls` if a client is configured. Errors are logged inside
   /// `purge_urls` and converted into `Ok(())` here, since callers want
-  /// best-effort behaviour (the manifests have `stale-while-revalidate`
-  /// as their durability net).
+  /// best-effort behaviour (the manifests' short `s-maxage` is their
+  /// durability net — see `CACHE_CONTROL_MANIFEST`).
+  ///
+  /// Note that a bucket-backed object is not cached under its public URL:
+  /// build its URLs with `s3_paths::package_metadata_purge_urls` /
+  /// `npm_version_manifest_purge_urls`, which also cover the lb's namespaced
+  /// cache key. Purging the public URL alone is a no-op for those.
   pub async fn purge(&self, urls: Vec<String>) {
     let Some(client) = &self.0 else {
       return;
@@ -158,8 +163,8 @@ impl CachePurgeClient {
   /// Purge a set of fully-qualified URLs from the Cloudflare zone cache.
   ///
   /// Errors are logged and returned — callers should treat purge as
-  /// best-effort and not fail the publish on a purge failure (the
-  /// `stale-while-revalidate` window on the manifests is the safety net).
+  /// best-effort and not fail the publish on a purge failure (the short
+  /// `s-maxage` on the manifests is the safety net).
   #[instrument(name = "cloudflare.purge_cache", skip(self, urls), err)]
   pub async fn purge_urls(
     &self,

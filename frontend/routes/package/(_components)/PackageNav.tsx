@@ -26,6 +26,10 @@ interface PackageNavProps {
   versionCount: number;
   dependencyCount: number;
   dependentCount: number;
+  /** Symbols documented by the version being viewed. Null for versions
+   * published before the count was recorded, which show no chip rather than
+   * claiming the package has no symbols. */
+  symbolCount?: number | null;
   iam: ScopeIAM;
   latestVersion: string | null;
 }
@@ -37,6 +41,7 @@ export function PackageNav({
   versionCount,
   dependencyCount,
   dependentCount,
+  symbolCount,
   latestVersion,
 }: PackageNavProps) {
   const base = `/@${params.scope}/${params.package}`;
@@ -53,6 +58,7 @@ export function PackageNav({
         <NavItem
           href={`${versionedBase}/doc`}
           active={currentTab === "Docs"}
+          chip={symbolCount ?? undefined}
         >
           Docs
         </NavItem>

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id FROM email_deliveries\n        WHERE sent_at IS NULL\n          AND abandoned_at IS NULL\n          AND created_at < now() - make_interval(secs => $1::double precision)\n        ORDER BY created_at\n        LIMIT $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Float8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b969efc2e713ecba93030f2002b6320125eb09f2e1a539bc80317207a77fe5c4"
+}

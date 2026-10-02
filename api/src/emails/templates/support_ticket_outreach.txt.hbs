@@ -1,0 +1,15 @@
+{{#*inline "text_inner"}}
+Hey {{ name }},
+
+The {{ registry_name }} team has opened a support ticket to get in touch with you about "{{ subject }}":
+
+---
+{{content}}
+---
+
+To view the ticket, you can go to {{ registry_url }}ticket/{{ ticket_id }}. You can reply to the ticket from there, or simply reply to this email. Your replies are added to the ticket automatically.
+
+Cheers,
+{{ registry_name }}
+{{/inline}}
+{{> base.txt }}

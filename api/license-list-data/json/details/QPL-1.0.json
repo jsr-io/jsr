@@ -7,11 +7,20 @@
   "licenseId": "QPL-1.0",
   "crossRef": [
     {
+      "match": "N/A",
+      "url": "http://doc.qt.nokia.com/3.3/license.html",
+      "isValid": true,
+      "isLive": false,
+      "timestamp": "2026-08-27T17:02:30Z",
+      "isWayBackLink": false,
+      "order": 0
+    },
+    {
       "match": "true",
       "url": "https://doc.qt.io/archives/3.3/license.html",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-07-16T09:24:41Z",
+      "timestamp": "2026-08-27T17:02:30Z",
       "isWayBackLink": false,
       "order": 2
     },
@@ -20,18 +29,9 @@
       "url": "https://opensource.org/license/QPL-1.0",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-07-16T09:24:42Z",
+      "timestamp": "2026-08-27T17:02:30Z",
       "isWayBackLink": false,
       "order": 1
-    },
-    {
-      "match": "N/A",
-      "url": "http://doc.qt.nokia.com/3.3/license.html",
-      "isValid": true,
-      "isLive": false,
-      "timestamp": "2026-07-16T09:24:42Z",
-      "isWayBackLink": false,
-      "order": 0
     }
   ],
   "seeAlso": [

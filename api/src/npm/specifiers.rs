@@ -22,6 +22,9 @@ pub enum RewriteKind {
 #[derive(Clone, Copy)]
 pub struct SpecifierRewriter<'a> {
   pub base_specifier: &'a ModuleSpecifier,
+  /// The specifier of the module in the module graph whose specifiers are
+  /// being rewritten. Relative specifiers are resolved against this.
+  pub module_specifier: &'a ModuleSpecifier,
   pub source_rewrites: &'a HashMap<&'a ModuleSpecifier, ModuleSpecifier>,
   pub declaration_rewrites: &'a HashMap<&'a ModuleSpecifier, ModuleSpecifier>,
   pub dependencies: &'a IndexMap<String, Dependency>,
@@ -30,12 +33,29 @@ pub struct SpecifierRewriter<'a> {
 impl SpecifierRewriter<'_> {
   pub fn rewrite(&self, specifier: &str, kind: RewriteKind) -> Option<String> {
     let source_text_specifier = specifier;
-    let dep = self.dependencies.get(specifier)?;
 
-    let specifier = match kind {
-      RewriteKind::Source => dep.get_code(),
-      RewriteKind::Declaration => dep.get_type().or_else(|| dep.get_code()),
-    }?;
+    let resolved;
+    let specifier = if let Some(dep) = self.dependencies.get(specifier) {
+      match kind {
+        RewriteKind::Source => dep.get_code(),
+        RewriteKind::Declaration => dep.get_type().or_else(|| dep.get_code()),
+      }?
+    } else if matches!(kind, RewriteKind::Declaration)
+      && specifier.starts_with('.')
+    {
+      // The fast check transform in deno_graph rewrites relative import
+      // specifiers in the generated .d.ts to point at the resolved (types)
+      // dependency, so the specifier may not match a source text specifier
+      // in the dependency map anymore. For example, an import of `./a.js`
+      // where `./a.js` has an adjacent hand-written `./a.d.ts` is rewritten
+      // to `./a.d.ts`. Resolve such specifiers against the original module
+      // specifier so they can still be rewritten (the generated .d.ts is
+      // emitted to a different directory than the original module).
+      resolved = self.module_specifier.join(specifier).ok()?;
+      &resolved
+    } else {
+      return None;
+    };
 
     let rewrites = match kind {
       RewriteKind::Source => self.source_rewrites,

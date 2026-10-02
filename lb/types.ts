@@ -23,6 +23,9 @@ export interface WorkerEnv {
   API_DOMAIN: string;
   NPM_DOMAIN: string;
 
+  FALLBACK_ROOT_URL?: string;
+  FALLBACK_NPM_URL?: string;
+
   DOWNLOADS?: AnalyticsEngineDataset;
   NPM_BUCKET: PartialBucket;
   MODULES_BUCKET: PartialBucket;

@@ -5,6 +5,10 @@ on:
     - cron: "0 6 1 * *"
   workflow_dispatch:
 
+# Read-only by default; the job below raises it to open a pull request.
+permissions:
+  contents: read
+
 jobs:
   sync-types:
     runs-on: ubuntu-latest
@@ -14,10 +18,15 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # This job's token can write to the repository and the steps below
+          # run third-party code, so don't leave it in .git/config for them.
+          # create-pull-request pushes with its own token regardless.
+          persist-credentials: false
 
       - name: Install Deno
-        uses: denoland/setup-deno@v2
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
 
       - name: Deno types
         run: deno task tools:deno_symbols
@@ -43,7 +52,7 @@ jobs:
 
       - name: Create Pull Request
         if: steps.check-changes.outputs.changes == 'true'
-        uses: peter-evans/create-pull-request@v8
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           commit-message: |
             chore: update Deno & web types

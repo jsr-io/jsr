@@ -1,0 +1,88 @@
+# mod.ts
+import * as wasm from "./wasm/lib.js";
+
+export type Algorithm = wasm.Algorithm;
+
+export function defaultAlgorithm(): Algorithm {
+  return wasm.algorithm_default();
+}
+
+# wasm/lib.js
+// @ts-self-types="./lib.d.ts"
+export function algorithm_default() {
+  return "ed25519";
+}
+
+# wasm/lib.d.ts
+export type Algorithm = "ed25519" | "secp256k1";
+export function algorithm_default(): Algorithm;
+
+# jsr.json
+{
+  "name": "@scope/foo",
+  "version": "0.0.1",
+  "exports": "./mod.ts"
+}
+
+# output
+== /_dist/mod.d.ts ==
+import * as wasm from "../wasm/lib.js";
+export type Algorithm = wasm.Algorithm;
+export declare function defaultAlgorithm(): Algorithm;
+//# sourceMappingURL=mod.d.ts.map
+
+== /_dist/mod.d.ts.map ==
+{"version":3,"file":"mod.d.ts","sources":["../mod.ts"],"names":[],"mappings":"AAAA,YAAY,2BAA0B;AAEtC,YAAY,YAAY,KAAK;AAE7B,OAAO,iBAAS,oBAAoB"}
+
+== /jsr.json ==
+{
+  "name": "@scope/foo",
+  "version": "0.0.1",
+  "exports": "./mod.ts"
+}
+
+== /mod.js ==
+import * as wasm from "./wasm/lib.js";
+export function defaultAlgorithm() {
+  return wasm.algorithm_default();
+}
+//# sourceMappingURL=mod.js.map
+
+== /mod.js.map ==
+{"version":3,"file":"mod.js","sources":["./mod.ts"],"names":[],"mappings":"AAAA,YAAY,UAAU,gBAAgB;AAItC,OAAO,SAAS;EACd,OAAO,KAAK,iBAAiB;AAC/B"}
+
+== /mod.ts ==
+import * as wasm from "./wasm/lib.js";
+
+export type Algorithm = wasm.Algorithm;
+
+export function defaultAlgorithm(): Algorithm {
+  return wasm.algorithm_default();
+}
+
+== /package.json ==
+{
+  "name": "@jsr/scope__foo",
+  "version": "0.0.1",
+  "homepage": "http://jsr.test/@scope/foo",
+  "type": "module",
+  "dependencies": {},
+  "exports": {
+    ".": {
+      "types": "./_dist/mod.d.ts",
+      "default": "./mod.js"
+    }
+  },
+  "_jsr_revision": 0
+}
+
+== /wasm/lib.d.ts ==
+export type Algorithm = "ed25519" | "secp256k1";
+export function algorithm_default(): Algorithm;
+
+== /wasm/lib.js ==
+// @ts-self-types="./lib.d.ts"
+export function algorithm_default() {
+  return "ed25519";
+}
+

@@ -18,11 +18,13 @@ mod ids;
 mod jemalloc_profiling;
 mod metadata;
 mod npm;
+mod object_cache;
 mod provenance;
 mod publish;
 mod s3;
 mod s3_paths;
 mod sitemap;
+mod source_links;
 mod tarball;
 mod task_queue;
 mod tasks;
@@ -33,10 +35,13 @@ mod tree_sitter;
 mod util;
 
 use crate::api::ApiError;
+use crate::api::InboundTrustedAuthservId;
+use crate::api::PostmarkWebhookPassword;
 use crate::api::PublishQueue;
 use crate::api::api_router;
 use crate::config::Config;
 use crate::db::Database;
+use crate::emails::EmailQueue;
 use crate::emails::EmailSender;
 use crate::errors_internal::error_handler;
 use crate::external::algolia::AlgoliaClient;
@@ -67,6 +72,8 @@ pub struct MainRouterOptions {
   database: Database,
   buckets: Buckets,
   generate_ctx_cache: crate::docs::GenerateCtxCache,
+  object_cache: crate::object_cache::ObjectCache,
+  registry_metadata_cache: crate::api::RegistryMetadataCache,
   github_client: auth::github::Oauth2Client,
   gitlab_client: auth::gitlab::Oauth2Client,
   algolia_client: Option<AlgoliaClient>,
@@ -74,26 +81,33 @@ pub struct MainRouterOptions {
   license_store: util::LicenseStore,
   registry_url: Url,
   npm_url: Url,
+  fallback_registry_url: Option<Url>,
   publish_queue: Option<Queue>,
   npm_tarball_build_queue: Option<Queue>,
+  email_queue: Option<Queue>,
   analytics_engine_config: Option<(
     external::cloudflare::AnalyticsEngineClient,
     /* dataset_name */ String,
   )>,
   cache_purge_client: Option<external::cloudflare::CachePurgeClient>,
   turnstile: Turnstile,
+  postmark_webhook_password: PostmarkWebhookPassword,
+  inbound_trusted_authserv_id: InboundTrustedAuthservId,
   expose_api: bool,
   expose_tasks: bool,
 }
 
 pub struct RegistryUrl(pub Url);
 pub struct NpmUrl(pub Url);
+pub struct FallbackRegistryUrl(pub Option<Url>);
 
 pub(crate) fn main_router(
   MainRouterOptions {
     database,
     buckets,
     generate_ctx_cache,
+    object_cache,
+    registry_metadata_cache,
     github_client,
     gitlab_client,
     algolia_client,
@@ -101,11 +115,15 @@ pub(crate) fn main_router(
     email_sender,
     registry_url,
     npm_url,
+    fallback_registry_url,
     publish_queue,
     npm_tarball_build_queue,
+    email_queue,
     analytics_engine_config,
     cache_purge_client,
     turnstile,
+    postmark_webhook_password,
+    inbound_trusted_authserv_id,
     expose_api,
     expose_tasks,
   }: MainRouterOptions,
@@ -114,6 +132,8 @@ pub(crate) fn main_router(
     .data(database)
     .data(buckets)
     .data(generate_ctx_cache)
+    .data(object_cache)
+    .data(registry_metadata_cache)
     .data(github_client)
     .data(gitlab_client)
     .data(algolia_client)
@@ -121,11 +141,15 @@ pub(crate) fn main_router(
     .data(license_store)
     .data(RegistryUrl(registry_url))
     .data(NpmUrl(npm_url))
+    .data(FallbackRegistryUrl(fallback_registry_url))
     .data(PublishQueue(publish_queue))
     .data(NpmTarballBuildQueue(npm_tarball_build_queue))
+    .data(EmailQueue(email_queue))
     .data(AnalyticsEngineConfig(analytics_engine_config))
     .data(CachePurge(cache_purge_client))
     .data(turnstile)
+    .data(postmark_webhook_password)
+    .data(inbound_trusted_authserv_id)
     .data(db::DependentCountCache::new())
     .middleware(routerify_query::query_parser())
     .err_handler_with_info(error_handler);
@@ -255,13 +279,27 @@ async fn main() {
     .unwrap(),
   );
   let npm_bucket = s3::BucketWithQueue::new(
-    s3::Bucket::new(config.npm_bucket, s3_region, s3_credentials).unwrap(),
+    s3::Bucket::new(
+      config.npm_bucket,
+      s3_region.clone(),
+      s3_credentials.clone(),
+    )
+    .unwrap(),
+  );
+  let ticket_attachments_bucket = s3::BucketWithQueue::new(
+    s3::Bucket::new(
+      config.ticket_attachments_bucket,
+      s3_region,
+      s3_credentials,
+    )
+    .unwrap(),
   );
   let buckets = Buckets {
     publishing_bucket,
     modules_bucket,
     docs_bucket,
     npm_bucket,
+    ticket_attachments_bucket,
   };
 
   let publish_queue = config
@@ -270,6 +308,10 @@ async fn main() {
 
   let npm_tarball_build_queue = config
     .npm_tarball_build_queue_id
+    .map(|id: String| Queue::new(gcp_client.clone(), id, None));
+
+  let email_queue = config
+    .email_queue_id
     .map(|id: String| Queue::new(gcp_client.clone(), id, None));
 
   let cache_purge_client = match (
@@ -329,7 +371,7 @@ async fn main() {
   let email_sender = config.postmark_token.map(|token| {
     EmailSender::new(
       postmark::reqwest::PostmarkClient::builder()
-        .token(token)
+        .server_token(token)
         .build(),
       config
         .email_from
@@ -343,11 +385,15 @@ async fn main() {
   let license_store = util::license_store();
 
   let generate_ctx_cache = crate::docs::GenerateCtxCache::new();
+  let object_cache = crate::object_cache::ObjectCache::new();
+  let registry_metadata_cache = crate::api::RegistryMetadataCache::new();
 
   let router = main_router(MainRouterOptions {
     database,
     buckets,
     generate_ctx_cache,
+    object_cache,
+    registry_metadata_cache,
     github_client,
     gitlab_client,
     algolia_client,
@@ -355,11 +401,19 @@ async fn main() {
     license_store,
     registry_url: config.registry_url,
     npm_url: config.npm_url,
+    fallback_registry_url: config.fallback_registry_url,
     publish_queue,
     npm_tarball_build_queue,
+    email_queue,
     analytics_engine_config,
     cache_purge_client,
     turnstile,
+    postmark_webhook_password: PostmarkWebhookPassword(
+      config.postmark_webhook_password,
+    ),
+    inbound_trusted_authserv_id: InboundTrustedAuthservId(
+      config.inbound_trusted_authserv_id,
+    ),
     expose_api: config.api,
     expose_tasks: config.tasks,
   });

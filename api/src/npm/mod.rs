@@ -25,6 +25,7 @@ use crate::ids::Version;
 use crate::npm::tarball::create_npm_dependencies;
 use crate::npm::types::NpmDistInfo;
 use crate::npm::types::NpmPackageInfo;
+use crate::npm::types::NpmRepositoryInfo;
 
 pub use self::tarball::NpmTarball;
 pub use self::tarball::NpmTarballFiles;
@@ -41,10 +42,15 @@ pub async fn generate_npm_version_manifest<'a>(
   scope: &'a ScopeName,
   name: &'a PackageName,
 ) -> Result<NpmPackageInfo<'a>, anyhow::Error> {
-  let (package, _, _) = db
+  let (package, github_repository, _) = db
     .get_package(scope, name)
     .await?
     .ok_or_else(|| anyhow::anyhow!("package not found: @{scope}/{name}"))?;
+
+  let repository = github_repository.map(|repo| NpmRepositoryInfo {
+    repository_type: "git".to_string(),
+    url: format!("git+https://github.com/{}/{}.git", repo.owner, repo.name),
+  });
 
   let versions = db
     .list_package_versions_for_npm_version_manifest(scope, name)
@@ -70,6 +76,7 @@ pub async fn generate_npm_version_manifest<'a>(
       package: name,
     },
     description: package.description.clone(),
+    repository: repository.clone(),
     dist_tags: IndexMap::new(),
     versions: IndexMap::new(),
     time: IndexMap::new(),
@@ -136,6 +143,7 @@ pub async fn generate_npm_version_manifest<'a>(
       },
       version: version.version.clone(),
       description: package.description.clone(),
+      repository: repository.clone(),
       dist: NpmDistInfo {
         tarball: tarball.to_string(),
         shasum: version.npm_tarball_sha1,

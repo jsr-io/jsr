@@ -39,17 +39,41 @@ async function persistCacheWrite(
   }
 }
 
-// Cache key for a bucket (R2) response. `caches.default` is shared across all
-// backends, and a `/@scope/...` URL is served as EITHER a module file (bucket,
-// JSON) or an HTML page (frontend) depending on request headers — keying both
-// on the raw URL cross-serves HTML for module files (and vice versa). Bucket
-// entries are namespaced under a synthetic, non-routable host (which no real
-// request can ever target, so it can't be poisoned) keyed by the original host
-// + path so module and npm buckets also stay distinct.
+// Path prefix that namespaces bucket (R2) cache entries. `caches.default` is
+// shared across all backends, and a `/@scope/...` URL is served as EITHER a
+// module file (bucket, JSON) or an HTML page (frontend) depending on request
+// headers — keying both on the raw URL cross-serves HTML for module files (and
+// vice versa), so bucket entries need a namespace of their own.
+//
+// That namespace is a reserved path on the PUBLIC origin, not a synthetic host.
+// Cloudflare's purge-by-URL API only accepts URLs inside the zone, so entries
+// keyed under an out-of-zone host — as they were, under
+// `bucket-cache.jsr.internal` — were unreachable by every publish-time purge:
+// a regenerated `meta.json` sat in R2 while the edge kept serving the previous
+// one until its TTL lapsed, leaving a just-published version invisible to
+// Deno's resolver even though its version page and `_meta.json` were already
+// live. Keying on the public origin keeps the module and npm buckets distinct
+// (the host is part of the key) while giving the purge a URL it can target.
+//
+// The API mirrors this prefix in `s3_paths::BUCKET_CACHE_PREFIX` and purges
+// both the public and the namespaced form of every mutable manifest; the two
+// constants must stay in sync.
+export const BUCKET_CACHE_PREFIX = "__bucket-cache";
+
+// True for the reserved bucket-cache namespace. No real resource lives there,
+// and `route` rejects such requests before any backend or cache is consulted,
+// so a crafted request can neither read nor populate a bucket cache entry.
+export function isBucketCachePath(path: string): boolean {
+  return path === `/${BUCKET_CACHE_PREFIX}` ||
+    path.startsWith(`/${BUCKET_CACHE_PREFIX}/`);
+}
+
+// Cache key for a bucket (R2) response: the public URL, moved under the
+// reserved namespace above.
 function bucketCacheKey(rawUrl: string): Request {
   const u = new URL(rawUrl);
   return new Request(
-    `https://bucket-cache.jsr.internal/${u.host}${u.pathname}${u.search}`,
+    `${u.origin}/${BUCKET_CACHE_PREFIX}${u.pathname}${u.search}`,
     { method: "GET" },
   );
 }
@@ -191,11 +215,74 @@ export async function proxyToBackend(
   }
 }
 
+// Registries whose artifacts a bucket miss may be served from. Only the scoped
+// (`/@…`) namespace is eligible: everything under it is public on any JSR/npm
+// registry, whereas an unrestricted catch-all would turn every 404 on this
+// instance into an attacker-controlled outbound request from our egress IP.
+function isFallbackEligible(request: Request, path: string): boolean {
+  if (request.method !== "GET" && request.method !== "HEAD") return false;
+  // Bucket lookups are keyed on the DECODED path (see proxyToR2), so
+  // eligibility must test the same form: /%40std/… is a valid bucket lookup
+  // for /@std/… and must reach the fallback on a miss just like the plain
+  // spelling. Undecodable paths can't have hit the bucket either — skip.
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(path);
+  } catch {
+    return false;
+  }
+  return decoded.startsWith("/@");
+}
+
+// Fetch an artifact this instance does not have from the configured fallback
+// registry. The inbound `Request` is deliberately NOT forwarded: handing it to
+// `fetch` as the init argument would send the caller's `Authorization`, `Cookie`
+// and `Host` headers to a third-party origin on every bucket miss. Only the
+// method and the path/query are reused. A non-OK fallback response is discarded
+// so the caller still produces this instance's own 404.
+async function fetchFromFallback(
+  request: Request,
+  path: string,
+  search: string,
+  fallbackUrl: string,
+): Promise<Response | null> {
+  if (!isFallbackEligible(request, path)) return null;
+
+  let target: URL;
+  try {
+    // Append to the fallback's own path rather than resolving against it:
+    // `new URL(path, base)` with an absolute path discards any path on the
+    // base, silently breaking a fallback hosted under a subpath
+    // (e.g. https://mirror.corp/jsr/).
+    target = new URL(fallbackUrl);
+    target.pathname = target.pathname.replace(/\/+$/, "") + path;
+    target.search = search;
+  } catch (error) {
+    console.error("invalid fallback registry URL:", error);
+    return null;
+  }
+
+  try {
+    const response = await fetch(target, {
+      method: request.method,
+      redirect: "follow",
+    });
+    if (!response.ok) return null;
+    return response;
+  } catch (error) {
+    console.error("fallback registry fetch error:", error);
+    return null;
+  }
+}
+
 export async function proxyToR2(
   request: Request,
   bucket: PartialBucket,
   pathRewrite?: (path: string) => string,
   ctx?: ExecutionCtx,
+  // When set, objects missing from `bucket` are served from this registry
+  // instead of 404ing. See fetchFromFallback for the trust boundary.
+  fallbackUrl?: string,
 ): Promise<Response> {
   const url = new URL(request.url);
   let path = url.pathname;
@@ -232,6 +319,14 @@ export async function proxyToR2(
     if (request.method === "HEAD") {
       const object = await bucket.head(key);
       if (!object) {
+        const fallback = fallbackUrl &&
+          await fetchFromFallback(request, path, url.search, fallbackUrl);
+        if (fallback) {
+          return new Response(null, {
+            headers: fallback.headers,
+            status: fallback.status,
+          });
+        }
         return new Response(null, { status: 404 });
       }
       const headers = new Headers();
@@ -245,6 +340,32 @@ export async function proxyToR2(
       });
 
       if (!object) {
+        const fallback = fallbackUrl &&
+          await fetchFromFallback(request, path, url.search, fallbackUrl);
+        if (fallback) {
+          const response = new Response(fallback.body, {
+            headers: fallback.headers,
+            status: fallback.status,
+          });
+          // Only cache what the fallback explicitly marked cacheable (same
+          // policy as cachedFetch below). These entries live under the
+          // internal bucket cache key, which no publish-time purge can ever
+          // target — so an unconditionally-cached copy of a MUTABLE resource
+          // (meta.json, npm packuments) would shadow later local publishes
+          // and upstream releases indefinitely. Honoring the fallback's own
+          // max-age bounds staleness to what the fallback already accepts.
+          const cacheControl = fallback.headers.get("Cache-Control") ?? "";
+          const explicitlyUncacheable = cacheControl.includes("private") ||
+            cacheControl.includes("no-store");
+          const cacheable = !explicitlyUncacheable &&
+            (cacheControl.includes("max-age") ||
+              cacheControl.includes("s-maxage"));
+          const cache = caches.default;
+          if (cache && cacheable) {
+            await persistCacheWrite(ctx, cache, cacheKey, response.clone());
+          }
+          return response;
+        }
         return new Response("404 - Not Found", { status: 404 });
       }
 
@@ -308,7 +429,10 @@ async function cachedFetch(
 
   // Only cache responses the origin explicitly marked cacheable: a `max-age` or
   // `s-maxage` directive, and never `private`/`no-store`. This applies to both
-  // 200s and (negatively-cached) 404s. Previously an unmarked 200 was cached by
+  // 200s, (negatively-cached) 404s, and the 413 the API returns for a symbol
+  // listing too large to serve — that refusal is a deterministic property of a
+  // published version, and leaving it uncacheable meant every crawler retry
+  // reached the origin. Previously an unmarked 200 was cached by
   // default, which silently cached dynamic endpoints that forgot to opt out —
   // e.g. the publish-status poll (`util::json`, no `Cache-Control`), pinning a
   // stale "pending"/"processing" status so `deno publish` hung until the entry
@@ -319,7 +443,8 @@ async function cachedFetch(
     cacheControl.includes("no-store");
   const hasCacheableDirective = cacheControl.includes("max-age") ||
     cacheControl.includes("s-maxage");
-  const cacheable = (res.ok || res.status === 404) &&
+  const cacheableStatus = res.ok || res.status === 404 || res.status === 413;
+  const cacheable = cacheableStatus &&
     !explicitlyUncacheable && hasCacheableDirective;
   // An authenticated request may only write an identity-independent response —
   // a viewer-specific authed response must never land in the shared cache.

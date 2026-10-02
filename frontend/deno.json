@@ -14,7 +14,7 @@
     }
   },
   "imports": {
-    "@deno/doc": "jsr:@deno/doc@^0.201.0",
+    "@deno/doc": "jsr:@deno/doc@^0.205.0",
     "@fresh/plugin-tailwind": "jsr:@fresh/plugin-tailwind@^1.0.0",
     "@fresh/plugin-vite": "jsr:@fresh/plugin-vite@^1.1.2",
     "@tailwindcss/vite": "npm:@tailwindcss/vite@^4.3.0",

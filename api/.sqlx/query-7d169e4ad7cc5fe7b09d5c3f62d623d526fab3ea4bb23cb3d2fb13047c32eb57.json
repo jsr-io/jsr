@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE tickets SET status = $2, updated_at = now()\n            WHERE id = $1 AND status NOT IN ('closed', 'spam')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        {
+          "Custom": {
+            "name": "ticket_status",
+            "kind": {
+              "Enum": [
+                "open",
+                "waiting_on_user",
+                "waiting_on_support",
+                "closed",
+                "spam"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7d169e4ad7cc5fe7b09d5c3f62d623d526fab3ea4bb23cb3d2fb13047c32eb57"
+}

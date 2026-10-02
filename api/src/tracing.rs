@@ -10,13 +10,14 @@ use opentelemetry_otlp::Protocol;
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_otlp::WithHttpConfig;
 use opentelemetry_sdk::Resource;
-use opentelemetry_sdk::logs::LoggerProvider;
+use opentelemetry_sdk::logs::SdkLoggerProvider;
 use opentelemetry_sdk::propagation::TraceContextPropagator;
-use opentelemetry_sdk::runtime;
 use opentelemetry_sdk::trace::Sampler;
-use opentelemetry_sdk::trace::TracerProvider;
+use opentelemetry_sdk::trace::SdkTracerProvider;
 use rand::Rng;
-use tracing_opentelemetry::OtelData;
+use std::sync::OnceLock;
+use tracing::dispatcher::WeakDispatch;
+use tracing_opentelemetry::get_otel_context;
 use tracing_subscriber::Layer;
 use tracing_subscriber::Registry;
 use tracing_subscriber::filter::EnvFilter;
@@ -32,6 +33,12 @@ use tracing_subscriber::reload;
 /// Fraction of traces (and their logs) exported to the OTLP backend. The rest
 /// are dropped to cut export volume/cost.
 const SAMPLE_RATIO: f64 = 0.05;
+
+/// The subscriber installed by [`setup_tracing`], for [`span_trace_id`].
+/// Captured once rather than looked up with `dispatcher::get_default` at use:
+/// that helper hands out a no-op dispatcher when called from inside a
+/// subscriber callback while any scoped dispatcher exists in the process.
+static DISPATCH: OnceLock<WeakDispatch> = OnceLock::new();
 
 pub enum TracingExportTarget {
   Otlp {
@@ -87,16 +94,16 @@ pub async fn setup_tracing(
   export_target: TracingExportTarget,
   deployment_environment: Option<String>,
 ) -> (LogFilterHandle, String) {
-  let mut resource = vec![
-    KeyValue::new("service.name", name),
-    KeyValue::new("service.namespace", "registry"),
-  ];
+  let mut resource = Resource::builder()
+    .with_service_name(name)
+    .with_attribute(KeyValue::new("service.namespace", "registry"));
   // Distinguishes staging from prod telemetry when both export to the same
   // backend. Empty/unset omits it rather than reporting a blank environment.
   if let Some(env) = deployment_environment.filter(|s| !s.trim().is_empty()) {
-    resource.push(KeyValue::new("deployment.environment", env));
+    resource =
+      resource.with_attribute(KeyValue::new("deployment.environment", env));
   }
-  let resource = Resource::new(resource);
+  let resource = resource.build();
 
   // OTLP/HTTP (protobuf), not gRPC: the managed Grafana Cloud gateway only
   // accepts HTTP, and it also works directly from the Cloudflare Container.
@@ -108,14 +115,30 @@ pub async fn setup_tracing(
   //
   // Each exporter's provider is kept alive past this function: the tracer
   // provider by the global registration below, and the logger provider by the
-  // appender layer (its `Logger` holds an `Arc` to the provider's batch
-  // processor), so dropping the local handles here does not stop export.
+  // appender layer (its `Logger` holds a clone of the provider), so dropping
+  // the local handles here does not shut down export. The batch processors run
+  // on their own threads and block on export, which is why the OTLP exporter
+  // is built with the blocking reqwest client (see Cargo.toml).
   let mut export_layers: Vec<Box<dyn Layer<Registry> + Send + Sync>> =
     Vec::new();
   match export_target {
     TracingExportTarget::Otlp { endpoint, headers } => {
+      // One blocking client for both signals: each `reqwest::blocking::Client`
+      // owns a thread with its own runtime and connection pool, and left to
+      // itself the exporter builder would create one per signal. It is built
+      // off the async runtime, which a blocking client refuses to be built on.
+      // The timeout matches the exporter's own default.
+      let http_client = tokio::task::spawn_blocking(|| {
+        reqwest::blocking::Client::builder()
+          .timeout(std::time::Duration::from_secs(10))
+          .build()
+          .expect("failed to build the OTLP reqwest client")
+      })
+      .await
+      .unwrap();
       let span_exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_http()
+        .with_http_client(http_client.clone())
         .with_endpoint(otlp_signal_endpoint(&endpoint, "/v1/traces"))
         .with_protocol(Protocol::HttpBinary)
         .with_headers(headers.clone())
@@ -125,27 +148,28 @@ pub async fn setup_tracing(
       // spans inherit the root's decision: this keeps each sampled trace whole
       // (all-or-nothing per trace) rather than dropping spans mid-trace, and
       // honors an upstream sampling decision propagated via tracecontext.
-      let tracer_provider = TracerProvider::builder()
-        .with_batch_exporter(span_exporter, runtime::Tokio)
+      let tracer_provider = SdkTracerProvider::builder()
+        .with_batch_exporter(span_exporter)
         .with_resource(resource.clone())
         .with_sampler(Sampler::ParentBased(Box::new(
           Sampler::TraceIdRatioBased(SAMPLE_RATIO),
         )))
         .build();
       let tracer = tracer_provider.tracer(name);
-      global::set_tracer_provider(tracer_provider);
+      global::set_tracer_provider(tracer_provider.clone());
       export_layers
         .push(tracing_opentelemetry::layer().with_tracer(tracer).boxed());
 
       let log_exporter = opentelemetry_otlp::LogExporter::builder()
         .with_http()
+        .with_http_client(http_client)
         .with_endpoint(otlp_signal_endpoint(&endpoint, "/v1/logs"))
         .with_protocol(Protocol::HttpBinary)
         .with_headers(headers)
         .build()
         .unwrap();
-      let logger_provider = LoggerProvider::builder()
-        .with_batch_exporter(log_exporter, runtime::Tokio)
+      let logger_provider = SdkLoggerProvider::builder()
+        .with_batch_exporter(log_exporter)
         .with_resource(resource)
         .build();
       // Sample exported logs at the same rate as traces. Logs that belong to a
@@ -175,6 +199,11 @@ pub async fn setup_tracing(
     .with(filter)
     .with(fmt);
   tracing::subscriber::set_global_default(subscriber).unwrap();
+  DISPATCH
+    .set(tracing::dispatcher::get_default(|dispatch| {
+      dispatch.downgrade()
+    }))
+    .expect("setup_tracing called twice");
 
   global::set_text_map_propagator(TraceContextPropagator::new());
   (reload_handle, default_filter_directive)
@@ -230,9 +259,17 @@ where
     .parent()
     .and_then(|id| ctx.span(id))
     .or_else(|| ctx.lookup_current())?;
-  let extensions = current_span.extensions();
-  let otel_data = extensions.get::<OtelData>()?;
-  Some(otel_data.parent_cx.span().span_context().trace_id())
+  span_trace_id(&current_span.id())
+}
+
+/// Trace id of the OpenTelemetry span behind a tracing span, if the
+/// OpenTelemetry layer is installed and the span carries a valid trace id
+/// (its own, or one inherited from a propagated remote parent).
+fn span_trace_id(span_id: &tracing::span::Id) -> Option<TraceId> {
+  let dispatch = DISPATCH.get()?.upgrade()?;
+  let cx = get_otel_context(span_id, &dispatch)?;
+  let trace_id = cx.span().span_context().trace_id();
+  (trace_id != TraceId::INVALID).then_some(trace_id)
 }
 
 /// Per-event sampling filter applied to the OTLP log-export layer (it does not
@@ -278,9 +315,8 @@ where
   }
 }
 
-/// Effective trace id of the span an event belongs to, if any. Prefers the
-/// span's own `trace_id` (set for the root where it is generated and inherited
-/// by children) and falls back to a propagated remote parent's trace id.
+/// Effective trace id of the span an event belongs to, if any: the root's
+/// generated id, inherited by children, or a propagated remote parent's.
 fn event_trace_id<S>(
   event: &tracing::Event<'_>,
   cx: &Context<'_, S>,
@@ -289,12 +325,7 @@ where
   S: tracing::Subscriber + for<'lookup> LookupSpan<'lookup>,
 {
   let span = cx.event_span(event).or_else(|| cx.lookup_current())?;
-  let extensions = span.extensions();
-  let otel_data = extensions.get::<OtelData>()?;
-  otel_data.builder.trace_id.or_else(|| {
-    let remote = otel_data.parent_cx.span().span_context().trace_id();
-    (remote != TraceId::INVALID).then_some(remote)
-  })
+  span_trace_id(&span.id())
 }
 
 /// Whether a trace id is sampled in at the given ratio. Mirrors the

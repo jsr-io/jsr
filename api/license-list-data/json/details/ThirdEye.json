@@ -8,11 +8,11 @@
   "licenseId": "ThirdEye",
   "crossRef": [
     {
-      "match": "false",
+      "match": "N/A",
       "url": "https://sourceware.org/cgit/binutils-gdb/tree/include/coff/symconst.h#n11",
       "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-07-16T09:24:10Z",
+      "isLive": false,
+      "timestamp": "2026-08-27T16:56:05Z",
       "isWayBackLink": false,
       "order": 0
     }

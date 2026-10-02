@@ -68,10 +68,32 @@ export default define.page<typeof handler>(function Users({ data, url }) {
               {twas(new Date(user.createdAt).getTime())}
             </TableData>
             <TableData align="right">
-              <div class="flex gap-2 items-center">
+              <div class="flex gap-2 items-center justify-end">
                 {user.id !==
                     "00000000-0000-0000-0000-000000000000" && (
                   <>
+                    <EditModal
+                      style="primary"
+                      path={path`/admin/users/${user.id}/tickets`}
+                      title={`Contact '${user.name}'`}
+                      label="contact"
+                      method="post"
+                      redirect="/ticket/{id}"
+                      fields={[
+                        {
+                          name: "subject",
+                          label: "subject",
+                          type: "input",
+                          required: true,
+                        },
+                        {
+                          name: "message",
+                          label: "message",
+                          type: "textarea",
+                          required: true,
+                        },
+                      ]}
+                    />
                     <EditModal
                       style="primary"
                       path={path`/admin/users/${user.id}`}

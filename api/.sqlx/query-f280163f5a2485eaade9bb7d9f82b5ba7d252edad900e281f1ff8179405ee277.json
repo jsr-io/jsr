@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE tickets SET status = $1, closed_at = $2 WHERE id = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ticket_status",
+            "kind": {
+              "Enum": [
+                "open",
+                "waiting_on_user",
+                "waiting_on_support",
+                "closed",
+                "spam"
+              ]
+            }
+          }
+        },
+        "Timestamptz",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f280163f5a2485eaade9bb7d9f82b5ba7d252edad900e281f1ff8179405ee277"
+}

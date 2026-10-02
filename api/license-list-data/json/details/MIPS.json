@@ -8,11 +8,11 @@
   "licenseId": "MIPS",
   "crossRef": [
     {
-      "match": "false",
+      "match": "N/A",
       "url": "https://sourceware.org/cgit/binutils-gdb/tree/include/coff/sym.h#n11",
       "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-07-16T09:26:17Z",
+      "isLive": false,
+      "timestamp": "2026-08-27T17:06:24Z",
       "isWayBackLink": false,
       "order": 0
     }

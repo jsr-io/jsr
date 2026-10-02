@@ -9,47 +9,11 @@
   "licenseId": "EUPL-1.2",
   "crossRef": [
     {
-      "match": "false",
-      "url": "https://joinup.ec.europa.eu/page/eupl-text-11-12",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-07-16T09:23:02Z",
-      "isWayBackLink": false,
-      "order": 0
-    },
-    {
-      "match": "true",
-      "url": "https://joinup.ec.europa.eu/sites/default/files/custom-page/attachment/2020-03/EUPL-1.2%20EN.txt",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-07-16T09:23:02Z",
-      "isWayBackLink": false,
-      "order": 2
-    },
-    {
-      "match": "false",
-      "url": "https://joinup.ec.europa.eu/sites/default/files/custom-page/attachment/eupl_v1.2_en.pdf",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-07-16T09:23:03Z",
-      "isWayBackLink": false,
-      "order": 1
-    },
-    {
-      "match": "N/A",
-      "url": "https://interoperable-europe.ec.europa.eu/sites/default/files/inline-files/EUPL%20v1_2%20EN(1).txt",
-      "isValid": false,
-      "isLive": false,
-      "timestamp": "2026-07-16T09:23:03Z",
-      "isWayBackLink": false,
-      "order": 6
-    },
-    {
       "match": "N/A",
       "url": "https://opensource.org/license/EUPL-1.2",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-07-16T09:23:03Z",
+      "timestamp": "2026-08-27T16:59:18Z",
       "isWayBackLink": false,
       "order": 5
     },
@@ -58,18 +22,54 @@
       "url": "http://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri\u003dCELEX:32017D0863",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-07-16T09:23:03Z",
+      "timestamp": "2026-08-27T16:59:18Z",
       "isWayBackLink": false,
       "order": 4
+    },
+    {
+      "match": "N/A",
+      "url": "https://interoperable-europe.ec.europa.eu/sites/default/files/inline-files/EUPL%20v1_2%20EN(1).txt",
+      "isValid": false,
+      "isLive": false,
+      "timestamp": "2026-08-27T16:59:19Z",
+      "isWayBackLink": false,
+      "order": 6
     },
     {
       "match": "N/A",
       "url": "https://joinup.ec.europa.eu/sites/default/files/inline-files/EUPL%20v1_2%20EN(1).txt",
       "isValid": false,
       "isLive": false,
-      "timestamp": "2026-07-16T09:23:03Z",
+      "timestamp": "2026-08-27T16:59:19Z",
       "isWayBackLink": false,
       "order": 3
+    },
+    {
+      "match": "N/A",
+      "url": "https://joinup.ec.europa.eu/sites/default/files/custom-page/attachment/2020-03/EUPL-1.2%20EN.txt",
+      "isValid": true,
+      "isLive": false,
+      "timestamp": "2026-08-27T16:59:19Z",
+      "isWayBackLink": false,
+      "order": 2
+    },
+    {
+      "match": "N/A",
+      "url": "https://joinup.ec.europa.eu/sites/default/files/custom-page/attachment/eupl_v1.2_en.pdf",
+      "isValid": true,
+      "isLive": false,
+      "timestamp": "2026-08-27T16:59:19Z",
+      "isWayBackLink": false,
+      "order": 1
+    },
+    {
+      "match": "N/A",
+      "url": "https://joinup.ec.europa.eu/page/eupl-text-11-12",
+      "isValid": true,
+      "isLive": false,
+      "timestamp": "2026-08-27T16:59:20Z",
+      "isWayBackLink": false,
+      "order": 0
     }
   ],
   "seeAlso": [

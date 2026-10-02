@@ -13,7 +13,7 @@ use crate::iam::IamInfo;
 use crate::iam::Principal;
 use crate::util::ApiResult;
 use crate::util::shared_http_client;
-use hyper::StatusCode;
+use reqwest::StatusCode;
 use serde::Deserialize;
 use serde::Deserializer;
 use tracing::Span;

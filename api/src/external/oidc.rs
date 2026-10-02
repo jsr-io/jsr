@@ -9,7 +9,7 @@ use crate::api::ApiError;
 use crate::util::ApiResult;
 use crate::util::shared_http_client;
 use anyhow::Context;
-use serde::Deserialize;
+use jsonwebtoken::jwk::JwkSet;
 use serde::de::DeserializeOwned;
 use tracing::error;
 use tracing::instrument;
@@ -50,11 +50,6 @@ pub struct OidcProvider {
   pub jwks_url: String,
 }
 
-#[derive(Deserialize)]
-struct Jwks {
-  keys: Vec<jsonwebkey::JsonWebKey>,
-}
-
 /// Fetch the provider's JWKS, verify the token's signature against it, and
 /// validate that the token's `iss` matches `provider.issuer`. Provider-specific
 /// claim fields are decoded into the caller-chosen `Claims` shape.
@@ -78,7 +73,7 @@ pub async fn verify_token<Claims: DeserializeOwned>(
     );
     return Err(ApiError::InternalServerError);
   }
-  let Jwks { keys } = res.json().await.context("failed to parse oidc jwks")?;
+  let jwks: JwkSet = res.json().await.context("failed to parse oidc jwks")?;
 
   let header = jsonwebtoken::decode_header(token).map_err(|err| {
     ApiError::InvalidOidcToken {
@@ -89,30 +84,39 @@ pub async fn verify_token<Claims: DeserializeOwned>(
     msg: "missing kid".into(),
   })?;
 
-  let jwk = keys
-    .iter()
-    .find(|k| k.key_id.as_deref() == Some(&*kid))
-    .ok_or_else(|| ApiError::InvalidOidcToken {
-      msg: format!("invalid kid: {kid}").into(),
-    })?;
+  let jwk = jwks.find(&kid).ok_or_else(|| ApiError::InvalidOidcToken {
+    msg: format!("invalid kid: {kid}").into(),
+  })?;
 
   let alg: jsonwebtoken::Algorithm = jwk
-    .algorithm
+    .common
+    .key_algorithm
     .ok_or_else(|| {
       error!("jwk {jwk:?} missing algorithm");
       ApiError::InternalServerError
     })?
-    .into();
+    .try_into()
+    .map_err(|err| {
+      error!("jwk {jwk:?} has an unsupported algorithm: {err}");
+      ApiError::InternalServerError
+    })?;
+  let decoding_key =
+    jsonwebtoken::DecodingKey::from_jwk(jwk).map_err(|err| {
+      error!("failed to build a decoding key from jwk {jwk:?}: {err}");
+      ApiError::InternalServerError
+    })?;
   let mut validation = jsonwebtoken::Validation::new(alg);
   validation.set_issuer(&[&provider.issuer]);
-  let decoded = jsonwebtoken::decode::<Claims>(
-    token,
-    &jwk.key.to_decoding_key(),
-    &validation,
-  )
-  .map_err(|err| ApiError::InvalidOidcToken {
-    msg: err.to_string().into(),
-  })?;
+  // The `aud` claim is not checked, as before: jsonwebtoken 9+ rejects tokens
+  // that carry an audience unless one is configured, whereas 8 (the previous
+  // version) only checked `aud` when one was set.
+  validation.validate_aud = false;
+  let decoded =
+    jsonwebtoken::decode::<Claims>(token, &decoding_key, &validation).map_err(
+      |err| ApiError::InvalidOidcToken {
+        msg: err.to_string().into(),
+      },
+    )?;
 
   Ok(decoded.claims)
 }

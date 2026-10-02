@@ -10,16 +10,16 @@
       "url": "https://fedoraproject.org/wiki/Licensing/TCL",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-07-16T09:20:26Z",
+      "timestamp": "2026-08-27T17:08:22Z",
       "isWayBackLink": false,
       "order": 1
     },
     {
-      "match": "true",
+      "match": "N/A",
       "url": "http://www.tcl.tk/software/tcltk/license.html",
       "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-07-16T09:20:26Z",
+      "isLive": false,
+      "timestamp": "2026-08-27T17:08:22Z",
       "isWayBackLink": false,
       "order": 0
     }
