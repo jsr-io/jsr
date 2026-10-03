@@ -326,6 +326,7 @@ pub async fn post_message_handler(
     let email_args = EmailArgs::SupportTicketMessage {
       ticket_id: Cow::Owned(ticket.id.to_string()),
       ticket_number: Cow::Borrowed(&ticket.ticket_number),
+      subject: ticket.subject.as_deref().map(Cow::Borrowed),
       name: Cow::Owned(name),
       content: Cow::Borrowed(&message.0.message),
       registry_url: Cow::Borrowed(registry_url.0.as_str()),
