@@ -2,7 +2,7 @@
 description: This document describes the usage policy for JSR.
 ---
 
-_Last updated: March 6th, 2024_
+_Last updated: August 21, 2026_
 
 JSR is a public registry service for the JavaScript and TypeScript ecosystem. It
 is designed to be a reliable and secure place to publish and discover packages.
@@ -97,11 +97,12 @@ JSR disallows name squatting of scope names. We define name squatting as the act
 of registering a scope / package name with no intention of using it, or to
 prevent someone with a legitimate use from using it (e.g. to sell it to them).
 
-We will be reasonable in our enforcement of name squatting policies. We
+We will seek to be reasonable in our enforcement of name squatting policies. We
 understand that sometimes people reserve names with the intention of using them,
-but then never get around to it. We will always reach out to the current scope
-owner to hear their side of the story, and come to a reasonable resolution for
-all parties involved.
+but then never get around to it. Where reasonably practicable, we may contact
+the current scope owner and consider the information they provide before taking
+action. We do not guarantee notice, a response, or any particular process or
+outcome.
 
 ### Sale of scope names
 
@@ -129,7 +130,7 @@ ticket via the "Report Package" button located on the package page.
 
 ## Changes to this policy
 
-We may change this usage policy at any time. We will notify users of any changes
-to this policy by updating the "Last updated" date at the top of this document.
-We encourage users to review this policy regularly to stay informed about
-acceptable usage of JSR.
+We may change this usage policy as JSR and the threats facing it evolve. We will
+update the date at the top of this document. Where reasonably practicable, we
+will also notify account holders of material changes by email, a message on JSR,
+or both.
