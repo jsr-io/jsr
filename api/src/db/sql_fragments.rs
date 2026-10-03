@@ -2,7 +2,7 @@
 
 // SQL fragments for use with sqlx_query! / sqlx_query_as! macros.
 // These constants are resolved at compile time by the proc macro.
-pub const USER_SELECT_FULL: &str = r#"id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
+pub const USER_SELECT_FULL: &str = r#"id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, deletion_hold, scope_limit as "scope_limit?",
 (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
 (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
 (CASE WHEN users.is_staff THEN (
@@ -16,7 +16,7 @@ pub const USER_SELECT_FULL: &str = r#"id, name, email, avatar_url, updated_at, c
 ) END) as "newer_ticket_messages_count!" "#;
 
 // Runtime-safe variant without sqlx type annotations, for use with sqlx::query_as() / format!().
-pub const USER_SELECT_FULL_RT: &str = r#"id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
+pub const USER_SELECT_FULL_RT: &str = r#"id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, deletion_hold, scope_limit,
 (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count",
 (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage",
 (CASE WHEN users.is_staff THEN (
@@ -120,7 +120,7 @@ pub const TICKET_SELECT_JOINED_RT: &str = r#"tickets.id as "ticket_id", tickets.
 // Full user columns for a LEFT JOIN: every column is nullable, so it works
 // wherever the joined user is optional — such as a support ticket opened by
 // email that nobody has claimed yet.
-pub const USER_SELECT_FULL_JOINED_OPTIONAL: &str = r#"users.id as "user_id?", users.name as "user_name?", users.email as "user_email", users.avatar_url as "user_avatar_url?", users.github_id as "user_github_id", users.gitlab_id as "user_gitlab_id", users.is_blocked as "user_is_blocked?", users.is_staff as "user_is_staff?", users.scope_limit as "user_scope_limit?", users.updated_at as "user_updated_at?", users.created_at as "user_created_at?",
+pub const USER_SELECT_FULL_JOINED_OPTIONAL: &str = r#"users.id as "user_id?", users.name as "user_name?", users.email as "user_email", users.avatar_url as "user_avatar_url?", users.github_id as "user_github_id", users.gitlab_id as "user_gitlab_id", users.is_blocked as "user_is_blocked?", users.is_staff as "user_is_staff?", users.deletion_hold as "user_deletion_hold?", users.scope_limit as "user_scope_limit?", users.updated_at as "user_updated_at?", users.created_at as "user_created_at?",
 (SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as "user_invite_count",
 (SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as "user_scope_usage",
 (CASE WHEN users.is_staff THEN (
@@ -133,7 +133,7 @@ pub const USER_SELECT_FULL_JOINED_OPTIONAL: &str = r#"users.id as "user_id?", us
   ) = 'outbound'
 ) END) as "user_newer_ticket_messages_count""#;
 
-pub const USER_SELECT_FULL_JOINED_RT: &str = r#"users.id as "user_id", users.name as "user_name", users.email as "user_email", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.gitlab_id as "user_gitlab_id", users.is_blocked as "user_is_blocked", users.is_staff as "user_is_staff", users.scope_limit as "user_scope_limit", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
+pub const USER_SELECT_FULL_JOINED_RT: &str = r#"users.id as "user_id", users.name as "user_name", users.email as "user_email", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.gitlab_id as "user_gitlab_id", users.is_blocked as "user_is_blocked", users.is_staff as "user_is_staff", users.deletion_hold as "user_deletion_hold", users.scope_limit as "user_scope_limit", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
 (SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as "user_invite_count",
 (SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as "user_scope_usage",
 (CASE WHEN users.is_staff THEN (

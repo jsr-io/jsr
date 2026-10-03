@@ -37,7 +37,7 @@ interface ScopeSelectProps {
   scope: Signal<string>;
   initialScope: string | undefined;
   scopeUsage: number;
-  scopeLimit: number;
+  scopeLimit: number | null;
   locked: boolean;
   user: User;
 }
@@ -80,7 +80,7 @@ export function ScopeSelect(
   }
 
   if (explicitCreateScope.value) {
-    const scopesLeft = scopeLimit.value - scopeUsage.value;
+    const scopesLeft = (scopeLimit.value ?? Infinity) - scopeUsage.value;
 
     return (
       <>

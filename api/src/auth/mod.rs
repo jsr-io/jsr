@@ -693,17 +693,16 @@ mod tests {
   #[tokio::test]
   async fn user_admin_api() {
     let mut t = TestSetup::new().await;
-    let mock_user_id: uuid::Uuid =
-      "00000000-0000-0000-0000-000000000000".try_into().unwrap();
+    let user_id = t.user1.user.id;
 
-    let user = t.db().get_user(mock_user_id).await.unwrap().unwrap();
+    let user = t.db().get_user(user_id).await.unwrap().unwrap();
     assert!(!user.is_staff);
     assert!(!user.is_blocked);
 
     let token = t.staff_user.token.clone();
     let resp = t
       .http()
-      .patch(format!("/api/admin/users/{}", mock_user_id))
+      .patch(format!("/api/admin/users/{}", user_id))
       .body_json(json!({
         "isStaff": true
       }))
@@ -712,18 +711,17 @@ mod tests {
       .await
       .unwrap();
 
-    eprintln!("resp status {}", resp.status());
     assert!(resp.status().is_success());
-    let user = t.db().get_user(mock_user_id).await.unwrap().unwrap();
+    let user = t.db().get_user(user_id).await.unwrap().unwrap();
     assert!(user.is_staff);
     assert!(!user.is_blocked);
 
     // Try again without authorization header
     let resp = t
       .http()
-      .patch(format!("/api/admin/users/{}", mock_user_id))
+      .patch(format!("/api/admin/users/{}", user_id))
       .body_json(json!({
-        "isStaff": true
+        "isStaff": false
       }))
       .token(None)
       .call()
@@ -735,7 +733,7 @@ mod tests {
 
     let resp = t
       .http()
-      .patch(format!("/api/admin/users/{}", mock_user_id))
+      .patch(format!("/api/admin/users/{}", user_id))
       .body_json(json!({
         "isStaff": false,
         "isBlocked": true,
@@ -746,10 +744,10 @@ mod tests {
       .await
       .unwrap();
     assert!(resp.status().is_success());
-    let user = t.db().get_user(mock_user_id).await.unwrap().unwrap();
+    let user = t.db().get_user(user_id).await.unwrap().unwrap();
     assert!(!user.is_staff);
     assert!(user.is_blocked);
-    assert_eq!(user.scope_limit, 30);
+    assert_eq!(user.scope_limit, Some(30));
   }
 
   #[tokio::test]
