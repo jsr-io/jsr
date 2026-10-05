@@ -9,11 +9,20 @@
   "licenseId": "EPL-2.0",
   "crossRef": [
     {
+      "match": "false",
+      "url": "https://projects.eclipse.org/license/epl-2.0",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-09-16T17:06:32Z",
+      "isWayBackLink": false,
+      "order": 3
+    },
+    {
       "match": "true",
       "url": "https://www.eclipse.org/legal/epl-v20.html",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T17:02:29Z",
+      "timestamp": "2026-09-16T17:06:33Z",
       "isWayBackLink": false,
       "order": 2
     },
@@ -22,25 +31,16 @@
       "url": "https://www.opensource.org/license/EPL-2.0",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T17:02:29Z",
+      "timestamp": "2026-09-16T17:06:34Z",
       "isWayBackLink": false,
       "order": 1
-    },
-    {
-      "match": "false",
-      "url": "https://projects.eclipse.org/license/epl-2.0",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-08-27T17:02:30Z",
-      "isWayBackLink": false,
-      "order": 3
     },
     {
       "match": "false",
       "url": "https://www.eclipse.org/legal/epl-2.0",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T17:02:30Z",
+      "timestamp": "2026-09-16T17:06:34Z",
       "isWayBackLink": false,
       "order": 0
     }

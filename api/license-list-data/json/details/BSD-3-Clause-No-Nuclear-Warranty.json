@@ -8,11 +8,11 @@
   "licenseId": "BSD-3-Clause-No-Nuclear-Warranty",
   "crossRef": [
     {
-      "match": "N/A",
+      "match": "true",
       "url": "https://jogamp.org/git/?p\u003dgluegen.git;a\u003dblob_plain;f\u003dLICENSE.txt",
       "isValid": true,
-      "isLive": false,
-      "timestamp": "2026-08-27T17:01:24Z",
+      "isLive": true,
+      "timestamp": "2026-09-16T17:06:27Z",
       "isWayBackLink": false,
       "order": 0
     }

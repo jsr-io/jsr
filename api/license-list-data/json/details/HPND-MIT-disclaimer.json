@@ -8,11 +8,11 @@
   "licenseId": "HPND-MIT-disclaimer",
   "crossRef": [
     {
-      "match": "N/A",
+      "match": "false",
       "url": "https://metacpan.org/release/NLNETLABS/Net-DNS-SEC-1.22/source/LICENSE",
       "isValid": true,
-      "isLive": false,
-      "timestamp": "2026-08-27T17:06:27Z",
+      "isLive": true,
+      "timestamp": "2026-09-16T17:04:16Z",
       "isWayBackLink": false,
       "order": 0
     }
