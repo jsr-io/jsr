@@ -1272,6 +1272,32 @@ pub struct TicketMessage {
   pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(
+  feature = "sqlx",
+  sqlx(type_name = "ticket_event_kind", rename_all = "snake_case")
+)]
+pub enum TicketEventKind {
+  StatusChange,
+  /// An email-opened ticket was bound to an account.
+  Claimed,
+}
+
+/// Something that happened to a ticket other than a message being written.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TicketEvent {
+  pub id: Uuid,
+  pub ticket_id: Uuid,
+  pub actor: Uuid,
+  pub kind: TicketEventKind,
+  /// The status moved to. Set exactly when `kind` is a status change.
+  pub status: Option<TicketStatus>,
+  pub created_at: DateTime<Utc>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TicketAttachment {

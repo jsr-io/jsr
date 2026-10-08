@@ -1148,15 +1148,32 @@ impl From<TicketAttachment> for ApiTicketAttachment {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
-pub enum ApiTicketMessageOrAuditLog {
-  Message {
-    message: ApiTicketMessage,
-  },
-  #[serde(rename_all = "camelCase")]
-  AuditLog {
-    audit_log: AuditLog,
-    user: UserPublic,
-  },
+pub enum ApiTicketMessageOrEvent {
+  Message { message: ApiTicketMessage },
+  Event { event: ApiTicketEvent },
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiTicketEvent {
+  pub id: Uuid,
+  pub kind: TicketEventKind,
+  /// The status moved to, for a status change.
+  pub status: Option<TicketStatus>,
+  pub actor: ApiUser,
+  pub created_at: DateTime<Utc>,
+}
+
+impl From<(TicketEvent, UserPublic)> for ApiTicketEvent {
+  fn from((event, actor): (TicketEvent, UserPublic)) -> Self {
+    Self {
+      id: event.id,
+      kind: event.kind,
+      status: event.status,
+      actor: actor.into(),
+      created_at: event.created_at,
+    }
+  }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -1171,7 +1188,7 @@ pub struct ApiTicketOverview {
   pub subject: Option<String>,
   pub meta: serde_json::Value,
   pub status: TicketStatus,
-  pub events: Vec<ApiTicketMessageOrAuditLog>,
+  pub events: Vec<ApiTicketMessageOrEvent>,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
 }
@@ -1183,7 +1200,7 @@ impl ApiTicketOverview {
   pub fn new(
     value: Ticket,
     user: Option<User>,
-    events: Vec<ApiTicketMessageOrAuditLog>,
+    events: Vec<ApiTicketMessageOrEvent>,
   ) -> Self {
     Self {
       id: value.id,

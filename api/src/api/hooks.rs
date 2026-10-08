@@ -835,7 +835,7 @@ mod integration {
       .events
       .iter()
       .filter_map(|event| match event {
-        crate::api::ApiTicketMessageOrAuditLog::Message { message } => {
+        crate::api::ApiTicketMessageOrEvent::Message { message } => {
           Some(message.message.clone())
         }
         _ => None,
@@ -976,6 +976,26 @@ mod integration {
       .unwrap();
     let closed: ApiTicket = resp.expect_ok().await;
     assert_eq!(closed.status, TicketStatus::Closed);
+
+    // The change shows up in the timeline, attributed to the staff member.
+    let mut resp = t
+      .http()
+      .get(format!("/api/tickets/{}", ticket.id))
+      .token(Some(&staff_token))
+      .call()
+      .await
+      .unwrap();
+    let overview: crate::api::ApiTicketOverview = resp.expect_ok().await;
+    assert!(
+      overview.events.iter().any(|event| matches!(
+        event,
+        crate::api::ApiTicketMessageOrEvent::Event { event }
+          if event.kind == crate::db::TicketEventKind::StatusChange
+            && event.status == Some(TicketStatus::Closed)
+            && event.actor.id == t.staff_user.user.id
+      )),
+      "the status change is missing from the timeline"
+    );
 
     deliver(
       &mut t,
@@ -1569,6 +1589,25 @@ mod integration {
       panic!("expected a user reporter after claiming");
     };
     assert_eq!(owner.id, t.user1.user.id);
+
+    // The claim shows up in the ticket's timeline, attributed to the claimer.
+    let mut resp = t
+      .http()
+      .get(format!("/api/tickets/{}", ticket.id))
+      .token(Some(&user1_token))
+      .call()
+      .await
+      .unwrap();
+    let overview: crate::api::ApiTicketOverview = resp.expect_ok().await;
+    assert!(
+      overview.events.iter().any(|event| matches!(
+        event,
+        crate::api::ApiTicketMessageOrEvent::Event { event }
+          if event.kind == crate::db::TicketEventKind::Claimed
+            && event.actor.id == t.user1.user.id
+      )),
+      "the claim is missing from the timeline"
+    );
 
     // The same link cannot be replayed by somebody else.
     let mut resp = t
