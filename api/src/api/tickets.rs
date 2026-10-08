@@ -35,7 +35,7 @@ use crate::util::decode_json;
 use super::ApiError;
 use super::ApiTicket;
 use super::ApiTicketMessage;
-use super::ApiTicketMessageOrAuditLog;
+use super::ApiTicketMessageOrEvent;
 use super::ApiTicketOverview;
 
 pub fn tickets_router() -> Router<Body, ApiError> {
@@ -135,28 +135,26 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiTicketOverview> {
   let access = check_ticket_access(&req, &ticket)?;
   let staff = access == TicketAccess::User { staff: true };
 
-  let mut events: Vec<ApiTicketMessageOrAuditLog> = messages
+  let mut events: Vec<ApiTicketMessageOrEvent> = messages
     .into_iter()
     // Staff notes are part of the same conversation, so they are dropped here
     // rather than anywhere further down — the reporter reaching this with a
     // claim token must never see them.
     .filter(|(message, ..)| staff || !message.internal)
-    .map(|message| ApiTicketMessageOrAuditLog::Message {
+    .map(|message| ApiTicketMessageOrEvent::Message {
       message: message.into(),
     })
     .collect();
 
-  if let Ok(audit_logs) = db.get_ticket_audit_logs(id).await {
-    for (audit_log, user) in audit_logs {
-      events.push(ApiTicketMessageOrAuditLog::AuditLog { audit_log, user });
-    }
+  for event in db.get_ticket_events(id).await? {
+    events.push(ApiTicketMessageOrEvent::Event {
+      event: event.into(),
+    });
   }
 
   events.sort_by_key(|event| match event {
-    ApiTicketMessageOrAuditLog::Message { message, .. } => message.created_at,
-    ApiTicketMessageOrAuditLog::AuditLog { audit_log, .. } => {
-      audit_log.created_at
-    }
+    ApiTicketMessageOrEvent::Message { message, .. } => message.created_at,
+    ApiTicketMessageOrEvent::Event { event } => event.created_at,
   });
 
   Ok(ApiTicketOverview::new(ticket, creator, events))
@@ -512,8 +510,7 @@ mod test {
 
     let mut message_contents: Vec<String> = Vec::new();
     for event in &ticket_overview.events {
-      if let super::ApiTicketMessageOrAuditLog::Message { message, .. } = event
-      {
+      if let super::ApiTicketMessageOrEvent::Message { message, .. } = event {
         message_contents.push(message.message.clone());
       }
     }
@@ -548,8 +545,7 @@ mod test {
 
     let mut staff_message_contents: Vec<String> = Vec::new();
     for event in &staff_ticket_overview.events {
-      if let super::ApiTicketMessageOrAuditLog::Message { message, .. } = event
-      {
+      if let super::ApiTicketMessageOrEvent::Message { message, .. } = event {
         staff_message_contents.push(message.message.clone());
       }
     }
