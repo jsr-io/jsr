@@ -100,7 +100,7 @@ resource "cloudflare_workers_script" "jsr_lb" {
     ], [
     for name in cloudflare_worker.jsr_api[*].name : {
       type    = "service"
-      name    = "REGISTRY_API"
+      name    = "API"
       service = name
     }
   ])

@@ -6,11 +6,7 @@
 locals {
   api_worker_count = var.production ? 0 : 1
 
-  api_worker_database_url = "postgres://${google_sql_user.api.name}:${google_sql_user.api.password}@${google_sql_database_instance.main_pg15.public_ip_address}/${google_sql_database.database.name}"
-
   api_worker_secrets = {
-    "DATABASE_URL"              = local.api_worker_database_url
-    "DB_CLIENT_KEY"             = google_sql_ssl_cert.api.private_key
     "S3_SECRET_KEY"             = local.r2_secret_access_key
     "GITHUB_CLIENT_SECRET"      = var.github_client_secret
     "GITLAB_CLIENT_SECRET"      = var.gitlab_client_secret
@@ -24,7 +20,12 @@ locals {
 
   api_worker_envs = merge({
     for name, value in local.api_envs : name => value
-    if !contains(concat(keys(local.otlp_envs), keys(local.api_worker_secrets)), name)
+    if !contains(concat(
+      keys(local.otlp_envs),
+      keys(local.api_worker_secrets),
+      # The database is reached through Hyperdrive, which does the TLS.
+      ["DATABASE_URL", "DB_CLIENT_CERT", "DB_CLIENT_KEY"],
+    ), name)
   }, {
     "DATABASE_DISABLE_MIGRATIONS" = "1"
     "METADATA_STRATEGY" = "service_account_key"
@@ -79,6 +80,11 @@ resource "cloudflare_worker_version" "jsr_api" {
       name = name
       text = value
     }],
+    [for config in cloudflare_hyperdrive_config.api : {
+      type = "hyperdrive"
+      name = "HYPERDRIVE"
+      id   = config.id
+    }],
     [for bucket in [
       cloudflare_r2_bucket.publishing,
       cloudflare_r2_bucket.modules,
@@ -107,4 +113,50 @@ resource "cloudflare_workers_deployment" "jsr_api" {
 resource "google_service_account_key" "registry_api_worker" {
   count              = local.api_worker_count
   service_account_id = google_service_account.registry_api.name
+}
+
+resource "cloudflare_mtls_certificate" "db_client" {
+  count        = local.api_worker_count
+  account_id   = var.cloudflare_account_id
+  name         = "${var.gcp_project}-db-client"
+  ca           = false
+  certificates = google_sql_ssl_cert.api.cert
+  private_key  = google_sql_ssl_cert.api.private_key
+}
+
+resource "cloudflare_mtls_certificate" "db_ca" {
+  count        = local.api_worker_count
+  account_id   = var.cloudflare_account_id
+  name         = "${var.gcp_project}-db-ca"
+  ca           = true
+  certificates = google_sql_database_instance.main_pg15.server_ca_cert[0].cert
+}
+
+resource "cloudflare_hyperdrive_config" "api" {
+  count      = local.api_worker_count
+  account_id = var.cloudflare_account_id
+  name       = "${var.gcp_project}-api"
+
+  origin = {
+    scheme   = "postgres"
+    host     = google_sql_database_instance.main_pg15.public_ip_address
+    port     = 5432
+    database = google_sql_database.database.name
+    user     = google_sql_user.api.name
+    password = google_sql_user.api.password
+  }
+
+  mtls = {
+    mtls_certificate_id = cloudflare_mtls_certificate.db_client[0].id
+    ca_certificate_id   = cloudflare_mtls_certificate.db_ca[0].id
+    sslmode             = "verify-ca"
+  }
+
+  # Cached reads could be up to a minute stale after a publish.
+  caching = {
+    disabled = true
+  }
+
+  # Staging's Cloud SQL instance is small and Cloud Run connects to it too.
+  origin_connection_limit = 20
 }

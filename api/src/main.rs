@@ -548,6 +548,10 @@ mod worker {
     // included) can be reused across requests.
     env_into_process(&env);
     crate::worker_js::set_env(env);
+    if let Some(url) = crate::worker_js::hyperdrive_database_url() {
+      // SAFETY: single-threaded emscripten worker; no other threads race here.
+      unsafe { std::env::set_var("DATABASE_URL", url) };
+    }
     let config =
       Config::try_parse_from(["registry_api", "--api", "--tasks=false"])
         .map_err(|e| JsValue::from_str(&format!("config: {e}")))?;

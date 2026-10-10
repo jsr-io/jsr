@@ -24,6 +24,29 @@ pub fn set_env(env: JsValue) {
   ENV.with(|cell| *cell.borrow_mut() = Some(env));
 }
 
+/// The Hyperdrive binding's connection string. The host is swapped for the
+/// binding's synthetic IP where the runtime has one, so nothing has to resolve
+/// the `.hyperdrive.local` name.
+pub fn hyperdrive_database_url() -> Option<String> {
+  ENV.with(|env| {
+    let binding =
+      Reflect::get(env.borrow().as_ref()?, &"HYPERDRIVE".into()).ok()?;
+    let mut url: url::Url = Reflect::get(&binding, &"connectionString".into())
+      .ok()?
+      .as_string()?
+      .parse()
+      .ok()?;
+    if let Some(ip) = Reflect::get(&binding, &"ip".into())
+      .ok()
+      .and_then(|ip| ip.as_string())
+      .and_then(|ip| ip.parse().ok())
+    {
+      url.set_ip_host(ip).ok()?;
+    }
+    Some(url.into())
+  })
+}
+
 /// SAFETY: the worker is single-threaded (linked without `-pthread`), so
 /// nothing wrapped here can reach another thread.
 #[derive(Clone)]
