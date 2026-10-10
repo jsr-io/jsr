@@ -126,7 +126,6 @@ work from a clean checkout. Measured sizes, for reference:
 | `ring` 0.17.9 | implement `SecureRandom for SystemRandom` on emscripten; without it rustls does not compile | 2 |
 | `socket2` 0.5.10 | add emscripten to the `IovLen = c_int` arm | 4 |
 | `reqwest` 0.11.27 / 0.12.12 | force the native (hyper) backend instead of browser fetch | 110, all the same cfg string over ~55 dependency blocks |
-| `slug` 0.1.6 | drop the `cdylib` crate-type | 3 |
 | `astral-tokio-tar` 0.6.3 | unix-vs-wasm32 duplicate item definitions | ~10 |
 
 The recurring theme: a crate assumes `target_arch =
@@ -159,14 +158,12 @@ downstream).
 | `socket2` 0.5.10 | `msg_iovlen` is an `int` on emscripten | In the graph solely because routerify declares `hyper = { features = ["server", "tcp"] }`, and hyper 0.14's `tcp` feature pulls socket2 0.5. Retires with a move off routerify/hyper 0.14 |
 | `reqwest` 0.11.27 | Picks the browser fetch backend; its wasm path also pulls wasm-streams 0.4, which does not compile under emscripten's unwinding panics | The emscripten-aware gate exists **only in 0.13**, and this group cannot get there: besides jsr's own client, 0.11 is required by `oauth2` 4.4.2 and `postmark` 0.10. `oauth2` 5.0.0 (latest) is on reqwest `^0.12` — so **0.12 is this group's ceiling**, `postmark` 2.0.1 notwithstanding (it is on `^0.13`). Consolidating 0.11 -> 0.12 deletes *this* patch but not the other one, and costs the oauth2 4->5 typestate rewrite + postmark 0.10->2.0 |
 | `reqwest` 0.12.12 | same | Not jsr's at all: `rust-s3` 0.38.0, `opentelemetry-otlp` 0.27 and `opentelemetry-http` — **even 0.31, the latest** — all require `^0.12`, which 0.13 cannot satisfy, and a `[patch]` must match the requirement. The fix was never backported: **0.12.28**, the newest 0.12, still carries bare `cfg(target_arch = "wasm32")` on every dependency block |
-| `slug` 0.1.6 | cdylib + `-Crelocation-model=static` → "recompile with -fPIC" at link | jsr never uses slug: it is a **mandatory** (non-optional, un-gated) dependency of comrak 0.29, which deno_doc pins exactly. Newer comrak demotes it to a dev-dependency, so this retires when deno_doc bumps comrak |
 | `astral-tokio-tar` 0.6.3 | unix-vs-wasm32 cfg, duplicate item definitions | Nothing upstream; 0.7.0 still pairs bare `cfg(unix)` with `cfg(target_arch = "wasm32")`, so bumping does not help. Only replacing the dependency fixes it |
 
 **Checked again 2026-10-08, no change for the rest:** ring is still 0.17.14 with
 [#2877] open; there is no new socket2 0.5.x; reqwest's fix is still only on 0.13
 (latest 0.13.5) and **rust-s3 0.38.0 — released 2026-10-04 — is still on reqwest
-0.12**; comrak 0.56.0 demotes slug to a dev-dependency but deno_doc 0.208.0 still
-pins comrak 0.29.0; astral-tokio-tar 0.7.0 still pairs bare `cfg(unix)` with
+0.12**; astral-tokio-tar 0.7.0 still pairs bare `cfg(unix)` with
 `cfg(target_arch = "wasm32")`; tokio#8484 is still open; worker-build is still 0.8.7.
 
 **reqwest, looked at properly 2026-10-10:** neither copy can be upgraded from

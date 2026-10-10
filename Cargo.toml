@@ -32,13 +32,14 @@ tokio-macros = { git = "https://github.com/guybedford/tokio", tag = "1.53.1-cf.e
 # Pending https://github.com/tokio-rs/mio/pull/1969
 mio = { git = "https://github.com/guybedford/mio", tag = "1.2.3-cf.emscripten" }
 
-# NOT patched here, on purpose: six fixes across five crates are missing. Those
+# NOT patched here, on purpose: five fixes across four crates are missing. Those
 # crates take a browser code path on emscripten because they test
 # `target_arch = "wasm32"` without looking at `target_os` — emscripten is wasm
 # *and* unix with a full libc. Each needs the fix upstream (or to leave jsr's
 # dependency graph), not a local patch, so the wasm32-unknown-emscripten link
 # does not succeed from a clean checkout yet.
 # EMSCRIPTEN_EXPERIMENT.md records the exact change and the blocker for each:
-# ring, socket2 0.5, reqwest 0.11, reqwest 0.12, slug, astral-tokio-tar.
+# ring, socket2 0.5, reqwest 0.11, reqwest 0.12, astral-tokio-tar.
 # Already retired by upgrading rather than patching: socket2 0.6 (0.6.5 has the
-# cfg upstream), deno_doc (0.208.0 ships denoland/deno_doc#857), tar (0.4.46).
+# cfg upstream), deno_doc (0.208.0 ships denoland/deno_doc#857), tar (0.4.46) and
+# slug (comrak 0.56 only uses it in tests, so deno_doc stopped pulling it in).

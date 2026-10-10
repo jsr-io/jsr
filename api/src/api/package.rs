@@ -1726,7 +1726,7 @@ pub async fn get_source_handler(
     );
 
     let view = if let Ok(file) = String::from_utf8(file.to_vec()) {
-      let mut out = vec![];
+      let mut out = String::new();
       highlighter.write_pre_tag(&mut out, Default::default())?;
       highlighter.write_code_tag(&mut out, Default::default())?;
       highlighter.write_highlighted(
@@ -1742,9 +1742,9 @@ pub async fn get_source_handler(
           }),
         &file,
       )?;
-      out.extend(b"</code></pre>");
+      out.push_str("</code></pre>");
 
-      Some(String::from_utf8(out).context("File is not valid utf8")?)
+      Some(out)
     } else {
       None
     };

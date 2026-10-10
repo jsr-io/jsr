@@ -417,6 +417,14 @@ impl From<std::io::Error> for ApiError {
   }
 }
 
+// comrak's adapters write through `std::fmt::Write` (they used to take
+// `std::io::Write`), so the syntax highlighter's errors arrive as `fmt::Error`.
+impl From<std::fmt::Error> for ApiError {
+  fn from(error: std::fmt::Error) -> ApiError {
+    anyhow::Error::from(error).into()
+  }
+}
+
 impl From<std::string::FromUtf8Error> for ApiError {
   fn from(error: std::string::FromUtf8Error) -> ApiError {
     anyhow::Error::from(error).into()

@@ -364,10 +364,10 @@ enum Alert {
 }
 
 fn match_node_value<'a>(
-  arena: &'a comrak::Arena<AstNode<'a>>,
+  arena: &'a comrak::Arena<'a>,
   node: &'a AstNode<'a>,
   options: &comrak::Options,
-  plugins: &comrak::Plugins,
+  plugins: &comrak::options::Plugins,
 ) {
   match &node.data.borrow().value {
     NodeValue::BlockQuote => {
@@ -378,7 +378,7 @@ fn match_node_value<'a>(
           if let NodeValue::Text(text) = &text_child.data.borrow().value {
             match text
               .split_once(' ')
-              .map_or((text.as_str(), None), |(kind, title)| {
+              .map_or((text.as_ref(), None), |(kind, title)| {
                 (kind, Some(title))
               }) {
               ("[!NOTE]", title) => {
