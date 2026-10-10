@@ -8,7 +8,7 @@ rustls+ring TLS.
 
 **Status (2026-10-10):** builds, links, runs and serves real requests on
 **stock `wrangler dev`** — no forked workerd, no hand-patched emscripten, no
-sibling `workers-rs` checkout. Everything below was measured with four
+sibling `workers-rs` checkout. Everything below was measured with two
 per-crate cfg fixes applied **locally**; those are not in the repo (jsr carries
 no local patches of third-party crates), so the wasm link does not succeed from
 a clean checkout until they land upstream. The pipeline is `api/build-worker.sh`
@@ -68,6 +68,7 @@ Getting past "it builds" originally took a chain of **runtime** fixes — see
 | `api/src/tarball.rs` | Replace `async-tar` (pulls async-std → async-io epoll reactor, won't build on wasm) with **`astral-tokio-tar`** (tokio-based). Bridges the S3 futures-io stream via `tokio_util::compat` + `tokio::io::BufReader` + `async_compression::tokio::bufread::GzipDecoder`. |
 | `api/src/npm/tarball.rs` | Same `async-tar → tokio_tar` swap in the test. |
 | `api/Cargo.toml` | `cfg`-gate jemalloc/rust-s3-tls/opentelemetry off wasm; add the `worker` SDK dep worker-build requires (with `experimental_tokio`); trim tokio from `full` to a wasm-buildable feature set (the patched tokio hard-errors on `process`/`signal`/`rt-multi-thread` for emscripten) and re-add `full` for native; add wasm-target deps (wasm-bindgen/web-sys/js-sys/futures); swap async-tar→astral-tokio-tar; `askalono`'s `gzip` feature (zstd's C lib won't build on wasm); declare **jsonwebtoken per target** — main's `aws_lc_rs` backend for native, the pure-Rust `rust_crypto` one for wasm, since aws-lc-sys does not build for emscripten and the two backends do not feature-unify. |
+| `api/src/tree_sitter.rs` | Hold the 16 `OnceLock` highlighter caches in an **Emscripten-only newtype asserting `Send + Sync`**. tree-sitter 0.27 gates those impls for `Language` behind `not(target_family = "wasm")` ([#5851]), which excludes emscripten too, so a `HighlightConfiguration` cannot sit in a `static` there. Sound because the worker links without `-pthread` (the same reason tokio's `rt-multi-thread` is off), so nothing can send or share one; scoped to `target_os = "emscripten"` so it never applies to `wasm32-unknown-unknown`, where the concern is real. Both impls are required: `OnceLock<T>: Sync` needs `T: Send + Sync`. The upstream cfg fix is the better answer and is held in `.git/tree-sitter-emscripten-send-sync.diff` — tree-sitter is not accepting external PRs at present. |
 | `.cargo/config.toml` | `wasm32-unknown-emscripten` rustflags + emcc link args, incl. `--cfg=tokio_unstable` and `--cfg=wasm_bindgen_unstable_tokio` (no-op for native targets). |
 | `api/wrangler.toml` | Worker config: `main = "build/index.js"` plus a `[build] command` that runs `worker-build --emscripten --release` with the extra `RUSTFLAGS` it cannot infer. |
 
@@ -117,7 +118,7 @@ ring = { git = "https://github.com/guybedford/ring", branch = "emscripten" }    
 ```
 
 Those are all git branches of the crate's own upstream — three from Cloudflare's
-tokio patchset, plus the branch ring#2877 is opened from. **Four more fixes are
+tokio patchset, plus the branch ring#2877 is opened from. **Two more fixes are
 deliberately absent**: jsr carries no local patches of third-party crates, so
 they have to land upstream (or the crate has to leave the graph) before the
 emscripten link works from a clean checkout. Measured sizes, for reference:
@@ -127,7 +128,6 @@ emscripten link works from a clean checkout. Measured sizes, for reference:
 | `socket2` 0.5.10 | add emscripten to the `IovLen = c_int` arm | 4 |
 | `reqwest` 0.12 | force the native (hyper) backend instead of browser fetch | 110, all the same cfg string over ~55 dependency blocks |
 | `astral-tokio-tar` 0.6.3 | unix-vs-wasm32 duplicate item definitions | ~10 |
-| `tree-sitter` 0.27.1 | exclude emscripten from the `not(target_family = "wasm")` gate on the `Send`/`Sync` impls | 8 |
 
 The recurring theme: a crate assumes `target_arch =
 "wasm32"` ⟹ browser, but emscripten is wasm **and** unix with a full libc.
@@ -159,7 +159,6 @@ downstream).
 | `socket2` 0.5.10 | `msg_iovlen` is an `int` on emscripten | In the graph solely because routerify declares `hyper = { features = ["server", "tcp"] }`, and hyper 0.14's `tcp` feature pulls socket2 0.5. Retires with a move off routerify/hyper 0.14 |
 | `reqwest` 0.12 | Picks the browser fetch backend; its wasm path also pulls wasm-streams 0.4, which does not compile under emscripten's unwinding panics | Not jsr's dep at all any more: since main moved jsr's own client to **reqwest 0.13** (which has the emscripten cfg upstream) and the OTLP exporter to the shared 0.13 client, **`rust-s3` is the only thing left on `^0.12`** — and 0.13 cannot satisfy `^0.12`, since a `[patch]` has to match the requirement. The fix was never backported: **0.12.28**, the newest 0.12, still carries bare `cfg(target_arch = "wasm32")` on every dependency block |
 | `astral-tokio-tar` 0.6.3 | unix-vs-wasm32 cfg, duplicate item definitions | **The crate is being deprecated** ([astral-sh/tokio-tar#123], merged 2026-09-30), so no upstream fix is coming and 0.7.0 still has the clash. Its suggested successor, `astral-codec`, is unpublished and self-described as not production-ready. The realistic route is dropping async tar reading for the sync `tar` crate jsr already depends on (0.4.46 builds for emscripten unpatched), trading streaming for buffering |
-| `tree-sitter` 0.27.1 | `Send`/`Sync` for `Language` are gated behind `not(target_family = "wasm")`, and emscripten is in that family, so a `HighlightConfiguration` cannot be held in a `static` | #5851 added the gate because a `TSLanguage`'s lexer/scanner function pointers belong to one wasm module instance and cannot be called from another worker. Emscripten instantiates the same module per thread (and this build has no threads), so the pre-0.27 impls were sound there. Verified: excluding emscripten from those 8 impls is all the wasm link needs. **No upstream route for now — tree-sitter is not accepting external PRs**, so the change is written and held (`.git/tree-sitter-emscripten-send-sync.diff`) until that changes. The only jsr-side alternative is a wasm-only wrapper with its own `unsafe impl Send + Sync` |
 
 **After merging main (2026-10-10):** two of these went away without any work on
 this branch. main moved jsr's own HTTP client to **reqwest 0.13**, which has the
@@ -311,7 +310,7 @@ entirely. No jsr source changes were needed for that migration.
 - The release `.wasm` is 25.9 MB — see [Size](#size) for the profile trade-offs. It was 24.26 MB before merging main, which added three tree-sitter grammars and swapped jsonwebtoken's aws-lc backend for the pure-Rust one.
 - **The committed branch does not link for wasm.** The two `[patch]` entries it
   does carry are pre-release: tokio#8484 is still open and mio#1969 is **merged**
-  but unreleased (mio 1.2.4 predates it), and ring#2877 is still open. The four
+  but unreleased (mio 1.2.4 predates it), and ring#2877 is still open. The two
   remaining per-crate cfg fixes are not in the repo at all, because jsr does not
   carry local patches of third-party crates — they have to land upstream first. Native `cargo test` is green without
   them (173/173). The 3 formerly uncommitted `workers-rs/tokio` methods and the
@@ -319,3 +318,5 @@ entirely. No jsr source changes were needed for that migration.
   status.
 
 [astral-sh/tokio-tar#123]: https://github.com/astral-sh/tokio-tar/pull/123
+
+[#5851]: https://github.com/tree-sitter/tree-sitter/pull/5851

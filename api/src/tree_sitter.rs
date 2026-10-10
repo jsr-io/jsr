@@ -328,9 +328,49 @@ pub fn tree_sitter_language_cb(
   None
 }
 
+/// A `HighlightConfiguration` held in a `static`, which on Emscripten it cannot
+/// be on its own: tree-sitter 0.27 gates `Send`/`Sync` for `Language` behind
+/// `not(target_family = "wasm")` (tree-sitter#5851 - a `TSLanguage`'s lexer and
+/// scanner function pointers belong to one wasm module instance and cannot be
+/// called from another worker), and Emscripten is in that family even though it
+/// does not have that problem.
+///
+/// SAFETY: the Emscripten worker is single-threaded. It is linked without
+/// `-pthread`, which is also why `tokio`'s `rt-multi-thread` is off for the
+/// target (see api/Cargo.toml), so there is no second thread that could send or
+/// share one of these. Both impls are needed because `OnceLock<T>: Sync`
+/// requires `T: Send + Sync`, and both are confined to
+/// `target_os = "emscripten"`; every other target uses tree-sitter's own impls.
+/// Fixing the cfg upstream would be better, but tree-sitter is not currently
+/// accepting external PRs (the one-line change is kept in
+/// `.git/tree-sitter-emscripten-send-sync.diff`).
+#[cfg(target_os = "emscripten")]
+struct SyncConfig(HighlightConfiguration);
+#[cfg(target_os = "emscripten")]
+unsafe impl Sync for SyncConfig {}
+#[cfg(target_os = "emscripten")]
+unsafe impl Send for SyncConfig {}
+
+#[cfg(target_os = "emscripten")]
+type ConfigCell = OnceLock<SyncConfig>;
+#[cfg(not(target_os = "emscripten"))]
+type ConfigCell = OnceLock<HighlightConfiguration>;
+
+/// Initialize one of the caches above, unwrapping the Emscripten-only wrapper so
+/// callers see a plain `&'static HighlightConfiguration` either way.
+fn config_get_or_init(
+  cell: &'static ConfigCell,
+  init: impl FnOnce() -> HighlightConfiguration,
+) -> &'static HighlightConfiguration {
+  #[cfg(target_os = "emscripten")]
+  return &cell.get_or_init(|| SyncConfig(init())).0;
+  #[cfg(not(target_os = "emscripten"))]
+  return cell.get_or_init(init);
+}
+
 pub fn tree_sitter_language_javascript() -> &'static HighlightConfiguration {
-  static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
-  CONFIG.get_or_init(|| {
+  static CONFIG: ConfigCell = OnceLock::new();
+  config_get_or_init(&CONFIG, || {
     let mut config = HighlightConfiguration::new(
       tree_sitter_javascript::LANGUAGE.into(),
       "javascript",
@@ -345,8 +385,8 @@ pub fn tree_sitter_language_javascript() -> &'static HighlightConfiguration {
 }
 
 pub fn tree_sitter_language_jsx() -> &'static HighlightConfiguration {
-  static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
-  CONFIG.get_or_init(|| {
+  static CONFIG: ConfigCell = OnceLock::new();
+  config_get_or_init(&CONFIG, || {
     let mut config = HighlightConfiguration::new(
       tree_sitter_javascript::LANGUAGE.into(),
       "jsx",
@@ -366,8 +406,8 @@ pub fn tree_sitter_language_jsx() -> &'static HighlightConfiguration {
 }
 
 pub fn tree_sitter_language_typescript() -> &'static HighlightConfiguration {
-  static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
-  CONFIG.get_or_init(|| {
+  static CONFIG: ConfigCell = OnceLock::new();
+  config_get_or_init(&CONFIG, || {
     let mut config = HighlightConfiguration::new(
       tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
       "typescript",
@@ -392,8 +432,8 @@ pub fn tree_sitter_language_typescript() -> &'static HighlightConfiguration {
 }
 
 pub fn tree_sitter_language_tsx() -> &'static HighlightConfiguration {
-  static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
-  CONFIG.get_or_init(|| {
+  static CONFIG: ConfigCell = OnceLock::new();
+  config_get_or_init(&CONFIG, || {
     let mut config = HighlightConfiguration::new(
       tree_sitter_typescript::LANGUAGE_TSX.into(),
       "tsx",
@@ -419,8 +459,8 @@ pub fn tree_sitter_language_tsx() -> &'static HighlightConfiguration {
 }
 
 fn tree_sitter_language_json() -> &'static HighlightConfiguration {
-  static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
-  CONFIG.get_or_init(|| {
+  static CONFIG: ConfigCell = OnceLock::new();
+  config_get_or_init(&CONFIG, || {
     let mut config = HighlightConfiguration::new(
       tree_sitter_json::LANGUAGE.into(),
       "json",
@@ -435,8 +475,8 @@ fn tree_sitter_language_json() -> &'static HighlightConfiguration {
 }
 
 fn tree_sitter_language_css() -> &'static HighlightConfiguration {
-  static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
-  CONFIG.get_or_init(|| {
+  static CONFIG: ConfigCell = OnceLock::new();
+  config_get_or_init(&CONFIG, || {
     let mut config = HighlightConfiguration::new(
       tree_sitter_css::LANGUAGE.into(),
       "css",
@@ -451,8 +491,8 @@ fn tree_sitter_language_css() -> &'static HighlightConfiguration {
 }
 
 fn tree_sitter_language_markdown() -> &'static HighlightConfiguration {
-  static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
-  CONFIG.get_or_init(|| {
+  static CONFIG: ConfigCell = OnceLock::new();
+  config_get_or_init(&CONFIG, || {
     let mut config = HighlightConfiguration::new(
       tree_sitter_md::LANGUAGE.into(),
       "markdown",
@@ -467,8 +507,8 @@ fn tree_sitter_language_markdown() -> &'static HighlightConfiguration {
 }
 
 fn tree_sitter_language_xml() -> &'static HighlightConfiguration {
-  static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
-  CONFIG.get_or_init(|| {
+  static CONFIG: ConfigCell = OnceLock::new();
+  config_get_or_init(&CONFIG, || {
     let mut config = HighlightConfiguration::new(
       tree_sitter_xml::LANGUAGE_XML.into(),
       "xml",
@@ -483,8 +523,8 @@ fn tree_sitter_language_xml() -> &'static HighlightConfiguration {
 }
 
 fn tree_sitter_language_dtd() -> &'static HighlightConfiguration {
-  static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
-  CONFIG.get_or_init(|| {
+  static CONFIG: ConfigCell = OnceLock::new();
+  config_get_or_init(&CONFIG, || {
     let mut config = HighlightConfiguration::new(
       tree_sitter_xml::LANGUAGE_DTD.into(),
       "dtd",
@@ -499,8 +539,8 @@ fn tree_sitter_language_dtd() -> &'static HighlightConfiguration {
 }
 
 fn tree_sitter_language_regex() -> &'static HighlightConfiguration {
-  static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
-  CONFIG.get_or_init(|| {
+  static CONFIG: ConfigCell = OnceLock::new();
+  config_get_or_init(&CONFIG, || {
     let mut config = HighlightConfiguration::new(
       tree_sitter_regex::LANGUAGE.into(),
       "regex",
@@ -515,8 +555,8 @@ fn tree_sitter_language_regex() -> &'static HighlightConfiguration {
 }
 
 fn tree_sitter_language_rust() -> &'static HighlightConfiguration {
-  static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
-  CONFIG.get_or_init(|| {
+  static CONFIG: ConfigCell = OnceLock::new();
+  config_get_or_init(&CONFIG, || {
     let mut config = HighlightConfiguration::new(
       tree_sitter_rust::LANGUAGE.into(),
       "rust",
@@ -531,8 +571,8 @@ fn tree_sitter_language_rust() -> &'static HighlightConfiguration {
 }
 
 fn tree_sitter_language_html() -> &'static HighlightConfiguration {
-  static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
-  CONFIG.get_or_init(|| {
+  static CONFIG: ConfigCell = OnceLock::new();
+  config_get_or_init(&CONFIG, || {
     let mut config = HighlightConfiguration::new(
       tree_sitter_html::LANGUAGE.into(),
       "html",
@@ -547,8 +587,8 @@ fn tree_sitter_language_html() -> &'static HighlightConfiguration {
 }
 
 fn tree_sitter_language_bash() -> &'static HighlightConfiguration {
-  static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
-  CONFIG.get_or_init(|| {
+  static CONFIG: ConfigCell = OnceLock::new();
+  config_get_or_init(&CONFIG, || {
     let mut config = HighlightConfiguration::new(
       tree_sitter_bash::LANGUAGE.into(),
       "bash",
@@ -563,8 +603,8 @@ fn tree_sitter_language_bash() -> &'static HighlightConfiguration {
 }
 
 fn tree_sitter_language_toml() -> &'static HighlightConfiguration {
-  static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
-  CONFIG.get_or_init(|| {
+  static CONFIG: ConfigCell = OnceLock::new();
+  config_get_or_init(&CONFIG, || {
     let mut config = HighlightConfiguration::new(
       tree_sitter_toml_ng::LANGUAGE.into(),
       "toml",
@@ -579,8 +619,8 @@ fn tree_sitter_language_toml() -> &'static HighlightConfiguration {
 }
 
 fn tree_sitter_language_yaml() -> &'static HighlightConfiguration {
-  static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
-  CONFIG.get_or_init(|| {
+  static CONFIG: ConfigCell = OnceLock::new();
+  config_get_or_init(&CONFIG, || {
     let mut config = HighlightConfiguration::new(
       tree_sitter_yaml::LANGUAGE.into(),
       "yaml",
@@ -595,8 +635,8 @@ fn tree_sitter_language_yaml() -> &'static HighlightConfiguration {
 }
 
 fn tree_sitter_language_c() -> &'static HighlightConfiguration {
-  static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
-  CONFIG.get_or_init(|| {
+  static CONFIG: ConfigCell = OnceLock::new();
+  config_get_or_init(&CONFIG, || {
     let mut config = HighlightConfiguration::new(
       tree_sitter_c::LANGUAGE.into(),
       "c",
