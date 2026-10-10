@@ -848,7 +848,6 @@ pub mod tests {
   pub fn create_case_insensitive_mock_tarball() -> Bytes {
     let mut tar_bytes = Vec::new();
     let mut tar = tar::Builder::new(&mut tar_bytes);
-    tar.sparse(false);
     tar
       .append_dir_all("./", "./testdata/tarballs/case_insensitive/")
       .unwrap();
@@ -870,7 +869,6 @@ pub mod tests {
   pub fn create_invalid_path_mock_tarball() -> Bytes {
     let mut tar_bytes = Vec::new();
     let mut tar = tar::Builder::new(&mut tar_bytes);
-    tar.sparse(false);
     tar.append_dir_all("./", "./testdata/tarballs/ok/").unwrap();
     let mut file =
       std::fs::File::open("./testdata/tarballs/ok/mod.ts").unwrap();

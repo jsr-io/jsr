@@ -328,22 +328,9 @@ pub fn tree_sitter_language_cb(
   None
 }
 
-/// A `HighlightConfiguration` held in a `static`, which on Emscripten it cannot
-/// be on its own: tree-sitter 0.27 gates `Send`/`Sync` for `Language` behind
-/// `not(target_family = "wasm")` (tree-sitter#5851 - a `TSLanguage`'s lexer and
-/// scanner function pointers belong to one wasm module instance and cannot be
-/// called from another worker), and Emscripten is in that family even though it
-/// does not have that problem.
-///
-/// SAFETY: the Emscripten worker is single-threaded. It is linked without
-/// `-pthread`, which is also why `tokio`'s `rt-multi-thread` is off for the
-/// target (see api/Cargo.toml), so there is no second thread that could send or
-/// share one of these. Both impls are needed because `OnceLock<T>: Sync`
-/// requires `T: Send + Sync`, and both are confined to
-/// `target_os = "emscripten"`; every other target uses tree-sitter's own impls.
-/// Fixing the cfg upstream would be better, but tree-sitter is not currently
-/// accepting external PRs (the one-line change is kept in
-/// `.git/tree-sitter-emscripten-send-sync.diff`).
+/// tree-sitter 0.27 drops `Send`/`Sync` for every wasm target, but the
+/// emscripten worker is single-threaded (no `-pthread`), so these caches can
+/// still live in statics there.
 #[cfg(target_os = "emscripten")]
 struct SyncConfig(HighlightConfiguration);
 #[cfg(target_os = "emscripten")]
@@ -356,8 +343,6 @@ type ConfigCell = OnceLock<SyncConfig>;
 #[cfg(not(target_os = "emscripten"))]
 type ConfigCell = OnceLock<HighlightConfiguration>;
 
-/// Initialize one of the caches above, unwrapping the Emscripten-only wrapper so
-/// callers see a plain `&'static HighlightConfiguration` either way.
 fn config_get_or_init(
   cell: &'static ConfigCell,
   init: impl FnOnce() -> HighlightConfiguration,

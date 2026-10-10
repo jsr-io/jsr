@@ -4,8 +4,7 @@
 //! tracing. It starts a span for each request, and records successes and
 //! failure.
 
-// The OpenTelemetry stack is not compiled into the wasm worker (see
-// `tracing.rs`), so trace propagation and `x-deno-ray` are native-only.
+// OpenTelemetry isn't compiled into the worker.
 #[cfg(not(target_arch = "wasm32"))]
 use std::collections::HashMap;
 use std::convert::Infallible;

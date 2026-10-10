@@ -24,8 +24,8 @@ pub struct AccessTokenResponse {
 pub enum MetadataStrategy {
   /// Get authentication information from the instance metadata server.
   InstanceMetadata,
-  /// Sign access token requests with a service account key, for where there is
-  /// no metadata server (the Cloudflare Worker).
+  /// Sign token requests with a service account key, where there is no metadata
+  /// server.
   ServiceAccountKey,
   /// Returned fixed fake tokens for testing.
   Testing,

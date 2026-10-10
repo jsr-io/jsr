@@ -1,9 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
-// OpenTelemetry/OTLP export is native-only. The Cloudflare Worker (wasm32)
-// always runs with OTLP disabled - its endpoint is unset - so compiling the
-// exporter stack into the wasm binary would add megabytes of code that never
-// executes there. The worker keeps stdout tracing (workerd captures it).
 #[cfg(not(target_arch = "wasm32"))]
 use opentelemetry::KeyValue;
 #[cfg(not(target_arch = "wasm32"))]
@@ -68,8 +64,6 @@ const SAMPLE_RATIO: f64 = 0.05;
 #[cfg(not(target_arch = "wasm32"))]
 static DISPATCH: OnceLock<WeakDispatch> = OnceLock::new();
 
-// The worker parses the OTLP config like the native server but never exports
-// (the whole exporter stack is native-only), so on wasm nothing reads these.
 #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 pub enum TracingExportTarget {
   Otlp {
@@ -126,9 +120,6 @@ pub async fn setup_tracing(
   export_target: TracingExportTarget,
   deployment_environment: Option<String>,
 ) -> (LogFilterHandle, String) {
-  // Layers that export spans/logs to an OTLP backend. Always empty on wasm,
-  // where the exporter stack isn't compiled in (see the module header); on
-  // native it's populated only when an OTLP endpoint is configured.
   #[allow(unused_mut)]
   let mut export_layers: Vec<Box<dyn Layer<Registry> + Send + Sync>> =
     Vec::new();
@@ -226,7 +217,6 @@ pub async fn setup_tracing(
   }
   #[cfg(target_arch = "wasm32")]
   {
-    // OTLP export is native-only; the worker never has an endpoint configured.
     let _ = (name, export_target, deployment_environment);
   }
 
@@ -236,8 +226,6 @@ pub async fn setup_tracing(
     .add_directive("swc_ecma_codegen=off".parse().unwrap());
   let default_filter_directive = base_filter.to_string();
   let (filter, reload_handle) = reload::Layer::new(base_filter);
-  // Native prefixes each log line with its OTLP trace_id; the worker has no
-  // otel span context, so it uses the default event format.
   #[cfg(not(target_arch = "wasm32"))]
   let fmt = tracing_subscriber::fmt::layer()
     .with_ansi(false)
@@ -248,10 +236,7 @@ pub async fn setup_tracing(
     .with(export_layers)
     .with(filter)
     .with(fmt);
-  // The emscripten worker rebuilds the router (and so calls this) per request,
-  // since a Cloudflare Worker cannot reuse async I/O across requests, and the
-  // global subscriber may only be installed once - so tolerate a repeat there.
-  // Native calls this exactly once and still panics on a double-init.
+  // The worker sets up tracing on every request, so a repeat is fine there.
   let set_result = tracing::subscriber::set_global_default(subscriber);
   #[cfg(not(target_arch = "wasm32"))]
   set_result.unwrap();
@@ -260,7 +245,6 @@ pub async fn setup_tracing(
 
   #[cfg(not(target_arch = "wasm32"))]
   {
-    // `set` rather than `expect`: see above.
     let _ = DISPATCH.set(tracing::dispatcher::get_default(|dispatch| {
       dispatch.downgrade()
     }));

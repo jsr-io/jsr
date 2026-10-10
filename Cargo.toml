@@ -2,12 +2,9 @@
 members = ["api", "api/macros", "crates/jsr_types"]
 resolver = "2"
 
-# Patches for building registry_api for wasm32-unknown-emscripten (see
-# EMSCRIPTEN.md). Each one is a branch of the crate's own upstream, pending a
-# release.
+# For wasm32-unknown-emscripten, each pending an upstream release.
 
-# The mio branch depends on libc from git; point that at the published crate so
-# the graph has a single libc.
+# The mio branch takes libc from git.
 [patch."https://github.com/rust-lang/libc"]
 libc = { version = "0.2.190" }
 

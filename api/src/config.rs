@@ -62,8 +62,7 @@ pub struct Config {
   pub metadata_strategy: MetadataStrategy,
 
   #[clap(long = "gcp_service_account_key", env = "GCP_SERVICE_ACCOUNT_KEY")]
-  /// The JSON key of the service account to sign GCP access token requests
-  /// with, for the `service_account_key` metadata strategy.
+  /// Service account key JSON for the `service_account_key` metadata strategy.
   pub gcp_service_account_key: Option<String>,
 
   #[clap(

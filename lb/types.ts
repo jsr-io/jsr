@@ -14,8 +14,7 @@ export type PartialBucket = Pick<R2Bucket, "get" | "head">;
 
 export interface WorkerEnv {
   REGISTRY_API_URL: string;
-  // The API as a sibling Worker. When bound, API traffic goes to it instead of
-  // REGISTRY_API_URL.
+  // When bound, API traffic goes here instead of REGISTRY_API_URL.
   REGISTRY_API?: Fetcher;
 
   // The frontend is a sibling Cloudflare Worker, wired up via a service

@@ -34,9 +34,8 @@ use crate::router::RequestExt;
 
 pub const USER_AGENT: &str = "JSR";
 
-/// A `reqwest::ClientBuilder` for outbound requests. On the worker it resolves
-/// names with tokio's async lookup: emscripten's blocking `getaddrinfo` only
-/// answers from the cache that lookup fills.
+/// On the worker, resolves names with tokio's async lookup: emscripten's
+/// blocking `getaddrinfo` only answers from the cache that fills.
 pub fn http_client_builder() -> reqwest::ClientBuilder {
   let builder = reqwest::Client::builder();
   #[cfg(target_arch = "wasm32")]

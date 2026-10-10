@@ -1,24 +1,8 @@
-# jsr's registry_api as an emscripten worker.
-# Lives in api/ so wrangler auto-loads api/.env (the same env the native server
-# reads via dotenvy) and injects it as worker `env` bindings, which the fetch
-# handler copies into the process env for Config::parse. Run from api/:
-#   npx wrangler@latest dev
-# Use 127.0.0.1 rather than `localhost` in DATABASE_URL / S3_ENDPOINT:
-# emscripten's resolver returns EAI -2 for `localhost`, but a literal IP skips DNS.
+# Local development only; staging deploys through terraform.
 name = "jsr-api"
-# `worker-build --emscripten` output: emcc's JS + wasm, wasm-bindgen'd, wrapped
-# in the generated `WorkerEntrypoint` shim and bundled by esbuild.
 main = "build/index.js"
 compatibility_date = "2026-09-02"
-# nodejs_compat: emscripten's node glue imports node: builtins (esbuild keeps
-# them external). Its `import.meta.url` is rewritten by build-worker.sh.
-# `experimental_tokio = "isolated"` gives each request its own runtime, so no
-# promise is ever settled from another request's context and
-# `no_handle_cross_request_promise_resolution` is not needed.
 compatibility_flags = ["nodejs_compat"]
 
 [build]
-# See build-worker.sh: it runs `worker-build --emscripten --release` with the
-# RUSTFLAGS and release-profile settings worker-build cannot infer, then runs a
-# second converging `wasm-opt -Oz` pass over the linked module.
 command = "./build-worker.sh"

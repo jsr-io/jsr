@@ -1,7 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
-// jemalloc doesn't build for wasm32 (emscripten worker build); use the default
-// allocator there and keep jemalloc only for the native compute service.
 #[cfg(not(target_arch = "wasm32"))]
 #[global_allocator]
 static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
@@ -201,9 +199,6 @@ pub(crate) fn main_router(
   router::app(router, data)
 }
 
-/// Build the fully-wired application router from a parsed [`Config`]. Shared by
-/// the native listener entry point (`main`) and the emscripten worker `fetch`
-/// export, so both drive exactly the same routes and state.
 async fn build_router(config: Config) -> App {
   // Treat a present-but-empty OTLP_ENDPOINT as unset: clap parses an empty env
   // var as Some(""), which would otherwise build a schemeless endpoint and
@@ -402,8 +397,6 @@ async fn build_router(config: Config) -> App {
   })
 }
 
-// Native (Cloud Run) entry point: bind a TCP listener and serve the router with
-// hyper, exactly as before.
 #[cfg(not(target_arch = "wasm32"))]
 #[tokio::main]
 async fn main() {
@@ -430,10 +423,6 @@ async fn main() {
   }
 }
 
-// Emscripten worker entry point. A Cloudflare Worker cannot `listen()` on a
-// socket, so instead of `Server::bind().serve()` we expose a `fetch` export that
-// bridges the runtime's `web_sys::Request`/`Response` to the axum router: the
-// router is built once (from the JS `env` bindings) and reused across requests.
 #[cfg(target_arch = "wasm32")]
 fn main() {}
 
@@ -444,8 +433,6 @@ mod worker {
   use tower::ServiceExt;
   use wasm_bindgen::prelude::*;
 
-  /// Copy the string-valued entries of the worker `env` object into the process
-  /// environment so clap's `env = "..."` config parsing sees them.
   fn env_into_process(env: &JsValue) {
     let Ok(entries) =
       js_sys::Object::entries(&js_sys::Object::from(env.clone()))
@@ -464,8 +451,6 @@ mod worker {
     }
   }
 
-  /// Extract the host (without port) from a `scheme://[user:pass@]host[:port]/…`
-  /// URL, for the DNS prewarm below.
   fn host_of(url: &str) -> Option<String> {
     let after_scheme = url.split_once("://").map(|(_, r)| r).unwrap_or(url);
     let authority = after_scheme.split(['/', '?', '#']).next().unwrap_or("");
@@ -473,7 +458,6 @@ mod worker {
       .rsplit_once('@')
       .map(|(_, h)| h)
       .unwrap_or(authority);
-    // Strip a trailing `:port`; leave IPv6 literals (`[::1]`) alone.
     let host = if host.starts_with('[') {
       host
     } else {
@@ -482,11 +466,8 @@ mod worker {
     (!host.is_empty()).then(|| host.to_string())
   }
 
-  /// Prewarm emscripten's resolution cache for `host` via tokio's async DNS
-  /// (backed by `emscripten_dns_lookup_async`). The blocking `getaddrinfo`
-  /// that sqlx (`Database::connect`) and reqwest (S3) run on emscripten only answers
-  /// from that cache, so without a prior async lookup it returns `EAI -2`
-  /// even for `localhost`. A literal IP host resolves trivially and is a no-op.
+  /// sqlx resolves with a blocking `getaddrinfo`, which on emscripten only
+  /// answers from the cache this async lookup fills.
   async fn dns_prewarm(host: &str) -> Result<(), String> {
     tokio::net::lookup_host((host, 0))
       .await
@@ -494,7 +475,6 @@ mod worker {
       .map_err(|e| format!("dns prewarm for {host:?}: {e}"))
   }
 
-  /// Convert the runtime's `web_sys::Request` into a `hyper::Request<Body>`.
   async fn to_hyper_request(
     req: web_sys::Request,
   ) -> Result<hyper::Request<Body>, JsValue> {
@@ -530,7 +510,6 @@ mod worker {
       .map_err(|e| JsValue::from_str(&format!("build request: {e}")))
   }
 
-  /// Convert a `hyper::Response<Body>` into the runtime's `web_sys::Response`.
   async fn to_web_response(
     resp: hyper::Response<Body>,
   ) -> Result<web_sys::Response, JsValue> {
@@ -557,27 +536,18 @@ mod worker {
     )
   }
 
-  // No `js_namespace = ["default"]`: `worker-build --emscripten` generates the
-  // `export default` itself — a `WorkerEntrypoint` subclass whose `fetch`
-  // forwards to this export as `exports.fetch.call(this, request, env, ctx)`.
   #[wasm_bindgen(experimental_tokio = "isolated")]
   pub async fn fetch(
     request: web_sys::Request,
     env: JsValue,
     _ctx: JsValue,
   ) -> Result<web_sys::Response, JsValue> {
-    // `experimental_tokio = "isolated"` builds a fresh hosted runtime (its own epoll, timers,
-    // tasks) for this request and tears it down when the request settles, so no
-    // I/O ever crosses request contexts ("Cannot perform I/O on behalf of a
-    // different request") and concurrent requests don't collide. Build the whole
-    // router — and thus its DB connections — inside this runtime rather than
-    // caching it across requests: I/O bound to a torn-down runtime is unusable.
+    // Each request runs on its own tokio runtime, so nothing (the DB connection
+    // included) can be reused across requests.
     env_into_process(&env);
     let config =
       Config::try_parse_from(["registry_api", "--api", "--tasks=false"])
         .map_err(|e| JsValue::from_str(&format!("config: {e}")))?;
-    // Prewarm the DNS cache for every outbound host reached during router
-    // construction (DB pool, S3 clients) before the blocking lookups fire.
     for host in [host_of(&config.database_url), host_of(&config.s3_endpoint)]
       .into_iter()
       .flatten()

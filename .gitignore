@@ -25,6 +25,6 @@ lb/node_modules
 
 .idea
 
-# wrangler (emscripten worker)
+# wrangler
 .wrangler/
 api/build/

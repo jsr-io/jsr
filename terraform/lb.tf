@@ -98,8 +98,6 @@ resource "cloudflare_workers_script" "jsr_lb" {
       }
     }
     ], [
-    # Staging serves the API from the emscripten Worker (see
-    # cloudflare_api_worker.tf) instead of REGISTRY_API_URL.
     for name in cloudflare_worker.jsr_api[*].name : {
       type    = "service"
       name    = "REGISTRY_API"

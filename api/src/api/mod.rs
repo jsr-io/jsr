@@ -78,7 +78,6 @@ pub fn api_router() -> Router {
     .nest("/hooks", hooks_router())
     .route("/.well-known/openapi", get(openapi_handler));
 
-  // jemalloc-backed debug endpoints are only available in the native build.
   #[cfg(not(target_arch = "wasm32"))]
   let router = router
     .route(
