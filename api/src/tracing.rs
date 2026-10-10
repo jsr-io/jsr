@@ -44,11 +44,15 @@ use tracing_subscriber::Layer;
 use tracing_subscriber::Registry;
 use tracing_subscriber::filter::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
+#[cfg(not(target_arch = "wasm32"))]
 use tracing_subscriber::fmt::FormatFields;
+#[cfg(not(target_arch = "wasm32"))]
 use tracing_subscriber::layer::Context;
+#[cfg(not(target_arch = "wasm32"))]
 use tracing_subscriber::layer::Filter;
 use tracing_subscriber::layer::Layered;
 use tracing_subscriber::layer::SubscriberExt;
+#[cfg(not(target_arch = "wasm32"))]
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::reload;
 
@@ -79,6 +83,7 @@ pub enum TracingExportTarget {
 /// endpoint verbatim and does NOT do this itself, so posting to the bare base
 /// 404s. Tolerates a trailing slash and an endpoint that already carries the
 /// signal path.
+#[cfg(not(target_arch = "wasm32"))]
 fn otlp_signal_endpoint(base: &str, signal_path: &str) -> String {
   let base = base.trim_end_matches('/');
   if base.ends_with(signal_path) {
