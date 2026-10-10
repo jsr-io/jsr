@@ -271,6 +271,17 @@ jobs:
         run: deno task build
         working-directory: frontend
 
+      - name: Install Rust for the API Worker
+        run: |
+          rustup toolchain install nightly-2026-08-06 --profile minimal --target wasm32-unknown-emscripten
+          cargo +nightly-2026-08-06 install worker-build --version 0.8.7 --locked
+
+      - name: Build API Cloudflare Worker
+        run: ./build-worker.sh
+        working-directory: api
+        env:
+          RUSTUP_TOOLCHAIN: nightly-2026-08-06
+
       - name: terraform plan
         run: |
           touch terraform/staging.secret.tfvars

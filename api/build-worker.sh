@@ -27,10 +27,16 @@ export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1
 # sqlx's `query!` macros verify against a live database at compile time; use the
 # committed `api/.sqlx` data instead.
 export SQLX_OFFLINE=true
-# The emscripten target needs a newer toolchain than jsr's pinned 1.89.0.
+# Needs nightly: stable's LLVM 22 emits exception-handling code that
+# wasm-bindgen 0.2.129 cannot parse. CI pins the nightly it was tested with.
 export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-nightly}"
 
 worker-build --emscripten --release "$@"
+
+# emscripten's node glue calls `createRequire(import.meta.url)`, and workerd only
+# defines `import.meta.url` under the experimental `new_module_registry` flag,
+# which Cloudflare does not accept on deploy.
+sed -i 's#import\.meta\.url#"file:///bundle/index.js"#g' build/index.js
 
 # NOTE: a second `wasm-opt --converge -Oz` pass over the linked module is NOT
 # worth it here. With the module's own feature set it saves ~7KB; the ~600KB an

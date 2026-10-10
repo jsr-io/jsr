@@ -570,8 +570,9 @@ mod worker {
     // router — and thus its DB connections — inside this runtime rather than
     // caching it across requests: I/O bound to a torn-down runtime is unusable.
     env_into_process(&env);
-    let config = Config::try_parse()
-      .map_err(|e| JsValue::from_str(&format!("config: {e}")))?;
+    let config =
+      Config::try_parse_from(["registry_api", "--api", "--tasks=false"])
+        .map_err(|e| JsValue::from_str(&format!("config: {e}")))?;
     // Prewarm the DNS cache for every outbound host reached during router
     // construction (DB pool, S3 clients) before the blocking lookups fire.
     for host in [host_of(&config.database_url), host_of(&config.s3_endpoint)]

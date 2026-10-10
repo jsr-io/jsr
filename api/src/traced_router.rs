@@ -36,6 +36,7 @@ use crate::router::App;
 #[derive(Clone)]
 pub struct TracedRouterService {
   app: App,
+  #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
   is_internal: bool,
 }
 
@@ -94,22 +95,23 @@ impl Service<Request<Body>> for TracedRouterService {
     }
 
     let fut = self.app.call(req).map(|res| {
-      let Ok(mut resp) = res;
-      let status = resp.status();
+      let Ok(resp) = res;
       let span = Span::current();
       #[cfg(not(target_arch = "wasm32"))]
-      {
-        let ctx = span.context();
-        let span_ref = ctx.span();
-        let span_ctx = span_ref.span_context();
-        let trace_id = span_ctx.trace_id().to_string();
-        let headers = resp.headers_mut();
-        headers.insert("x-deno-ray", HeaderValue::from_str(&trace_id).unwrap());
-      }
-      span.record("http.status_code", status.as_u16());
+      let resp = with_ray_header(resp, &span);
+      span.record("http.status_code", resp.status().as_u16());
       Ok(resp)
     });
 
     fut.instrument(span).boxed()
   }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn with_ray_header(mut resp: Response<Body>, span: &Span) -> Response<Body> {
+  let trace_id = span.context().span().span_context().trace_id().to_string();
+  resp
+    .headers_mut()
+    .insert("x-deno-ray", HeaderValue::from_str(&trace_id).unwrap());
+  resp
 }

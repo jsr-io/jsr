@@ -191,24 +191,11 @@ risk/reward.
 [rust-lang/socket2#660]: https://github.com/rust-lang/socket2/pull/660
 [denoland/deno_doc#857]: https://github.com/denoland/deno_doc/pull/857
 
-### Reproducing the link today
-The one outstanding fix is not in the repo, so a clean checkout does not link.
-To get a working worker locally, vendor that crate and point `[patch]` at it —
-as a local overlay you revert before committing, never as a commit:
-
-```sh
-# at exactly the version Cargo.lock resolves
-cp -r ~/.cargo/registry/src/*/socket2-0.5.10 .emscripten-patches/
-chmod -R u+w .emscripten-patches/*
-# add `target_os = "emscripten",` to the `IovLen = c_int` cfg list in
-#   src/sys/unix.rs (see the table above)
-```
-
-then in the workspace `Cargo.toml`, under `[patch.crates-io]`:
-
-```toml
-socket2_05 = { package = "socket2", path = ".emscripten-patches/socket2-0.5.10" }
-```
+### Linking from a clean checkout
+Since main moved from routerify to axum (#1565), socket2 0.5 is out of the graph
+and a clean checkout links with only the git patches above; no local overlay is
+needed. `build-worker.sh` needs nightly (CI pins `nightly-2026-08-06`): stable
+1.95's LLVM 22 emits exception-handling code wasm-bindgen 0.2.129 cannot parse.
 
 > **A `[patch]` whose version does not match what `Cargo.lock` already pins is
 > silently ignored — no warning.** This is the single easiest way to waste a
@@ -260,6 +247,23 @@ curl -s 'http://127.0.0.1:8787/api/packages?limit=1'   # -> {"items":[],"total":
 # for the C build scripts, and uses .cargo/config.toml's rustflags:
 SQLX_OFFLINE=true cargo check --target wasm32-unknown-emscripten -p registry_api
 ```
+
+### Staging
+`terraform/cloudflare_api_worker.tf` deploys the worker to staging only (it is
+`count = 0` on prod), at `https://api-worker.<staging domain>/api/...`. Cloud Run
+keeps serving `api.<domain>` behind the LB, so the e2e tests are unaffected.
+The staging CI job builds it with `build-worker.sh` before `terraform plan`;
+add the `test-on-staging` label to the PR to run it.
+
+It reaches Cloud SQL over the public IP with the client certificate from
+`db.tf` (`sslmode=require`, so the server certificate is not verified), runs
+with `--api --tasks=false`, and leaves migrations to Cloud Run. Features that
+need a GCP token from the instance metadata server (enqueueing Cloud Tasks,
+BigQuery) do not work from the worker.
+
+`new_module_registry` is experimental and cannot be deployed, so it is not set;
+`build-worker.sh` instead rewrites emscripten's one `import.meta.url` to a fixed
+`file:` URL for `createRequire`.
 
 ## Runtime reliability
 
@@ -346,26 +350,20 @@ entirely. No jsr source changes were needed for that migration.
 ## What's left
 In rough order of how reachable each one is:
 
-1. **socket2 0.5** — one line: `target_os = "emscripten"` in the
-   `IovLen = c_int` list. `rust-lang/socket2` keeps a **live `v0.5.x` branch**
-   that accepts target backports (precedent: "Add cygwin support (#568) (#578)")
-   and still cuts releases from it, so this is a backport PR against `v0.5.x`,
-   not master — master already has it via [#660]. Needs a fork to open the PR
-   from.
-2. **tree-sitter** — currently handled in jsr (see the `api/src/tree_sitter.rs`
+1. **tree-sitter** — currently handled in jsr (see the `api/src/tree_sitter.rs`
    row above). When tree-sitter reopens to external PRs, send the cfg fix and
    delete the newtype; it is the better answer and the change is already
    written.
-3. **Per-request rebuild cost** — the open performance question, not a
+2. **Per-request rebuild cost** — the open performance question, not a
    correctness one: ~0.23 s alone versus ~7.7 s each at 64-way concurrency,
    because every request rebuilds the router, DB pool, S3 clients, caches and a
    tokio runtime. Anything cacheable across requests in a Worker (an isolate
    lives longer than one request, but async I/O cannot be reused) would attack
    this.
-4. **S3 paths** — still unexercised end to end in the worker; the smoke run
+3. **S3 paths** — still unexercised end to end in the worker; the smoke run
    has no MinIO. Natively the new rusty-s3 client passes the MinIO-backed tests.
 
-Prepared patches for 1 and 2 exist as `.git/*.diff` in the author's checkout,
+The prepared tree-sitter patch exists as `.git/*.diff` in the author's checkout,
 which **does not travel with a clone** — the tables above carry the actual
 changes, so nothing is lost if those files are gone.
 
@@ -382,13 +380,9 @@ changes, so nothing is lost if those files are gone.
 - **S3 paths untested** — the smoke run has no MinIO up, so only DB-backed routes
   (e.g. `/api/packages`) are exercised end to end.
 - The release `.wasm` is 25.9 MB — see [Size](#size) for the profile trade-offs. It was 24.26 MB before merging main, which added three tree-sitter grammars and swapped jsonwebtoken's aws-lc backend for the pure-Rust one.
-- **The committed branch does not link for wasm.** The two `[patch]` entries it
-  does carry are pre-release: tokio#8484 is still open and mio#1969 is **merged**
-  but unreleased (mio 1.2.4 predates it), and ring#2877 is still open. The one
-  remaining per-crate cfg fix (socket2 0.5) is not in the repo at all, because
-  jsr does not carry local patches of third-party crates — it has to land
-  upstream first. Native `cargo test` is green without
-  them (267/267). The 3 formerly uncommitted `workers-rs/tokio` methods and the
+- **The committed branch links for wasm from a clean checkout.** Its `[patch]`
+  entries are still pre-release: tokio#8484 is open and mio#1969 is **merged**
+  but unreleased (mio 1.2.4 predates it), and ring#2877 is open. The 3 formerly uncommitted `workers-rs/tokio` methods and the
   emscripten import-source workaround are both gone — see Patchset/Toolchain
   status.
 

@@ -11,11 +11,11 @@ name = "jsr-api"
 main = "build/index.js"
 compatibility_date = "2026-09-02"
 # nodejs_compat: emscripten's node glue imports node: builtins (esbuild keeps
-# them external). new_module_registry: gives that glue `import.meta.url`.
+# them external). Its `import.meta.url` is rewritten by build-worker.sh.
 # `experimental_tokio = "isolated"` gives each request its own runtime, so no
 # promise is ever settled from another request's context and
 # `no_handle_cross_request_promise_resolution` is not needed.
-compatibility_flags = ["nodejs_compat", "new_module_registry"]
+compatibility_flags = ["nodejs_compat"]
 
 [build]
 # See build-worker.sh: it runs `worker-build --emscripten --release` with the
