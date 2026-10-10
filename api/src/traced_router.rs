@@ -4,6 +4,8 @@
 //! tracing. It starts a span for each request, and records successes and
 //! failure.
 
+// OpenTelemetry isn't compiled into the worker.
+#[cfg(not(target_arch = "wasm32"))]
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::task::Context;
@@ -14,14 +16,18 @@ use futures::FutureExt;
 use futures::future::BoxFuture;
 use hyper::Request;
 use hyper::Response;
+#[cfg(not(target_arch = "wasm32"))]
 use hyper::header::HeaderValue;
+#[cfg(not(target_arch = "wasm32"))]
 use opentelemetry::global;
+#[cfg(not(target_arch = "wasm32"))]
 use opentelemetry::trace::TraceContextExt;
 use tower::Service;
 use tracing::Instrument;
 use tracing::Span;
 use tracing::field;
 use tracing::info_span;
+#[cfg(not(target_arch = "wasm32"))]
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 use crate::router::App;
@@ -29,6 +35,7 @@ use crate::router::App;
 #[derive(Clone)]
 pub struct TracedRouterService {
   app: App,
+  #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
   is_internal: bool,
 }
 
@@ -71,6 +78,7 @@ impl Service<Request<Body>> for TracedRouterService {
       "otel.kind" = "server"
     );
 
+    #[cfg(not(target_arch = "wasm32"))]
     if self.is_internal {
       global::get_text_map_propagator(|propagator| {
         let mut headers = HashMap::new();
@@ -86,19 +94,23 @@ impl Service<Request<Body>> for TracedRouterService {
     }
 
     let fut = self.app.call(req).map(|res| {
-      let Ok(mut resp) = res;
-      let status = resp.status();
+      let Ok(resp) = res;
       let span = Span::current();
-      let ctx = span.context();
-      let span_ref = ctx.span();
-      let span_ctx = span_ref.span_context();
-      let trace_id = span_ctx.trace_id().to_string();
-      let headers = resp.headers_mut();
-      headers.insert("x-deno-ray", HeaderValue::from_str(&trace_id).unwrap());
-      span.record("http.status_code", status.as_u16());
+      #[cfg(not(target_arch = "wasm32"))]
+      let resp = with_ray_header(resp, &span);
+      span.record("http.status_code", resp.status().as_u16());
       Ok(resp)
     });
 
     fut.instrument(span).boxed()
   }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn with_ray_header(mut resp: Response<Body>, span: &Span) -> Response<Body> {
+  let trace_id = span.context().span().span_context().trace_id().to_string();
+  resp
+    .headers_mut()
+    .insert("x-deno-ray", HeaderValue::from_str(&trace_id).unwrap());
+  resp
 }

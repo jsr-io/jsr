@@ -1,6 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 use crate::api::ApiError;
+use crate::util::Fetch;
 use serde::Deserialize;
 use serde::Serialize;
 use tracing::error;
@@ -89,7 +90,7 @@ impl TurnstileClient {
     let response = crate::util::shared_http_client()
       .post("https://challenges.cloudflare.com/turnstile/v0/siteverify")
       .form(&[("secret", self.secret_key.as_str()), ("response", token)])
-      .send()
+      .fetch()
       .await?;
 
     if !response.status().is_success() {
@@ -182,7 +183,7 @@ impl CachePurgeClient {
       ))
       .bearer_auth(&self.api_token)
       .json(&body)
-      .send()
+      .fetch()
       .await?;
 
     if !response.status().is_success() {
@@ -238,7 +239,7 @@ impl AnalyticsEngineClient {
       ))
       .bearer_auth(&self.api_token)
       .body(query)
-      .send()
+      .fetch()
       .await?;
 
     if !response.status().is_success() {

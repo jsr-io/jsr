@@ -24,3 +24,7 @@ lb/node_modules
 .minio
 
 .idea
+
+# wrangler
+.wrangler/
+api/build/

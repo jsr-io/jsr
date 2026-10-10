@@ -100,6 +100,40 @@ jobs:
         run: cargo build --target wasm32-unknown-unknown --release
         working-directory: workers-rs
 
+  api-wasm:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    env:
+      RUSTUP_TOOLCHAIN: nightly-2026-08-06
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Install Rust
+        run: rustup toolchain install $RUSTUP_TOOLCHAIN --profile minimal --target wasm32-unknown-emscripten
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: emscripten
+          cache-directories: ~/.cache/worker-build
+
+      - uses: taiki-e/cache-cargo-install-action@9ee83daaa7b96a6fab930949ecf1122bba04a389 # v3.0.8
+        with:
+          tool: worker-build@0.8.7
+
+      - name: Build API Cloudflare Worker
+        run: ./build-worker.sh
+        working-directory: api
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: api-wasm
+          path: |
+            api/build/index.js
+            api/build/index_bg.wasm
+
   check:
     runs-on: ubuntu-22.04
     if: github.event_name != 'push'
@@ -236,7 +270,7 @@ jobs:
   staging:
     if: github.event_name == 'merge_group' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'test-on-staging'))
     runs-on: ubuntu-22.04
-    needs: docker-images
+    needs: [docker-images, api-wasm]
     environment:
       name: staging
       url: https://deno-registry-staging.net
@@ -270,6 +304,12 @@ jobs:
       - name: Build Frontend
         run: deno task build
         working-directory: frontend
+
+      - name: Download API Cloudflare Worker
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: api-wasm
+          path: api/build
 
       - name: terraform plan
         run: |

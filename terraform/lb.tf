@@ -27,7 +27,7 @@ resource "cloudflare_workers_script" "jsr_lb" {
     }
   }
 
-  bindings = [
+  bindings = concat([
     {
       type    = "analytics_engine"
       name    = "DOWNLOADS"
@@ -97,9 +97,18 @@ resource "cloudflare_workers_script" "jsr_lb" {
         period = 60
       }
     }
-  ]
+    ], [
+    for name in cloudflare_worker.jsr_api[*].name : {
+      type    = "service"
+      name    = "API"
+      service = name
+    }
+  ])
 
-  depends_on = [cloudflare_workers_deployment.jsr_frontend]
+  depends_on = [
+    cloudflare_workers_deployment.jsr_frontend,
+    cloudflare_workers_deployment.jsr_api,
+  ]
 
   lifecycle {
     create_before_destroy = true

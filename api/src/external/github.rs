@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
+use crate::util::Fetch;
 use std::fmt::Display;
 use std::str::FromStr;
 
@@ -36,7 +37,7 @@ impl GitHubUserClient {
     let response = shared_http_client()
       .get(format!("https://api.github.com{}", path))
       .bearer_auth(&self.access_token)
-      .send()
+      .fetch()
       .await?;
     Ok(response)
   }
@@ -138,7 +139,7 @@ impl GitHubAppClient {
       ))
       .basic_auth(&self.id, Some(&self.secret))
       .json(&serde_json::json!({ "access_token": access_token }))
-      .send()
+      .fetch()
       .await?;
 
     let status = res.status();

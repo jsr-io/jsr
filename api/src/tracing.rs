@@ -1,45 +1,70 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
+#[cfg(not(target_arch = "wasm32"))]
 use opentelemetry::KeyValue;
+#[cfg(not(target_arch = "wasm32"))]
 use opentelemetry::global;
+#[cfg(not(target_arch = "wasm32"))]
 use opentelemetry::trace::TraceContextExt;
+#[cfg(not(target_arch = "wasm32"))]
 use opentelemetry::trace::TraceId;
+#[cfg(not(target_arch = "wasm32"))]
 use opentelemetry::trace::TracerProvider as _;
+#[cfg(not(target_arch = "wasm32"))]
 use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
+#[cfg(not(target_arch = "wasm32"))]
 use opentelemetry_otlp::Protocol;
+#[cfg(not(target_arch = "wasm32"))]
 use opentelemetry_otlp::WithExportConfig;
+#[cfg(not(target_arch = "wasm32"))]
 use opentelemetry_otlp::WithHttpConfig;
+#[cfg(not(target_arch = "wasm32"))]
 use opentelemetry_sdk::Resource;
+#[cfg(not(target_arch = "wasm32"))]
 use opentelemetry_sdk::logs::SdkLoggerProvider;
+#[cfg(not(target_arch = "wasm32"))]
 use opentelemetry_sdk::propagation::TraceContextPropagator;
+#[cfg(not(target_arch = "wasm32"))]
 use opentelemetry_sdk::trace::Sampler;
+#[cfg(not(target_arch = "wasm32"))]
 use opentelemetry_sdk::trace::SdkTracerProvider;
+#[cfg(not(target_arch = "wasm32"))]
 use rand::Rng;
+#[cfg(not(target_arch = "wasm32"))]
 use std::sync::OnceLock;
+#[cfg(not(target_arch = "wasm32"))]
 use tracing::dispatcher::WeakDispatch;
+#[cfg(not(target_arch = "wasm32"))]
 use tracing_opentelemetry::get_otel_context;
 use tracing_subscriber::Layer;
 use tracing_subscriber::Registry;
 use tracing_subscriber::filter::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
+#[cfg(not(target_arch = "wasm32"))]
 use tracing_subscriber::fmt::FormatFields;
+#[cfg(not(target_arch = "wasm32"))]
 use tracing_subscriber::layer::Context;
+#[cfg(not(target_arch = "wasm32"))]
 use tracing_subscriber::layer::Filter;
 use tracing_subscriber::layer::Layered;
 use tracing_subscriber::layer::SubscriberExt;
+#[cfg(not(target_arch = "wasm32"))]
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::reload;
 
 /// Fraction of traces (and their logs) exported to the OTLP backend. The rest
 /// are dropped to cut export volume/cost.
+#[cfg(not(target_arch = "wasm32"))]
 const SAMPLE_RATIO: f64 = 0.05;
 
 /// The subscriber installed by [`setup_tracing`], for [`span_trace_id`].
 /// Captured once rather than looked up with `dispatcher::get_default` at use:
 /// that helper hands out a no-op dispatcher when called from inside a
 /// subscriber callback while any scoped dispatcher exists in the process.
+#[cfg(not(target_arch = "wasm32"))]
 static DISPATCH: OnceLock<WeakDispatch> = OnceLock::new();
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 pub enum TracingExportTarget {
   Otlp {
     endpoint: String,
@@ -55,6 +80,7 @@ pub enum TracingExportTarget {
 /// endpoint verbatim and does NOT do this itself, so posting to the bare base
 /// 404s. Tolerates a trailing slash and an endpoint that already carries the
 /// signal path.
+#[cfg(not(target_arch = "wasm32"))]
 fn otlp_signal_endpoint(base: &str, signal_path: &str) -> String {
   let base = base.trim_end_matches('/');
   if base.ends_with(signal_path) {
@@ -94,96 +120,105 @@ pub async fn setup_tracing(
   export_target: TracingExportTarget,
   deployment_environment: Option<String>,
 ) -> (LogFilterHandle, String) {
-  let mut resource = Resource::builder()
-    .with_service_name(name)
-    .with_attribute(KeyValue::new("service.namespace", "registry"));
-  // Distinguishes staging from prod telemetry when both export to the same
-  // backend. Empty/unset omits it rather than reporting a blank environment.
-  if let Some(env) = deployment_environment.filter(|s| !s.trim().is_empty()) {
-    resource =
-      resource.with_attribute(KeyValue::new("deployment.environment", env));
-  }
-  let resource = resource.build();
-
-  // OTLP/HTTP (protobuf), not gRPC: the managed Grafana Cloud gateway only
-  // accepts HTTP, and it also works directly from the Cloudflare Container.
-  // `endpoint` is the base; each signal's subpath is appended here. `headers`
-  // carries the backend auth, e.g. `Authorization: Basic <base64>` for Grafana
-  // Cloud. Traces export as spans (`/v1/traces`) and `tracing` events are
-  // bridged into OpenTelemetry log records and exported alongside them
-  // (`/v1/logs`), so the same logs we print to stdout also land in Grafana.
-  //
-  // Each exporter's provider is kept alive past this function: the tracer
-  // provider by the global registration below, and the logger provider by the
-  // appender layer (its `Logger` holds a clone of the provider), so dropping
-  // the local handles here does not shut down export. The batch processors run
-  // on their own threads and block on export, which is why the OTLP exporter
-  // is built with the blocking reqwest client (see Cargo.toml).
+  #[allow(unused_mut)]
   let mut export_layers: Vec<Box<dyn Layer<Registry> + Send + Sync>> =
     Vec::new();
-  match export_target {
-    TracingExportTarget::Otlp { endpoint, headers } => {
-      // One blocking client for both signals: each `reqwest::blocking::Client`
-      // owns a thread with its own runtime and connection pool, and left to
-      // itself the exporter builder would create one per signal. It is built
-      // off the async runtime, which a blocking client refuses to be built on.
-      // The timeout matches the exporter's own default.
-      let http_client = tokio::task::spawn_blocking(|| {
-        reqwest::blocking::Client::builder()
-          .timeout(std::time::Duration::from_secs(10))
-          .build()
-          .expect("failed to build the OTLP reqwest client")
-      })
-      .await
-      .unwrap();
-      let span_exporter = opentelemetry_otlp::SpanExporter::builder()
-        .with_http()
-        .with_http_client(http_client.clone())
-        .with_endpoint(otlp_signal_endpoint(&endpoint, "/v1/traces"))
-        .with_protocol(Protocol::HttpBinary)
-        .with_headers(headers.clone())
-        .build()
-        .unwrap();
-      // Sample 5% of traces to cut export volume/cost. Parent-based so child
-      // spans inherit the root's decision: this keeps each sampled trace whole
-      // (all-or-nothing per trace) rather than dropping spans mid-trace, and
-      // honors an upstream sampling decision propagated via tracecontext.
-      let tracer_provider = SdkTracerProvider::builder()
-        .with_batch_exporter(span_exporter)
-        .with_resource(resource.clone())
-        .with_sampler(Sampler::ParentBased(Box::new(
-          Sampler::TraceIdRatioBased(SAMPLE_RATIO),
-        )))
-        .build();
-      let tracer = tracer_provider.tracer(name);
-      global::set_tracer_provider(tracer_provider.clone());
-      export_layers
-        .push(tracing_opentelemetry::layer().with_tracer(tracer).boxed());
 
-      let log_exporter = opentelemetry_otlp::LogExporter::builder()
-        .with_http()
-        .with_http_client(http_client)
-        .with_endpoint(otlp_signal_endpoint(&endpoint, "/v1/logs"))
-        .with_protocol(Protocol::HttpBinary)
-        .with_headers(headers)
-        .build()
-        .unwrap();
-      let logger_provider = SdkLoggerProvider::builder()
-        .with_batch_exporter(log_exporter)
-        .with_resource(resource)
-        .build();
-      // Sample exported logs at the same rate as traces. Logs that belong to a
-      // trace are kept iff that trace was sampled in (identical TraceIdRatio
-      // decision), so a kept trace keeps its logs and we never export logs for
-      // a dropped trace. Logs with no trace context fall back to a random draw.
-      export_layers.push(
-        OpenTelemetryTracingBridge::new(&logger_provider)
-          .with_filter(LogSampler)
-          .boxed(),
-      );
+  #[cfg(not(target_arch = "wasm32"))]
+  {
+    let mut resource = Resource::builder()
+      .with_service_name(name)
+      .with_attribute(KeyValue::new("service.namespace", "registry"));
+    // Distinguishes staging from prod telemetry when both export to the same
+    // backend. Empty/unset omits it rather than reporting a blank environment.
+    if let Some(env) = deployment_environment.filter(|s| !s.trim().is_empty()) {
+      resource =
+        resource.with_attribute(KeyValue::new("deployment.environment", env));
     }
-    TracingExportTarget::None => {}
-  };
+    let resource = resource.build();
+
+    // OTLP/HTTP (protobuf), not gRPC: the managed Grafana Cloud gateway only
+    // accepts HTTP, and it also works directly from the Cloudflare Container.
+    // `endpoint` is the base; each signal's subpath is appended here. `headers`
+    // carries the backend auth, e.g. `Authorization: Basic <base64>` for Grafana
+    // Cloud. Traces export as spans (`/v1/traces`) and `tracing` events are
+    // bridged into OpenTelemetry log records and exported alongside them
+    // (`/v1/logs`), so the same logs we print to stdout also land in Grafana.
+    //
+    // Each exporter's provider is kept alive past this function: the tracer
+    // provider by the global registration below, and the logger provider by the
+    // appender layer (its `Logger` holds a clone of the provider), so dropping
+    // the local handles here does not shut down export. The batch processors run
+    // on their own threads and block on export, which is why the OTLP exporter
+    // is built with the blocking reqwest client (see Cargo.toml).
+    match export_target {
+      TracingExportTarget::Otlp { endpoint, headers } => {
+        // One blocking client for both signals: each `reqwest::blocking::Client`
+        // owns a thread with its own runtime and connection pool, and left to
+        // itself the exporter builder would create one per signal. It is built
+        // off the async runtime, which a blocking client refuses to be built on.
+        // The timeout matches the exporter's own default.
+        let http_client = tokio::task::spawn_blocking(|| {
+          reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .expect("failed to build the OTLP reqwest client")
+        })
+        .await
+        .unwrap();
+        let span_exporter = opentelemetry_otlp::SpanExporter::builder()
+          .with_http()
+          .with_http_client(http_client.clone())
+          .with_endpoint(otlp_signal_endpoint(&endpoint, "/v1/traces"))
+          .with_protocol(Protocol::HttpBinary)
+          .with_headers(headers.clone())
+          .build()
+          .unwrap();
+        // Sample 5% of traces to cut export volume/cost. Parent-based so child
+        // spans inherit the root's decision: this keeps each sampled trace whole
+        // (all-or-nothing per trace) rather than dropping spans mid-trace, and
+        // honors an upstream sampling decision propagated via tracecontext.
+        let tracer_provider = SdkTracerProvider::builder()
+          .with_batch_exporter(span_exporter)
+          .with_resource(resource.clone())
+          .with_sampler(Sampler::ParentBased(Box::new(
+            Sampler::TraceIdRatioBased(SAMPLE_RATIO),
+          )))
+          .build();
+        let tracer = tracer_provider.tracer(name);
+        global::set_tracer_provider(tracer_provider.clone());
+        export_layers
+          .push(tracing_opentelemetry::layer().with_tracer(tracer).boxed());
+
+        let log_exporter = opentelemetry_otlp::LogExporter::builder()
+          .with_http()
+          .with_http_client(http_client)
+          .with_endpoint(otlp_signal_endpoint(&endpoint, "/v1/logs"))
+          .with_protocol(Protocol::HttpBinary)
+          .with_headers(headers)
+          .build()
+          .unwrap();
+        let logger_provider = SdkLoggerProvider::builder()
+          .with_batch_exporter(log_exporter)
+          .with_resource(resource)
+          .build();
+        // Sample exported logs at the same rate as traces. Logs that belong to a
+        // trace are kept iff that trace was sampled in (identical TraceIdRatio
+        // decision), so a kept trace keeps its logs and we never export logs for
+        // a dropped trace. Logs with no trace context fall back to a random draw.
+        export_layers.push(
+          OpenTelemetryTracingBridge::new(&logger_provider)
+            .with_filter(LogSampler)
+            .boxed(),
+        );
+      }
+      TracingExportTarget::None => {}
+    };
+  }
+  #[cfg(target_arch = "wasm32")]
+  {
+    let _ = (name, export_target, deployment_environment);
+  }
 
   let base_filter = EnvFilter::builder()
     .with_default_directive(DEFAULT_LOG_LEVEL_FILTER.into())
@@ -191,21 +226,30 @@ pub async fn setup_tracing(
     .add_directive("swc_ecma_codegen=off".parse().unwrap());
   let default_filter_directive = base_filter.to_string();
   let (filter, reload_handle) = reload::Layer::new(base_filter);
+  #[cfg(not(target_arch = "wasm32"))]
   let fmt = tracing_subscriber::fmt::layer()
     .with_ansi(false)
     .event_format(FullOutputWithTraceId);
+  #[cfg(target_arch = "wasm32")]
+  let fmt = tracing_subscriber::fmt::layer().with_ansi(false);
   let subscriber = Registry::default()
     .with(export_layers)
     .with(filter)
     .with(fmt);
-  tracing::subscriber::set_global_default(subscriber).unwrap();
-  DISPATCH
-    .set(tracing::dispatcher::get_default(|dispatch| {
-      dispatch.downgrade()
-    }))
-    .expect("setup_tracing called twice");
+  // The worker sets up tracing on every request, so a repeat is fine there.
+  let set_result = tracing::subscriber::set_global_default(subscriber);
+  #[cfg(not(target_arch = "wasm32"))]
+  set_result.unwrap();
+  #[cfg(target_arch = "wasm32")]
+  let _ = set_result;
 
-  global::set_text_map_propagator(TraceContextPropagator::new());
+  #[cfg(not(target_arch = "wasm32"))]
+  {
+    let _ = DISPATCH.set(tracing::dispatcher::get_default(|dispatch| {
+      dispatch.downgrade()
+    }));
+    global::set_text_map_propagator(TraceContextPropagator::new());
+  }
   (reload_handle, default_filter_directive)
 }
 
@@ -218,8 +262,10 @@ pub type LogFilterHandle = reload::Handle<
 /// Default log level filter, used if `RUST_LOG` is missing or invalid.
 const DEFAULT_LOG_LEVEL_FILTER: LevelFilter = LevelFilter::INFO;
 
+#[cfg(not(target_arch = "wasm32"))]
 struct FullOutputWithTraceId;
 
+#[cfg(not(target_arch = "wasm32"))]
 impl<S, N> tracing_subscriber::fmt::FormatEvent<S, N> for FullOutputWithTraceId
 where
   S: tracing::Subscriber + for<'lookup> LookupSpan<'lookup>,
@@ -247,6 +293,7 @@ where
   }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn get_trace_id<S, N>(
   ctx: &tracing_subscriber::fmt::FmtContext<'_, S, N>,
   event: &tracing::Event<'_>,
@@ -265,6 +312,7 @@ where
 /// Trace id of the OpenTelemetry span behind a tracing span, if the
 /// OpenTelemetry layer is installed and the span carries a valid trace id
 /// (its own, or one inherited from a propagated remote parent).
+#[cfg(not(target_arch = "wasm32"))]
 fn span_trace_id(span_id: &tracing::span::Id) -> Option<TraceId> {
   let dispatch = DISPATCH.get()?.upgrade()?;
   let cx = get_otel_context(span_id, &dispatch)?;
@@ -275,8 +323,10 @@ fn span_trace_id(span_id: &tracing::span::Id) -> Option<TraceId> {
 /// Per-event sampling filter applied to the OTLP log-export layer (it does not
 /// affect the stdout logs). Keeps [`SAMPLE_RATIO`] of logs so exported log
 /// volume tracks the sampled trace volume.
+#[cfg(not(target_arch = "wasm32"))]
 struct LogSampler;
 
+#[cfg(not(target_arch = "wasm32"))]
 impl<S> Filter<S> for LogSampler
 where
   S: tracing::Subscriber + for<'lookup> LookupSpan<'lookup>,
@@ -317,6 +367,7 @@ where
 
 /// Effective trace id of the span an event belongs to, if any: the root's
 /// generated id, inherited by children, or a propagated remote parent's.
+#[cfg(not(target_arch = "wasm32"))]
 fn event_trace_id<S>(
   event: &tracing::Event<'_>,
   cx: &Context<'_, S>,
@@ -331,6 +382,7 @@ where
 /// Whether a trace id is sampled in at the given ratio. Mirrors the
 /// opentelemetry SDK's `TraceIdRatioBased` algorithm so a trace's logs share
 /// the exact decision made for its spans.
+#[cfg(not(target_arch = "wasm32"))]
 fn sampled_by_trace_id(trace_id: TraceId, ratio: f64) -> bool {
   if ratio >= 1.0 {
     return true;
@@ -341,6 +393,7 @@ fn sampled_by_trace_id(trace_id: TraceId, ratio: f64) -> bool {
   (low >> 1) < upper_bound
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
   use super::otlp_signal_endpoint;

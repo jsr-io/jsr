@@ -34,6 +34,23 @@ use crate::router::RequestExt;
 
 pub const USER_AGENT: &str = "JSR";
 
+/// Sends requests through the runtime's `fetch` on the worker, which can't open
+/// sockets to Cloudflare's IP ranges.
+pub trait Fetch {
+  fn fetch(
+    self,
+  ) -> impl Future<Output = reqwest::Result<reqwest::Response>> + Send;
+}
+
+impl Fetch for reqwest::RequestBuilder {
+  async fn fetch(self) -> reqwest::Result<reqwest::Response> {
+    #[cfg(target_arch = "wasm32")]
+    return Ok(crate::worker_js::fetch(self.build()?, true).await);
+    #[cfg(not(target_arch = "wasm32"))]
+    self.send().await
+  }
+}
+
 /// A shared `reqwest::Client` for all outbound HTTP requests. Reusing a single
 /// client avoids per-request connection pool and TLS session allocation.
 pub fn shared_http_client() -> &'static reqwest::Client {
@@ -67,6 +84,12 @@ pub async fn oauth2_http_request(
       .build()
       .expect("failed to build oauth2 reqwest client")
   });
+  #[cfg(target_arch = "wasm32")]
+  let mut response = {
+    let _ = client;
+    crate::worker_js::fetch(request.try_into()?, false).await
+  };
+  #[cfg(not(target_arch = "wasm32"))]
   let mut response = client.execute(request.try_into()?).await?;
   let status = response.status();
   let headers = std::mem::take(response.headers_mut());
