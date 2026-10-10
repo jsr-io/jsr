@@ -8,7 +8,7 @@ rustls+ring TLS.
 
 **Status (2026-10-10):** builds, links, runs and serves real requests on
 **stock `wrangler dev`** — no forked workerd, no hand-patched emscripten, no
-sibling `workers-rs` checkout. Everything below was measured with three
+sibling `workers-rs` checkout. Everything below was measured with four
 per-crate cfg fixes applied **locally**; those are not in the repo (jsr carries
 no local patches of third-party crates), so the wasm link does not succeed from
 a clean checkout until they land upstream. The pipeline is `api/build-worker.sh`
@@ -17,7 +17,7 @@ a clean checkout until they land upstream. The pipeline is `api/build-worker.sh`
 `GET /api/packages?limit=1` → `{"items":[],"total":0}` in ~0.13 s, **32/32 and
 64/64 concurrent** requests return 200, `/api/scopes/std` → a proper
 `404 scopeNotFound`, `/api/users/<bad>` → `400 malformedRequest`. Release wasm is
-**24.1 MB** (`opt-level = "s"` + fat LTO; see [Size](#size)).
+**25.9 MB** (`opt-level = "s"` + fat LTO; see [Size](#size)).
 
 Getting past "it builds" originally took a chain of **runtime** fixes — see
 [Runtime reliability](#runtime-reliability); they are all still in place.
@@ -116,7 +116,7 @@ ring = { git = "https://github.com/guybedford/ring", branch = "emscripten" }    
 ```
 
 Those are all git branches of the crate's own upstream — three from Cloudflare's
-tokio patchset, plus the branch ring#2877 is opened from. **Three more fixes are
+tokio patchset, plus the branch ring#2877 is opened from. **Four more fixes are
 deliberately absent**: jsr carries no local patches of third-party crates, so
 they have to land upstream (or the crate has to leave the graph) before the
 emscripten link works from a clean checkout. Measured sizes, for reference:
@@ -126,6 +126,7 @@ emscripten link works from a clean checkout. Measured sizes, for reference:
 | `socket2` 0.5.10 | add emscripten to the `IovLen = c_int` arm | 4 |
 | `reqwest` 0.12 | force the native (hyper) backend instead of browser fetch | 110, all the same cfg string over ~55 dependency blocks |
 | `astral-tokio-tar` 0.6.3 | unix-vs-wasm32 duplicate item definitions | ~10 |
+| `tree-sitter` 0.27.1 | exclude emscripten from the `not(target_family = "wasm")` gate on the `Send`/`Sync` impls | 8 |
 
 The recurring theme: a crate assumes `target_arch =
 "wasm32"` ⟹ browser, but emscripten is wasm **and** unix with a full libc.
@@ -156,7 +157,8 @@ downstream).
 | `ring` | No emscripten `SystemRandom`, so rustls does not compile | **Carried as a git patch now**, not a local one: [briansmith/ring#2877] is still open, and `[patch.crates-io]` points at the `guybedford:emscripten` branch it is opened from. The `cc` pin that used to block it is gone — `tree-sitter-javascript 0.21.4` was the last crate requiring `cc ~1.0.90`, which held ring at 0.17.9 (0.17.10+ needs `cc ^1.2`) |
 | `socket2` 0.5.10 | `msg_iovlen` is an `int` on emscripten | In the graph solely because routerify declares `hyper = { features = ["server", "tcp"] }`, and hyper 0.14's `tcp` feature pulls socket2 0.5. Retires with a move off routerify/hyper 0.14 |
 | `reqwest` 0.12 | Picks the browser fetch backend; its wasm path also pulls wasm-streams 0.4, which does not compile under emscripten's unwinding panics | Not jsr's dep at all any more: since main moved jsr's own client to **reqwest 0.13** (which has the emscripten cfg upstream) and the OTLP exporter to the shared 0.13 client, **`rust-s3` is the only thing left on `^0.12`** — and 0.13 cannot satisfy `^0.12`, since a `[patch]` has to match the requirement. The fix was never backported: **0.12.28**, the newest 0.12, still carries bare `cfg(target_arch = "wasm32")` on every dependency block |
-| `astral-tokio-tar` 0.6.3 | unix-vs-wasm32 cfg, duplicate item definitions | Nothing upstream; 0.7.0 still pairs bare `cfg(unix)` with `cfg(target_arch = "wasm32")`, so bumping does not help. Only replacing the dependency fixes it |
+| `astral-tokio-tar` 0.6.3 | unix-vs-wasm32 cfg, duplicate item definitions | **The crate is being deprecated** ([astral-sh/tokio-tar#123], merged 2026-09-30), so no upstream fix is coming and 0.7.0 still has the clash. Its suggested successor, `astral-codec`, is unpublished and self-described as not production-ready. The realistic route is dropping async tar reading for the sync `tar` crate jsr already depends on (0.4.46 builds for emscripten unpatched), trading streaming for buffering |
+| `tree-sitter` 0.27.1 | `Send`/`Sync` for `Language` are gated behind `not(target_family = "wasm")`, and emscripten is in that family, so a `HighlightConfiguration` cannot be held in a `static` | #5851 added the gate because a `TSLanguage`'s lexer/scanner function pointers belong to one wasm module instance and cannot be called from another worker. Emscripten instantiates the same module per thread (and this build has no threads), so the pre-0.27 impls were sound there. Verified: excluding emscripten from those 8 impls is all the wasm link needs |
 
 **After merging main (2026-10-10):** two of these went away without any work on
 this branch. main moved jsr's own HTTP client to **reqwest 0.13**, which has the
@@ -305,12 +307,14 @@ entirely. No jsr source changes were needed for that migration.
   runtime each — not correctness.
 - **S3 paths untested** — the smoke run has no MinIO up, so only DB-backed routes
   (e.g. `/api/packages`) are exercised end to end.
-- The release `.wasm` is 24.26 MB — see [Size](#size) for the profile trade-offs.
+- The release `.wasm` is 25.9 MB — see [Size](#size) for the profile trade-offs. It was 24.26 MB before merging main, which added three tree-sitter grammars and swapped jsonwebtoken's aws-lc backend for the pure-Rust one.
 - **The committed branch does not link for wasm.** The two `[patch]` entries it
   does carry are pre-release: tokio#8484 is still open and mio#1969 is **merged**
-  but unreleased (mio 1.2.4 predates it), and ring#2877 is still open. The three
+  but unreleased (mio 1.2.4 predates it), and ring#2877 is still open. The four
   remaining per-crate cfg fixes are not in the repo at all, because jsr does not
   carry local patches of third-party crates — they have to land upstream first. Native `cargo test` is green without
   them (173/173). The 3 formerly uncommitted `workers-rs/tokio` methods and the
   emscripten import-source workaround are both gone — see Patchset/Toolchain
   status.
+
+[astral-sh/tokio-tar#123]: https://github.com/astral-sh/tokio-tar/pull/123
