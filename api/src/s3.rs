@@ -8,9 +8,8 @@ use futures::FutureExt;
 use futures::Stream;
 use futures::StreamExt;
 use futures::TryStreamExt;
-use futures::join;
 use hyper::StatusCode;
-use s3::serde_types::ListBucketResult;
+use rusty_s3::S3Action;
 use std::borrow::Cow;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -63,7 +62,11 @@ pub enum S3Error {
   #[error("client error when communicating with S3: {0} ({0:?})")]
   Client(StatusCode),
   #[error(transparent)]
-  S3(#[from] s3::error::S3Error),
+  Http(#[from] reqwest::Error),
+  #[error("invalid S3 bucket: {0}")]
+  InvalidBucket(#[from] rusty_s3::BucketError),
+  #[error("invalid S3 list response: {0}")]
+  InvalidListResponse(String),
   #[error("stream failed: {0}")]
   Stream(anyhow::Error),
 }
@@ -86,23 +89,65 @@ pub struct S3UploadOptions<'a> {
   pub gzip_encoded: bool,
 }
 
+const SIGNATURE_EXPIRY: Duration = Duration::from_secs(60 * 60);
+
+#[derive(Clone)]
+pub struct S3Client {
+  http: reqwest::Client,
+  endpoint: url::Url,
+  region: String,
+  credentials: Arc<rusty_s3::Credentials>,
+}
+
+impl S3Client {
+  pub fn new(
+    endpoint: &str,
+    region: String,
+    access_key: String,
+    secret_key: String,
+  ) -> Result<Self, anyhow::Error> {
+    // reqwest is built with `gzip`/`brotli` for the rest of the app, which
+    // would transparently inflate objects we store with
+    // `Content-Encoding: gzip`. Their readers expect the stored bytes.
+    let http = reqwest::Client::builder()
+      .no_gzip()
+      .no_brotli()
+      .timeout(HTTP_CONNECT_TIMEOUT)
+      .build()?;
+    Ok(Self {
+      http,
+      endpoint: if endpoint.contains("://") {
+        endpoint.parse()?
+      } else {
+        format!("https://{endpoint}").parse()?
+      },
+      region,
+      credentials: Arc::new(rusty_s3::Credentials::new(access_key, secret_key)),
+    })
+  }
+}
+
 #[derive(Clone)]
 pub struct Bucket {
-  pub(crate) bucket: Box<s3::Bucket>,
+  client: S3Client,
+  bucket: Arc<rusty_s3::Bucket>,
   pub(crate) name: String,
 }
 
 impl Bucket {
-  pub fn new(
-    name: String,
-    region: s3::Region,
-    credentials: s3::creds::Credentials,
-  ) -> Result<Self, S3Error> {
-    let bucket = s3::Bucket::new(&name, region, credentials)?
-      .with_path_style()
-      .with_request_timeout(HTTP_CONNECT_TIMEOUT)?;
+  pub fn new(client: &S3Client, name: String) -> Result<Self, S3Error> {
+    let bucket = rusty_s3::Bucket::new(
+      client.endpoint.clone(),
+      rusty_s3::UrlStyle::Path,
+      name.clone(),
+      client.region.clone(),
+    )?;
 
-    Ok(Self { bucket, name })
+    Ok(Self {
+      client: client.clone(),
+      bucket: Arc::new(bucket),
+      name,
+    })
   }
 
   fn check_status(status_code: u16) -> Result<(), S3Error> {
@@ -121,36 +166,67 @@ impl Bucket {
     Ok(())
   }
 
+  fn credentials(&self) -> Option<&rusty_s3::Credentials> {
+    Some(&self.client.credentials)
+  }
+
   #[cfg(test)]
   pub async fn create(
+    client: &S3Client,
     name: String,
-    region: s3::Region,
-    credentials: s3::creds::Credentials,
   ) -> Result<Self, S3Error> {
-    let bucket = s3::Bucket::create_with_path_style(
-      &name,
-      region,
-      credentials,
-      s3::BucketConfiguration::private(),
-    )
-    .await?;
+    let bucket = Self::new(client, name)?;
+    let url = bucket
+      .bucket
+      .create_bucket(&bucket.client.credentials)
+      .sign(SIGNATURE_EXPIRY);
+    let resp = bucket.client.http.put(url).send().await?;
+    // Tests share one server, so the bucket may already exist.
+    if resp.status() != StatusCode::CONFLICT.as_u16() {
+      Bucket::check_status(resp.status().as_u16())?;
+    }
+    Ok(bucket)
+  }
 
-    Ok(Self {
-      bucket: bucket.bucket,
-      name,
-    })
+  #[cfg(test)]
+  pub async fn get_object(&self, path: &str) -> reqwest::Response {
+    let url = self
+      .bucket
+      .get_object(self.credentials(), path)
+      .sign(SIGNATURE_EXPIRY);
+    self.client.http.get(url).send().await.unwrap()
+  }
+
+  async fn get(
+    &self,
+    path: &str,
+    offset: Option<usize>,
+  ) -> Result<Option<reqwest::Response>, S3Error> {
+    let mut action = self.bucket.get_object(self.credentials(), path);
+    let range = offset.map(|offset| format!("bytes={offset}-"));
+    if let Some(range) = &range {
+      action.headers_mut().insert("range", range.as_str());
+    }
+    let mut req = self.client.http.get(action.sign(SIGNATURE_EXPIRY));
+    if let Some(range) = range {
+      req = req.header(reqwest::header::RANGE, range);
+    }
+    let resp = req.send().await?;
+
+    let status = resp.status().as_u16();
+    if status == 404 || status == 416 {
+      return Ok(None);
+    }
+    Bucket::check_status(status)?;
+    Ok(Some(resp))
   }
 
   #[instrument(name = "s3::Bucket::download", skip(self), err, fields(bucket = %self.name))]
   pub async fn download(&self, path: &str) -> Result<Option<Bytes>, S3Error> {
-    let resp = self.bucket.get_object(path).await?;
-
-    if resp.status_code() == 404 {
-      return Ok(None);
+    match self.get(path, None).await? {
+      Some(resp) => Ok(Some(resp.bytes().await?)),
+      None => Ok(None),
     }
-
-    Bucket::check_status(resp.status_code())?;
-    Ok(Some(resp.into_bytes()))
   }
 
   #[instrument(name = "s3::Bucket::download_stream", skip(self), err, fields(bucket = %self.name))]
@@ -160,26 +236,8 @@ impl Bucket {
     offset: Option<usize>,
   ) -> Result<Option<impl Stream<Item = Result<Bytes, S3Error>> + use<>>, S3Error>
   {
-    if let Some(offset) = offset {
-      let resp = self
-        .bucket
-        .get_object_range(path, offset as _, None)
-        .await?;
-      if resp.status_code() == 404 || resp.status_code() == 416 {
-        return Ok(None);
-      }
-
-      Ok(Some(
-        futures::stream::once(async { Ok(resp.into_bytes()) }).boxed(),
-      ))
-    } else {
-      let resp = self.bucket.get_object_stream(path).await?;
-      if resp.status_code == 404 || resp.status_code == 416 {
-        return Ok(None);
-      }
-
-      Ok(Some(resp.bytes.map(|e| e.map_err(S3Error::S3)).boxed()))
-    }
+    let resp = self.get(path, offset).await?;
+    Ok(resp.map(|resp| resp.bytes_stream().map_err(S3Error::Http)))
   }
 
   #[instrument(name = "s3::Bucket::upload", skip(self, data), err, fields(bucket = %self.name, size = %data.len()))]
@@ -189,79 +247,80 @@ impl Bucket {
     data: Bytes,
     options: &S3UploadOptions<'_>,
   ) -> Result<(), S3Error> {
-    let mut builder = self
-      .bucket
-      .put_object_builder(path, data.as_ref())
-      .with_content_encoding(if options.gzip_encoded {
-        "gzip"
-      } else {
-        "identity"
-      })?;
+    use reqwest::header;
 
+    let content_encoding = if options.gzip_encoded {
+      "gzip"
+    } else {
+      "identity"
+    };
+    let mut headers = vec![(header::CONTENT_ENCODING, content_encoding)];
     if let Some(content_type) = &options.content_type {
-      builder = builder.with_content_type(content_type);
+      headers.push((header::CONTENT_TYPE, content_type));
     }
     if let Some(cache_control) = &options.cache_control {
-      builder = builder.with_cache_control(cache_control)?;
+      headers.push((header::CACHE_CONTROL, cache_control));
     }
 
-    let resp = builder.execute().await?;
-    Bucket::check_status(resp.status_code())?;
+    let mut action = self.bucket.put_object(self.credentials(), path);
+    for (name, value) in &headers {
+      action.headers_mut().insert(name.as_str(), *value);
+    }
+    let mut req = self.client.http.put(action.sign(SIGNATURE_EXPIRY));
+    for (name, value) in headers {
+      req = req.header(name, value);
+    }
+
+    let resp = req.body(data).send().await?;
+    Bucket::check_status(resp.status().as_u16())?;
 
     Ok(())
   }
 
-  #[instrument(
-    name = "s3::Bucket::upload_stream",
-    skip(self, stream),
-    err,
-    fields(bucket = %self.name)
-  )]
-  pub async fn upload_stream(
-    &self,
-    path: &str,
-    stream: &mut (impl tokio::io::AsyncRead + Unpin + Send),
-    options: &S3UploadOptions<'_>,
-  ) -> Result<(), S3Error> {
-    let mut builder = self
-      .bucket
-      .put_object_stream_builder(path)
-      .with_content_encoding(if options.gzip_encoded {
-        "gzip"
-      } else {
-        "identity"
-      })?;
-
-    if let Some(content_type) = &options.content_type {
-      builder = builder.with_content_type(content_type);
-    }
-    if let Some(cache_control) = &options.cache_control {
-      builder = builder.with_cache_control(cache_control)?;
-    }
-
-    let resp = builder.execute_stream(stream).await?;
-    Bucket::check_status(resp.status_code())?;
-
-    Ok(())
-  }
-
+  /// The keys of all objects whose key starts with `prefix`.
   #[instrument(name = "s3::Bucket::list", skip(self), err, fields(bucket = %self.name))]
-  pub async fn list(
-    &self,
-    path: &str,
-  ) -> Result<Vec<ListBucketResult>, S3Error> {
-    let list = self.bucket.list(path.to_string(), None).await?;
-    Ok(list)
+  pub async fn list(&self, prefix: &str) -> Result<Vec<String>, S3Error> {
+    let mut keys = Vec::new();
+    let mut continuation_token = None;
+    loop {
+      let mut action = self.bucket.list_objects_v2(self.credentials());
+      action.query_mut().remove("encoding-type");
+      action.with_prefix(prefix);
+      if let Some(token) = &continuation_token {
+        action.with_continuation_token(token);
+      }
+      let resp = self
+        .client
+        .http
+        .get(action.sign(SIGNATURE_EXPIRY))
+        .send()
+        .await?;
+      Bucket::check_status(resp.status().as_u16())?;
+
+      let body = resp.text().await?;
+      let list = rusty_s3::actions::ListObjectsV2::parse_response(&body)
+        .map_err(|e| S3Error::InvalidListResponse(e.to_string()))?;
+      keys.extend(list.contents.into_iter().map(|object| object.key));
+
+      match list.next_continuation_token {
+        Some(token) => continuation_token = Some(token),
+        None => return Ok(keys),
+      }
+    }
   }
 
   #[instrument(name = "s3::Bucket::delete", skip(self), err, fields(bucket = %self.name))]
   pub async fn delete_file(&self, path: &str) -> Result<bool, S3Error> {
-    let resp = self.bucket.delete_object(path).await?;
+    let url = self
+      .bucket
+      .delete_object(self.credentials(), path)
+      .sign(SIGNATURE_EXPIRY);
+    let resp = self.client.http.delete(url).send().await?;
 
-    if resp.status_code() == 404 {
+    if resp.status() == 404 {
       return Ok(true);
     }
-    Bucket::check_status(resp.status_code())?;
+    Bucket::check_status(resp.status().as_u16())?;
     Ok(false)
   }
 }
@@ -349,7 +408,7 @@ impl BucketWithQueue {
 
     if !list.is_empty() {
       let stream = futures::stream::iter(list)
-        .map(|item| self.delete_file(item.name.into()))
+        .map(|key| self.delete_file(key.into()))
         .buffer_unordered(64);
 
       let _ = stream.try_collect::<Vec<_>>().await?;
@@ -401,40 +460,23 @@ impl RestartableTask for UploadTask {
           }
         }
         UploadTaskBody::Stream(mut stream) => {
-          // Create a duplex stream that buffers all chunks so that we can retry
-          // failed uploads later if needed.
-          let (mut reader, mut writer) = tokio::io::duplex(64 * 1024);
-          let stream_fut = async move {
-            use tokio::io::AsyncWriteExt;
-            let mut retry_buffer = Vec::new();
-            while let Some(res) = stream.next().await {
-              let chunk = res?;
-              retry_buffer.extend_from_slice(&chunk);
-              writer.write_all(&chunk).await.map_err(|e| {
-                anyhow::anyhow!("writer.write_all() failed: {e}")
-              })?;
+          let mut buffer = Vec::new();
+          while let Some(res) = stream.next().await {
+            match res {
+              Ok(chunk) => buffer.extend_from_slice(&chunk),
+              Err(e) => {
+                return RestartableTaskResult::Error(S3Error::Stream(e.into()));
+              }
             }
-            drop(writer);
-            Ok::<_, anyhow::Error>(retry_buffer)
-          };
-          let upload_fut =
-            self
-              .bucket
-              .upload_stream(&self.path, &mut reader, &self.options);
-          let (stream_res, upload_res) = join!(stream_fut, upload_fut);
-          match (stream_res, upload_res) {
-            (Ok(_), Ok(())) => RestartableTaskResult::Ok(()),
-            (Ok(retry_buffer), Err(e)) if e.is_retryable() => {
-              RestartableTaskResult::Backoff(UploadTask {
-                bucket: self.bucket,
-                path: self.path,
-                body: UploadTaskBody::Bytes(Bytes::from(retry_buffer)),
-                options: self.options,
-              })
-            }
-            (_, Err(e)) => RestartableTaskResult::Error(e),
-            (Err(e), _) => RestartableTaskResult::Error(S3Error::Stream(e)),
           }
+          UploadTask {
+            bucket: self.bucket,
+            path: self.path,
+            body: UploadTaskBody::Bytes(Bytes::from(buffer)),
+            options: self.options,
+          }
+          .run()
+          .await
         }
       }
     }
@@ -506,7 +548,7 @@ struct ListDirectoryTask {
 }
 
 impl RestartableTask for ListDirectoryTask {
-  type Ok = Vec<ListBucketResult>;
+  type Ok = Vec<String>;
   type Err = S3Error;
   type Fut =
     Pin<Box<dyn Future<Output = RestartableTaskResult<Self>> + Send + 'static>>;
@@ -657,28 +699,35 @@ impl FakeS3Tester {
   }
 
   pub async fn create_bucket(&self, bucket: &str) -> Bucket {
-    Bucket::create(
-      bucket.to_owned(),
-      s3::Region::Custom {
-        region: "us-east-1".to_string(),
-        endpoint: self.endpoint().to_owned(),
-      },
-      s3::creds::Credentials {
-        access_key: Some("minioadmin".to_string()),
-        secret_key: Some("minioadmin".to_string()),
-        security_token: None,
-        session_token: None,
-        expiration: None,
-      },
+    let client = S3Client::new(
+      &self.endpoint(),
+      "us-east-1".to_string(),
+      "minioadmin".to_string(),
+      "minioadmin".to_string(),
     )
-    .await
-    .unwrap()
+    .unwrap();
+    Bucket::create(&client, bucket.to_owned()).await.unwrap()
   }
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn endpoint_without_scheme_is_https() {
+    let client = S3Client::new(
+      "account.r2.cloudflarestorage.com",
+      "auto".to_string(),
+      String::new(),
+      String::new(),
+    )
+    .unwrap();
+    assert_eq!(
+      client.endpoint.as_str(),
+      "https://account.r2.cloudflarestorage.com/"
+    );
+  }
 
   #[tokio::test]
   async fn s3_upload_download() {
@@ -709,9 +758,8 @@ mod tests {
   /// Objects stored with `Content-Encoding: gzip` (tarballs, docs) must come
   /// back as the gzip bytes that were uploaded. The readers inflate them
   /// themselves, so the S3 client's HTTP layer must not: reqwest does that
-  /// transparently as soon as its `gzip` feature is enabled, which would
-  /// happen if rust-s3 ever shared a reqwest version with the app's (see the
-  /// `reqwest` entry in Cargo.toml).
+  /// transparently when its `gzip` feature is enabled, as it is for the rest
+  /// of the app, unless the client opts out (see `S3Client::new`).
   #[tokio::test]
   async fn gzip_encoded_objects_download_as_stored() {
     use std::io::Write;

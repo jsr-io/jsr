@@ -2,9 +2,9 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io;
+use std::io::Read;
 use std::sync::OnceLock;
 
-use async_tar::EntryType;
 use bytes::Bytes;
 use deno_ast::MediaType;
 use deno_graph::ModuleGraphError;
@@ -14,15 +14,14 @@ use deno_semver::npm::NpmPackageReqReference;
 use deno_semver::package::PackageReq;
 use deno_semver::package::PackageReqReference;
 use deno_semver::package::PackageReqReferenceParseError;
-use futures::AsyncReadExt;
 use futures::StreamExt;
-use futures::TryStreamExt;
 use indexmap::IndexMap;
 use jsonc_parser::ParseOptions;
 use reqwest::StatusCode;
 use serde::Deserialize;
 use serde::Serialize;
 use sha2::Digest;
+use tar::EntryType;
 use thiserror::Error;
 use tracing::Span;
 use tracing::instrument;
@@ -32,6 +31,7 @@ use uuid::Uuid;
 use crate::analysis::PackageAnalysisData;
 use crate::analysis::PackageAnalysisOutput;
 use crate::analysis::analyze_package;
+use crate::api::package::MAX_PUBLISH_TARBALL_SIZE;
 use crate::db::Database;
 use crate::db::ExportsMap;
 use crate::db::PublishingTask;
@@ -247,21 +247,23 @@ pub async fn process_tarball(
   publishing_task: &PublishingTask,
 ) -> Result<ProcessTarballOutput, PublishError> {
   let tarball_path = bucket_tarball_path(publishing_task.id);
-  let stream = buckets
+  let compressed = buckets
     .publishing_bucket
-    .bucket
-    .download_stream(&tarball_path, None)
+    .download(tarball_path.into())
     .await
     .map_err(PublishError::S3DownloadError)?
-    .ok_or(PublishError::MissingTarball)?
-    .map_err(io::Error::other);
+    .ok_or(PublishError::MissingTarball)?;
+  if compressed.len() as u64 > MAX_PUBLISH_TARBALL_SIZE {
+    return Err(PublishError::InvalidTarball(io::Error::other(format!(
+      "tarball is {} bytes, over the {} byte limit",
+      compressed.len(),
+      MAX_PUBLISH_TARBALL_SIZE
+    ))));
+  }
 
-  let async_read = stream.into_async_read();
-  let decompressed =
-    async_compression::futures::bufread::GzipDecoder::new(async_read);
-  let mut tar = async_tar::Archive::new(decompressed)
-    .entries()
-    .map_err(from_tarball_io_error)?;
+  let decompressed = flate2::read::GzDecoder::new(&compressed[..]);
+  let mut archive = tar::Archive::new(decompressed);
+  let entries = archive.entries().map_err(from_tarball_io_error)?;
 
   let mut files = HashMap::new();
   let mut case_insensitive_paths = HashSet::<CaseInsensitivePackagePath>::new();
@@ -284,11 +286,12 @@ pub async fn process_tarball(
     MAX_TOTAL_FILE_SIZE
   };
 
-  while let Some(res) = tar.next().await {
+  for res in entries {
     let mut entry = res.map_err(from_tarball_io_error)?;
 
     let header = entry.header();
-    let path = String::from_utf8_lossy(&entry.path_bytes()).into_owned();
+    let path_bytes = entry.path_bytes();
+    let path = String::from_utf8_lossy(&path_bytes).into_owned();
     let path = if path.starts_with("./") {
       path[1..].to_string()
     } else if !path.starts_with('/') {
@@ -338,7 +341,6 @@ pub async fn process_tarball(
     let mut bytes = Vec::new();
     entry
       .read_to_end(&mut bytes)
-      .await
       .map_err(from_tarball_io_error)?;
 
     // sha256 hash the bytes
@@ -1001,10 +1003,7 @@ impl PublishError {
 }
 
 fn from_tarball_io_error(err: io::Error) -> PublishError {
-  match err.downcast::<s3::error::S3Error>() {
-    Ok(err) => PublishError::S3DownloadError(S3Error::S3(err)),
-    Err(err) => PublishError::InvalidTarball(err),
-  }
+  PublishError::InvalidTarball(err)
 }
 
 pub struct FileInfo {
