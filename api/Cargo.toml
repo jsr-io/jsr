@@ -99,8 +99,6 @@ rust-s3 = { version = "0.37.1", default-features = false, features = ["tokio-rus
 deno_semver = "0.10.1"
 flate2 = "1"
 thiserror = "2"
-async-tar = "0.6"
-async-compression = { version = "0.4", features = ["futures-io", "gzip"] }
 deno_graph = "=0.111.0"
 deno_ast = { version = "0.53.0", features = ["view"] }
 # sync with frontend/deno.json

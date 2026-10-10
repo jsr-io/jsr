@@ -622,7 +622,6 @@ mod tests {
   use std::fmt::Write;
   use std::io::Read;
 
-  use async_tar::Archive;
   use deno_ast::ModuleSpecifier;
   use deno_graph::BuildFastCheckTypeGraphOptions;
   use deno_graph::BuildOptions;
@@ -634,8 +633,7 @@ mod tests {
   use deno_graph::source::NullFileSystem;
   use deno_graph::source::Source;
   use deno_semver::package::PackageReqReference;
-  use futures::AsyncReadExt;
-  use futures::StreamExt;
+  use tar::Archive;
   use url::Url;
 
   use crate::analysis::JsrResolver;
@@ -765,9 +763,10 @@ mod tests {
       flate2::bufread::GzDecoder::new(&npm_tarball.tarball[..]);
     let mut raw = vec![];
     gz_decoder.read_to_end(&mut raw)?;
-    let mut archive = Archive::new(&raw[..]).entries()?;
+    let mut ar = Archive::new(&raw[..]);
+    let archive = ar.entries()?;
 
-    while let Some(res) = archive.next().await {
+    for res in archive {
       let mut entry = res.unwrap();
 
       let path = entry.path().unwrap().display().to_string();
@@ -782,7 +781,7 @@ mod tests {
       );
 
       let mut buf = vec![];
-      entry.read_to_end(&mut buf).await?;
+      entry.read_to_end(&mut buf)?;
       transpiled_files.push((formatted_path, buf));
     }
 
