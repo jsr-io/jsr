@@ -249,17 +249,20 @@ SQLX_OFFLINE=true cargo check --target wasm32-unknown-emscripten -p registry_api
 ```
 
 ### Staging
-`terraform/cloudflare_api_worker.tf` deploys the worker to staging only (it is
-`count = 0` on prod), at `https://api-worker.<staging domain>/api/...`. Cloud Run
-keeps serving `api.<domain>` behind the LB, so the e2e tests are unaffected.
-The staging CI job builds it with `build-worker.sh` before `terraform plan`;
-add the `test-on-staging` label to the PR to run it.
+On staging, the LB sends all API traffic to the worker through a `REGISTRY_API`
+service binding (`terraform/lb.tf`, `terraform/cloudflare_api_worker.tf`); prod
+has neither and keeps proxying to Cloud Run. The Cloud Run tasks service still
+processes background work. The staging CI job builds the worker with
+`build-worker.sh` before `terraform plan`; the `test-on-staging` label runs it.
 
-It reaches Cloud SQL over the public IP with the client certificate from
+The worker reaches Cloud SQL over the public IP with the client certificate from
 `db.tf` (`sslmode=require`, so the server certificate is not verified), runs
-with `--api --tasks=false`, and leaves migrations to Cloud Run. Features that
-need a GCP token from the instance metadata server (enqueueing Cloud Tasks,
-BigQuery) do not work from the worker.
+with `--api --tasks=false`, and leaves migrations to Cloud Run. With no metadata
+server, it gets GCP access tokens (for enqueueing Cloud Tasks) with the
+`service_account_key` metadata strategy: a key for the `registry-api` service
+account signs a JWT that is exchanged at Google's token endpoint. Every reqwest
+client resolves names through tokio's async lookup on the worker, since
+emscripten's blocking `getaddrinfo` only answers from the cache that fills.
 
 `new_module_registry` is experimental and cannot be deployed, so it is not set;
 `build-worker.sh` instead rewrites emscripten's one `import.meta.url` to a fixed

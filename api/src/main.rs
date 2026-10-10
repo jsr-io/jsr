@@ -258,7 +258,10 @@ async fn build_router(config: Config) -> App {
   )
   .unwrap();
 
-  let gcp_client = gcp::Client::new(config.metadata_strategy);
+  let gcp_client = gcp::Client::new(
+    config.metadata_strategy,
+    config.gcp_service_account_key.as_deref(),
+  );
   let publishing_bucket = s3::BucketWithQueue::new(
     s3::Bucket::new(&s3_client, config.publishing_bucket).unwrap(),
   );

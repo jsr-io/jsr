@@ -27,7 +27,7 @@ resource "cloudflare_workers_script" "jsr_lb" {
     }
   }
 
-  bindings = [
+  bindings = concat([
     {
       type    = "analytics_engine"
       name    = "DOWNLOADS"
@@ -97,9 +97,20 @@ resource "cloudflare_workers_script" "jsr_lb" {
         period = 60
       }
     }
-  ]
+    ], [
+    # Staging serves the API from the emscripten Worker (see
+    # cloudflare_api_worker.tf) instead of REGISTRY_API_URL.
+    for name in cloudflare_worker.jsr_api[*].name : {
+      type    = "service"
+      name    = "REGISTRY_API"
+      service = name
+    }
+  ])
 
-  depends_on = [cloudflare_workers_deployment.jsr_frontend]
+  depends_on = [
+    cloudflare_workers_deployment.jsr_frontend,
+    cloudflare_workers_deployment.jsr_api,
+  ]
 
   lifecycle {
     create_before_destroy = true

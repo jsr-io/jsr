@@ -34,13 +34,36 @@ use crate::router::RequestExt;
 
 pub const USER_AGENT: &str = "JSR";
 
+/// A `reqwest::ClientBuilder` for outbound requests. On the worker it resolves
+/// names with tokio's async lookup: emscripten's blocking `getaddrinfo` only
+/// answers from the cache that lookup fills.
+pub fn http_client_builder() -> reqwest::ClientBuilder {
+  let builder = reqwest::Client::builder();
+  #[cfg(target_arch = "wasm32")]
+  let builder = builder.dns_resolver(Arc::new(AsyncResolver));
+  builder
+}
+
+#[cfg(target_arch = "wasm32")]
+struct AsyncResolver;
+
+#[cfg(target_arch = "wasm32")]
+impl reqwest::dns::Resolve for AsyncResolver {
+  fn resolve(&self, name: reqwest::dns::Name) -> reqwest::dns::Resolving {
+    Box::pin(async move {
+      let addrs = tokio::net::lookup_host((name.as_str(), 0)).await?;
+      Ok(Box::new(addrs.collect::<Vec<_>>().into_iter()) as reqwest::dns::Addrs)
+    })
+  }
+}
+
 /// A shared `reqwest::Client` for all outbound HTTP requests. Reusing a single
 /// client avoids per-request connection pool and TLS session allocation.
 pub fn shared_http_client() -> &'static reqwest::Client {
   static CLIENT: std::sync::OnceLock<reqwest::Client> =
     std::sync::OnceLock::new();
   CLIENT.get_or_init(|| {
-    reqwest::Client::builder()
+    http_client_builder()
       .user_agent(USER_AGENT)
       .connect_timeout(std::time::Duration::from_secs(10))
       .build()
@@ -59,7 +82,7 @@ pub async fn oauth2_http_request(
   static CLIENT: std::sync::OnceLock<reqwest::Client> =
     std::sync::OnceLock::new();
   let client = CLIENT.get_or_init(|| {
-    reqwest::Client::builder()
+    http_client_builder()
       .user_agent(USER_AGENT)
       .connect_timeout(std::time::Duration::from_secs(10))
       .timeout(std::time::Duration::from_secs(30))

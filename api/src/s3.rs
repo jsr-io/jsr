@@ -109,7 +109,7 @@ impl S3Client {
     // reqwest is built with `gzip`/`brotli` for the rest of the app, which
     // would transparently inflate objects we store with
     // `Content-Encoding: gzip`. Their readers expect the stored bytes.
-    let http = reqwest::Client::builder()
+    let http = crate::util::http_client_builder()
       .no_gzip()
       .no_brotli()
       .timeout(HTTP_CONNECT_TIMEOUT)

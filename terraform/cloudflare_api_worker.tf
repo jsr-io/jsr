@@ -1,9 +1,8 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 // The API built for wasm32-unknown-emscripten (see EMSCRIPTEN.md) as a
-// Worker, deployed to staging only. It serves
-// `https://api-worker.<domain>/api/...` alongside Cloud Run, which keeps
-// serving `api.<domain>` behind the LB.
+// Worker, on staging only. The LB sends API traffic to it through a service
+// binding (see lb.tf); background tasks stay on the Cloud Run tasks service.
 
 locals {
   api_worker_count = var.production ? 0 : 1
@@ -23,6 +22,7 @@ locals {
     "POSTMARK_WEBHOOK_PASSWORD" = var.postmark_webhook_password
     "ALGOLIA_WRITE_API_KEY"     = algolia_api_key.write.key
     "CLOUDFLARE_API_TOKEN"      = var.cloudflare_api_token
+    "GCP_SERVICE_ACCOUNT_KEY"   = try(base64decode(google_service_account_key.registry_api_worker[0].private_key), null)
   }
 
   # OTLP export is not compiled into the Worker, and migrations are left to
@@ -30,7 +30,12 @@ locals {
   api_worker_envs = merge({
     for name, value in local.api_envs : name => value
     if !contains(concat(keys(local.otlp_envs), keys(local.api_worker_secrets)), name)
-  }, { "DATABASE_DISABLE_MIGRATIONS" = "1" })
+  }, {
+    "DATABASE_DISABLE_MIGRATIONS" = "1"
+    # There is no metadata server, so GCP access tokens (Cloud Tasks) are
+    # signed with a key for the same service account Cloud Run uses.
+    "METADATA_STRATEGY" = "service_account_key"
+  })
 }
 
 resource "cloudflare_worker" "jsr_api" {
@@ -95,12 +100,7 @@ resource "cloudflare_workers_deployment" "jsr_api" {
   }]
 }
 
-resource "cloudflare_workers_custom_domain" "jsr_api" {
-  count      = local.api_worker_count
-  account_id = var.cloudflare_account_id
-  zone_id    = var.cloudflare_zone_id
-  hostname   = "api-worker.${var.domain_name}"
-  service    = cloudflare_worker.jsr_api[0].name
-
-  depends_on = [cloudflare_workers_deployment.jsr_api]
+resource "google_service_account_key" "registry_api_worker" {
+  count              = local.api_worker_count
+  service_account_id = google_service_account.registry_api.name
 }

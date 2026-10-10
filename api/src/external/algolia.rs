@@ -44,7 +44,7 @@ impl AlgoliaClient {
     symbols_index: String,
   ) -> Self {
     Self {
-      http: reqwest::Client::new(),
+      http: crate::util::http_client_builder().build().unwrap(),
       app_id: app_id.into(),
       api_key: api_key.into(),
       packages_index: packages_index.into(),
