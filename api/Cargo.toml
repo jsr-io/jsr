@@ -25,21 +25,19 @@ chrono = { version = "0.4", features = ["serde"] }
 # go through `util::oauth2_http_request` on the app's reqwest instead.
 oauth2 = { version = "5", default-features = false }
 futures = "0.3"
-hyper = { version = "0.14", features = [
+hyper = "1"
+axum = { version = "0.8", default-features = false, features = [
     "http1",
     "http2",
-    "client",
-    "server",
-    "stream",
+    "tokio",
 ] }
+tower = { version = "0.5", features = ["util"] }
 once_cell = "1"
 percent-encoding = "2"
 rand = "0.8"
 ring = "0.17"
 sha2 = "0.10.7"
 crc32fast = "1.3.2"
-routerify = "3"
-routerify-query = "3"
 # rust-s3 has its own reqwest (0.12) with no `gzip`/`brotli`, and that must
 # stay so: reqwest transparently decodes `Content-Encoding: gzip` responses
 # when those features are on, and objects we store gzip-encoded (tarballs,

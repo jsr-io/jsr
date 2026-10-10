@@ -5,17 +5,16 @@ use crate::api::ApiError;
 use crate::db::*;
 use crate::external::cloudflare::Turnstile;
 use crate::iam::ReqIamExt;
+use crate::router::RequestExt;
 use crate::util::ApiResult;
 use crate::util::oauth2_http_request;
 use crate::util::sanitize_redirect_url;
-use hyper::Body;
+use axum::body::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
 use hyper::header;
 use oauth2::{AccessToken, RedirectUrl, RefreshToken, StandardRevocableToken};
-use routerify::ext::RequestExt;
-use routerify_query::RequestQueryExt;
 use std::borrow::Cow;
 use tracing::Span;
 use tracing::instrument;
@@ -73,7 +72,7 @@ const TURNSTILE_FIELD: &str = "cf-turnstile-response";
 async fn turnstile_token(
   req: &mut Request<Body>,
 ) -> Result<Option<String>, ApiError> {
-  let bytes = hyper::body::to_bytes(req.body_mut())
+  let bytes = axum::body::to_bytes(std::mem::take(req.body_mut()), usize::MAX)
     .await
     .map_err(anyhow::Error::from)?;
 

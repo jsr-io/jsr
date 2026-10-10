@@ -9,12 +9,16 @@ use crate::emails::EmailArgs;
 use crate::emails::EmailQueue;
 use crate::emails::EmailSender;
 use crate::iam::ReqIamExt;
-use hyper::Body;
+use crate::router::RequestExt;
+use axum::Router;
+use axum::body::Body;
+use axum::routing::delete;
+use axum::routing::get;
+use axum::routing::patch;
+use axum::routing::post;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
-use routerify::Router;
-use routerify::ext::RequestExt;
 use tracing::Span;
 use tracing::error;
 use tracing::field;
@@ -32,41 +36,45 @@ use crate::util::CacheDuration;
 use crate::util::RequestIdExt;
 use crate::util::decode_json;
 
-pub fn scope_router() -> Router<Body, ApiError> {
-  Router::builder()
-    .scope("/:scope/packages", package_router())
-    .post("/", util::auth(util::json(create_handler)))
-    .get(
+pub fn scope_router() -> Router {
+  Router::new()
+    .nest("/{scope}/packages", package_router())
+    .route("/", post(util::auth(util::json(create_handler))))
+    .route(
       // Cache-busted on package publish/create/delete via the scope aggregates
       // in `package_api_cache_urls` / `scope_api_cache_urls`.
-      "/:scope",
-      util::cache(CacheDuration::ONE_DAY, util::json(get_handler)),
+      "/{scope}",
+      get(util::cache(CacheDuration::ONE_DAY, util::json(get_handler))),
     )
-    .patch("/:scope", util::auth(util::json(update_handler)))
-    .delete("/:scope", util::auth(delete_handler))
-    .get(
-      "/:scope/members",
-      util::cache(CacheDuration::ONE_HOUR, util::json(list_members_handler)),
+    .route("/{scope}", patch(util::auth(util::json(update_handler))))
+    .route("/{scope}", delete(util::auth(delete_handler)))
+    .route(
+      "/{scope}/members",
+      get(util::cache(
+        CacheDuration::ONE_HOUR,
+        util::json(list_members_handler),
+      )),
     )
-    .post(
-      "/:scope/members",
-      util::auth(util::json(invite_member_handler)),
+    .route(
+      "/{scope}/members",
+      post(util::auth(util::json(invite_member_handler))),
     )
-    .patch(
-      "/:scope/members/:member",
-      util::auth(util::json(update_member_handler)),
+    .route(
+      "/{scope}/members/{member}",
+      patch(util::auth(util::json(update_member_handler))),
     )
-    .delete("/:scope/members/:member", util::auth(delete_member_handler))
-    .get(
-      "/:scope/invites",
-      util::auth(util::json(list_invites_handler)),
+    .route(
+      "/{scope}/members/{member}",
+      delete(util::auth(delete_member_handler)),
     )
-    .delete(
-      "/:scope/invites/:user_id",
-      util::auth(delete_invite_handler),
+    .route(
+      "/{scope}/invites",
+      get(util::auth(util::json(list_invites_handler))),
     )
-    .build()
-    .unwrap()
+    .route(
+      "/{scope}/invites/{user_id}",
+      delete(util::auth(delete_invite_handler)),
+    )
 }
 
 static RESERVED_SCOPES: OnceLock<std::collections::HashSet<String>> =
