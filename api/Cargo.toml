@@ -99,14 +99,6 @@ rust-s3 = { version = "0.37.1", default-features = false, features = ["with-toki
 deno_semver = "0.10.1"
 flate2 = "1"
 thiserror = "2"
-# Async tarball reading built on tokio (not async-std): tokio works on
-# wasm32-emscripten, so this replaces async-tar (which drags in async-std's
-# async-io epoll reactor and can't build for wasm). `default-features = false`
-# drops the unix-only `xattr` extraction feature we don't use (read-only).
-astral-tokio-tar = { version = "0.6", default-features = false }
-async-compression = { version = "0.4", features = ["tokio", "gzip"] }
-# `compat` bridges the S3 download's futures-io AsyncRead to tokio's AsyncRead.
-tokio-util = { version = "0.7", features = ["compat"] }
 deno_graph = "=0.111.0"
 deno_ast = { version = "0.53.0", features = ["view"] }
 # sync with frontend/deno.json

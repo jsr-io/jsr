@@ -633,9 +633,7 @@ mod tests {
   use deno_graph::source::NullFileSystem;
   use deno_graph::source::Source;
   use deno_semver::package::PackageReqReference;
-  use futures::StreamExt;
-  use tokio::io::AsyncReadExt;
-  use tokio_tar::Archive;
+  use tar::Archive;
   use url::Url;
 
   use crate::analysis::JsrResolver;
@@ -766,9 +764,9 @@ mod tests {
     let mut raw = vec![];
     gz_decoder.read_to_end(&mut raw)?;
     let mut ar = Archive::new(&raw[..]);
-    let mut archive = ar.entries()?;
+    let archive = ar.entries()?;
 
-    while let Some(res) = archive.next().await {
+    for res in archive {
       let mut entry = res.unwrap();
 
       let path = entry.path().unwrap().display().to_string();
@@ -783,7 +781,7 @@ mod tests {
       );
 
       let mut buf = vec![];
-      entry.read_to_end(&mut buf).await?;
+      entry.read_to_end(&mut buf)?;
       transpiled_files.push((formatted_path, buf));
     }
 
