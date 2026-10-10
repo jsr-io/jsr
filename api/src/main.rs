@@ -248,58 +248,29 @@ async fn main() {
     .await
     .expect("failed to upsert service account token");
 
-  let s3_region = ::s3::Region::Custom {
-    region: config.s3_region,
-    endpoint: config.s3_endpoint,
-  };
-  let s3_credentials = ::s3::creds::Credentials {
-    access_key: Some(config.s3_access_key),
-    secret_key: Some(config.s3_secret_key),
-    security_token: None,
-    session_token: None,
-    expiration: None,
-  };
+  let s3_client = s3::S3Client::new(
+    &config.s3_endpoint,
+    config.s3_region,
+    config.s3_access_key,
+    config.s3_secret_key,
+  )
+  .unwrap();
 
   let gcp_client = gcp::Client::new(config.metadata_strategy);
   let publishing_bucket = s3::BucketWithQueue::new(
-    s3::Bucket::new(
-      config.publishing_bucket,
-      s3_region.clone(),
-      s3_credentials.clone(),
-    )
-    .unwrap(),
+    s3::Bucket::new(&s3_client, config.publishing_bucket).unwrap(),
   );
   let modules_bucket = s3::BucketWithQueue::new(
-    s3::Bucket::new(
-      config.modules_bucket,
-      s3_region.clone(),
-      s3_credentials.clone(),
-    )
-    .unwrap(),
+    s3::Bucket::new(&s3_client, config.modules_bucket).unwrap(),
   );
   let docs_bucket = s3::BucketWithQueue::new(
-    s3::Bucket::new(
-      config.docs_bucket,
-      s3_region.clone(),
-      s3_credentials.clone(),
-    )
-    .unwrap(),
+    s3::Bucket::new(&s3_client, config.docs_bucket).unwrap(),
   );
   let npm_bucket = s3::BucketWithQueue::new(
-    s3::Bucket::new(
-      config.npm_bucket,
-      s3_region.clone(),
-      s3_credentials.clone(),
-    )
-    .unwrap(),
+    s3::Bucket::new(&s3_client, config.npm_bucket).unwrap(),
   );
   let ticket_attachments_bucket = s3::BucketWithQueue::new(
-    s3::Bucket::new(
-      config.ticket_attachments_bucket,
-      s3_region,
-      s3_credentials,
-    )
-    .unwrap(),
+    s3::Bucket::new(&s3_client, config.ticket_attachments_bucket).unwrap(),
   );
   let buckets = Buckets {
     publishing_bucket,
