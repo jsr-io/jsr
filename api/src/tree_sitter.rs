@@ -52,7 +52,7 @@ impl comrak::adapters::SyntaxHighlighterAdapter for ComrakAdapter {
       // seems to be related to the static aspect of tree_sitter_language_cb
       #[allow(clippy::redundant_closure)]
       let res = highlighter
-        .highlight(config, source, None, |e| tree_sitter_language_cb(e));
+        .highlight(config, source, None, None, |e| tree_sitter_language_cb(e));
 
       match res {
         Ok(events) => {
@@ -653,7 +653,7 @@ mod tests {
     let mut highlighter = tree_sitter_highlight::Highlighter::new();
     #[allow(clippy::redundant_closure)]
     let events = highlighter
-      .highlight(config, source, None, |e| tree_sitter_language_cb(e))
+      .highlight(config, source, None, None, |e| tree_sitter_language_cb(e))
       .unwrap();
     render_lines(events, source, links).unwrap()
   }
@@ -664,7 +664,7 @@ mod tests {
     let mut highlighter = tree_sitter_highlight::Highlighter::new();
     #[allow(clippy::redundant_closure)]
     let events = highlighter
-      .highlight(config, source, None, |e| tree_sitter_language_cb(e))
+      .highlight(config, source, None, None, |e| tree_sitter_language_cb(e))
       .unwrap();
     let mut renderer = tree_sitter_highlight::HtmlRenderer::new();
     renderer
