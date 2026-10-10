@@ -40,15 +40,16 @@ mio = { git = "https://github.com/guybedford/mio", tag = "1.2.3-cf.emscripten" }
 # tree-sitter-javascript 0.21.4 used to hold back.
 ring = { git = "https://github.com/guybedford/ring", branch = "emscripten" }
 
-# NOT patched here, on purpose: a few crates still take a browser code path on
-# emscripten, because they test `target_arch = "wasm32"` without looking at
-# `target_os` — emscripten is wasm *and* unix with a full libc. Each needs the
-# fix upstream (or to leave jsr's dependency graph), not a local patch, so the
-# wasm32-unknown-emscripten link does not succeed from a clean checkout yet.
-# EMSCRIPTEN_EXPERIMENT.md records the exact change and the blocker for each:
-# socket2 0.5, reqwest 0.12, astral-tokio-tar.
-# Retired by upgrading rather than patching, not by patching locally: socket2 0.6
-# (0.6.5 has the cfg upstream), deno_doc (0.208.0 ships denoland/deno_doc#857),
-# tar (0.4.46), slug (comrak 0.56 only uses it in tests, so deno_doc stopped
-# pulling it in) and reqwest 0.11 (main moved jsr's own client to 0.13, which has
-# the emscripten cfg upstream).
+# NOT patched here, on purpose: socket2 0.5 still fails on emscripten, because
+# it tests for unix flavours without listing emscripten — which is wasm *and*
+# unix with a full libc. It needs the fix upstream (or to leave jsr's
+# dependency graph), not a local patch, so the wasm32-unknown-emscripten link
+# does not succeed from a clean checkout yet. EMSCRIPTEN_EXPERIMENT.md records
+# the exact change and the blocker.
+# Retired by upgrading or dropping the crate, not by patching locally: socket2
+# 0.6 (0.6.5 has the cfg upstream), deno_doc (0.208.0 ships
+# denoland/deno_doc#857), tar (0.4.46), slug (comrak 0.56 only uses it in
+# tests, so deno_doc stopped pulling it in), reqwest 0.11 (main moved jsr's own
+# client to 0.13, which has the emscripten cfg upstream), astral-tokio-tar
+# (tarballs are read with the sync `tar` crate) and reqwest 0.12 (rust-s3 was
+# its last user, replaced by rusty-s3 signing requests sent with reqwest 0.13).

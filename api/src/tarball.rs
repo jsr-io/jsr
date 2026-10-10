@@ -1014,10 +1014,7 @@ impl PublishError {
 }
 
 fn from_tarball_io_error(err: io::Error) -> PublishError {
-  match err.downcast::<s3::error::S3Error>() {
-    Ok(err) => PublishError::S3DownloadError(S3Error::S3(err)),
-    Err(err) => PublishError::InvalidTarball(err),
-  }
+  PublishError::InvalidTarball(err)
 }
 
 pub struct FileInfo {

@@ -966,31 +966,25 @@ pub mod tests {
       .buckets
       .modules_bucket
       .bucket
-      .bucket
       .get_object("@scope/foo/1.2.3/jsr.json")
-      .await
-      .unwrap();
-    assert_eq!(response.status_code(), 200);
+      .await;
+    assert_eq!(response.status(), 200);
     assert_eq!(response.headers()["content-type"], "application/json");
     let response = t
       .buckets
       .modules_bucket
       .bucket
-      .bucket
       .get_object("@scope/foo/1.2.3/mod.ts")
-      .await
-      .unwrap();
-    assert_eq!(response.status_code(), 200);
+      .await;
+    assert_eq!(response.status(), 200);
     assert_eq!(response.headers()["content-type"], "text/typescript");
     let response = t
       .buckets
       .modules_bucket
       .bucket
-      .bucket
       .get_object("@scope/foo/1.2.3/logo.svg")
-      .await
-      .unwrap();
-    assert_eq!(response.status_code(), 200);
+      .await;
+    assert_eq!(response.status(), 200);
     assert_eq!(response.headers()["content-type"], "image/svg+xml");
   }
 
@@ -1915,14 +1909,12 @@ pub mod tests {
       .buckets
       .npm_bucket
       .bucket
-      .bucket
       .get_object("@jsr/scope__foo")
-      .await
-      .unwrap();
-    assert_eq!(response.status_code(), 200);
+      .await;
+    assert_eq!(response.status(), 200);
     assert_eq!(response.headers()["content-type"], "application/json");
     let mut json: serde_json::Value =
-      serde_json::from_slice(&response.into_bytes()).unwrap();
+      serde_json::from_slice(&response.bytes().await.unwrap()).unwrap();
     json.as_object_mut().unwrap().remove("time");
     let dist = json
       .as_object_mut()
@@ -1971,11 +1963,9 @@ pub mod tests {
       .buckets
       .npm_bucket
       .bucket
-      .bucket
       .get_object(res_url.as_str())
-      .await
-      .unwrap();
-    assert_eq!(response.status_code(), 200);
+      .await;
+    assert_eq!(response.status(), 200);
     assert_eq!(
       response.headers()["content-type"],
       "application/octet-stream"
