@@ -1947,8 +1947,6 @@ pub async fn get_source_handler(
         Some(Arc::new(adapter)),
       );
 
-      // comrak's adapters write through `fmt::Write` now, so collect into a
-      // String rather than a byte buffer.
       let mut out = String::new();
       highlighter.write_pre_tag(&mut out, Default::default())?;
       highlighter.write_code_tag(&mut out, Default::default())?;

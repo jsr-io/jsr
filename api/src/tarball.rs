@@ -247,14 +247,6 @@ pub async fn process_tarball(
   publishing_task: &PublishingTask,
 ) -> Result<ProcessTarballOutput, PublishError> {
   let tarball_path = bucket_tarball_path(publishing_task.id);
-  // Read the archive with the sync `tar` crate. The async ones are all
-  // unavailable to us: `async-tar` pulls in async-std, which has no
-  // wasm32-emscripten build, and `astral-tokio-tar` is deprecated upstream. The
-  // loop below already collects every file into memory, so the only added cost
-  // is holding the compressed archive, which is bounded: publishing enforces
-  // `MAX_PUBLISH_TARBALL_SIZE` on upload, and it is re-checked here so an
-  // object that reached the bucket some other way cannot make this allocate
-  // without limit.
   let compressed = buckets
     .publishing_bucket
     .download(tarball_path.into())
@@ -269,9 +261,6 @@ pub async fn process_tarball(
     ))));
   }
 
-  // Decoding stays incremental over that buffer, so an archive that expands far
-  // beyond its compressed size is still caught by the per-file and total size
-  // checks below rather than being inflated into memory up front.
   let decompressed = flate2::read::GzDecoder::new(&compressed[..]);
   let mut archive = tar::Archive::new(decompressed);
   let entries = archive.entries().map_err(from_tarball_io_error)?;
