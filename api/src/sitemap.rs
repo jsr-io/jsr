@@ -1,8 +1,8 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use hyper::Body;
+use crate::router::RequestExt;
+use axum::body::Body;
 use hyper::Request;
 use hyper::Response;
-use routerify::ext::RequestExt;
 use sitemap_rs::sitemap::Sitemap;
 use sitemap_rs::sitemap_index::SitemapIndex;
 use sitemap_rs::url::ChangeFrequency;

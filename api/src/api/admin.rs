@@ -3,12 +3,15 @@ use crate::FallbackRegistryUrl;
 use crate::NpmUrl;
 use crate::RegistryUrl;
 use crate::external::algolia::AlgoliaClient;
+use crate::router::RequestExt;
 use crate::s3::Buckets;
-use hyper::Body;
+use axum::Router;
+use axum::body::Body;
+use axum::routing::delete;
+use axum::routing::get;
+use axum::routing::patch;
+use axum::routing::post;
 use hyper::Request;
-use routerify::Router;
-use routerify::prelude::RequestExt;
-use routerify_query::RequestQueryExt;
 use tracing::Instrument;
 use tracing::Span;
 use tracing::field;
@@ -43,36 +46,40 @@ use super::PublishQueue;
 use super::map_unique_violation;
 use super::types::*;
 
-pub fn admin_router() -> Router<Body, ApiError> {
-  Router::builder()
-    .get("/users", util::auth(util::json(list_users)))
-    .patch("/users/:user_id", util::auth(util::json(update_user)))
-    .delete("/users/:user_id", util::auth(delete_user_admin))
-    .post(
-      "/users/:user_id/tickets",
-      util::auth(util::json(create_outreach_ticket)),
+pub fn admin_router() -> Router {
+  Router::new()
+    .route("/users", get(util::auth(util::json(list_users))))
+    .route(
+      "/users/{user_id}",
+      patch(util::auth(util::json(update_user))),
     )
-    .get("/scopes", util::auth(util::json(list_scopes)))
-    .post("/scopes", util::auth(util::json(assign_scope)))
-    .patch("/scopes/:scope", util::auth(util::json(patch_scopes)))
-    .get("/packages", util::auth(util::json(list_packages)))
-    .post(
-      "/packages/:scope/:package/:version/recompute_meta",
-      util::auth(util::json(recompute_package_version_meta)),
+    .route("/users/{user_id}", delete(util::auth(delete_user_admin)))
+    .route(
+      "/users/{user_id}/tickets",
+      post(util::auth(util::json(create_outreach_ticket))),
     )
-    .get(
+    .route("/scopes", get(util::auth(util::json(list_scopes))))
+    .route("/scopes", post(util::auth(util::json(assign_scope))))
+    .route(
+      "/scopes/{scope}",
+      patch(util::auth(util::json(patch_scopes))),
+    )
+    .route("/packages", get(util::auth(util::json(list_packages))))
+    .route(
+      "/packages/{scope}/{package}/{version}/recompute_meta",
+      post(util::auth(util::json(recompute_package_version_meta))),
+    )
+    .route(
       "/publishing_tasks",
-      util::auth(util::json(list_publishing_tasks)),
+      get(util::auth(util::json(list_publishing_tasks))),
     )
-    .post(
-      "/publishing_tasks/:publishing_task/requeue",
-      util::auth(util::json(requeue_publishing_tasks)),
+    .route(
+      "/publishing_tasks/{publishing_task}/requeue",
+      post(util::auth(util::json(requeue_publishing_tasks))),
     )
-    .get("/tickets", util::auth(util::json(list_tickets)))
-    .patch("/tickets/:id", util::auth(util::json(patch_ticket)))
-    .get("/audit_logs", util::auth(util::json(list_audit_logs)))
-    .build()
-    .unwrap()
+    .route("/tickets", get(util::auth(util::json(list_tickets))))
+    .route("/tickets/{id}", patch(util::auth(util::json(patch_ticket))))
+    .route("/audit_logs", get(util::auth(util::json(list_audit_logs))))
 }
 
 #[instrument(name = "GET /api/admin/users", skip(req))]

@@ -25,6 +25,7 @@ mod npm;
 mod object_cache;
 mod provenance;
 mod publish;
+mod router;
 mod s3;
 mod s3_paths;
 mod sitemap;
@@ -38,7 +39,6 @@ mod tracing;
 mod tree_sitter;
 mod util;
 
-use crate::api::ApiError;
 use crate::api::InboundTrustedAuthservId;
 use crate::api::PostmarkWebhookPassword;
 use crate::api::PublishQueue;
@@ -47,28 +47,27 @@ use crate::config::Config;
 use crate::db::Database;
 use crate::emails::EmailQueue;
 use crate::emails::EmailSender;
-use crate::errors_internal::error_handler;
 use crate::external::algolia::AlgoliaClient;
 use crate::external::cloudflare::CachePurge;
 use crate::external::cloudflare::Turnstile;
 use crate::external::cloudflare::TurnstileClient;
 use crate::gcp::Queue;
+use crate::router::App;
+use crate::router::Data;
 use crate::s3::Buckets;
 use crate::sitemap::packages_sitemap_handler;
 use crate::sitemap::scopes_sitemap_handler;
 use crate::sitemap::sitemap_index_handler;
 use crate::tasks::NpmTarballBuildQueue;
 use crate::tasks::tasks_router;
-#[cfg(not(target_arch = "wasm32"))]
 use crate::traced_router::TracedRouterService;
 use crate::tracing::TracingExportTarget;
 use crate::tracing::setup_tracing;
 
+use axum::Router;
+use axum::routing::get;
+use axum::routing::post;
 use clap::Parser;
-use hyper::Body;
-#[cfg(not(target_arch = "wasm32"))]
-use hyper::Server;
-use routerify::Router;
 #[cfg(not(target_arch = "wasm32"))]
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -134,72 +133,78 @@ pub(crate) fn main_router(
     expose_api,
     expose_tasks,
   }: MainRouterOptions,
-) -> Router<Body, ApiError> {
-  let builder = Router::builder()
-    .data(database)
-    .data(buckets)
-    .data(generate_ctx_cache)
-    .data(object_cache)
-    .data(registry_metadata_cache)
-    .data(github_client)
-    .data(gitlab_client)
-    .data(algolia_client)
-    .data(email_sender)
-    .data(license_store)
-    .data(RegistryUrl(registry_url))
-    .data(NpmUrl(npm_url))
-    .data(FallbackRegistryUrl(fallback_registry_url))
-    .data(PublishQueue(publish_queue))
-    .data(NpmTarballBuildQueue(npm_tarball_build_queue))
-    .data(EmailQueue(email_queue))
-    .data(AnalyticsEngineConfig(analytics_engine_config))
-    .data(CachePurge(cache_purge_client))
-    .data(turnstile)
-    .data(postmark_webhook_password)
-    .data(inbound_trusted_authserv_id)
-    .data(db::DependentCountCache::new())
-    .middleware(routerify_query::query_parser())
-    .err_handler_with_info(error_handler);
+) -> App {
+  let data = Data::default()
+    .with(database)
+    .with(buckets)
+    .with(generate_ctx_cache)
+    .with(object_cache)
+    .with(registry_metadata_cache)
+    .with(github_client)
+    .with(gitlab_client)
+    .with(algolia_client)
+    .with(email_sender)
+    .with(license_store)
+    .with(RegistryUrl(registry_url))
+    .with(NpmUrl(npm_url))
+    .with(FallbackRegistryUrl(fallback_registry_url))
+    .with(PublishQueue(publish_queue))
+    .with(NpmTarballBuildQueue(npm_tarball_build_queue))
+    .with(EmailQueue(email_queue))
+    .with(AnalyticsEngineConfig(analytics_engine_config))
+    .with(CachePurge(cache_purge_client))
+    .with(turnstile)
+    .with(postmark_webhook_password)
+    .with(inbound_trusted_authserv_id)
+    .with(db::DependentCountCache::new());
 
-  let builder = if expose_api {
-    builder
-      .scope("/api", api_router())
-      .get("/sitemap.xml", sitemap_index_handler)
-      .get("/sitemap-scopes.xml", scopes_sitemap_handler)
-      .get("/sitemap-packages.xml", packages_sitemap_handler)
+  let router = Router::new();
+
+  let router = if expose_api {
+    router
+      .nest("/api", api_router())
+      .route("/sitemap.xml", get(sitemap_index_handler))
+      .route("/sitemap-scopes.xml", get(scopes_sitemap_handler))
+      .route("/sitemap-packages.xml", get(packages_sitemap_handler))
       // POST, not GET: the login form carries the Turnstile response token in
       // its body, which keeps it out of URLs, logs and `Referer` headers. It
       // also means a bare link to this route can no longer start a login flow,
       // so the captcha cannot be sidestepped by navigating straight here.
-      .post("/login/:service", auth::login_handler)
-      .get("/login/callback/:service", auth::login_callback_handler)
-      .get("/logout", auth::logout_handler)
-      .get("/connect/:service", util::full_auth(auth::connect_handler))
-      .get(
-        "/connect/callback/:service",
-        util::full_auth(auth::connect_callback_handler),
+      .route("/login/{service}", post(auth::login_handler))
+      .route(
+        "/login/callback/{service}",
+        get(auth::login_callback_handler),
       )
-      .get(
-        "/disconnect/:service",
-        util::full_auth(auth::disconnect_handler),
+      .route("/logout", get(auth::logout_handler))
+      .route(
+        "/connect/{service}",
+        get(util::full_auth(auth::connect_handler)),
+      )
+      .route(
+        "/connect/callback/{service}",
+        get(util::full_auth(auth::connect_callback_handler)),
+      )
+      .route(
+        "/disconnect/{service}",
+        get(util::full_auth(auth::disconnect_handler)),
       )
   } else {
-    builder
+    router
   };
 
-  let builder = if expose_tasks {
-    builder.scope("/tasks", tasks_router())
+  let router = if expose_tasks {
+    router.nest("/tasks", tasks_router())
   } else {
-    builder
+    router
   };
 
-  builder.build().unwrap()
+  router::app(router, data)
 }
 
 /// Build the fully-wired application router from a parsed [`Config`]. Shared by
 /// the native listener entry point (`main`) and the emscripten worker `fetch`
 /// export, so both drive exactly the same routes and state.
-async fn build_router(config: Config) -> Router<Body, ApiError> {
+async fn build_router(config: Config) -> App {
   // Treat a present-but-empty OTLP_ENDPOINT as unset: clap parses an empty env
   // var as Some(""), which would otherwise build a schemeless endpoint and
   // panic the exporter at boot. Filtering here means empty == export disabled.
@@ -408,23 +413,23 @@ async fn main() {
   let router = build_router(config).await;
 
   // Create a Service from the router above to handle incoming requests.
-  let service = TracedRouterService::new(router, true).unwrap();
+  let service = TracedRouterService::new(router, true);
 
   // The address on which the server will be listening.
   let addr = SocketAddr::from(([0, 0, 0, 0], port));
-
-  // Create a server by passing the created service to `.serve` method.
-  let server = Server::bind(&addr).serve(service);
+  let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
 
   println!("App is running on: {}", addr);
-  if let Err(err) = server.await {
+  if let Err(err) =
+    axum::serve(listener, axum::ServiceExt::into_make_service(service)).await
+  {
     eprintln!("Server error: {}", err);
   }
 }
 
 // Emscripten worker entry point. A Cloudflare Worker cannot `listen()` on a
 // socket, so instead of `Server::bind().serve()` we expose a `fetch` export that
-// bridges the runtime's `web_sys::Request`/`Response` to hyper + routerify: the
+// bridges the runtime's `web_sys::Request`/`Response` to the axum router: the
 // router is built once (from the JS `env` bindings) and reused across requests.
 #[cfg(target_arch = "wasm32")]
 fn main() {}
@@ -432,8 +437,8 @@ fn main() {}
 #[cfg(target_arch = "wasm32")]
 mod worker {
   use super::*;
-  use crate::traced_router::TracedRequestServiceBuilder;
-  use hyper::service::Service as _;
+  use axum::body::Body;
+  use tower::ServiceExt;
   use wasm_bindgen::prelude::*;
 
   /// Copy the string-valued entries of the worker `env` object into the process
@@ -527,7 +532,7 @@ mod worker {
     resp: hyper::Response<Body>,
   ) -> Result<web_sys::Response, JsValue> {
     let (parts, body) = resp.into_parts();
-    let bytes = hyper::body::to_bytes(body)
+    let bytes = axum::body::to_bytes(body, usize::MAX)
       .await
       .map_err(|e| JsValue::from_str(&format!("read response body: {e}")))?;
 
@@ -578,16 +583,10 @@ mod worker {
         .await
         .map_err(|e| JsValue::from_str(&e))?;
     }
-    let router = build_router(config).await;
-    let mut builder = TracedRequestServiceBuilder::new(router)
-      .map_err(|e| JsValue::from_str(&format!("router build: {e}")))?;
-    let mut service = builder.build("127.0.0.1:0".parse().unwrap(), true);
-
+    let app = build_router(config).await;
     let hyper_req = to_hyper_request(request).await?;
-    let hyper_resp = service
-      .call(hyper_req)
-      .await
-      .map_err(|e| JsValue::from_str(&format!("route error: {e}")))?;
+    let Ok(hyper_resp) =
+      TracedRouterService::new(app, true).oneshot(hyper_req).await;
     to_web_response(hyper_resp).await
   }
 }

@@ -1,8 +1,9 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use hyper::Body;
+use crate::router::RequestExt;
+use axum::Router;
+use axum::body::Body;
+use axum::routing::get;
 use hyper::Request;
-use routerify::Router;
-use routerify::prelude::RequestExt;
 use tracing::Span;
 use tracing::field;
 use tracing::instrument;
@@ -18,25 +19,29 @@ use super::ApiPackage;
 use super::ApiScope;
 use super::ApiUser;
 
-pub fn users_router() -> Router<Body, ApiError> {
-  Router::builder()
-    .get(
-      "/:id",
-      util::cache(CacheDuration::FIVE_MINUTES, util::json(get_handler)),
+pub fn users_router() -> Router {
+  Router::new()
+    .route(
+      "/{id}",
+      get(util::cache(
+        CacheDuration::FIVE_MINUTES,
+        util::json(get_handler),
+      )),
     )
-    .get(
-      "/:id/scopes",
-      util::cache(CacheDuration::FIVE_MINUTES, util::json(get_scopes_handler)),
+    .route(
+      "/{id}/scopes",
+      get(util::cache(
+        CacheDuration::FIVE_MINUTES,
+        util::json(get_scopes_handler),
+      )),
     )
-    .get(
-      "/:id/packages",
-      util::cache(
+    .route(
+      "/{id}/packages",
+      get(util::cache(
         CacheDuration::FIVE_MINUTES,
         util::json(get_packages_handler),
-      ),
+      )),
     )
-    .build()
-    .unwrap()
 }
 
 #[instrument(name = "GET /api/users/:id", skip(req), fields(id))]

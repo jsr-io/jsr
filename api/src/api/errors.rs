@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use hyper::Body;
+use axum::body::Body;
 use hyper::Response;
 use std::borrow::Cow;
 

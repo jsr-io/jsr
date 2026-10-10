@@ -21,13 +21,14 @@ use self::self_user::self_user_router;
 pub use self::types::*;
 use crate::api::hooks::hooks_router;
 use crate::api::tickets::tickets_router;
-use hyper::Body;
+use axum::Router;
+use axum::body::Body;
+use axum::middleware;
+use axum::routing::get;
 use hyper::Response;
 use package::global_list_handler;
 use package::global_metrics_handler;
 use package::global_stats_handler;
-use routerify::Middleware;
-use routerify::Router;
 
 use self::admin::admin_router;
 use self::authorization::authorization_router;
@@ -37,54 +38,59 @@ use self::users::users_router;
 use crate::util;
 use crate::util::CacheDuration;
 
-pub fn api_router() -> Router<Body, ApiError> {
-  let builder = Router::builder()
-    .get(
+pub fn api_router() -> Router {
+  let router = Router::new()
+    .route(
       "/metrics",
-      util::cache(
+      get(util::cache(
         CacheDuration::ONE_MINUTE,
         util::json(global_metrics_handler),
-      ),
+      )),
     )
-    .middleware(Middleware::pre(util::auth_middleware))
-    .scope("/admin", admin_router())
-    .scope("/scopes", scope_router())
-    .scope("/user", self_user_router())
-    .scope("/users", users_router())
-    .scope("/authorizations", authorization_router())
-    .scope("/publishing_tasks", publishing_task_router())
-    .get(
+    .nest("/admin", admin_router())
+    .nest("/scopes", scope_router())
+    .nest("/user", self_user_router())
+    .nest("/users", users_router())
+    .nest("/authorizations", authorization_router())
+    .nest("/publishing_tasks", publishing_task_router())
+    .route(
       "/packages",
-      util::cache(CacheDuration::FIVE_MINUTES, util::json(global_list_handler)),
+      get(util::cache(
+        CacheDuration::FIVE_MINUTES,
+        util::json(global_list_handler),
+      )),
     )
-    .get(
+    .route(
       "/stats",
-      util::cache(CacheDuration::ONE_HOUR, util::json(global_stats_handler)),
+      get(util::cache(
+        CacheDuration::ONE_HOUR,
+        util::json(global_stats_handler),
+      )),
     )
-    .get(
+    .route(
       // todo: remove once CLI uses the new endpoint
       // Never cache: `deno publish` polls this for live status, and a cached
       // non-terminal status would make it hang until the entry expired.
-      "/publish_status/:publishing_task_id",
-      util::no_store(util::json(publishing_task::get_handler)),
+      "/publish_status/{publishing_task_id}",
+      get(util::no_store(util::json(publishing_task::get_handler))),
     )
-    .scope("/tickets", tickets_router())
-    .scope("/hooks", hooks_router())
-    .get("/.well-known/openapi", openapi_handler);
+    .nest("/tickets", tickets_router())
+    .nest("/hooks", hooks_router())
+    .route("/.well-known/openapi", get(openapi_handler));
 
   // jemalloc-backed debug endpoints are only available in the native build.
   #[cfg(not(target_arch = "wasm32"))]
-  let builder = builder
-    .get(
+  let router = router
+    .route(
       "/debug/mem_stats",
-      util::auth(crate::jemalloc_profiling::mem_stats_handler),
+      get(util::auth(crate::jemalloc_profiling::mem_stats_handler)),
     )
-    .get(
+    .route(
       "/debug/mem_dump",
-      util::auth(crate::jemalloc_profiling::heap_profile_handler),
+      get(util::auth(crate::jemalloc_profiling::heap_profile_handler)),
     );
 
-  builder.build().unwrap()
+  router.route_layer(middleware::from_fn(util::auth_layer))
 }
 
 async fn openapi_handler(

@@ -89,11 +89,8 @@ pub struct S3UploadOptions<'a> {
   pub gzip_encoded: bool,
 }
 
-/// How long a signed request URL stays valid. Each URL is used immediately,
-/// so this only has to cover the request itself plus clock skew.
 const SIGNATURE_EXPIRY: Duration = Duration::from_secs(60 * 60);
 
-/// The connection to an S3-compatible endpoint, shared by all [`Bucket`]s.
 #[derive(Clone)]
 pub struct S3Client {
   http: reqwest::Client,
@@ -119,7 +116,11 @@ impl S3Client {
       .build()?;
     Ok(Self {
       http,
-      endpoint: endpoint.parse()?,
+      endpoint: if endpoint.contains("://") {
+        endpoint.parse()?
+      } else {
+        format!("https://{endpoint}").parse()?
+      },
       region,
       credentials: Arc::new(rusty_s3::Credentials::new(access_key, secret_key)),
     })
@@ -187,7 +188,6 @@ impl Bucket {
     Ok(bucket)
   }
 
-  /// The raw response for `path`, for tests that check stored headers.
   #[cfg(test)]
   pub async fn get_object(&self, path: &str) -> reqwest::Response {
     let url = self
@@ -284,7 +284,6 @@ impl Bucket {
     let mut continuation_token = None;
     loop {
       let mut action = self.bucket.list_objects_v2(self.credentials());
-      // Keys come back verbatim rather than URL-encoded.
       action.query_mut().remove("encoding-type");
       action.with_prefix(prefix);
       if let Some(token) = &continuation_token {
@@ -461,8 +460,6 @@ impl RestartableTask for UploadTask {
           }
         }
         UploadTaskBody::Stream(mut stream) => {
-          // A plain PUT needs the length up front, and a retry needs the
-          // bytes again, so buffer the whole stream and upload it as bytes.
           let mut buffer = Vec::new();
           while let Some(res) = stream.next().await {
             match res {
@@ -716,6 +713,21 @@ impl FakeS3Tester {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn endpoint_without_scheme_is_https() {
+    let client = S3Client::new(
+      "account.r2.cloudflarestorage.com",
+      "auto".to_string(),
+      String::new(),
+      String::new(),
+    )
+    .unwrap();
+    assert_eq!(
+      client.endpoint.as_str(),
+      "https://account.r2.cloudflarestorage.com/"
+    );
+  }
 
   #[tokio::test]
   async fn s3_upload_download() {

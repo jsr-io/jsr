@@ -1,12 +1,14 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+use crate::router::RequestExt;
+use axum::Router;
+use axum::body::Body;
+use axum::routing::get;
+use axum::routing::post;
 use base64::Engine;
 use chrono::Utc;
-use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use rand::Rng;
-use routerify::Router;
-use routerify::prelude::RequestExt;
 use sha2::Digest;
 use url::Url;
 
@@ -27,19 +29,17 @@ use super::ApiCreateAuthorizationRequest;
 use super::ApiCreateAuthorizationResponse;
 use super::ApiError;
 
-pub fn authorization_router() -> Router<Body, ApiError> {
-  Router::builder()
-    .post("/", util::json(create_authorization))
-    .post("/exchange", util::json(exchange_authorization))
+pub fn authorization_router() -> Router {
+  Router::new()
+    .route("/", post(util::json(create_authorization)))
+    .route("/exchange", post(util::json(exchange_authorization)))
     // Never cache: OAuth authorization details are dynamic and per-flow.
-    .get(
-      "/details/:code",
-      util::no_store(util::json(get_authorization)),
+    .route(
+      "/details/{code}",
+      get(util::no_store(util::json(get_authorization))),
     )
-    .post("/approve/:code", util::auth(approve_authorization))
-    .post("/deny/:code", util::auth(decline_authorization))
-    .build()
-    .unwrap()
+    .route("/approve/{code}", post(util::auth(approve_authorization)))
+    .route("/deny/{code}", post(util::auth(decline_authorization)))
 }
 
 async fn create_authorization(
@@ -246,9 +246,9 @@ async fn decline_authorization(
 
 #[cfg(test)]
 mod tests {
+  use axum::body::Body;
   use base64::Engine;
   use chrono::Utc;
-  use hyper::Body;
   use hyper::Response;
   use hyper::StatusCode;
   use serde_json::json;

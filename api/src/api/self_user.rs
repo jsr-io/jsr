@@ -1,10 +1,13 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use hyper::Body;
+use crate::router::RequestExt;
+use axum::Router;
+use axum::body::Body;
+use axum::routing::delete;
+use axum::routing::get;
+use axum::routing::post;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
-use routerify::Router;
-use routerify::prelude::RequestExt;
 use tracing::Span;
 use tracing::field;
 use tracing::instrument;
@@ -40,24 +43,31 @@ use super::ApiScopeMember;
 use super::ApiTicket;
 use super::ApiToken;
 
-pub fn self_user_router() -> Router<Body, ApiError> {
-  Router::builder()
-    .get("/", util::auth(util::json(get_handler)))
-    .delete("/", util::auth(delete_account))
-    .get("/scopes", util::auth(util::json(list_scopes_handler)))
-    .get("/member/:scope", util::auth(util::json(get_member_handler)))
-    .get("/invites", util::auth(util::json(list_invites_handler)))
-    .post(
-      "/invites/:scope",
-      util::auth(util::json(accept_invite_handler)),
+pub fn self_user_router() -> Router {
+  Router::new()
+    .route("/", get(util::auth(util::json(get_handler))))
+    .route("/", delete(util::auth(delete_account)))
+    .route("/scopes", get(util::auth(util::json(list_scopes_handler))))
+    .route(
+      "/member/{scope}",
+      get(util::auth(util::json(get_member_handler))),
     )
-    .delete("/invites/:scope", util::auth(decline_invite_handler))
-    .get("/tokens", util::auth(util::json(list_tokens)))
-    .post("/tokens", util::auth(util::json(create_token)))
-    .delete("/tokens/:id", util::auth(delete_token))
-    .get("/tickets", util::auth(util::json(list_tickets)))
-    .build()
-    .unwrap()
+    .route(
+      "/invites",
+      get(util::auth(util::json(list_invites_handler))),
+    )
+    .route(
+      "/invites/{scope}",
+      post(util::auth(util::json(accept_invite_handler))),
+    )
+    .route(
+      "/invites/{scope}",
+      delete(util::auth(decline_invite_handler)),
+    )
+    .route("/tokens", get(util::auth(util::json(list_tokens))))
+    .route("/tokens", post(util::auth(util::json(create_token))))
+    .route("/tokens/{id}", delete(util::auth(delete_token)))
+    .route("/tickets", get(util::auth(util::json(list_tickets))))
 }
 
 #[instrument(name = "GET /api/user", skip(req))]
