@@ -25,9 +25,6 @@ lb/node_modules
 
 .idea
 
-# wrangler (emscripten worker experiment)
+# wrangler (emscripten worker)
 .wrangler/
 api/build/
-# locally reconstructed vendored crate patches — never committed,
-# see EMSCRIPTEN_EXPERIMENT.md
-.emscripten-patches/

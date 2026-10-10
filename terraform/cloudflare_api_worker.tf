@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
-// EXPERIMENT: the API built for wasm32-unknown-emscripten (see
-// EMSCRIPTEN_EXPERIMENT.md) as a Worker, deployed to staging only. It serves
+// The API built for wasm32-unknown-emscripten (see EMSCRIPTEN.md) as a
+// Worker, deployed to staging only. It serves
 // `https://api-worker.<domain>/api/...` alongside Cloud Run, which keeps
 // serving `api.<domain>` behind the LB.
 

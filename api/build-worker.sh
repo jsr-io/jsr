@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# EXPERIMENT (temporary): build registry_api as a wasm32-unknown-emscripten
-# Worker. Invoked by wrangler's `[build] command` in api/wrangler.toml; also
+# Builds registry_api as a wasm32-unknown-emscripten Worker. Invoked by wrangler's `[build] command` in api/wrangler.toml; also
 # usable directly from api/.
 #
 # worker-build provisions the Emscripten SDK (and patches its frontend) and

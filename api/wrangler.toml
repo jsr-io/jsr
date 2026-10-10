@@ -1,4 +1,4 @@
-# EXPERIMENT (temporary): run jsr's registry_api as an emscripten worker.
+# jsr's registry_api as an emscripten worker.
 # Lives in api/ so wrangler auto-loads api/.env (the same env the native server
 # reads via dotenvy) and injects it as worker `env` bindings, which the fetch
 # handler copies into the process env for Config::parse. Run from api/:

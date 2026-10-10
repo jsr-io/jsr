@@ -1,6 +1,6 @@
-# Experiment: `registry_api` as a `wasm32-unknown-emscripten` Cloudflare Worker
+# `registry_api` as a `wasm32-unknown-emscripten` Cloudflare Worker
 
-This is an **experimental, non-portable** branch that runs the *entire* jsr API
+This branch runs the *entire* jsr API
 server (`api/`, crate `registry_api`) as a Cloudflare Worker compiled to
 `wasm32-unknown-emscripten` — using the [workers-rs] emscripten pipeline, which
 (unlike `wasm32-unknown-unknown`) supports tokio, hyper, real sockets, DNS, and

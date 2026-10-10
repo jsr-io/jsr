@@ -2,54 +2,20 @@
 members = ["api", "api/macros", "crates/jsr_types"]
 resolver = "2"
 
-# EXPERIMENT (temporary, do not commit): build registry_api for
-# wasm32-unknown-emscripten. See EMSCRIPTEN_EXPERIMENT.md for the recipe.
-#
-# The only patches here are the workers-rs emscripten tokio patchset, copied
-# verbatim from cloudflare/workers-rs `examples/emscripten-tokio/Cargo.toml` —
-# tokio's emscripten event-loop runtime (tokio-rs/tokio#8484) driven through mio's
-# emscripten backend (tokio-rs/mio#1969). Everything else (wasm-bindgen's
-# `experimental_tokio` exports, the patched emsdk frontend, libc's emscripten
-# decls) comes from published crates: wasm-bindgen 0.2.129, libc 0.2.190 and
-# `worker-build --emscripten`.
+# Patches for building registry_api for wasm32-unknown-emscripten (see
+# EMSCRIPTEN.md). Each one is a branch of the crate's own upstream, pending a
+# release.
 
-# REQUIRED Patchset - Tokio patchset, pending upstream PRs
-# The emscripten declarations this patchset needed shipped in libc 0.2.190
-# (2026-10-02), so libc no longer has to come from git. The mio fork still hardcodes
-# `libc = { git = "rust-lang/libc", branch = "libc-0.2" }`, so redirect that source at
-# the published crate to keep a single libc in the graph. (The upstream patchset's
-# `[patch."https://github.com/guybedford/libc"]` block is vestigial — nothing in the
-# graph depends on that fork.)
+# The mio branch depends on libc from git; point that at the published crate so
+# the graph has a single libc.
 [patch."https://github.com/rust-lang/libc"]
 libc = { version = "0.2.190" }
 
 [patch.crates-io]
-
-# Pending https://github.com/tokio-rs/tokio/pull/8484
+# https://github.com/tokio-rs/tokio/pull/8484
 tokio = { git = "https://github.com/guybedford/tokio", tag = "1.53.1-cf.emscripten" }
 tokio-macros = { git = "https://github.com/guybedford/tokio", tag = "1.53.1-cf.emscripten" }
-
-# Pending https://github.com/tokio-rs/mio/pull/1969
+# https://github.com/tokio-rs/mio/pull/1969
 mio = { git = "https://github.com/guybedford/mio", tag = "1.2.3-cf.emscripten" }
-
-# Implements `SecureRandom for SystemRandom` on emscripten (getrandom-backed,
-# like the unixes); rustls does not compile without it. Pending
-# https://github.com/briansmith/ring/pull/2877 - the same branch that PR is
-# opened from, so this goes away when it lands in a ring release. Unblocked by
-# the tree-sitter bump: ring >= 0.17.10 needs `cc ^1.2`, which
-# tree-sitter-javascript 0.21.4 used to hold back.
+# https://github.com/briansmith/ring/pull/2877
 ring = { git = "https://github.com/guybedford/ring", branch = "emscripten" }
-
-# NOT patched here, on purpose: socket2 0.5 still fails on emscripten, because
-# it tests for unix flavours without listing emscripten — which is wasm *and*
-# unix with a full libc. It needs the fix upstream (or to leave jsr's
-# dependency graph), not a local patch, so the wasm32-unknown-emscripten link
-# does not succeed from a clean checkout yet. EMSCRIPTEN_EXPERIMENT.md records
-# the exact change and the blocker.
-# Retired by upgrading or dropping the crate, not by patching locally: socket2
-# 0.6 (0.6.5 has the cfg upstream), deno_doc (0.208.0 ships
-# denoland/deno_doc#857), tar (0.4.46), slug (comrak 0.56 only uses it in
-# tests, so deno_doc stopped pulling it in), reqwest 0.11 (main moved jsr's own
-# client to 0.13, which has the emscripten cfg upstream), astral-tokio-tar
-# (tarballs are read with the sync `tar` crate) and reqwest 0.12 (rust-s3 was
-# its last user, replaced by rusty-s3 signing requests sent with reqwest 0.13).
