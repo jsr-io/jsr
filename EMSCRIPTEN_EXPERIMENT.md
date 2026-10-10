@@ -187,6 +187,38 @@ risk/reward.
 [rust-lang/socket2#660]: https://github.com/rust-lang/socket2/pull/660
 [denoland/deno_doc#857]: https://github.com/denoland/deno_doc/pull/857
 
+### Reproducing the link today
+The two outstanding fixes are not in the repo, so a clean checkout does not link.
+To get a working worker locally, vendor those two crates and point `[patch]` at
+them — as a local overlay you revert before committing, never as a commit:
+
+```sh
+# the two crates, at exactly the versions Cargo.lock resolves
+cp -r ~/.cargo/registry/src/*/socket2-0.5.10 .emscripten-patches/
+cp -r ~/.cargo/registry/src/*/reqwest-0.12.28 .emscripten-patches/
+chmod -R u+w .emscripten-patches/*
+# socket2: add `target_os = "emscripten",` to the `IovLen = c_int` cfg list in
+#   src/sys/unix.rs (see the table above)
+# reqwest: rewrite every `cfg(target_arch = "wasm32")` dependency gate in
+#   Cargo.toml to `cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))`
+```
+
+then in the workspace `Cargo.toml`, under `[patch.crates-io]`:
+
+```toml
+socket2_05 = { package = "socket2", path = ".emscripten-patches/socket2-0.5.10" }
+reqwest_012 = { package = "reqwest", path = ".emscripten-patches/reqwest-0.12.28" }
+```
+
+> **A `[patch]` whose version does not match what `Cargo.lock` already pins is
+> silently ignored — no warning.** This is the single easiest way to waste a
+> 15-minute build here: the build fails with the *unpatched* crate's errors and
+> nothing says why. After adding the entries, run `cargo metadata` and then
+> check the lock: a bound patch has **no `source =` line** under its
+> `[[package]]`. If the version differs, either vendor the version the lock
+> wants, or force the lock onto the vendored one with
+> `cargo update -p <crate>@<locked version> --precise <vendored version>`.
+
 ### Build & run
 ```sh
 # 0. Bring up a local Postgres + apply migrations. sqlx's `query!` macros verify
@@ -215,6 +247,14 @@ cd api && npx wrangler@latest dev --ip 127.0.0.1 --port 8787 \
     --var DATABASE_DISABLE_MIGRATIONS:'1'
 
 curl -s 'http://127.0.0.1:8787/api/packages?limit=1'   # -> {"items":[],"total":0}
+
+# Two things that look like failures and are not:
+#  * `wrangler dev` runs the `[build] command` itself, so expect 2-3 minutes
+#    before "Ready on http" even with a warm cargo cache. Wait for that line
+#    rather than a fixed timeout.
+#  * killing the wrangler node process does NOT reap its `workerd` children.
+#    Find the parent with `ps -o ppid= -p <workerd pid>`, kill that, then
+#    re-check `pgrep -a workerd`.
 
 # Fast iteration without a link (type-check only) still needs an emcc on PATH
 # for the C build scripts, and uses .cargo/config.toml's rustflags:
@@ -261,6 +301,13 @@ Measured 2026-09-30, `index_bg.wasm` after worker-build's link (emcc already run
 | `opt-level = "z"` + `lto = true`, 1 CGU | 22.0 MB | ~0.31 s | 53/64 × 200, 11 × 500 |
 | `opt-level = 3` + `lto = true`, 1 CGU | — | — | does not link (see below) |
 
+Those absolutes were measured **before merging main**, which added three
+tree-sitter grammars and swapped jsonwebtoken's aws-lc backend for the pure-Rust
+one; the chosen row now produces **25.92 MB**. The comparison between rows is
+what matters here, and it has not changed. The latency column is a single
+sequential request — see [What's left](#whats-left) for what happens at 64-way
+concurrency.
+
 `build-worker.sh` uses the `"s"` row: −34% for +20% latency. `"z"` buys another
 2 MB but triples latency, and at 64-way concurrency the slower code starves the
 per-request single-connection pool — 11 of 64 requests failed with
@@ -296,6 +343,35 @@ migrating **jsonwebtoken→10 / jsonwebkey→0.4 / x509-parser→0.16**, which u
 pure-Rust crypto (rsa/p256/p384/ed25519-dalek/fiat-crypto) and drop ring 0.16
 entirely. No jsr source changes were needed for that migration.
 
+## What's left
+In rough order of how reachable each one is:
+
+1. **socket2 0.5** — one line: `target_os = "emscripten"` in the
+   `IovLen = c_int` list. `rust-lang/socket2` keeps a **live `v0.5.x` branch**
+   that accepts target backports (precedent: "Add cygwin support (#568) (#578)")
+   and still cuts releases from it, so this is a backport PR against `v0.5.x`,
+   not master — master already has it via [#660]. Needs a fork to open the PR
+   from.
+2. **reqwest 0.12** — nothing to do here. jsr's own client is on 0.13 (which has
+   the emscripten cfg upstream) and so is the OTLP exporter; `rust-s3` is the
+   only thing left requiring `^0.12`, and 0.13 cannot satisfy that, so this one
+   moves when rust-s3 does.
+3. **tree-sitter** — currently handled in jsr (see the `api/src/tree_sitter.rs`
+   row above). When tree-sitter reopens to external PRs, send the cfg fix and
+   delete the newtype; it is the better answer and the change is already
+   written.
+4. **Per-request rebuild cost** — the open performance question, not a
+   correctness one: ~0.23 s alone versus ~7.7 s each at 64-way concurrency,
+   because every request rebuilds the router, DB pool, S3 clients, caches and a
+   tokio runtime. Anything cacheable across requests in a Worker (an isolate
+   lives longer than one request, but async I/O cannot be reused) would attack
+   this.
+5. **S3 paths** — still unexercised end to end; the smoke run has no MinIO.
+
+Prepared patches for 1 and 3 exist as `.git/*.diff` in the author's checkout,
+which **does not travel with a clone** — the tables above carry the actual
+changes, so nothing is lost if those files are gone.
+
 ## Known gaps
 - Config comes from the JS `env` (copied into the process env for clap). Secrets
   via `wrangler secret`.
@@ -304,7 +380,8 @@ entirely. No jsr source changes were needed for that migration.
   with no "Cannot perform I/O on behalf of a different request" or "Promise will
   never complete". The remaining ceiling is memory — jsr rebuilds the entire
   router (DB pool, S3 clients, moka caches, tracing) per request, times a
-  runtime each — not correctness.
+  runtime each — not correctness. Measured cost of that rebuild: a single
+  request is ~0.23 s cold, but at 64-way concurrency each one takes ~7.7 s.
 - **S3 paths untested** — the smoke run has no MinIO up, so only DB-backed routes
   (e.g. `/api/packages`) are exercised end to end.
 - The release `.wasm` is 25.9 MB — see [Size](#size) for the profile trade-offs. It was 24.26 MB before merging main, which added three tree-sitter grammars and swapped jsonwebtoken's aws-lc backend for the pure-Rust one.
@@ -313,10 +390,12 @@ entirely. No jsr source changes were needed for that migration.
   but unreleased (mio 1.2.4 predates it), and ring#2877 is still open. The two
   remaining per-crate cfg fixes are not in the repo at all, because jsr does not
   carry local patches of third-party crates — they have to land upstream first. Native `cargo test` is green without
-  them (173/173). The 3 formerly uncommitted `workers-rs/tokio` methods and the
+  them (267/267). The 3 formerly uncommitted `workers-rs/tokio` methods and the
   emscripten import-source workaround are both gone — see Patchset/Toolchain
   status.
 
 [astral-sh/tokio-tar#123]: https://github.com/astral-sh/tokio-tar/pull/123
 
 [#5851]: https://github.com/tree-sitter/tree-sitter/pull/5851
+
+[#660]: https://github.com/rust-lang/socket2/pull/660
