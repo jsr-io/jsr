@@ -31,9 +31,9 @@ impl comrak::adapters::SyntaxHighlighterAdapter for ComrakAdapter {
       match res {
         Ok(highlighter) => {
           let mut renderer = tree_sitter_highlight::HtmlRenderer::new();
-          match renderer
-            .render(highlighter, source, &|highlight| classes(highlight))
-          {
+          match renderer.render(highlighter, source, &|highlight, out| {
+            out.extend_from_slice(classes(highlight))
+          }) {
             Ok(()) => {
               let mut line_numbers = String::new();
               let mut lines = String::new();
@@ -164,7 +164,7 @@ pub fn tree_sitter_language_javascript() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_javascript::language(),
+      tree_sitter_javascript::LANGUAGE.into(),
       "javascript",
       tree_sitter_javascript::HIGHLIGHT_QUERY,
       tree_sitter_javascript::INJECTIONS_QUERY,
@@ -180,7 +180,7 @@ pub fn tree_sitter_language_jsx() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_javascript::language(),
+      tree_sitter_javascript::LANGUAGE.into(),
       "jsx",
       format!(
         "{} {}",
@@ -201,7 +201,7 @@ pub fn tree_sitter_language_typescript() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_typescript::language_typescript(),
+      tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
       "typescript",
       format!(
         "{} {}",
@@ -227,7 +227,7 @@ pub fn tree_sitter_language_tsx() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_typescript::language_tsx(),
+      tree_sitter_typescript::LANGUAGE_TSX.into(),
       "tsx",
       format!(
         "{} {} {}",
@@ -254,7 +254,7 @@ fn tree_sitter_language_json() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_json::language(),
+      tree_sitter_json::LANGUAGE.into(),
       "json",
       tree_sitter_json::HIGHLIGHTS_QUERY,
       "",
@@ -270,7 +270,7 @@ fn tree_sitter_language_css() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_css::language(),
+      tree_sitter_css::LANGUAGE.into(),
       "css",
       tree_sitter_css::HIGHLIGHTS_QUERY,
       "",
@@ -286,7 +286,7 @@ fn tree_sitter_language_markdown() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_md::language(),
+      tree_sitter_md::LANGUAGE.into(),
       "markdown",
       tree_sitter_md::HIGHLIGHT_QUERY_BLOCK,
       tree_sitter_md::INJECTION_QUERY_BLOCK,
@@ -302,7 +302,7 @@ fn tree_sitter_language_xml() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_xml::language_xml(),
+      tree_sitter_xml::LANGUAGE_XML.into(),
       "xml",
       tree_sitter_xml::XML_HIGHLIGHT_QUERY,
       "",
@@ -318,7 +318,7 @@ fn tree_sitter_language_dtd() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_xml::language_dtd(),
+      tree_sitter_xml::LANGUAGE_DTD.into(),
       "dtd",
       tree_sitter_xml::DTD_HIGHLIGHT_QUERY,
       "",
@@ -334,7 +334,7 @@ fn tree_sitter_language_regex() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_regex::language(),
+      tree_sitter_regex::LANGUAGE.into(),
       "regex",
       tree_sitter_regex::HIGHLIGHTS_QUERY,
       "",
@@ -350,7 +350,7 @@ fn tree_sitter_language_rust() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_rust::language(),
+      tree_sitter_rust::LANGUAGE.into(),
       "rust",
       tree_sitter_rust::HIGHLIGHTS_QUERY,
       tree_sitter_rust::INJECTIONS_QUERY,
@@ -366,7 +366,7 @@ fn tree_sitter_language_html() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_html::language(),
+      tree_sitter_html::LANGUAGE.into(),
       "html",
       tree_sitter_html::HIGHLIGHTS_QUERY,
       tree_sitter_html::INJECTIONS_QUERY,
@@ -382,7 +382,7 @@ fn tree_sitter_language_bash() -> &'static HighlightConfiguration {
   static CONFIG: OnceLock<HighlightConfiguration> = OnceLock::new();
   CONFIG.get_or_init(|| {
     let mut config = HighlightConfiguration::new(
-      tree_sitter_bash::language(),
+      tree_sitter_bash::LANGUAGE.into(),
       "bash",
       tree_sitter_bash::HIGHLIGHT_QUERY,
       "",
@@ -392,4 +392,65 @@ fn tree_sitter_language_bash() -> &'static HighlightConfiguration {
     config.configure(CAPTURE_NAMES);
     config
   })
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use comrak::adapters::SyntaxHighlighterAdapter;
+
+  fn highlight(lang: &str, code: &str) -> String {
+    let adapter = ComrakAdapter {
+      show_line_numbers: false,
+    };
+    let mut out = Vec::new();
+    adapter
+      .write_highlighted(&mut out, Some(lang), code)
+      .unwrap();
+    String::from_utf8(out).unwrap()
+  }
+
+  // Nothing fails loudly when a grammar and `CAPTURE_NAMES` stop lining up --
+  // the code just comes back as unhighlighted plain text -- so check that a
+  // token actually gets a class in each language we claim to support.
+  #[test]
+  fn highlights_supported_languages() {
+    let ts = highlight("ts", "const x: string = \"hi\";");
+    assert!(ts.contains(r#"<span class="pl-k">const</span>"#), "{ts}");
+    assert!(ts.contains(r#"<span class="pl-smi">string</span>"#), "{ts}");
+    assert!(
+      ts.contains(r#"<span class="pl-s">&quot;hi&quot;</span>"#),
+      "{ts}"
+    );
+
+    let jsx = highlight("jsx", "const a = <div className=\"x\">{y}</div>;");
+    assert!(jsx.contains(r#"<span class="pl-ent">div</span>"#), "{jsx}");
+
+    let rust = highlight("rust", "fn main() { let s = 1; }");
+    assert!(
+      rust.contains(r#"<span class="pl-en">main</span>"#),
+      "{rust}"
+    );
+
+    let bash = highlight("bash", "echo hi | grep x");
+    assert!(
+      bash.contains(r#"<span class="pl-en">echo</span>"#),
+      "{bash}"
+    );
+
+    let json = highlight("json", "{\"a\": 1}");
+    assert!(json.contains(r#"<span class="pl-c1">1</span>"#), "{json}");
+
+    let css = highlight("css", "a { color: red; }");
+    assert!(css.contains(r#"<span class="pl-ent">a</span>"#), "{css}");
+
+    let xml = highlight("xml", "<a b=\"c\">d</a>");
+    assert!(xml.contains(r#"<span class="pl-ent">a</span>"#), "{xml}");
+
+    let html = highlight("html", "<p>hi</p>");
+    assert!(html.contains(r#"<span class="pl-ent">p</span>"#), "{html}");
+
+    let regex = highlight("regex", "^a+b$");
+    assert!(regex.contains(r#"<span class="pl-c1">+</span>"#), "{regex}");
+  }
 }

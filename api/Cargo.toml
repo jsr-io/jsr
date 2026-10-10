@@ -125,17 +125,17 @@ sitemap-rs = "0.2.1"
 askalono = { version = "0.5.0", features = ["gzip"] }
 moka = { version = "0.12", features = ["future"] }
 
-tree-sitter-highlight = "0.22.6"
-tree-sitter-javascript = "0.21.4"
-tree-sitter-typescript = "0.21.2"
-tree-sitter-json = "0.21.0"
-tree-sitter-regex = "0.21.0"
-tree-sitter-css = "0.21.0"
-tree-sitter-md = "0.2.3"
-tree-sitter-rust = "0.21.2"
-tree-sitter-html = "0.20.3"
-tree-sitter-bash = "0.21.0"
-tree-sitter-xml = "0.6.4"
+tree-sitter-highlight = "0.26.13"
+tree-sitter-javascript = "0.25.0"
+tree-sitter-typescript = "0.23.2"
+tree-sitter-json = "0.24.8"
+tree-sitter-regex = "0.25.0"
+tree-sitter-css = "0.25.0"
+tree-sitter-md = "0.5.3"
+tree-sitter-rust = "0.24.2"
+tree-sitter-html = "0.23.2"
+tree-sitter-bash = "0.25.1"
+tree-sitter-xml = "0.7.0"
 lazy_static = "1.5.0"
 registry_api_macros = { path = "macros" }
 jsr_types = { path = "../crates/jsr_types", features = ["sqlx"] }
