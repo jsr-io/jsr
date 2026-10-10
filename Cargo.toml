@@ -1,3 +1,44 @@
 [workspace]
 members = ["api", "api/macros", "crates/jsr_types"]
 resolver = "2"
+
+# EXPERIMENT (temporary, do not commit): build registry_api for
+# wasm32-unknown-emscripten. See EMSCRIPTEN_EXPERIMENT.md for the recipe.
+#
+# The only patches here are the workers-rs emscripten tokio patchset, copied
+# verbatim from cloudflare/workers-rs `examples/emscripten-tokio/Cargo.toml` —
+# tokio's emscripten event-loop runtime (tokio-rs/tokio#8484) driven through mio's
+# emscripten backend (tokio-rs/mio#1969). Everything else (wasm-bindgen's
+# `experimental_tokio` exports, the patched emsdk frontend, libc's emscripten
+# decls) comes from published crates: wasm-bindgen 0.2.129, libc 0.2.190 and
+# `worker-build --emscripten`.
+
+# REQUIRED Patchset - Tokio patchset, pending upstream PRs
+# The emscripten declarations this patchset needed shipped in libc 0.2.190
+# (2026-10-02), so libc no longer has to come from git. The mio fork still hardcodes
+# `libc = { git = "rust-lang/libc", branch = "libc-0.2" }`, so redirect that source at
+# the published crate to keep a single libc in the graph. (The upstream patchset's
+# `[patch."https://github.com/guybedford/libc"]` block is vestigial — nothing in the
+# graph depends on that fork.)
+[patch."https://github.com/rust-lang/libc"]
+libc = { version = "0.2.190" }
+
+[patch.crates-io]
+
+# Pending https://github.com/tokio-rs/tokio/pull/8484
+tokio = { git = "https://github.com/guybedford/tokio", tag = "1.53.1-cf.emscripten" }
+tokio-macros = { git = "https://github.com/guybedford/tokio", tag = "1.53.1-cf.emscripten" }
+
+# Pending https://github.com/tokio-rs/mio/pull/1969
+mio = { git = "https://github.com/guybedford/mio", tag = "1.2.3-cf.emscripten" }
+
+# NOT patched here, on purpose: six fixes across five crates are missing. Those
+# crates take a browser code path on emscripten because they test
+# `target_arch = "wasm32"` without looking at `target_os` — emscripten is wasm
+# *and* unix with a full libc. Each needs the fix upstream (or to leave jsr's
+# dependency graph), not a local patch, so the wasm32-unknown-emscripten link
+# does not succeed from a clean checkout yet.
+# EMSCRIPTEN_EXPERIMENT.md records the exact change and the blocker for each:
+# ring, socket2 0.5, reqwest 0.11, reqwest 0.12, slug, astral-tokio-tar.
+# Already retired by upgrading rather than patching: socket2 0.6 (0.6.5 has the
+# cfg upstream), deno_doc (0.208.0 ships denoland/deno_doc#857), tar (0.4.46).

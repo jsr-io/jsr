@@ -40,7 +40,8 @@
     ".minio/",
     "frontend/_fresh",
     "e2e/vendor",
-    "api/license-list-data"
+    "api/license-list-data",
+    ".emscripten-patches/"
   ],
   "imports": {
     "@deno/doc": "jsr:@deno/doc@^0.194.0",

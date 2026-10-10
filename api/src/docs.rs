@@ -776,6 +776,8 @@ pub fn get_generate_ctx(
       head_inject: None,
       id_prefix: None,
       diff_only: diff.as_ref().map(|diff| !diff.1).unwrap_or_default(),
+      // `None` keeps deno_doc rendering every symbol, as before 0.208 added this.
+      symbol_listing_limit: None,
     },
     None,
     deno_doc::html::FileMode::Normal,

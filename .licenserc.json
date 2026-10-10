@@ -10,6 +10,7 @@
     ".gcs/",
     "terraform/.terraform/",
     ".git/",
-    "e2e/vendor/"
+    "e2e/vendor/",
+    ".emscripten-patches/"
   ]
 }

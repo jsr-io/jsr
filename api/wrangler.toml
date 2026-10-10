@@ -6,7 +6,19 @@
 # Use 127.0.0.1 rather than `localhost` in DATABASE_URL / S3_ENDPOINT:
 # emscripten's resolver returns EAI -2 for `localhost`, but a literal IP skips DNS.
 name = "jsr-api"
-# target/ is at the workspace root, one level up from api/.
-main = "../target/wasm32-unknown-emscripten/release/deps/registry_api.js"
-compatibility_date = "2026-06-02"
-compatibility_flags = ["nodejs_compat", "new_module_registry", "no_handle_cross_request_promise_resolution"]
+# `worker-build --emscripten` output: emcc's JS + wasm, wasm-bindgen'd, wrapped
+# in the generated `WorkerEntrypoint` shim and bundled by esbuild.
+main = "build/index.js"
+compatibility_date = "2026-09-02"
+# nodejs_compat: emscripten's node glue imports node: builtins (esbuild keeps
+# them external). new_module_registry: gives that glue `import.meta.url`.
+# `experimental_tokio = "isolated"` gives each request its own runtime, so no
+# promise is ever settled from another request's context and
+# `no_handle_cross_request_promise_resolution` is not needed.
+compatibility_flags = ["nodejs_compat", "new_module_registry"]
+
+[build]
+# See build-worker.sh: it runs `worker-build --emscripten --release` with the
+# RUSTFLAGS and release-profile settings worker-build cannot infer, then runs a
+# second converging `wasm-opt -Oz` pass over the linked module.
+command = "./build-worker.sh"

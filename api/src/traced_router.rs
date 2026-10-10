@@ -6,6 +6,10 @@
 
 // Adapted from https://github.com/routerify/routerify. Copyright 2020 Rousan Ali. MIT License
 
+// Distributed-trace propagation and the `x-deno-ray` trace-id response header
+// are native-only: they read from the OpenTelemetry span context, and the
+// opentelemetry stack isn't compiled into the wasm worker (see `tracing.rs`).
+#[cfg(not(target_arch = "wasm32"))]
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::future::Future;
@@ -20,10 +24,13 @@ use futures::FutureExt;
 use hyper::Request;
 use hyper::Response;
 use hyper::body::HttpBody;
+#[cfg(not(target_arch = "wasm32"))]
 use hyper::header::HeaderValue;
 use hyper::server::conn::AddrStream;
 use hyper::service::Service;
+#[cfg(not(target_arch = "wasm32"))]
 use opentelemetry::global;
+#[cfg(not(target_arch = "wasm32"))]
 use opentelemetry::trace::TraceContextExt;
 use routerify::RequestService;
 use routerify::RequestServiceBuilder;
@@ -33,6 +40,7 @@ use tracing::Span;
 use tracing::error;
 use tracing::field;
 use tracing::info_span;
+#[cfg(not(target_arch = "wasm32"))]
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 #[derive(Debug)]
@@ -128,6 +136,9 @@ impl<
       "otel.kind" = "server"
     );
 
+    // Adopt an incoming distributed-trace context on internal requests so
+    // spans link across services. Native-only: no otel propagator on the worker.
+    #[cfg(not(target_arch = "wasm32"))]
     if self.is_internal {
       global::get_text_map_propagator(|propagator| {
         let mut headers = HashMap::new();
@@ -144,13 +155,18 @@ impl<
         Ok(mut resp) => {
           let status = resp.status();
           let span = Span::current();
-          let ctx = span.context();
-          let span_ref = ctx.span();
-          let span_ctx = span_ref.span_context();
-          let trace_id = span_ctx.trace_id().to_string();
-          let headers = resp.headers_mut();
-          headers
-            .insert("x-deno-ray", HeaderValue::from_str(&trace_id).unwrap());
+          // Stamp the response with its trace id (`x-deno-ray`) for support
+          // correlation. Native-only: the worker has no otel span context.
+          #[cfg(not(target_arch = "wasm32"))]
+          {
+            let ctx = span.context();
+            let span_ref = ctx.span();
+            let span_ctx = span_ref.span_context();
+            let trace_id = span_ctx.trace_id().to_string();
+            let headers = resp.headers_mut();
+            headers
+              .insert("x-deno-ray", HeaderValue::from_str(&trace_id).unwrap());
+          }
           span.record("http.status_code", status.as_u16());
           Ok(resp)
         }

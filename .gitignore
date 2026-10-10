@@ -24,3 +24,10 @@ lb/node_modules
 .minio
 
 .idea
+
+# wrangler (emscripten worker experiment)
+.wrangler/
+api/build/
+# locally reconstructed vendored crate patches — never committed,
+# see EMSCRIPTEN_EXPERIMENT.md
+.emscripten-patches/

@@ -2378,7 +2378,8 @@ async fn analyze_deps_tree(
         skip_dynamic_deps: false,
         module_info_cacher: Default::default(),
         unstable_bytes_imports: false,
-        unstable_text_imports: false,
+        unstable_config_imports: false,
+        prefer_cached_jsr_versions: false,
         jsr_metadata_store: None,
 
         unstable_css_imports: false,

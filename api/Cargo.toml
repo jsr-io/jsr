@@ -49,7 +49,20 @@ reqwest = { version = "0.11.18", default-features = false, features = [
 rmp-serde = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1", features = ["full"] }
+# `full` minus the features tokio refuses to build on wasm32-unknown-emscripten:
+# `process`/`signal` are unsupported there, and `rt-multi-thread` needs pthreads
+# (the emscripten runtime is single-threaded). Native re-adds `full` below.
+tokio = { version = "1", features = [
+    "fs",
+    "io-util",
+    "io-std",
+    "macros",
+    "net",
+    "parking_lot",
+    "rt",
+    "sync",
+    "time",
+] }
 tokio-stream = "0.1"
 url = "2.5.4"
 uuid = { version = "1", features = ["v4", "serde"] }
@@ -67,28 +80,7 @@ const_format = { version = "0.2", features = ["const_generics"] }
 tar = "0.4"
 tracing = "0.1"
 tracing-futures = "0.2"
-tracing-opentelemetry = "0.28"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-opentelemetry = { version = "0.27", features = ["trace", "logs"] }
-opentelemetry_sdk = { version = "0.27", features = [
-    "rt-tokio",
-    "trace",
-    "logs",
-] }
-# Bridges `tracing` events into OpenTelemetry log records so the same logs we
-# print to stdout are also exported over OTLP (to Grafana Cloud Loki).
-opentelemetry-appender-tracing = "0.27"
-# OTLP over HTTP/protobuf (not gRPC): the managed Grafana Cloud OTLP gateway only
-# speaks OTLP/HTTP. `reqwest-client` routes export through reqwest (its own
-# reqwest 0.12, separate from the app's reqwest 0.11). Default `grpc-tonic` is
-# off. `http-proto` enables trace+metrics; `logs` is listed explicitly because
-# it does not.
-opentelemetry-otlp = { version = "0.27", default-features = false, features = [
-    "trace",
-    "logs",
-    "http-proto",
-    "reqwest-client",
-] }
 # wasm32 (emscripten worker): drop `tokio-rustls-tls`, which drags in
 # aws-creds/rustls-tls -> attohttpc -> rustls(aws-lc), and aws-lc-sys won't
 # build for emscripten. jsr uses static S3 creds, so aws-creds' HTTP credential
@@ -106,10 +98,10 @@ astral-tokio-tar = { version = "0.6", default-features = false }
 async-compression = { version = "0.4", features = ["tokio", "gzip"] }
 # `compat` bridges the S3 download's futures-io AsyncRead to tokio's AsyncRead.
 tokio-util = { version = "0.7", features = ["compat"] }
-deno_graph = "=0.109.0"
+deno_graph = "=0.111.0"
 deno_ast = { version = "0.53.0", features = ["view"] }
 # sync with frontend/deno.json
-deno_doc = { version = "=0.201.0", features = ["comrak"] }
+deno_doc = { version = "=0.208.0", features = ["comrak"] }
 deno_error = "0.7.0"
 comrak = { version = "0.29.0", default-features = false }
 ammonia = "4.0.0"
@@ -152,7 +144,17 @@ jsr_types = { path = "../crates/jsr_types", features = ["sqlx"] }
 # to hyper. These match the wasm-bindgen version the workers-rs post-link CLI
 # expects (pinned via the [patch] block in the workspace Cargo.toml).
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+# `worker-build --emscripten` version-locks its toolchain against the SDK crate
+# and refuses to run without it in the graph, and it reads the
+# `experimental_tokio` feature to decide whether to pass `--cfg=tokio_unstable
+# --cfg=wasm_bindgen_unstable_tokio`. registry_api does not use the SDK's
+# router/macros — the `fetch` export below is raw wasm-bindgen.
+worker = { version = "0.8.7", features = ["experimental_tokio"] }
 wasm-bindgen = "0.2"
+# The hosted runtime `#[wasm_bindgen(experimental_tokio)]` (the `fetch` export)
+# schedules its future onto lives here. It needs no feature: wasm-bindgen-futures
+# takes its tokio dependency under `cfg(all(target_os = "emscripten",
+# wasm_bindgen_unstable_tokio))`, the cfg the build supplies.
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
 web-sys = { version = "0.3", features = [
@@ -165,11 +167,43 @@ web-sys = { version = "0.3", features = [
 # jemalloc has no wasm32 build; keep it (and its profiling endpoints) only for
 # the native compute service.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# The native server keeps all of tokio: `#[tokio::main]` is multi-threaded and
+# the shutdown path listens for signals.
+tokio = { version = "1", features = ["full"] }
 tikv-jemallocator = { version = "0.6", features = ["profiling"] }
 tikv-jemalloc-ctl = { version = "0.6", features = ["stats"] }
+# OpenTelemetry/OTLP export is native-only. The worker always runs with OTLP
+# disabled (empty endpoint), so this whole stack — opentelemetry_*, and through
+# opentelemetry-otlp the tonic/prost/h2 gRPC+protobuf machinery — would be
+# multiple megabytes of never-executed code in the wasm binary. Gating it here
+# keeps the worker's stdout tracing intact while dropping the exporter.
+tracing-opentelemetry = "0.28"
+opentelemetry = { version = "0.27", features = ["trace", "logs"] }
+opentelemetry_sdk = { version = "0.27", features = [
+    "rt-tokio",
+    "trace",
+    "logs",
+] }
+# Bridges `tracing` events into OpenTelemetry log records so the same logs we
+# print to stdout are also exported over OTLP (to Grafana Cloud Loki).
+opentelemetry-appender-tracing = "0.27"
+# OTLP over HTTP/protobuf (not gRPC): the managed Grafana Cloud OTLP gateway only
+# speaks OTLP/HTTP. `reqwest-client` routes export through reqwest (its own
+# reqwest 0.12, separate from the app's reqwest 0.11). Default `grpc-tonic` is
+# off. `http-proto` enables trace+metrics; `logs` is listed explicitly because
+# it does not.
+opentelemetry-otlp = { version = "0.27", default-features = false, features = [
+    "trace",
+    "logs",
+    "http-proto",
+    "reqwest-client",
+] }
 # Native keeps the original rustls-based S3 TLS stack (feature-unifies with the
-# base rust-s3 dep above).
-rust-s3 = { version = "0.37.1", features = ["tokio-rustls-tls"] }
+# base rust-s3 dep above). `default-features = false` matters: rust-s3's defaults
+# include `fail-on-err`, which makes `get_object` return `Err` on a 404 instead
+# of a response with `status_code() == 404` — the shape `s3::Bucket::download`
+# checks for.
+rust-s3 = { version = "0.37.1", default-features = false, features = ["tokio-rustls-tls"] }
 
 [build-dependencies]
 # Keep the codec in sync with the runtime askalono dep (gzip, not zstd), so the

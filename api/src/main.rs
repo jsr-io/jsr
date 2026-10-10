@@ -492,17 +492,21 @@ mod worker {
     web_sys::Response::new_with_opt_u8_array_and_init(Some(&mut body_vec), &init)
   }
 
-  #[wasm_bindgen(tokio, js_namespace = ["default"])]
+  // No `js_namespace = ["default"]`: `worker-build --emscripten` generates the
+  // `export default` itself — a `WorkerEntrypoint` subclass whose `fetch`
+  // forwards to this export as `exports.fetch.call(this, request, env, ctx)`.
+  #[wasm_bindgen(experimental_tokio = "isolated")]
   pub async fn fetch(
     request: web_sys::Request,
     env: JsValue,
     _ctx: JsValue,
   ) -> Result<web_sys::Response, JsValue> {
-    // A Cloudflare Worker cannot reuse async I/O (open sockets, the sqlx DB
-    // pool) across requests — an I/O object created in one request's handler is
-    // unusable in the next ("Cannot perform I/O on behalf of a different
-    // request"). So build the whole router, and thus fresh DB connections,
-    // inside each request's own context rather than caching it across requests.
+    // `experimental_tokio = "isolated"` builds a fresh hosted runtime (its own epoll, timers,
+    // tasks) for this request and tears it down when the request settles, so no
+    // I/O ever crosses request contexts ("Cannot perform I/O on behalf of a
+    // different request") and concurrent requests don't collide. Build the whole
+    // router — and thus its DB connections — inside this runtime rather than
+    // caching it across requests: I/O bound to a torn-down runtime is unusable.
     env_into_process(&env);
     let config = Config::try_parse()
       .map_err(|e| JsValue::from_str(&format!("config: {e}")))?;
