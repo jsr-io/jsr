@@ -130,9 +130,7 @@ pub async fn setup_tracing(
     ];
     // Distinguishes staging from prod telemetry when both export to the same
     // backend. Empty/unset omits it rather than reporting a blank environment.
-    if let Some(env) =
-      deployment_environment.filter(|s| !s.trim().is_empty())
-    {
+    if let Some(env) = deployment_environment.filter(|s| !s.trim().is_empty()) {
       resource.push(KeyValue::new("deployment.environment", env));
     }
     let resource = Resource::new(resource);

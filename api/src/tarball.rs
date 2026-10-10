@@ -14,15 +14,15 @@ use deno_semver::package::PackageReqReference;
 use deno_semver::package::PackageReqReferenceParseError;
 use futures::StreamExt;
 use futures::TryStreamExt;
-use tokio::io::AsyncReadExt;
-use tokio_tar::EntryType;
-use tokio_util::compat::FuturesAsyncReadCompatExt;
 use indexmap::IndexMap;
 use jsonc_parser::ParseOptions;
 use serde::Deserialize;
 use serde::Serialize;
 use sha2::Digest;
 use thiserror::Error;
+use tokio::io::AsyncReadExt;
+use tokio_tar::EntryType;
+use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tracing::Span;
 use tracing::instrument;
 use url::Url;
@@ -119,8 +119,7 @@ pub async fn process_tarball(
 
   // Bridge the S3 download (a futures-io AsyncRead) to tokio's AsyncRead, then
   // gunzip and read the tar with the tokio-based tar reader.
-  let tokio_read =
-    tokio::io::BufReader::new(stream.into_async_read().compat());
+  let tokio_read = tokio::io::BufReader::new(stream.into_async_read().compat());
   let decompressed =
     async_compression::tokio::bufread::GzipDecoder::new(tokio_read);
   let mut archive = tokio_tar::Archive::new(decompressed);

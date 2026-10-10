@@ -616,7 +616,6 @@ mod tests {
   use std::fmt::Write;
   use std::io::Read;
 
-  use tokio_tar::Archive;
   use deno_ast::ModuleSpecifier;
   use deno_graph::BuildFastCheckTypeGraphOptions;
   use deno_graph::BuildOptions;
@@ -630,6 +629,7 @@ mod tests {
   use deno_semver::package::PackageReqReference;
   use futures::StreamExt;
   use tokio::io::AsyncReadExt;
+  use tokio_tar::Archive;
   use url::Url;
 
   use crate::analysis::JsrResolver;

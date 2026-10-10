@@ -390,14 +390,16 @@ mod worker {
   /// Copy the string-valued entries of the worker `env` object into the process
   /// environment so clap's `env = "..."` config parsing sees them.
   fn env_into_process(env: &JsValue) {
-    let Ok(entries) = js_sys::Object::entries(&js_sys::Object::from(env.clone()))
-      .dyn_into::<js_sys::Array>()
+    let Ok(entries) =
+      js_sys::Object::entries(&js_sys::Object::from(env.clone()))
+        .dyn_into::<js_sys::Array>()
     else {
       return;
     };
     for entry in entries.iter() {
       let pair = js_sys::Array::from(&entry);
-      if let (Some(k), Some(v)) = (pair.get(0).as_string(), pair.get(1).as_string())
+      if let (Some(k), Some(v)) =
+        (pair.get(0).as_string(), pair.get(1).as_string())
       {
         // SAFETY: single-threaded emscripten worker; no other threads race here.
         unsafe { std::env::set_var(k, v) };
@@ -410,7 +412,10 @@ mod worker {
   fn host_of(url: &str) -> Option<String> {
     let after_scheme = url.split_once("://").map(|(_, r)| r).unwrap_or(url);
     let authority = after_scheme.split(['/', '?', '#']).next().unwrap_or("");
-    let host = authority.rsplit_once('@').map(|(_, h)| h).unwrap_or(authority);
+    let host = authority
+      .rsplit_once('@')
+      .map(|(_, h)| h)
+      .unwrap_or(authority);
     // Strip a trailing `:port`; leave IPv6 literals (`[::1]`) alone.
     let host = if host.starts_with('[') {
       host
@@ -489,7 +494,10 @@ mod worker {
     init.set_headers(&headers);
 
     let mut body_vec = bytes.to_vec();
-    web_sys::Response::new_with_opt_u8_array_and_init(Some(&mut body_vec), &init)
+    web_sys::Response::new_with_opt_u8_array_and_init(
+      Some(&mut body_vec),
+      &init,
+    )
   }
 
   // No `js_namespace = ["default"]`: `worker-build --emscripten` generates the
@@ -517,7 +525,9 @@ mod worker {
       .flatten()
       .collect::<std::collections::BTreeSet<_>>()
     {
-      dns_prewarm(&host).await.map_err(|e| JsValue::from_str(&e))?;
+      dns_prewarm(&host)
+        .await
+        .map_err(|e| JsValue::from_str(&e))?;
     }
     let router = build_router(config).await;
     let mut builder = TracedRequestServiceBuilder::new(router)

@@ -78,9 +78,7 @@ pub fn api_router() -> Router<Body, ApiError> {
       util::auth(crate::jemalloc_profiling::heap_profile_handler),
     );
 
-  builder
-    .build()
-    .unwrap()
+  builder.build().unwrap()
 }
 
 async fn openapi_handler(
