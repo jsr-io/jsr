@@ -105,16 +105,42 @@ export async function packageDataWithDocs(
   version: string | undefined,
   docs: DocsRequest,
 ): Promise<PackageVersionDocsRedirect | DocsData | Response | null> {
-  let [data, pkgDocsResp] = await Promise.all([
-    packageData(state, scope, pkg),
-    state.api.get<PackageVersionDocs>(
-      path`/scopes/${scope}/packages/${pkg}/versions/${
-        version || "latest"
-      }/docs`,
+  let data: PackageData | null;
+  let pkgDocsResp: APIResponse<PackageVersionDocs> | null;
+  if (version) {
+    // The API only serves docs for the latest unyanked version and rejects
+    // every other pinned version with `docsOnlyForLatestVersion`. Crawlers
+    // walk huge numbers of old versioned symbol URLs, so decide locally from
+    // `latestVersion` (computed by the same query the docs endpoint uses)
+    // instead of paying for a docs request that is guaranteed to fail.
+    // `latestVersion` is null when only prereleases exist; the API is the
+    // authority in that case.
+    data = await packageData(state, scope, pkg);
+    if (data === null) return null;
+    if (data.pkg.latestVersion !== null && data.pkg.latestVersion !== version) {
+      return await nonLatestVersionDocs(
+        state,
+        scope,
+        pkg,
+        version,
+        docs,
+        data,
+      );
+    }
+    pkgDocsResp = await state.api.get<PackageVersionDocs>(
+      path`/scopes/${scope}/packages/${pkg}/versions/${version}/docs`,
       docs,
-    ) as Promise<APIResponse<PackageVersionDocs> | null>,
-  ]);
-  if (data === null) return null;
+    );
+  } else {
+    [data, pkgDocsResp] = await Promise.all([
+      packageData(state, scope, pkg),
+      state.api.get<PackageVersionDocs>(
+        path`/scopes/${scope}/packages/${pkg}/versions/latest/docs`,
+        docs,
+      ) as Promise<APIResponse<PackageVersionDocs> | null>,
+    ]);
+    if (data === null) return null;
+  }
 
   if (pkgDocsResp && !pkgDocsResp.ok) {
     if (pkgDocsResp.code === "packageVersionNotFound") {
@@ -126,6 +152,16 @@ export async function packageDataWithDocs(
     } else {
       if (pkgDocsResp.code === "scopeNotFound") return null;
       if (pkgDocsResp.code === "packageNotFound") return null;
+      if (pkgDocsResp.code === "docsOnlyForLatestVersion") {
+        return await nonLatestVersionDocs(
+          state,
+          scope,
+          pkg,
+          version!,
+          docs,
+          data,
+        );
+      }
       if (pkgDocsResp.code === "entrypointOrSymbolNotFound") {
         // redirect to all symbols page if there is no default entrypoint
         if ("entrypoint" in docs && !docs.symbol && docs.entrypoint === "") {
@@ -133,7 +169,7 @@ export async function packageDataWithDocs(
             headers: {
               Location: `/@${scope}/${pkg}${
                 version ? `@${version}` : ""
-              }/doc/all_symbols`,
+              }/doc/all_symbols?no_default_entrypoint`,
             },
             status: 302,
           });
@@ -170,6 +206,53 @@ export async function packageDataWithDocs(
       },
     };
   }
+}
+
+/**
+ * Docs for a pinned version that is not the latest unyanked version. Doc pages
+ * redirect to the canonical (versionless) URL, which serves the latest
+ * version; the package overview page is rendered without docs so the version
+ * stays visible.
+ */
+async function nonLatestVersionDocs(
+  state: State,
+  scope: string,
+  pkg: string,
+  version: string,
+  docs: DocsRequest,
+  data: PackageData,
+): Promise<DocsData | Response | null> {
+  if ("entrypoint" in docs || "all_symbols" in docs) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: `/@${scope}/${pkg}/doc${compileDocsRequestPath(docs)}`,
+        // The target is derived from the URL alone, and an old version only
+        // becomes the latest again if every newer version is yanked (in which
+        // case the versionless URL serves it anyway), so the edge can absorb
+        // repeat hits. Mirrors the versioned doc pages' policy.
+        "Cache-Control":
+          "public, max-age=30, s-maxage=3600, stale-while-revalidate=10800",
+      },
+    });
+  }
+
+  const pkgVersionResp = await state.api.get<PackageVersionWithUser>(
+    path`/scopes/${scope}/packages/${pkg}/versions/${version}`,
+  );
+  if (!pkgVersionResp.ok) {
+    if (pkgVersionResp.code === "packageVersionNotFound") return null;
+    if (pkgVersionResp.code === "scopeNotFound") return null;
+    if (pkgVersionResp.code === "packageNotFound") return null;
+    assertOk(pkgVersionResp);
+  }
+  return {
+    ...data,
+    kind: "content",
+    selectedVersion: pkgVersionResp.data,
+    selectedVersionIsLatestUnyanked: false,
+    docs: null,
+  };
 }
 
 export interface DocsData extends PackageData {

@@ -12,16 +12,16 @@
       "url": "https://gitlab.syncad.com/hive/dhive/-/blob/master/LICENSE",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:55:36Z",
+      "timestamp": "2026-08-27T17:03:00Z",
       "isWayBackLink": false,
       "order": 0
     },
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/greymass/swift-eosio/blob/master/LICENSE",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:55:36Z",
+      "timestamp": "2026-08-27T17:03:01Z",
       "isWayBackLink": false,
       "order": 1
     }

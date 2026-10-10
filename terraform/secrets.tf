@@ -23,6 +23,18 @@ resource "google_secret_manager_secret_version" "gitlab_client_secret" {
   secret_data = var.gitlab_client_secret
 }
 
+resource "google_secret_manager_secret" "turnstile_secret_key" {
+  secret_id = "turnstile-secret-key"
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "turnstile_secret_key" {
+  secret      = google_secret_manager_secret.turnstile_secret_key.id
+  secret_data = cloudflare_turnstile_widget.login.secret
+}
+
 resource "google_secret_manager_secret" "postmark_token" {
   secret_id = "postmark-token"
   replication {
@@ -33,6 +45,20 @@ resource "google_secret_manager_secret" "postmark_token" {
 resource "google_secret_manager_secret_version" "postmark_token" {
   secret      = google_secret_manager_secret.postmark_token.id
   secret_data = var.postmark_token
+}
+
+// The password Postmark authenticates with when delivering inbound support
+// email. See api/src/api/hooks.rs.
+resource "google_secret_manager_secret" "postmark_webhook_password" {
+  secret_id = "postmark-webhook-password"
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "postmark_webhook_password" {
+  secret      = google_secret_manager_secret.postmark_webhook_password.id
+  secret_data = var.postmark_webhook_password
 }
 
 resource "google_secret_manager_secret" "algolia_write_api_key" {

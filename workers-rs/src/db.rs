@@ -62,7 +62,7 @@ pub async fn ping(client: &Client) -> Result<i32> {
 pub async fn stats(client: &Client) -> Result<ApiStats> {
   let newest_rows = client
     .query(
-      r#"SELECT packages.scope as "scope", packages.name as "name"
+      r#"SELECT packages.scope as "scope", packages.name as "name", packages.description as "description"
       FROM packages
       WHERE EXISTS (
         SELECT 1 FROM package_versions
@@ -77,7 +77,7 @@ pub async fn stats(client: &Client) -> Result<ApiStats> {
 
   let updated_rows = client
     .query(
-      r#"SELECT package_versions.scope as "scope", package_versions.name as "name", package_versions.version as "version"
+      r#"SELECT package_versions.scope as "scope", package_versions.name as "name", package_versions.version as "version", packages.description as "description"
       FROM package_versions
       JOIN packages ON packages.scope = package_versions.scope AND packages.name = package_versions.name
       WHERE NOT packages.is_archived
@@ -90,7 +90,7 @@ pub async fn stats(client: &Client) -> Result<ApiStats> {
 
   let featured_rows = client
     .query(
-      r#"SELECT packages.scope as "scope", packages.name as "name"
+      r#"SELECT packages.scope as "scope", packages.name as "name", packages.description as "description"
       FROM packages
       WHERE packages.when_featured IS NOT NULL AND NOT packages.is_archived
       ORDER BY packages.when_featured DESC
@@ -105,6 +105,7 @@ pub async fn stats(client: &Client) -> Result<ApiStats> {
     newest.push(ApiStatsPackage {
       scope: scope_name(row, "scope")?,
       name: package_name(row, "name")?,
+      description: row.get("description"),
     });
   }
 
@@ -115,6 +116,7 @@ pub async fn stats(client: &Client) -> Result<ApiStats> {
       package: package_name(row, "name")?,
       version: Version::try_from(row.get::<_, String>("version").as_str())
         .map_err(map_err)?,
+      description: row.get("description"),
     });
   }
 
@@ -123,6 +125,7 @@ pub async fn stats(client: &Client) -> Result<ApiStats> {
     featured.push(ApiStatsPackage {
       scope: scope_name(row, "scope")?,
       name: package_name(row, "name")?,
+      description: row.get("description"),
     });
   }
 

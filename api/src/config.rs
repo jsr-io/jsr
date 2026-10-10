@@ -45,6 +45,15 @@ pub struct Config {
   pub npm_bucket: String,
 
   #[clap(
+    long = "ticket_attachments_bucket",
+    env = "TICKET_ATTACHMENTS_BUCKET",
+    default_value = "ticket-attachments"
+  )]
+  /// The name of the S3 bucket where files attached to support ticket emails
+  /// are stored.
+  pub ticket_attachments_bucket: String,
+
+  #[clap(
     long = "metadata_strategy",
     env = "METADATA_STRATEGY",
     default_value = "testing"
@@ -124,6 +133,16 @@ pub struct Config {
   pub npm_url: Url,
 
   #[clap(
+    long = "fallback_registry_url",
+    env = "FALLBACK_REGISTRY_URL",
+    value_parser = parse_base_url
+  )]
+  /// The base URL of a fallback registry to use when resolving JSR dependencies
+  /// that are not available locally. This allows self-hosted instances to
+  /// depend on packages from jsr.io or other instances.
+  pub fallback_registry_url: Option<Url>,
+
+  #[clap(
     long = "api",
     default_missing_value("true"),
     default_value("true"),
@@ -159,6 +178,11 @@ pub struct Config {
   /// The ID of the npm tarball build queue.
   pub npm_tarball_build_queue_id: Option<String>,
 
+  #[clap(long = "email_queue_id", env = "EMAIL_QUEUE_ID")]
+  /// The ID of the queue that delivers outgoing email. Email is sent inline if
+  /// unset, which is the local development and testing path.
+  pub email_queue_id: Option<String>,
+
   #[clap(long = "cloudflare_account_id", env = "CLOUDFLARE_ACCOUNT_ID")]
   /// The Cloudflare account ID for Analytics Engine.
   pub cloudflare_account_id: Option<String>,
@@ -180,9 +204,34 @@ pub struct Config {
   /// The Cloudflare Analytics Engine dataset name for download tracking.
   pub cloudflare_analytics_dataset: Option<String>,
 
+  #[clap(long = "turnstile_secret_key", env = "TURNSTILE_SECRET_KEY")]
+  /// The Cloudflare Turnstile secret key, used to verify the captcha response
+  /// submitted with the login form. Must be paired with the frontend's
+  /// `TURNSTILE_SITE_KEY`. Captcha verification is disabled if unset.
+  pub turnstile_secret_key: Option<String>,
+
   #[clap(long = "postmark_token", env = "POSTMARK_TOKEN")]
   /// The Postmark token to use to send emails.
   pub postmark_token: Option<String>,
+
+  #[clap(
+    long = "postmark_webhook_password",
+    env = "POSTMARK_WEBHOOK_PASSWORD"
+  )]
+  /// The password Postmark authenticates with when delivering inbound email to
+  /// the support ticket webhook. Inbound handling is disabled if unset.
+  pub postmark_webhook_password: Option<String>,
+
+  #[clap(
+    long = "inbound_trusted_authserv_id",
+    env = "INBOUND_TRUSTED_AUTHSERV_ID"
+  )]
+  /// The `authserv-id` of the mail server that receives support mail before it
+  /// is forwarded to Postmark, e.g. `mx.google.com`. Its
+  /// `Authentication-Results` header is then trusted for SPF and DKIM, which a
+  /// forwarding hop otherwise destroys. Only Postmark's own check is used if
+  /// unset.
+  pub inbound_trusted_authserv_id: Option<String>,
 
   #[clap(long = "email_from", env = "EMAIL_FROM")]
   /// The email address to send emails from.
@@ -195,6 +244,12 @@ pub struct Config {
   #[clap(long = "database_pool_size", default_value = "3")]
   /// The size of the database connection pool.
   pub database_pool_size: u32,
+
+  #[clap(long = "service_account_token", env = "SERVICE_ACCOUNT_TOKEN")]
+  /// A static bearer token for the system service account
+  /// (00000000-0000-0000-0000-000000000000). When set, a token with this
+  /// value's hash is upserted into the database on startup.
+  pub service_account_token: Option<String>,
 
   #[clap(long = "db_client_cert", env = "DB_CLIENT_CERT")]
   /// PEM client certificate presented when connecting to the database over
@@ -229,16 +284,46 @@ impl std::fmt::Debug for Config {
         &self.npm_tarball_build_queue_id,
       )
       .field(
+        "turnstile_secret_key",
+        &self.turnstile_secret_key.as_ref().map(|_| "***"),
+      )
+      .field(
         "postmark_token",
         &self.postmark_token.as_ref().map(|_| "***"),
       )
+      .field(
+        "postmark_webhook_password",
+        &self.postmark_webhook_password.as_ref().map(|_| "***"),
+      )
+      .field(
+        "inbound_trusted_authserv_id",
+        &self.inbound_trusted_authserv_id,
+      )
       .field("email_from", &self.email_from)
       .field("email_from_name", &self.email_from_name)
+      .field(
+        "service_account_token",
+        &self.service_account_token.as_ref().map(|_| "***"),
+      )
       .field(
         "db_client_cert",
         &self.db_client_cert.as_ref().map(|_| "***"),
       )
       .field("db_client_key", &self.db_client_key.as_ref().map(|_| "***"))
       .finish()
+  }
+}
+
+/// Parse a base URL, normalizing it to end with a trailing slash. Every
+/// consumer of a base URL assumes one: `Url::join` treats a base without a
+/// trailing slash as a file and drops its last path segment, and the frontend
+/// builds links by direct concatenation — so a subpath-hosted registry
+/// (`https://mirror.corp/jsr`) would otherwise silently query and link the
+/// wrong URLs. Normalizing once at ingestion keeps all consumers in agreement.
+fn parse_base_url(s: &str) -> Result<Url, url::ParseError> {
+  if s.ends_with('/') {
+    Url::parse(s)
+  } else {
+    Url::parse(&format!("{s}/"))
   }
 }

@@ -44,12 +44,18 @@ version number in your config file before publishing a new version.
 
 ## What if I need to delete a package version?
 
-You can't delete a package version after it has been published. However, you can
-publish a new version of your package and yank the old version.
+Generally, you can't delete a package version after it has been published.
+Instead, you can publish a new version of your package and yank the old version.
 [Learn more about yanking.](/docs/packages#yanking-versions)
 
 Note that yanking does not remove the contents of the package version from the
 registry. It only superficially hides the version from users in some places.
+
+There is one narrow exception: scope admins can delete a version that was
+published in the last 24 hours, as long as it has almost no downloads and
+deleting it does not break any dependent package (dependents must be able to
+resolve their version constraints to another version of the package).
+[Learn more about deleting a version.](/docs/packages#deleting-a-version)
 
 ## What if I need to delete a package?
 

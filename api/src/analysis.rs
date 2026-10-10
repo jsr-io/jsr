@@ -164,10 +164,10 @@ async fn analyze_package_inner(
         skip_dynamic_deps: false,
         module_info_cacher: Default::default(),
         unstable_bytes_imports: false,
-        unstable_config_imports: false,
-        prefer_cached_jsr_versions: false,
         jsr_metadata_store: None,
         unstable_css_imports: false,
+        unstable_config_imports: false,
+        prefer_cached_jsr_versions: false,
       },
     )
     .await;
@@ -233,7 +233,7 @@ async fn analyze_package_inner(
   .await
   .map_err(PublishError::NpmTarballError)?;
 
-  let (meta, readme_path) = {
+  let (mut meta, readme_path) = {
     let readme = files
       .iter()
       .find(|file| file.0.case_insensitive().is_readme());
@@ -244,6 +244,7 @@ async fn analyze_package_inner(
         &doc_nodes,
         &readme,
         all_fast_check,
+        &exports,
       ),
       readme.map(|readme| readme.0.clone()),
     )
@@ -271,9 +272,13 @@ async fn analyze_package_inner(
       workerd: None,
       bun: None,
     },
+    // only the search index is taken from this ctx, so usage instructions
+    // don't matter here
+    false,
     registry_url.to_string(),
     None,
   );
+  meta.symbol_count = Some(count_symbols(&ctx));
   let search_index = deno_doc::html::generate_search_index(&ctx);
   let doc_search_json = if let serde_json::Value::Object(mut obj) = search_index
   {
@@ -302,6 +307,7 @@ fn generate_score(
   documents_by_url: &ParseOutput,
   readme: &Option<(&PackagePath, &Vec<u8>)>,
   all_fast_check: bool,
+  exports: &ExportsMap,
 ) -> PackageVersionMeta {
   let main_entrypoint_doc = main_entrypoint.as_ref().map(|main_entrypoint| {
     &documents_by_url.get(main_entrypoint).unwrap().module_doc
@@ -323,36 +329,97 @@ fn generate_score(
         .any(|tag| matches!(tag, deno_doc::js_doc::JsDocTag::Example { .. }))
   });
 
+  let entrypoints_without_docs = entrypoints_missing_module_doc(
+    documents_by_url,
+    main_entrypoint,
+    readme.is_some(),
+    exports,
+  );
+
   PackageVersionMeta {
     has_readme: readme.is_some()
       || main_entrypoint_doc
         .is_some_and(|doc| doc.doc.as_ref().is_some_and(|doc| !doc.is_empty())),
     has_readme_examples,
-    all_entrypoints_docs: all_entrypoints_have_module_doc(
-      documents_by_url,
-      main_entrypoint,
-      readme.is_some(),
-    ),
+    all_entrypoints_docs: entrypoints_without_docs.is_empty(),
+    entrypoints_without_docs,
     percentage_documented_symbols: percentage_of_symbols_with_docs(
       documents_by_url,
     ),
     all_fast_check,
     has_provenance: false, // Provenance score is updated after version publish
+    // filled in once the render context exists, see `count_symbols`
+    symbol_count: None,
   }
 }
 
-fn all_entrypoints_have_module_doc(
+/// Counts the symbols the generated docs actually list for a package: every
+/// exported symbol of every entrypoint, plus namespace members, minus the ones
+/// hidden from the listings (`@internal` and non-exported types).
+///
+/// Deduplicated per `(file, qualified name)` the same way the search index is,
+/// so a symbol re-exported from several entrypoints counts once per entrypoint
+/// it is documented under, and never twice within one. Class/interface members
+/// are not counted: they are part of their parent symbol, not separate entries
+/// in the listings.
+fn count_symbols(ctx: &deno_doc::html::GenerateCtx) -> u32 {
+  let mut seen = HashSet::new();
+
+  for (short_path, nodes) in &ctx.doc_nodes {
+    for node in deno_doc::html::partition::flatten_namespace(
+      ctx,
+      nodes.iter().map(std::borrow::Cow::Borrowed),
+    ) {
+      if node.is_internal(ctx) {
+        continue;
+      }
+      seen.insert((
+        short_path.path.clone(),
+        node.get_qualified_name().to_string(),
+      ));
+    }
+  }
+
+  seen.len() as u32
+}
+
+/// Cap on how many undocumented entrypoints are recorded in
+/// `PackageVersionMeta`. The full list is unbounded (one entry per export) and
+/// `meta` is stored in the database and returned in API responses, so a
+/// package with tens of thousands of undocumented entrypoints would bloat
+/// both (jsr-io/jsr#1505). `all_entrypoints_docs` stays accurate: a capped
+/// list is non-empty iff the uncapped list was.
+pub(crate) const MAX_ENTRYPOINTS_WITHOUT_DOCS: usize = 100;
+
+fn entrypoints_missing_module_doc(
   documents_by_url: &ParseOutput,
   main_entrypoint: Option<ModuleSpecifier>,
   has_readme: bool,
-) -> bool {
-  'modules: for (specifier, document) in documents_by_url {
-    // Skip WASM modules as their docs are auto-generated from binary
-    if specifier.path().ends_with(".wasm") {
+  exports: &ExportsMap,
+) -> Vec<String> {
+  // Build a reverse map from file URL to export key. Keys must go through
+  // Url::parse so they match the percent-encoded specifiers in documents_by_url
+  // (see analyze_package_inner above).
+  let url_to_export: HashMap<String, String> = exports
+    .iter()
+    .map(|(key, path)| {
+      let path = path.strip_prefix('.').unwrap_or(path.as_str());
+      let url = Url::parse(&format!("file://{}", path)).unwrap();
+      (url.to_string(), key.clone())
+    })
+    .collect();
+
+  let mut missing = Vec::new();
+
+  for (specifier, document) in documents_by_url {
+    // Skip WASM and JSON modules as their docs are auto-generated or can't have docs
+    if specifier.path().ends_with(".wasm")
+      || specifier.path().ends_with(".json")
+    {
       continue;
     }
     if !document.module_doc.is_empty() {
-      continue 'modules;
+      continue;
     }
 
     if main_entrypoint
@@ -360,13 +427,18 @@ fn all_entrypoints_have_module_doc(
       .is_some_and(|main_entrypoint| main_entrypoint == specifier)
       && has_readme
     {
-      continue 'modules;
+      continue;
     }
 
-    return false;
+    let name = url_to_export
+      .get(specifier.as_str())
+      .cloned()
+      .unwrap_or_else(|| specifier.path().to_string());
+    missing.push(name);
   }
 
-  true
+  missing.truncate(MAX_ENTRYPOINTS_WITHOUT_DOCS);
+  missing
 }
 
 fn percentage_of_symbols_with_docs(documents_by_url: &ParseOutput) -> f32 {
@@ -379,14 +451,50 @@ fn percentage_of_symbols_with_docs(documents_by_url: &ParseOutput) -> f32 {
       continue;
     }
 
-    for symbol in &document.symbols {
-      for decl in &symbol.declarations {
-        if decl.declaration_kind != deno_doc::node::DeclarationKind::Private {
-          total_symbols += 1;
+    // Skip JSON modules as they can't have JSDoc documentation
+    if specifier.path().ends_with(".json") {
+      continue;
+    }
 
-          if !decl.js_doc.is_empty() {
-            documented_symbols += 1;
-          }
+    for symbol in &document.symbols {
+      let non_private_decls: Vec<_> = symbol
+        .declarations
+        .iter()
+        .filter(|decl| {
+          decl.declaration_kind != deno_doc::node::DeclarationKind::Private
+            // Skip re-export references: their docs live at the target
+            // declaration, which is counted where it is defined. Counting the
+            // (always doc-less) reference too would double-count every
+            // re-exported symbol as undocumented (jsr-io/jsr#988).
+            && !matches!(
+              &decl.def,
+              deno_doc::node::DeclarationDef::Reference(_)
+            )
+        })
+        .collect();
+
+      // For function overloads, skip the implementation signature (has_body: true)
+      // as it is not user-facing and its docs don't appear in generated documentation.
+      // We require *all* non-private decls to be Function variants so that
+      // declaration-merging cases (e.g. `function foo() {}` + `namespace foo {}`)
+      // are not treated as overloads.
+      let has_overloads = non_private_decls.len() > 1
+        && non_private_decls.iter().all(|decl| {
+          matches!(&decl.def, deno_doc::node::DeclarationDef::Function(_))
+        });
+
+      for decl in &non_private_decls {
+        if has_overloads
+          && let deno_doc::node::DeclarationDef::Function(fn_def) = &decl.def
+          && fn_def.has_body
+        {
+          continue;
+        }
+
+        total_symbols += 1;
+
+        if !decl.js_doc.is_empty() {
+          documented_symbols += 1;
         }
       }
     }
@@ -601,10 +709,10 @@ async fn rebuild_npm_tarball_inner(
         skip_dynamic_deps: false,
         module_info_cacher: Default::default(),
         unstable_bytes_imports: false,
-        unstable_config_imports: false,
-        prefer_cached_jsr_versions: false,
         jsr_metadata_store: None,
         unstable_css_imports: false,
+        unstable_config_imports: false,
+        prefer_cached_jsr_versions: false,
       },
     )
     .await;
@@ -1178,5 +1286,279 @@ mod tests {
 
     let x = parse("export * from './data.json' with { type: 'json' }");
     assert!(super::check_for_banned_syntax(&x).is_ok(), "{err:?}",);
+  }
+
+  fn make_location() -> deno_doc::Location {
+    deno_doc::Location {
+      filename: "file:///mod.ts".into(),
+      line: 0,
+      col: 0,
+      byte_index: 0,
+    }
+  }
+
+  fn make_js_doc(doc: Option<&str>) -> deno_doc::js_doc::JsDoc {
+    deno_doc::js_doc::JsDoc {
+      doc: doc.map(|d| d.into()),
+      tags: Box::new([]),
+    }
+  }
+
+  fn make_fn_decl(has_body: bool) -> deno_doc::node::DeclarationDef {
+    deno_doc::node::DeclarationDef::Function(deno_doc::function::FunctionDef {
+      def_name: None,
+      params: vec![],
+      return_type: None,
+      has_body,
+      is_async: false,
+      is_generator: false,
+      type_params: Box::new([]),
+      decorators: Box::new([]),
+    })
+  }
+
+  fn make_var_decl() -> deno_doc::node::DeclarationDef {
+    deno_doc::node::DeclarationDef::Variable(deno_doc::variable::VariableDef {
+      ts_type: None,
+      kind: deno_ast::swc::ast::VarDeclKind::Const,
+    })
+  }
+
+  fn make_declaration(
+    js_doc: deno_doc::js_doc::JsDoc,
+    def: deno_doc::node::DeclarationDef,
+  ) -> deno_doc::node::Declaration {
+    deno_doc::node::Declaration {
+      location: make_location(),
+      declaration_kind: deno_doc::node::DeclarationKind::Export,
+      js_doc,
+      def,
+    }
+  }
+
+  fn make_symbol(
+    name: &str,
+    declarations: Vec<deno_doc::node::Declaration>,
+  ) -> std::sync::Arc<deno_doc::node::Symbol> {
+    std::sync::Arc::new(deno_doc::node::Symbol {
+      name: name.into(),
+      is_default: false,
+      declarations,
+    })
+  }
+
+  fn make_document(
+    module_doc: deno_doc::js_doc::JsDoc,
+    symbols: Vec<std::sync::Arc<deno_doc::node::Symbol>>,
+  ) -> deno_doc::node::Document {
+    deno_doc::node::Document {
+      module_doc,
+      imports: vec![],
+      symbols,
+    }
+  }
+
+  #[test]
+  fn percentage_docs_skips_overload_implementation() {
+    // Overloaded function: two overload signatures (documented) + one implementation (undocumented)
+    let symbol = make_symbol(
+      "func",
+      vec![
+        make_declaration(
+          make_js_doc(Some("String variant.")),
+          make_fn_decl(false),
+        ),
+        make_declaration(
+          make_js_doc(Some("Number variant.")),
+          make_fn_decl(false),
+        ),
+        make_declaration(make_js_doc(None), make_fn_decl(true)),
+      ],
+    );
+    let doc = make_document(make_js_doc(None), vec![symbol]);
+
+    let mut output = indexmap::IndexMap::new();
+    output.insert(
+      deno_ast::ModuleSpecifier::parse("file:///mod.ts").unwrap(),
+      doc,
+    );
+
+    // Should be 100% because the implementation is skipped
+    let pct = super::percentage_of_symbols_with_docs(&output);
+    assert!(
+      (pct - 1.0).abs() < f32::EPSILON,
+      "Expected 100% but got {:.0}%",
+      pct * 100.0,
+    );
+  }
+
+  #[test]
+  fn percentage_docs_counts_single_function_normally() {
+    // A single function (no overloads): implementation counts normally
+    let symbol = make_symbol(
+      "func",
+      vec![make_declaration(make_js_doc(None), make_fn_decl(true))],
+    );
+    let doc = make_document(make_js_doc(None), vec![symbol]);
+
+    let mut output = indexmap::IndexMap::new();
+    output.insert(
+      deno_ast::ModuleSpecifier::parse("file:///mod.ts").unwrap(),
+      doc,
+    );
+
+    let pct = super::percentage_of_symbols_with_docs(&output);
+    assert!(
+      pct.abs() < f32::EPSILON,
+      "Expected 0% but got {:.0}%",
+      pct * 100.0,
+    );
+  }
+
+  #[test]
+  fn percentage_docs_skips_json_modules() {
+    let symbol = make_symbol(
+      "data",
+      vec![make_declaration(make_js_doc(None), make_var_decl())],
+    );
+    let doc = make_document(make_js_doc(None), vec![symbol]);
+
+    let mut output = indexmap::IndexMap::new();
+    output.insert(
+      deno_ast::ModuleSpecifier::parse("file:///data.json").unwrap(),
+      doc,
+    );
+
+    // JSON modules are skipped entirely, so default is 1.0
+    let pct = super::percentage_of_symbols_with_docs(&output);
+    assert!(
+      (pct - 1.0).abs() < f32::EPSILON,
+      "Expected 100% but got {:.0}%",
+      pct * 100.0,
+    );
+  }
+
+  // Regression test for jsr-io/jsr#988: a symbol re-exported from another
+  // entrypoint appears there as a doc-less `Reference` declaration; it must
+  // not be counted as an undocumented symbol.
+  #[test]
+  fn percentage_docs_skips_reexport_references() {
+    let target_location = deno_doc::Location {
+      filename: "file:///util.ts".into(),
+      line: 1,
+      col: 0,
+      byte_index: 19,
+    };
+
+    // util.ts: the actual (documented) definition.
+    let util_symbol = make_symbol(
+      "hello",
+      vec![make_declaration(
+        make_js_doc(Some("Says hello.")),
+        make_fn_decl(true),
+      )],
+    );
+    let util_doc = make_document(make_js_doc(None), vec![util_symbol]);
+
+    // mod.ts: `export { hello } from "./util.ts"` — a Reference with no docs.
+    let reexport_symbol = make_symbol(
+      "hello",
+      vec![make_declaration(
+        make_js_doc(None),
+        deno_doc::node::DeclarationDef::Reference(
+          deno_doc::node::ReferenceDef {
+            target: target_location,
+          },
+        ),
+      )],
+    );
+    let mod_doc = make_document(make_js_doc(None), vec![reexport_symbol]);
+
+    let mut output = indexmap::IndexMap::new();
+    output.insert(
+      deno_ast::ModuleSpecifier::parse("file:///util.ts").unwrap(),
+      util_doc,
+    );
+    output.insert(
+      deno_ast::ModuleSpecifier::parse("file:///mod.ts").unwrap(),
+      mod_doc,
+    );
+
+    // Only the real declaration in util.ts counts, and it is documented.
+    let pct = super::percentage_of_symbols_with_docs(&output);
+    assert!(
+      (pct - 1.0).abs() < f32::EPSILON,
+      "Expected 100% but got {:.0}%",
+      pct * 100.0,
+    );
+  }
+
+  #[test]
+  fn entrypoints_missing_docs_returns_export_names() {
+    let doc_with = make_document(make_js_doc(Some("Module doc")), vec![]);
+    let doc_without = make_document(make_js_doc(None), vec![]);
+
+    let mut output = indexmap::IndexMap::new();
+    output.insert(
+      deno_ast::ModuleSpecifier::parse("file:///mod.ts").unwrap(),
+      doc_with,
+    );
+    output.insert(
+      deno_ast::ModuleSpecifier::parse("file:///utils.ts").unwrap(),
+      doc_without,
+    );
+
+    let exports = crate::db::ExportsMap::new(indexmap::indexmap! {
+      ".".to_string() => "./mod.ts".to_string(),
+      "./utils".to_string() => "./utils.ts".to_string(),
+    });
+
+    let missing = super::entrypoints_missing_module_doc(
+      &output,
+      Some(deno_ast::ModuleSpecifier::parse("file:///mod.ts").unwrap()),
+      false,
+      &exports,
+    );
+
+    assert_eq!(missing, vec!["./utils".to_string()]);
+  }
+
+  #[test]
+  fn entrypoints_missing_docs_caps_list() {
+    let mut output = indexmap::IndexMap::new();
+    let mut exports_map = indexmap::IndexMap::new();
+    for i in 0..(super::MAX_ENTRYPOINTS_WITHOUT_DOCS + 50) {
+      output.insert(
+        deno_ast::ModuleSpecifier::parse(&format!("file:///m{i}.ts")).unwrap(),
+        make_document(make_js_doc(None), vec![]),
+      );
+      exports_map.insert(format!("./m{i}"), format!("./m{i}.ts"));
+    }
+    let exports = crate::db::ExportsMap::new(exports_map);
+
+    let missing =
+      super::entrypoints_missing_module_doc(&output, None, false, &exports);
+
+    assert_eq!(missing.len(), super::MAX_ENTRYPOINTS_WITHOUT_DOCS);
+  }
+
+  #[test]
+  fn entrypoints_missing_docs_skips_json() {
+    let doc_without = make_document(make_js_doc(None), vec![]);
+
+    let mut output = indexmap::IndexMap::new();
+    output.insert(
+      deno_ast::ModuleSpecifier::parse("file:///data.json").unwrap(),
+      doc_without,
+    );
+
+    let exports = crate::db::ExportsMap::new(indexmap::indexmap! {
+      "./data".to_string() => "./data.json".to_string(),
+    });
+
+    let missing =
+      super::entrypoints_missing_module_doc(&output, None, false, &exports);
+
+    assert!(missing.is_empty(), "JSON modules should be skipped");
   }
 }

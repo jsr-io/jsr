@@ -31,6 +31,18 @@ errors!(
     status: NOT_FOUND,
     "The requested user was not found. Only users who have logged in to JSR at least once are visible.",
   },
+  CannotDeleteServiceAccount {
+    status: BAD_REQUEST,
+    "The service account cannot be deleted.",
+  },
+  CannotModifyServiceAccount {
+    status: BAD_REQUEST,
+    "The service account cannot be modified.",
+  },
+  UserDeletionHeld {
+    status: CONFLICT,
+    "This account cannot be deleted at this time because it is subject to a deletion hold, for example due to a pending legal or moderation matter. Contact support for more information.",
+  },
   ScopeNotFound {
     status: NOT_FOUND,
     "The requested scope was not found.",
@@ -43,9 +55,26 @@ errors!(
     status: NOT_FOUND,
     "The requested package version was not found.",
   },
+  PackageAnalysisFailed {
+    status: BAD_REQUEST,
+    fields: { msg: String },
+    ({ msg }) => "Failed to re-analyze the package version: {msg}.",
+  },
   DiffNoIndex {
     status: NOT_FOUND,
     "Diffs do not have an index.",
+  },
+  DiffDisabled {
+    status: NOT_FOUND,
+    "The diff view is currently disabled.",
+  },
+  DocsOnlyForLatestVersion {
+    status: NOT_FOUND,
+    "Documentation is only available for the latest version of a package.",
+  },
+  DocsSymbolListingTooLarge {
+    status: PAYLOAD_TOO_LARGE,
+    "This package has too many symbols to list them all at once.",
   },
   EntrypointOrSymbolNotFound {
     status: NOT_FOUND,
@@ -76,6 +105,18 @@ errors!(
   InvalidOauthState {
     status: BAD_REQUEST,
     "Invalid OAuth State.",
+  },
+  MissingTurnstileToken {
+    status: BAD_REQUEST,
+    "The captcha was not completed. Please complete the captcha and try again.",
+  },
+  InvalidTurnstileToken {
+    status: BAD_REQUEST,
+    "The captcha response was invalid or has already been used. Please try again.",
+  },
+  TurnstileVerificationFailed {
+    status: SERVICE_UNAVAILABLE,
+    "The captcha could not be verified at this time. Please try again shortly.",
   },
   Blocked {
     status: FORBIDDEN,
@@ -242,7 +283,15 @@ errors!(
   },
   DeleteVersionHasDependents {
     status: BAD_REQUEST,
-    "The requested package version has dependents. Only a version without dependents can be deleted.",
+    "The requested package version is depended on by other published packages, and no other version satisfies their version constraints. It cannot be deleted.",
+  },
+  DeleteVersionTooOld {
+    status: BAD_REQUEST,
+    "The requested package version was published more than 24 hours ago. Only versions published in the last 24 hours can be deleted.",
+  },
+  DeleteVersionTooManyDownloads {
+    status: BAD_REQUEST,
+    "The requested package version has already been downloaded too many times to be deleted.",
   },
   TicketNotFound {
     status: NOT_FOUND,
@@ -255,6 +304,14 @@ errors!(
   TicketMetaNotValid {
     status: BAD_REQUEST,
     "The metadata for the ticket is not in a valid format, should be a key-value of strings.",
+  },
+  TicketClaimTokenInvalid {
+    status: BAD_REQUEST,
+    "The claim link is not valid. It may have already been used, or the ticket may already belong to an account.",
+  },
+  TicketAttachmentNotFound {
+    status: NOT_FOUND,
+    "The requested ticket attachment was not found.",
   },
   UnknownLoginService {
     status: BAD_REQUEST,
@@ -320,58 +377,21 @@ impl From<serde_json::Error> for ApiError {
   }
 }
 
-impl From<oauth2::reqwest::Error<reqwest::Error>> for ApiError {
-  fn from(error: oauth2::reqwest::Error<reqwest::Error>) -> ApiError {
-    anyhow::Error::from(error).into()
-  }
-}
-
 impl
   From<
     oauth2::RequestTokenError<
-      oauth2::reqwest::Error<reqwest::Error>,
+      reqwest::Error,
       oauth2::basic::BasicErrorResponse,
     >,
   > for ApiError
 {
   fn from(
     error: oauth2::RequestTokenError<
-      oauth2::reqwest::Error<reqwest::Error>,
+      reqwest::Error,
       oauth2::basic::BasicErrorResponse,
     >,
   ) -> ApiError {
     anyhow::Error::from(error).into()
-  }
-}
-
-impl
-  From<
-    oauth2::RequestTokenError<
-      oauth2::reqwest::Error<reqwest::Error>,
-      oauth2::DeviceCodeErrorResponse,
-    >,
-  > for ApiError
-{
-  fn from(
-    error: oauth2::RequestTokenError<
-      oauth2::reqwest::Error<reqwest::Error>,
-      oauth2::DeviceCodeErrorResponse,
-    >,
-  ) -> ApiError {
-    anyhow::Error::from(error).into()
-  }
-}
-
-impl From<oauth2::RequestTokenError<ApiError, oauth2::DeviceCodeErrorResponse>>
-  for ApiError
-{
-  fn from(
-    error: oauth2::RequestTokenError<ApiError, oauth2::DeviceCodeErrorResponse>,
-  ) -> ApiError {
-    match error {
-      oauth2::RequestTokenError::Request(e) => e,
-      e => anyhow::Error::from(e).into(),
-    }
   }
 }
 
@@ -384,17 +404,29 @@ impl From<oauth2::ConfigurationError> for ApiError {
 impl
   From<
     oauth2::RequestTokenError<
-      oauth2::reqwest::Error<reqwest::Error>,
+      reqwest::Error,
       oauth2::basic::BasicRevocationErrorResponse,
     >,
   > for ApiError
 {
   fn from(
     error: oauth2::RequestTokenError<
-      oauth2::reqwest::Error<reqwest::Error>,
+      reqwest::Error,
       oauth2::basic::BasicRevocationErrorResponse,
     >,
   ) -> ApiError {
+    anyhow::Error::from(error).into()
+  }
+}
+
+impl From<crate::object_cache::ObjectCacheError> for ApiError {
+  fn from(error: crate::object_cache::ObjectCacheError) -> ApiError {
+    anyhow::Error::from(error).into()
+  }
+}
+
+impl From<crate::docs::GenerateCtxCacheError> for ApiError {
+  fn from(error: crate::docs::GenerateCtxCacheError) -> ApiError {
     anyhow::Error::from(error).into()
   }
 }

@@ -1,8 +1,10 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { asset } from "fresh/runtime";
 import { DevelopmentLogin } from "../islands/DevelopmentLogin.tsx";
+import { LoginForm } from "../islands/LoginForm.tsx";
 
 const PROD_PROXY = !!process.env.PROD_PROXY;
+// Public by design: the site key is shipped to the browser by the widget.
+const TURNSTILE_SITE_KEY = process.env.TURNSTILE_SITE_KEY;
 
 export default function Login({ url }: { url: URL }) {
   if (PROD_PROXY) {
@@ -29,16 +31,7 @@ export default function Login({ url }: { url: URL }) {
         <p class="text-secondary">
           Choose a provider to sign in with.
         </p>
-        <div class="flex gap-4 flex-col pt-4">
-          <a class="button-primary" href={"/login/github" + search}>
-            <img class="size-5" src={asset("/logos/github.svg")} alt="" />
-            Sign in with GitHub
-          </a>
-          <a class="button-primary" href={"/login/gitlab" + search}>
-            <img class="size-5" src={asset("/logos/gitlab.svg")} alt="" />
-            Sign in with GitLab
-          </a>
-        </div>
+        <LoginForm search={search} siteKey={TURNSTILE_SITE_KEY} />
       </div>
     </div>
   );

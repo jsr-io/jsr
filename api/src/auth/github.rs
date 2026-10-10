@@ -3,9 +3,12 @@
 use crate::api::ApiError;
 use crate::db::*;
 use crate::util::ApiResult;
+use crate::util::oauth2_http_request;
 use chrono::DateTime;
 use chrono::Duration;
 use chrono::Utc;
+use oauth2::EndpointNotSet;
+use oauth2::EndpointSet;
 use oauth2::ExtraTokenFields;
 use oauth2::RedirectUrl;
 use oauth2::StandardRevocableToken;
@@ -15,7 +18,6 @@ use oauth2::TokenResponse;
 use oauth2::basic::BasicErrorResponse;
 use oauth2::basic::BasicRevocationErrorResponse;
 use oauth2::basic::BasicTokenType;
-use oauth2::reqwest::async_http_client;
 use serde::Deserialize;
 use serde::Serialize;
 use tracing::instrument;
@@ -30,42 +32,47 @@ impl ExtraTokenFields for GithubTokenExtraFields {}
 type GithubTokenResponse =
   StandardTokenResponse<GithubTokenExtraFields, BasicTokenType>;
 
+/// An `oauth2::Client` with the authorization and token endpoints set, and
+/// no device authorization, introspection, or revocation endpoint.
+type GithubClient = oauth2::Client<
+  BasicErrorResponse,
+  GithubTokenResponse,
+  StandardTokenIntrospectionResponse<GithubTokenExtraFields, BasicTokenType>,
+  StandardRevocableToken,
+  BasicRevocationErrorResponse,
+  EndpointSet,
+  EndpointNotSet,
+  EndpointNotSet,
+  EndpointNotSet,
+  EndpointSet,
+>;
+
 #[derive(Clone)]
-pub struct Oauth2Client(
-  pub  oauth2::Client<
-    BasicErrorResponse,
-    GithubTokenResponse,
-    BasicTokenType,
-    StandardTokenIntrospectionResponse<GithubTokenExtraFields, BasicTokenType>,
-    StandardRevocableToken,
-    BasicRevocationErrorResponse,
-  >,
-  pub String,
-);
+pub struct Oauth2Client(pub GithubClient, pub String);
 
 impl Oauth2Client {
   pub fn new(registry_url: &Url, id: String, secret: String) -> Self {
     Self(
-      oauth2::Client::new(
-        oauth2::ClientId::new(id),
-        Some(oauth2::ClientSecret::new(secret.clone())),
-        oauth2::AuthUrl::new(
-          "https://github.com/login/oauth/authorize".to_string(),
+      oauth2::Client::new(oauth2::ClientId::new(id))
+        .set_client_secret(oauth2::ClientSecret::new(secret.clone()))
+        .set_auth_uri(
+          oauth2::AuthUrl::new(
+            "https://github.com/login/oauth/authorize".to_string(),
+          )
+          .unwrap(),
         )
-        .unwrap(),
-        Some(
+        .set_token_uri(
           oauth2::TokenUrl::new(
             "https://github.com/login/oauth/access_token".to_string(),
           )
           .unwrap(),
-        ),
-      )
-      .set_redirect_uri(RedirectUrl::from_url(
-        Url::options()
-          .base_url(Some(registry_url))
-          .parse("./login/callback/github")
-          .unwrap(),
-      )),
+        )
+        .set_redirect_uri(RedirectUrl::from_url(
+          Url::options()
+            .base_url(Some(registry_url))
+            .parse("./login/callback/github")
+            .unwrap(),
+        )),
       secret,
     )
   }
@@ -127,7 +134,7 @@ pub async fn access_token(
       .exchange_refresh_token(&oauth2::RefreshToken::new(
         ghid.refresh_token.clone().unwrap(),
       ))
-      .request_async(async_http_client)
+      .request_async(&oauth2_http_request)
       .await?;
     let new_github_identity = new_github_identity_from_oauth_response(res);
     ghid.access_token = new_github_identity.access_token;

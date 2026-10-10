@@ -25,6 +25,7 @@ export default define.page<typeof handler>(
           versionCount={data.package.versionCount}
           dependencyCount={data.package.dependencyCount}
           dependentCount={data.package.dependentCount}
+          symbolCount={data.package.symbolCount}
           iam={data.iam}
           params={params as unknown as Params}
           latestVersion={data.package.latestVersion}
@@ -116,7 +117,7 @@ function SelectReadmeSourceEditor(props: { source: "readme" | "jsdoc" }) {
       autocomplete="off"
     >
       <div>
-        <h2 class="text-xl font-sans font-bold" id="description">
+        <h2 class="text-xl font-sans font-bold" id="readme_source">
           Readme Source
         </h2>
         <p class="text-secondary max-w-3xl">
@@ -126,6 +127,8 @@ function SelectReadmeSourceEditor(props: { source: "readme" | "jsdoc" }) {
 
       <select
         name="source"
+        id="readmeSource"
+        aria-labelledby="readme_source"
         className="input-container input select w-full max-w-sm block py-2 px-4"
       >
         <option value="readme" selected={props.source === "readme"}>

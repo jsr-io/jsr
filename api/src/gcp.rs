@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use bytes::Bytes;
-use hyper::StatusCode;
+use reqwest::StatusCode;
 use serde::Deserialize;
 use std::str::FromStr;
 use std::sync::Arc;

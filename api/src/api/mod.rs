@@ -2,6 +2,7 @@
 mod admin;
 mod authorization;
 mod errors;
+mod hooks;
 pub mod package;
 mod publishing_task;
 mod scope;
@@ -11,10 +12,14 @@ mod types;
 mod users;
 
 pub use self::errors::*;
+pub use self::hooks::InboundTrustedAuthservId;
+pub use self::hooks::PostmarkWebhookPassword;
 pub use self::package::PublishQueue;
+pub use self::package::RegistryMetadataCache;
 use self::publishing_task::publishing_task_router;
 use self::self_user::self_user_router;
 pub use self::types::*;
+use crate::api::hooks::hooks_router;
 use crate::api::tickets::tickets_router;
 use hyper::Body;
 use hyper::Response;
@@ -64,6 +69,7 @@ pub fn api_router() -> Router<Body, ApiError> {
       util::no_store(util::json(publishing_task::get_handler)),
     )
     .scope("/tickets", tickets_router())
+    .scope("/hooks", hooks_router())
     .get("/.well-known/openapi", openapi_handler);
 
   // jemalloc-backed debug endpoints are only available in the native build.

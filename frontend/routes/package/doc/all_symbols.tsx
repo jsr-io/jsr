@@ -8,9 +8,10 @@ import { DocsView } from "../(_components)/Docs.tsx";
 import { scopeIAM } from "../../../utils/iam.ts";
 
 export default define.page<typeof handler>(function AllSymbols(
-  { data, params, state },
+  { data, params, state, url },
 ) {
   const iam = scopeIAM(state, data.member);
+  const noDefaultEntrypoint = url.searchParams.has("no_default_entrypoint");
 
   return (
     <div class="mb-20">
@@ -25,10 +26,19 @@ export default define.page<typeof handler>(function AllSymbols(
         versionCount={data.package.versionCount}
         dependencyCount={data.package.dependencyCount}
         dependentCount={data.package.dependentCount}
+        symbolCount={data.selectedVersion?.symbolCount ??
+          data.package.symbolCount}
         iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
       />
+
+      {noDefaultEntrypoint && (
+        <div class="mt-4 rounded border border-jsr-cyan-200 dark:border-jsr-cyan-800 bg-jsr-cyan-50 dark:bg-jsr-cyan-950 py-3 px-4 text-sm text-secondary">
+          This package does not have a default entrypoint. Showing all exported
+          symbols across all entrypoints.
+        </div>
+      )}
 
       <DocsView
         docs={data.docs}

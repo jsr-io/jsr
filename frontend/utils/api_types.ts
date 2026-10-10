@@ -21,8 +21,9 @@ export interface FullUser extends User {
   email: string | null;
   isStaff: boolean;
   isBlocked: boolean;
+  deletionHold: boolean;
   scopeUsage: number;
-  scopeLimit: number;
+  scopeLimit: number | null;
   inviteCount: number;
   newerTicketMessagesCount: number;
 }
@@ -105,6 +106,7 @@ export interface PackageScore {
   hasReadme: boolean;
   hasReadmeExamples: boolean;
   allEntrypointsDocs: boolean;
+  entrypointsWithoutDocs: string[];
   percentageDocumentedSymbols: number;
   allFastCheck: boolean;
   hasProvenance: boolean;
@@ -133,6 +135,9 @@ export interface Package {
   whenFeatured: string | null;
   isArchived: boolean;
   readmeSource: ReadmeSource;
+  /** Null for packages with no published version, and for packages whose
+   * latest version predates this count being recorded. */
+  symbolCount: number | null;
 }
 
 export type ReadmeSource = "readme" | "jsdoc";
@@ -149,6 +154,8 @@ export interface PackageVersion {
   readmePath: string;
   updatedAt: string;
   createdAt: string;
+  /** Null for versions published before this count was recorded. */
+  symbolCount: number | null;
 }
 
 export interface PackageVersionWithUser extends PackageVersion {
@@ -195,6 +202,7 @@ export interface SourceFile {
   kind: "file";
   size: number;
   view: string | null;
+  rendered: string | null;
 }
 
 export interface PackageVersionSource {
@@ -239,6 +247,7 @@ export interface Dependency {
   name: string;
   constraint: string;
   path: string;
+  fallbackUrl: string | null;
 }
 
 export interface PackageVersionReference {
@@ -250,12 +259,14 @@ export interface PackageVersionReference {
 export interface StatsPackage {
   scope: string;
   name: string;
+  description: string;
 }
 
 export interface StatsPackageVersion {
   scope: string;
   package: string;
   version: string;
+  description: string;
 }
 
 export interface Stats {
@@ -302,6 +313,7 @@ export interface DependencyGraphKindJsr {
   package: string;
   version: string;
   entrypoint: DependencyGraphJsrEntrypoint;
+  fallbackUrl: string | null;
 }
 
 export interface DependencyGraphKindNpm {
@@ -338,7 +350,9 @@ export type TicketKind =
   | "scope_quota_increase"
   | "scope_claim"
   | "package_report"
-  | "other";
+  | "other"
+  /// Opened by staff, addressed to the user who appears as its reporter.
+  | "staff_outreach";
 
 export interface NewTicket {
   kind: TicketKind;
@@ -348,11 +362,53 @@ export interface NewTicket {
 
 export interface NewTicketMessage {
   message: string;
+  /// Write this as a staff-only note rather than a reply.
+  internal?: boolean;
+}
+
+/// Who wrote a message, or opened a ticket. A ticket that arrived by email has
+/// only an address behind it until somebody claims it.
+export type ApiTicketActor =
+  | { kind: "user"; user: User }
+  | {
+    kind: "email";
+    name: string | null;
+    email: string;
+    /// Whether the sending domain passed SPF and DKIM. When false the address is
+    /// unproven and must be shown as such.
+    emailVerified: boolean;
+  }
+  // JSR itself: the automatic acknowledgement sent when a ticket is opened by
+  // email.
+  | { kind: "system" };
+
+export type TicketStatus =
+  | "open"
+  | "waiting_on_user"
+  | "waiting_on_support"
+  | "closed"
+  | "spam";
+
+/// Whether the message came from the person who opened the ticket (`inbound`)
+/// or from JSR (`outbound`).
+export type TicketMessageDirection = "inbound" | "outbound";
+
+export interface ApiTicketAttachment {
+  id: string;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
 }
 
 export interface ApiTicketMessage {
-  author: User;
+  id: string;
+  author: ApiTicketActor;
+  direction: TicketMessageDirection;
+  /// A note staff wrote to each other. Only ever present for a staff viewer —
+  /// the API withholds these from everyone else.
+  internal: boolean;
   message: string;
+  attachments: ApiTicketAttachment[];
   updatedAt: string;
   createdAt: string;
 }
@@ -369,7 +425,6 @@ export type ApiTicketMessageOrAuditLog =
   | {
     kind: "message";
     message: ApiTicketMessage;
-    user: User;
   }
   | {
     kind: "auditLog";
@@ -379,25 +434,31 @@ export type ApiTicketMessageOrAuditLog =
 
 export interface ApiTicketOverview {
   id: string;
+  ticketNumber: string;
   kind: TicketKind;
-  creator: User;
+  reporter: ApiTicketActor;
+  /// The email subject an email-opened ticket arrived with. Null for tickets
+  /// opened through the web UI, whose title comes from `kind` and `meta`.
+  subject: string | null;
   meta: Record<string, string>;
-  closed: boolean;
+  status: TicketStatus;
   events: ApiTicketMessageOrAuditLog[];
   updatedAt: string;
   createdAt: string;
 }
 
 export interface AdminUpdateTicketRequest {
-  closed?: boolean;
+  status?: TicketStatus;
 }
 
 export interface ApiTicket {
   id: string;
+  ticketNumber: string;
   kind: TicketKind;
-  creator: User;
+  reporter: ApiTicketActor;
+  subject: string | null;
   meta: Record<string, string>;
-  closed: boolean;
+  status: TicketStatus;
   messages: ApiTicketMessage[];
   updatedAt: string;
   createdAt: string;

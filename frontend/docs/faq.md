@@ -59,12 +59,16 @@ foreseeable future - JSR is designed to be very cheap to run.
 
 ## Can I delete a package from JSR?
 
-Source code published to JSR cannot be deleted.
+Source code published to JSR generally cannot be deleted.
 [Learn more about immutability.](/docs/immutability)
 
 You can "yank" a version of a package, which will hide the version from the
 default view, but it will still be available to users who depend on it.
 [Learn more about yanking.](/docs/packages#yanking-versions)
+
+You may delete a version that was published in the last 24 hours, if it has
+almost no downloads and no dependent package relies on that specific version.
+[Learn more about deleting a version.](/docs/packages#deleting-a-version)
 
 You may archive a package, which will prevent new versions from being published
 and hide the package from search results and the scope page.
@@ -146,6 +150,16 @@ both Deno and web browsers. The possible values for the `runtime` filter are
 
 Yes! You can specify `scope:` in the search query to filter packages by scope.
 To only return packages in the `std` scope, you can use the query `scope:std`.
+
+## Can I filter packages by score in the search?
+
+Yes! You can use the `score:` filter with comparison operators to filter
+packages by their JSR score. For example, `score:>80` will return packages with
+a score greater than 80. You can use `>`, `>=`, `<`, and `<=` operators, such as
+`score:>=90` for packages with a score of 90 or higher.
+
+You can also use the filter panel on the [package search page](/packages) to set
+a minimum score using the score chips.
 
 ## Is "JSR" an initialism for "JavaScript Registry"?
 

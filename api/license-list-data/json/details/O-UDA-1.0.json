@@ -6,11 +6,11 @@
   "licenseId": "O-UDA-1.0",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/microsoft/Open-Use-of-Data-Agreement/blob/v1.0/O-UDA-1.0.md",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T21:03:30Z",
+      "timestamp": "2026-08-27T17:02:32Z",
       "isWayBackLink": false,
       "order": 0
     },
@@ -19,7 +19,7 @@
       "url": "https://cdla.dev/open-use-of-data-agreement-v1-0/",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T21:03:31Z",
+      "timestamp": "2026-08-27T17:02:33Z",
       "isWayBackLink": false,
       "order": 1
     }

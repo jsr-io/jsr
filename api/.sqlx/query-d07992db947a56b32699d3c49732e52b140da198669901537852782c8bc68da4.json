@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO tokens (hash, user_id, type, description, expires_at, permissions)\n        VALUES ($1, $2, 'personal', 'service account token', NULL, NULL)\n        ON CONFLICT (hash) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d07992db947a56b32699d3c49732e52b140da198669901537852782c8bc68da4"
+}

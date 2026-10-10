@@ -1047,7 +1047,7 @@ paths:
 
     delete:
       summary: Delete package version
-      description: Deletes a package version. Only allowed for versions published in the last 24 hours with no dependents.
+      description: Deletes a package version. Scope admins may only delete versions that were published in the last 24 hours, have fewer than 10 downloads, and are not the only version satisfying another published package's dependency constraint on this package (dependents that can resolve to a different version of the package do not block deletion).
       operationId: deletePackageVersion
       parameters:
         - name: scope
@@ -1072,7 +1072,7 @@ paths:
         "204":
           description: OK, no content
         "400":
-          description: Invalid request / Version has dependents / Version too old
+          description: Invalid request / Version has dependents / Version too old / Version has too many downloads
           content:
             application/json:
               schema:
@@ -1715,6 +1715,34 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Scope"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /users/{id}/packages:
+    get:
+      summary: List recently published packages by user
+      description: Returns a list of packages that a user has recently published
+      operationId: listUserPackages
+      parameters:
+        - name: id
+          in: path
+          description: The ID of the user
+          required: true
+          schema:
+            $ref: "#/components/schemas/UserId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Package"
         "404":
           description: User not found
           content:
@@ -2555,6 +2583,14 @@ components:
           type: string
           enum: ["readme", "jsdoc"]
           description: The source of the package readme.
+        symbolCount:
+          type: integer
+          nullable: true
+          description: >-
+            The number of symbols documented by the latest version of the
+            package. Null for packages with no published version, and for
+            packages whose latest version was published before this count was
+            recorded.
       required:
         - scope
         - name
@@ -2723,6 +2759,12 @@ components:
           type: string
           format: date-time
           description: The date and time when the package version was last updated.
+        symbolCount:
+          type: integer
+          nullable: true
+          description: >-
+            The number of symbols documented by this version. Null for versions
+            published before this count was recorded.
       required:
         - scope
         - package
@@ -2784,6 +2826,12 @@ components:
           type: string
           format: date-time
           description: The date and time when the package version was last updated.
+        symbolCount:
+          type: integer
+          nullable: true
+          description: >-
+            The number of symbols documented by this version. Null for versions
+            published before this count was recorded.
       required:
         - scope
         - package
@@ -3528,6 +3576,10 @@ components:
               type: string
               nullable: true
               description: HTML-rendered source code view. Null for binary files.
+            rendered:
+              type: string
+              nullable: true
+              description: Rendered HTML, present for markdown files.
           required:
             - kind
             - size

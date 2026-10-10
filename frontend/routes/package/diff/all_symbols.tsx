@@ -7,6 +7,9 @@ import { PackageNav, Params } from "../(_components)/PackageNav.tsx";
 import { DiffView } from "../(_components)/Docs.tsx";
 import { scopeIAM } from "../../../utils/iam.ts";
 
+// The diff view is disabled. Flip to `true` to re-enable it.
+const DIFF_ENABLED: boolean = false;
+
 export default define.page<typeof handler>(function AllSymbols(
   { data, params, state, url },
 ) {
@@ -25,6 +28,8 @@ export default define.page<typeof handler>(function AllSymbols(
         versionCount={data.package.versionCount}
         dependencyCount={data.package.dependencyCount}
         dependentCount={data.package.dependentCount}
+        symbolCount={data.selectedVersion?.symbolCount ??
+          data.package.symbolCount}
         iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
@@ -46,6 +51,10 @@ export default define.page<typeof handler>(function AllSymbols(
 
 export const handler = define.handlers({
   async GET(ctx) {
+    if (!DIFF_ENABLED) {
+      throw new HttpError(404, "The diff view is currently disabled.");
+    }
+
     const docsReq = { all_symbols: "true" } as const;
     const res = await packageDataWithDiff(
       ctx.state,

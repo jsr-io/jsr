@@ -37,6 +37,7 @@ use std::io::Read;
 use std::io::Write;
 use std::sync::Arc;
 use std::sync::OnceLock;
+use std::time::Duration;
 use tracing::instrument;
 use url::Url;
 
@@ -146,6 +147,22 @@ pub async fn download_doc_nodes(
   version: &Version,
   bucket: &crate::s3::Buckets,
 ) -> Result<Option<ParseOutput>, DocNodeCacheError> {
+  Ok(
+    download_doc_nodes_sized(scope, package, version, bucket)
+      .await?
+      .map(|(doc_nodes, _)| doc_nodes),
+  )
+}
+
+/// Like [`download_doc_nodes`], but also reports how many stored bytes the
+/// nodes were decoded from. [`GenerateCtxCache`] weighs its entries by that
+/// figure, so it needs the size the download already knows.
+async fn download_doc_nodes_sized(
+  scope: &ScopeName,
+  package: &PackageName,
+  version: &Version,
+  bucket: &crate::s3::Buckets,
+) -> Result<Option<(ParseOutput, usize)>, DocNodeCacheError> {
   let v2_path = crate::s3_paths::docs_v2_path(scope, package, version);
   let v2_result = bucket
     .docs_bucket
@@ -153,7 +170,7 @@ pub async fn download_doc_nodes(
     .await?;
 
   if let Some(bytes) = v2_result {
-    return Ok(Some(deserialize_doc_nodes_v2(&bytes)?));
+    return Ok(Some((deserialize_doc_nodes_v2(&bytes)?, bytes.len())));
   }
 
   let v1_path = crate::s3_paths::docs_v1_path(scope, package, version);
@@ -167,6 +184,7 @@ pub async fn download_doc_nodes(
   };
 
   let doc_nodes = deserialize_doc_nodes_v1(&bytes)?;
+  let stored_bytes = bytes.len();
 
   // Best-effort migration: re-upload as v2 and delete v1. Failures are
   // logged but not propagated — the doc nodes were already read successfully.
@@ -198,23 +216,68 @@ pub async fn download_doc_nodes(
     }
   }
 
-  Ok(Some(doc_nodes))
+  Ok(Some((doc_nodes, stored_bytes)))
 }
 
+/// Total weight the cache may hold, measured in the *stored* (gzipped
+/// MessagePack) size of the doc nodes each context was built from.
+///
+/// This replaced a flat 64-entry capacity. Counting entries meant 64 tiny
+/// packages evicted each other exactly as readily as 64 enormous ones, while
+/// the memory actually held was bounded by nothing at all. Weighing by stored
+/// size bounds memory instead, which both caps the worst case and lets far more
+/// of the long tail stay resident — a production sample saw 534 distinct
+/// packages across 2000 docs requests against those 64 slots.
+///
+/// Stored size is a proxy: the built context is roughly an order of magnitude
+/// larger in memory than the bytes it was decoded from. The budget is set
+/// conservatively for that reason, and pinning the real ratio needs cache
+/// instrumentation that does not exist yet.
+const MAX_CACHED_DOC_NODE_BYTES: u64 = 16 * 1024 * 1024;
+
+/// Release contexts that go unread for this long, so a burst across many
+/// packages does not pin memory for the rest of the process's life.
+const CACHED_CTX_TIME_TO_IDLE: Duration = Duration::from_secs(30 * 60);
+
+#[derive(Clone)]
+struct CachedCtx {
+  ctx: Arc<GenerateCtx>,
+  /// Stored size of the doc nodes this was built from; the cache weight.
+  stored_bytes: u32,
+}
+
+/// Loader failure. `Absent` never reaches a caller — returning it as an error
+/// is how a package with no doc nodes escapes `try_get_with` without moka
+/// caching the miss.
+#[derive(Debug, thiserror::Error)]
+enum CtxLoadError {
+  #[error(transparent)]
+  DocNodes(#[from] DocNodeCacheError),
+  #[error("no doc nodes stored for this version")]
+  Absent,
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error(transparent)]
+pub struct GenerateCtxCacheError(Arc<CtxLoadError>);
+
 /// Cache for fully-built GenerateCtx. Keyed by
-/// `scope/package/version/is_latest/has_readme` so concurrent requests
-/// for the same doc page share a single GenerateCtx without rebuilding.
+/// `scope/package/version/is_latest/has_readme/runtime_compat` so concurrent
+/// requests for the same doc page share a single GenerateCtx without
+/// rebuilding.
 #[derive(Clone)]
 pub struct GenerateCtxCache {
-  cache: moka::future::Cache<String, Arc<GenerateCtx>>,
+  cache: moka::future::Cache<String, CachedCtx>,
 }
 
 impl GenerateCtxCache {
   pub fn new() -> Self {
     Self {
-      // estimated 2-5mb for the average package (based on std packages).
-      // 5*64 = 320mb estimated max average.
-      cache: moka::future::Cache::builder().max_capacity(64).build(),
+      cache: moka::future::Cache::builder()
+        .max_capacity(MAX_CACHED_DOC_NODE_BYTES)
+        .weigher(|_key, cached: &CachedCtx| cached.stored_bytes)
+        .time_to_idle(CACHED_CTX_TIME_TO_IDLE)
+        .build(),
     }
   }
 
@@ -231,41 +294,102 @@ impl GenerateCtxCache {
     runtime_compat: RuntimeCompat,
     registry_url: &str,
     bucket: &crate::s3::Buckets,
-  ) -> Result<Option<Arc<GenerateCtx>>, DocNodeCacheError> {
-    let key =
-      format!("@{scope}/{package}/{version}/{version_is_latest}/{has_readme}");
-
-    if let Some(cached) = self.cache.get(&key).await {
-      return Ok(Some(cached));
-    }
-
-    let Some(doc_nodes) =
-      download_doc_nodes(scope, package, version, bucket).await?
-    else {
-      return Ok(None);
-    };
-
-    let docs_info = get_docs_info(exports, None);
-    let ctx = get_generate_ctx(
-      "/doc".to_string(),
-      doc_nodes,
-      docs_info.main_entrypoint,
-      docs_info.rewrite_map,
-      scope.clone(),
-      package.clone(),
-      version.clone(),
-      version_is_latest,
-      github_repository,
-      has_readme,
-      runtime_compat,
-      registry_url.to_string(),
-      None,
+  ) -> Result<Option<Arc<GenerateCtx>>, GenerateCtxCacheError> {
+    // runtime_compat is part of the key because the usage instructions baked
+    // into the GenerateCtx depend on it, and it is editable in the package
+    // settings.
+    let key = format!(
+      "@{scope}/{package}/{version}/{version_is_latest}/{has_readme}/{:?}",
+      runtime_compat
     );
 
-    let ctx = Arc::new(ctx);
-    self.cache.insert(key, ctx.clone()).await;
-    Ok(Some(ctx))
+    // `try_get_with` single-flights the miss: concurrent requests for the same
+    // cold key wait on one download and one context build instead of each
+    // paying both. That matters more here than for a typical cache, because
+    // building a context allocates the 10-50 MB the render permit exists to
+    // bound, so a stampede on a popular cold package multiplied real memory as
+    // well as CPU.
+    let loaded = self
+      .cache
+      .try_get_with(key, async {
+        let Some((doc_nodes, stored_bytes)) =
+          download_doc_nodes_sized(scope, package, version, bucket).await?
+        else {
+          return Err(CtxLoadError::Absent);
+        };
+
+        let docs_info = get_docs_info(exports, None);
+        let ctx = get_generate_ctx(
+          "/doc".to_string(),
+          doc_nodes,
+          docs_info.main_entrypoint,
+          docs_info.rewrite_map,
+          scope.clone(),
+          package.clone(),
+          version.clone(),
+          version_is_latest,
+          github_repository,
+          has_readme,
+          runtime_compat,
+          has_create_export(exports),
+          registry_url.to_string(),
+          None,
+        );
+
+        Ok(CachedCtx {
+          ctx: Arc::new(ctx),
+          stored_bytes: stored_bytes.try_into().unwrap_or(u32::MAX),
+        })
+      })
+      .await;
+
+    match loaded {
+      Ok(cached) => Ok(Some(cached.ctx)),
+      Err(err) if matches!(&*err, CtxLoadError::Absent) => Ok(None),
+      Err(err) => Err(GenerateCtxCacheError(err)),
+    }
   }
+}
+
+/// Upper bound on the number of symbol rows the "all symbols" listing may
+/// contain across *every* entrypoint.
+///
+/// [`SYMBOL_LISTING_LIMIT`] already bounds each module's own listing, but the
+/// all-symbols listing concatenates one per entrypoint, so a package with many
+/// entrypoints multiplies straight past it: `@ubx/sdk-aws` publishes 1921
+/// exports, putting its ceiling near 3.9 million rows. The resulting response
+/// exceeded Cloud Run's 32 MiB cap, so every request built the whole thing,
+/// spent ~1.6s of CPU, and was then killed mid-flight — 871 times in one hour
+/// from a single crawler, and never cacheable because a 500 is not.
+///
+/// Refusing up front turns that into a cheap, cacheable error. The durable fix
+/// is for the limit in deno_doc to be a total budget rather than a per-module
+/// one, at which point this guard should stop firing on its own.
+const ALL_SYMBOLS_LISTING_LIMIT: usize = 10_000;
+
+/// Whether the all-symbols listing for `ctx` would exceed
+/// [`ALL_SYMBOLS_LISTING_LIMIT`].
+///
+/// Mirrors what rendering will actually emit: each entrypoint contributes at
+/// most [`SYMBOL_LISTING_LIMIT`] rows. Counting top-level doc nodes can only
+/// over-estimate a module's rendered rows, so this errs towards refusing.
+pub fn all_symbols_listing_too_large(ctx: &GenerateCtx) -> bool {
+  listing_rows_exceed_limit(ctx.doc_nodes.values().map(|nodes| nodes.len()))
+}
+
+/// The counting half of [`all_symbols_listing_too_large`], split out so the
+/// per-entrypoint accumulation can be tested without building a `GenerateCtx`.
+fn listing_rows_exceed_limit(
+  module_symbol_counts: impl Iterator<Item = usize>,
+) -> bool {
+  let mut total = 0usize;
+  for count in module_symbol_counts {
+    total = total.saturating_add(count.min(SYMBOL_LISTING_LIMIT));
+    if total > ALL_SYMBOLS_LISTING_LIMIT {
+      return true;
+    }
+  }
+  false
 }
 
 pub type URLRewriter =
@@ -281,8 +405,12 @@ lazy_static::lazy_static! {
     let mut ammonia_builder = ammonia::Builder::default();
 
     ammonia_builder
-      .add_tags(["video", "button", "svg", "path", "rect"])
+      .add_tags([
+        "video", "button", "svg", "path", "rect", "section", "g", "defs",
+        "clipPath",
+      ])
       .add_generic_attributes(["id", "align"])
+      .add_tag_attributes("g", ["clip-path", "fill", "opacity", "transform"])
       .add_tag_attributes("button", ["data-copy"])
       .add_tag_attributes(
         "svg",
@@ -316,6 +444,18 @@ lazy_static::lazy_static! {
       .add_tag_attributes("video", ["src", "controls"])
       .add_allowed_classes("pre", ["highlight"])
       .add_allowed_classes("button", ["copyButton"])
+      // comrak footnote output
+      .add_allowed_classes("section", ["footnotes"])
+      .add_allowed_classes("sup", ["footnote-ref"])
+      .add_allowed_classes("a", ["footnote-backref", "anchor"])
+      // deno_doc heading permalinks
+      .add_tag_attributes("a", ["aria-label", "tabindex"])
+      .add_allowed_classes("h1", ["anchorable"])
+      .add_allowed_classes("h2", ["anchorable"])
+      .add_allowed_classes("h3", ["anchorable"])
+      .add_allowed_classes("h4", ["anchorable"])
+      .add_allowed_classes("h5", ["anchorable"])
+      .add_allowed_classes("h6", ["anchorable"])
       .add_allowed_classes(
         "div",
         [
@@ -561,6 +701,13 @@ pub struct DocsInfo {
   pub rewrite_map: IndexMap<Url, String>,
 }
 
+/// Whether `deno create @scope/package` works for this package: the CLI
+/// rewrites that into `jsr:@scope/package/create`, so it needs a `./create`
+/// export to run (jsr-io/jsr#1358).
+pub fn has_create_export(exports: &crate::db::ExportsMap) -> bool {
+  exports.contains_key("./create")
+}
+
 pub fn get_docs_info(
   exports: &crate::db::ExportsMap,
   entrypoint: Option<&str>,
@@ -660,6 +807,76 @@ fn get_url_rewriter(
   })
 }
 
+/// Renders a standalone markdown file from a package (e.g. a non-README `.md`
+/// opened in the source view) to sanitized HTML, without building a full
+/// `GenerateCtx`. `path` is the package-root-relative path of the file (with
+/// a leading slash); relative links resolve against the file's directory, the
+/// same way README links do.
+pub fn render_markdown_file(
+  md: &str,
+  scope: &ScopeName,
+  package: &PackageName,
+  version: &Version,
+  github_repository: Option<GithubRepository>,
+  path: &str,
+) -> Option<String> {
+  let renderer = deno_doc::html::comrak::create_renderer(
+    Some(Arc::new(super::tree_sitter::ComrakAdapter::new(false))),
+    Some(Box::new(match_node_value)),
+    Some(Box::new(|html| AMMONIA.clean(&html).to_string())),
+  );
+
+  let url_rewriter = get_url_rewriter(
+    format!("/@{scope}/{package}/{version}"),
+    github_repository,
+    false,
+  );
+
+  let specifier = ModuleSpecifier::parse(&format!("file://{path}")).ok()?;
+  let short_path = ShortPath::new(specifier, None, None, None);
+
+  let anchorizer: deno_doc::html::jsdoc::Anchorizer = {
+    let seen = std::sync::Mutex::new(std::collections::HashMap::new());
+    Arc::new(move |content: String, level: u8| {
+      let mut slug = String::new();
+      for ch in content.chars() {
+        if ch.is_alphanumeric() {
+          slug.extend(ch.to_lowercase());
+        } else if (ch.is_whitespace() || ch == '-') && !slug.ends_with('-') {
+          slug.push('-');
+        }
+      }
+      let mut seen = seen.lock().unwrap();
+      let count = seen
+        .entry((slug.clone(), level))
+        .and_modify(|count| *count += 1)
+        .or_insert(0);
+      if *count > 0 {
+        format!("{slug}-{count}")
+      } else {
+        slug
+      }
+    })
+  };
+
+  CURRENT_FILE.set(Some(Some(short_path)));
+  URL_REWRITER.set(Some(url_rewriter));
+
+  let rendered = renderer(md, false, None, anchorizer);
+
+  CURRENT_FILE.set(None);
+  URL_REWRITER.set(None);
+
+  rendered
+}
+
+/// Maximum number of symbol rows rendered in module symbol listings (the
+/// per-entrypoint overview and the "all symbols" page). Namespace-heavy
+/// packages (e.g. zod, which re-exports its whole API under several
+/// namespaces) can otherwise produce listings with tens of thousands of rows,
+/// blowing the docs response past Cloud Run's 32 MiB response cap.
+const SYMBOL_LISTING_LIMIT: usize = 2048;
+
 #[allow(clippy::too_many_arguments)]
 #[instrument(
   name = "get_generate_ctx",
@@ -673,6 +890,7 @@ fn get_url_rewriter(
     version_is_latest,
     has_readme,
     runtime_compat,
+    has_create_export,
     registry_url,
     diff
   )
@@ -689,6 +907,7 @@ pub fn get_generate_ctx(
   github_repository: Option<GithubRepository>,
   has_readme: bool,
   runtime_compat: RuntimeCompat,
+  has_create_export: bool,
   registry_url: String,
   diff: Option<(deno_doc::diff::DocDiff, bool)>,
 ) -> GenerateCtx {
@@ -699,9 +918,7 @@ pub fn get_generate_ctx(
     get_url_rewriter(url_rewriter_base, github_repository, has_readme);
 
   let markdown_renderer = deno_doc::html::comrak::create_renderer(
-    Some(Arc::new(super::tree_sitter::ComrakAdapter {
-      show_line_numbers: false,
-    })),
+    Some(Arc::new(super::tree_sitter::ComrakAdapter::new(false))),
     Some(Box::new(match_node_value)),
     Some(Box::new(|html| AMMONIA.clean(&html).to_string())),
   );
@@ -732,7 +949,7 @@ pub fn get_generate_ctx(
       href_resolver: Arc::new(DocResolver {
         scope: scope.clone(),
         package: package.clone(),
-        version,
+        version: version.clone(),
         version_is_latest,
         registry_url,
         deno_types: DENO_TYPES
@@ -764,6 +981,9 @@ pub fn get_generate_ctx(
           runtime_compat,
           scope,
           package,
+          version,
+          version_is_latest,
+          has_create_export,
         }) as Arc<dyn deno_doc::html::UsageComposer>
       }),
       rewrite_map: Some(rewrite_map),
@@ -776,8 +996,7 @@ pub fn get_generate_ctx(
       head_inject: None,
       id_prefix: None,
       diff_only: diff.as_ref().map(|diff| !diff.1).unwrap_or_default(),
-      // `None` keeps deno_doc rendering every symbol, as before 0.208 added this.
-      symbol_listing_limit: None,
+      symbol_listing_limit: Some(SYMBOL_LISTING_LIMIT),
     },
     None,
     deno_doc::html::FileMode::Normal,
@@ -818,21 +1037,25 @@ pub fn render_docs_html(
 
       let render_ctx = RenderContext::new(ctx, doc_nodes, UrlResolveKind::Root);
 
-      let mut index_module_doc = match readme_source {
-        ReadmeSource::JSDoc => ctx
-          .main_entrypoint
-          .as_ref()
-          .map(|entrypoint| {
-            deno_doc::html::jsdoc::ModuleDocCtx::new(
-              &render_ctx,
-              entrypoint,
-              false,
-              false,
-            )
-          })
-          .unwrap_or_default(),
-        ReadmeSource::Readme => Default::default(),
-      };
+      let mut index_module_doc = ctx
+        .main_entrypoint
+        .as_ref()
+        .map(|entrypoint| {
+          deno_doc::html::jsdoc::ModuleDocCtx::new(
+            &render_ctx,
+            entrypoint,
+            false,
+            false,
+          )
+        })
+        .unwrap_or_default();
+
+      // When the README is the overview's prose, drop the module JSDoc body
+      // so the README injection below kicks in — but keep the sections, which
+      // hold the module's `@example`s.
+      if matches!(readme_source, ReadmeSource::Readme) {
+        index_module_doc.sections.docs = None;
+      }
 
       if index_module_doc.sections.docs.is_none() {
         let markdown = readme
@@ -927,6 +1150,49 @@ pub fn render_docs_html(
   }
 }
 
+/// Resolves the references of a doc node, keeping any non-reference
+/// declarations alongside the resolved targets so they are not lost (e.g. an
+/// interface merged with a same-named function re-exported through
+/// `export *`).
+fn resolve_doc_node_references(
+  ctx: &GenerateCtx,
+  node: DocNodeWithContext,
+) -> Vec<DocNodeWithContext> {
+  if !node
+    .declarations
+    .iter()
+    .any(|decl| decl.reference_def().is_some())
+  {
+    return vec![node];
+  }
+
+  let mut nodes = Vec::new();
+  for decl in &node.declarations {
+    if let Some(reference) = decl.reference_def() {
+      nodes.extend(
+        ctx
+          .resolve_reference(node.parent.as_deref(), &reference.target)
+          .map(|resolved| resolved.into_owned()),
+      );
+    }
+  }
+
+  let non_reference_decls = node
+    .declarations
+    .iter()
+    .filter(|decl| decl.reference_def().is_none())
+    .cloned()
+    .collect::<Vec<_>>();
+  if !non_reference_decls.is_empty() {
+    let mut stripped = node;
+    std::sync::Arc::make_mut(&mut stripped.inner).declarations =
+      non_reference_decls;
+    nodes.push(stripped);
+  }
+
+  nodes
+}
+
 fn generate_symbol_page(
   ctx: &GenerateCtx,
   short_path: &ShortPath,
@@ -939,27 +1205,17 @@ fn generate_symbol_page(
 
   let doc_nodes = 'outer: loop {
     let next_part = name_parts.next()?;
+    // Symbols that aren't exported get a page too: the public API refers to
+    // them, so their signatures link here and this page is what those links
+    // point at (jsr-io/jsr#165). deno_doc keeps them out of the listings and
+    // of symbol search, since they can't be imported.
+    //
+    // `@internal` is different: the author asked for the symbol to be hidden,
+    // so it gets no page, and deno_doc emits no link to one either.
     let mut nodes = doc_nodes
       .iter()
-      .filter(|node| {
-        !node.declarations.iter().all(|decl| {
-          decl.declaration_kind == deno_doc::node::DeclarationKind::Private
-        }) && node.get_name() == next_part
-      })
-      .flat_map(|node| {
-        if let Some(reference) = node
-          .declarations
-          .iter()
-          .find_map(|decl| decl.reference_def())
-        {
-          ctx
-            .resolve_reference(node.parent.as_deref(), &reference.target)
-            .map(|node| node.into_owned())
-            .collect::<Vec<_>>()
-        } else {
-          vec![node.clone()]
-        }
-      })
+      .filter(|node| !node.is_hidden() && node.get_name() == next_part)
+      .flat_map(|node| resolve_doc_node_references(ctx, node.clone()))
       .collect::<Vec<_>>();
 
     if name_parts.peek().is_some() {
@@ -1148,20 +1404,7 @@ fn generate_symbol_page(
 
     nodes = nodes
       .into_iter()
-      .flat_map(|node| {
-        if let Some(reference) = node
-          .declarations
-          .iter()
-          .find_map(|decl| decl.reference_def())
-        {
-          ctx
-            .resolve_reference(node.parent.as_deref(), &reference.target)
-            .map(|node| node.into_owned())
-            .collect::<Vec<_>>()
-        } else {
-          vec![node]
-        }
-      })
+      .flat_map(|node| resolve_doc_node_references(ctx, node))
       .collect::<Vec<_>>();
 
     if name_parts.peek().is_none() {
@@ -1204,6 +1447,32 @@ fn generate_symbol_page(
     return None;
   }
 
+  // One symbol name can produce multiple doc nodes (e.g. a resolved
+  // re-export alongside a same-named interface merged through `export *`);
+  // combine their declarations so the page shows all of them. Prefer the
+  // node carrying the requested name as the base so the page keeps it.
+  let doc_node = if doc_nodes.len() == 1 {
+    doc_nodes[0].clone()
+  } else {
+    let requested_name = name.rsplit('.').next().unwrap();
+    let mut merged = doc_nodes
+      .iter()
+      .find(|node| node.get_name() == requested_name)
+      .unwrap_or(&doc_nodes[0])
+      .clone();
+    let mut declarations = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for node in &doc_nodes {
+      for decl in &node.declarations {
+        if seen.insert((decl.location.clone(), decl.def.to_kind())) {
+          declarations.push(decl.clone());
+        }
+      }
+    }
+    std::sync::Arc::make_mut(&mut merged.inner).declarations = declarations;
+    merged
+  };
+
   let render_ctx = RenderContext::new(
     ctx,
     doc_nodes_for_module,
@@ -1214,7 +1483,7 @@ fn generate_symbol_page(
     deno_doc::html::pages::render_symbol_page(
       &render_ctx,
       short_path,
-      &doc_nodes[0],
+      &doc_node,
     );
 
   Some(SymbolPage::Symbol {
@@ -1385,6 +1654,12 @@ struct DocUsageComposer {
   runtime_compat: RuntimeCompat,
   scope: ScopeName,
   package: PackageName,
+  version: Version,
+  version_is_latest: bool,
+  /// Whether the package has a `./create` export. `deno create @scope/pkg`
+  /// runs `jsr:@scope/pkg/create`, so that export is exactly what makes the
+  /// command work (jsr-io/jsr#1358).
+  has_create_export: bool,
 }
 
 impl deno_doc::html::UsageComposer for DocUsageComposer {
@@ -1399,22 +1674,38 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
     usage_to_md: deno_doc::html::UsageToMd,
   ) -> IndexMap<UsageComposerEntry, String> {
     let mut map = IndexMap::new();
-    let scoped_name = format!("@{}/{}", self.scope, self.package);
+    // When the user is looking at a pinned, non-latest version, the add
+    // commands install exactly that version instead of the latest one.
+    let scoped_name = if self.version_is_latest {
+      format!("@{}/{}", self.scope, self.package)
+    } else {
+      format!("@{}/{}@{}", self.scope, self.package, self.version)
+    };
 
     let (is_main, path) = current_resolve
       .get_file()
       .map(|short_path| (short_path.is_main, &*short_path.path))
       .unwrap_or((true, ""));
 
-    let url = format!(
-      "@{}/{}{}",
+    let subpath = if is_main {
+      String::new()
+    } else {
+      format!("/{path}")
+    };
+
+    let url = format!("@{}/{}{}", self.scope, self.package, subpath);
+
+    // A direct jsr specifier always carries a version constraint so the
+    // snippet passes Deno's no-unversioned-import lint rule: a caret range on
+    // the latest version (matching what `deno add` writes), and the exact
+    // version when a non-latest version is pinned.
+    let jsr_url = format!(
+      "@{}/{}@{}{}{}",
       self.scope,
       self.package,
-      if is_main {
-        String::new()
-      } else {
-        format!("/{path}")
-      }
+      if self.version_is_latest { "^" } else { "" },
+      self.version,
+      subpath
     );
 
     let import = format!(
@@ -1423,16 +1714,30 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
     );
 
     if !self.runtime_compat.deno.is_some_and(|compat| !compat) {
+      // Packages exporting `./create` are project scaffolds, so lead with the
+      // command that actually runs them.
+      let scaffold = if self.has_create_export {
+        format!("Scaffold a project\n```\ndeno create {scoped_name}\n```\n")
+      } else {
+        String::new()
+      };
+
       map.insert(
         UsageComposerEntry {
           name: "Deno".to_string(),
           icon: Some("/logos/deno.svg".into()),
         },
-        format!("Add Package\n```\ndeno add jsr:{scoped_name}\n```{import}\n<div class='or-bar'>or</div>\n\nImport directly with a jsr specifier\n{}\n", usage_to_md(&format!("jsr:{url}"), Some(self.package.as_str()))),
+        format!("{scaffold}Add Package\n```\ndeno add jsr:{scoped_name}\n```{import}\n<div class='or-bar'>or</div>\n\nImport directly with a jsr specifier\n{}\n", usage_to_md(&format!("jsr:{jsr_url}"), Some(self.package.as_str()))),
       );
     }
 
-    if !self.runtime_compat.node.is_some_and(|compat| !compat) {
+    // Packages that only target browsers or Cloudflare Workers are still
+    // installed through npm-ecosystem package managers (via a bundler), so an
+    // explicit browser/workerd "yes" shows these tabs even when node is "no".
+    if !self.runtime_compat.node.is_some_and(|compat| !compat)
+      || self.runtime_compat.browser.is_some_and(|compat| compat)
+      || self.runtime_compat.workerd.is_some_and(|compat| compat)
+    {
       map.insert(
         UsageComposerEntry {
           name: "pnpm".to_string(),
@@ -1481,6 +1786,124 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
 mod tests {
   use super::*;
   use deno_doc::html::ShortPath;
+
+  #[test]
+  fn one_module_under_the_per_module_limit_is_allowed() {
+    // The common case: a single entrypoint, however symbol-heavy, is capped by
+    // SYMBOL_LISTING_LIMIT and must still render.
+    assert!(!listing_rows_exceed_limit(std::iter::once(usize::MAX)));
+  }
+
+  #[test]
+  fn many_small_entrypoints_can_exceed_the_total_limit() {
+    // The regression this guard exists for. Every module here is far under
+    // SYMBOL_LISTING_LIMIT, so the per-module cap never trims anything, yet the
+    // all-symbols listing concatenates one per entrypoint. @ubx/sdk-aws
+    // publishes 1921 exports; at 100 symbols each that is 192_100 rows, which
+    // is what pushed the response past Cloud Run's 32 MiB cap.
+    assert!(listing_rows_exceed_limit(std::iter::repeat_n(100, 1921)));
+  }
+
+  #[test]
+  fn a_package_at_the_limit_is_still_served() {
+    // Exactly at the budget is allowed; only exceeding it refuses.
+    assert!(!listing_rows_exceed_limit(std::iter::repeat_n(
+      1,
+      ALL_SYMBOLS_LISTING_LIMIT
+    )));
+    assert!(listing_rows_exceed_limit(std::iter::repeat_n(
+      1,
+      ALL_SYMBOLS_LISTING_LIMIT + 1
+    )));
+  }
+
+  #[test]
+  fn renders_heading_permalinks_through_the_sanitizer() {
+    // deno_doc emits heading permalinks as an `anchorable` heading wrapping an
+    // `anchor` link around its bundled link.svg. The allowlist has to keep the
+    // classes the CSS hangs off of, and it has to keep <defs>/<clipPath> so the
+    // clip rect stays inside a definition instead of painting over the icon
+    // (#1530).
+    let html = render_markdown_file(
+      "## Install\n",
+      &ScopeName::new("scope".to_string()).unwrap(),
+      &PackageName::new("pkg".to_string()).unwrap(),
+      &Version::new("1.0.0").unwrap(),
+      None,
+      "/README.md",
+    )
+    .unwrap();
+
+    assert!(
+      html.contains(r#"<h2 id="install" class="anchorable">"#),
+      "{html}"
+    );
+    assert!(html.contains(r##"href="#install""##), "{html}");
+    assert!(html.contains(r#"class="anchor""#), "{html}");
+    assert!(html.contains(r#"aria-label="Anchor""#), "{html}");
+    assert!(html.contains(r#"tabindex="-1""#), "{html}");
+    // the icon's clip plumbing survives, so the white rect stays unpainted
+    assert!(html.contains("<g clip-path="), "{html}");
+    assert!(html.contains("<defs>"), "{html}");
+    assert!(html.contains("<clipPath "), "{html}");
+    let (_, after_rect) = html.split_once("<rect ").expect("{html}");
+    assert!(
+      after_rect
+        .split("</svg>")
+        .next()
+        .unwrap()
+        .contains("</clipPath>"),
+      "the clip rect escaped its <clipPath>: {html}"
+    );
+  }
+
+  #[test]
+  fn render_markdown_file_test() {
+    let html = render_markdown_file(
+      "# Hi\n\nSee the [guide](./other.md) and ![img](image.png)\n\n```ts\nconst x: number = 1;\n```\n",
+      &ScopeName::new("scope".to_string()).unwrap(),
+      &PackageName::new("pkg".to_string()).unwrap(),
+      &Version::new("1.0.0").unwrap(),
+      None,
+      "/docs/guide.md",
+    )
+    .unwrap();
+    assert!(
+      html.contains(r#"href="/@scope/pkg/1.0.0/docs/./other.md""#),
+      "{html}"
+    );
+    assert!(
+      html.contains(r#"src="/@scope/pkg/1.0.0/docs/image.png""#),
+      "{html}"
+    );
+    // code fences go through the tree-sitter highlighter
+    assert!(html.contains("<span class="), "{html}");
+  }
+
+  #[test]
+  fn renders_footnotes_through_the_sanitizer() {
+    // goes through the real render path, so this keeps up with whatever markup
+    // the deno_doc of the day emits rather than a hand-written fixture
+    let html = render_markdown_file(
+      "claim[^1]\n\n[^1]: the source",
+      &ScopeName::new("scope".to_string()).unwrap(),
+      &PackageName::new("pkg".to_string()).unwrap(),
+      &Version::new("1.0.0").unwrap(),
+      None,
+      "/README.md",
+    )
+    .unwrap();
+
+    // the footnote section wrapper and both link classes survive the allowlist
+    assert!(html.contains(r#"<section class="footnotes">"#), "{html}");
+    assert!(html.contains(r#"<sup class="footnote-ref">"#), "{html}");
+    assert!(html.contains(r#"class="footnote-backref""#), "{html}");
+    // and so do the anchors that make the jump there and back work
+    assert!(html.contains(r##"href="#fn-1""##), "{html}");
+    assert!(html.contains(r#"id="fn-1""#), "{html}");
+    assert!(html.contains(r##"href="#fnref-1""##), "{html}");
+    assert!(html.contains(r#"id="fnref-1""#), "{html}");
+  }
 
   #[test]
   fn url_resolver_test() {
@@ -1763,5 +2186,72 @@ mod tests {
     );
     // Protocol-relative URLs are left untouched.
     assert_eq!(rewriter(None, "//example.com/x"), "//example.com/x");
+  }
+
+  fn compose_deno_usage(has_create_export: bool) -> String {
+    use deno_doc::html::UsageComposer;
+
+    let composer = DocUsageComposer {
+      runtime_compat: RuntimeCompat {
+        browser: None,
+        deno: None,
+        node: None,
+        workerd: None,
+        bun: None,
+      },
+      scope: ScopeName::new("foo".to_string()).unwrap(),
+      package: PackageName::new("bar".to_string()).unwrap(),
+      version: Version::new("1.0.0").unwrap(),
+      version_is_latest: true,
+      has_create_export,
+    };
+
+    let usage_to_md = |url: &str, _name: Option<&str>| format!("`{url}`");
+    let usages = composer.compose(UrlResolveKind::Root, &usage_to_md);
+
+    usages
+      .into_iter()
+      .find(|(entry, _)| entry.name == "Deno")
+      .unwrap()
+      .1
+  }
+
+  #[test]
+  fn create_export_adds_scaffold_command() {
+    let with_create = compose_deno_usage(true);
+    assert!(
+      with_create.contains("deno create @foo/bar"),
+      "{with_create}"
+    );
+    // the scaffold block leads, but installing is still offered
+    assert!(
+      with_create.find("deno create @foo/bar").unwrap()
+        < with_create.find("deno add jsr:@foo/bar").unwrap(),
+      "{with_create}"
+    );
+
+    // a package without the export must not advertise a command that fails
+    let without_create = compose_deno_usage(false);
+    assert!(!without_create.contains("deno create"), "{without_create}");
+    assert!(
+      without_create.contains("deno add jsr:@foo/bar"),
+      "{without_create}"
+    );
+  }
+
+  #[test]
+  fn has_create_export_checks_the_export_key() {
+    let with_create = crate::db::ExportsMap::new(IndexMap::from([
+      (".".to_string(), "./mod.ts".to_string()),
+      ("./create".to_string(), "./create.ts".to_string()),
+    ]));
+    assert!(has_create_export(&with_create));
+
+    // a `create` *file* under some other export must not count
+    let without_create = crate::db::ExportsMap::new(IndexMap::from([
+      (".".to_string(), "./mod.ts".to_string()),
+      ("./cli".to_string(), "./create.ts".to_string()),
+    ]));
+    assert!(!has_create_export(&without_create));
   }
 }

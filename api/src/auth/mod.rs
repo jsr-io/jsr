@@ -3,15 +3,16 @@
 use crate::RegistryUrl;
 use crate::api::ApiError;
 use crate::db::*;
+use crate::external::cloudflare::Turnstile;
 use crate::iam::ReqIamExt;
 use crate::util::ApiResult;
+use crate::util::oauth2_http_request;
 use crate::util::sanitize_redirect_url;
 use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
 use hyper::header;
-use oauth2::reqwest::async_http_client;
 use oauth2::{AccessToken, RedirectUrl, RefreshToken, StandardRevocableToken};
 use routerify::ext::RequestExt;
 use routerify_query::RequestQueryExt;
@@ -61,9 +62,41 @@ fn get_cookie<'a>(req: &'a Request<Body>, name: &str) -> Option<&'a str> {
   None
 }
 
-#[instrument(name = "GET /login/:service", skip(req), err, fields(redirect))]
-pub async fn login_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
+/// The form field the Turnstile widget populates with its response token. The
+/// name is fixed by Turnstile, which injects an input under it.
+const TURNSTILE_FIELD: &str = "cf-turnstile-response";
+
+/// Pulls the Turnstile response token out of the url-encoded form body.
+///
+/// A missing field and an empty one are both reported as `None`: a form
+/// submitted before the widget resolves carries the field with an empty value.
+async fn turnstile_token(
+  req: &mut Request<Body>,
+) -> Result<Option<String>, ApiError> {
+  let bytes = hyper::body::to_bytes(req.body_mut())
+    .await
+    .map_err(anyhow::Error::from)?;
+
+  Ok(
+    url::form_urlencoded::parse(&bytes)
+      .find(|(key, _)| key == TURNSTILE_FIELD)
+      .map(|(_, value)| value.into_owned())
+      .filter(|token| !token.is_empty()),
+  )
+}
+
+#[instrument(name = "POST /login/:service", skip(req), err, fields(redirect))]
+pub async fn login_handler(
+  mut req: Request<Body>,
+) -> ApiResult<Response<Body>> {
   let service = service_param(&req)?;
+
+  // Check the captcha before touching the database: this route is
+  // unauthenticated and inserts an `oauth_state` row on every call, so the
+  // caller must first prove they are a browser and not a bot enumerating it.
+  let turnstile = req.data::<Turnstile>().unwrap().clone();
+  let token = turnstile_token(&mut req).await?;
+  turnstile.verify(token.as_deref()).await?;
 
   let (pkce_code_challenge, pkce_code_verifier) =
     oauth2::PkceCodeChallenge::new_random_sha256();
@@ -108,7 +141,10 @@ pub async fn login_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
 
   Ok(
     Response::builder()
-      .status(StatusCode::TEMPORARY_REDIRECT)
+      // 303, not 307: this handler is reached by a form POST, and 307 would
+      // preserve the method, making the browser POST the form to the identity
+      // provider's authorization endpoint. 303 forces the redirect to a GET.
+      .status(StatusCode::SEE_OTHER)
       .header(header::LOCATION, auth_url.as_str())
       // Bind this flow to the current browser: the callback requires the
       // returned `state` to match this cookie, so a `state` minted by an
@@ -178,7 +214,7 @@ pub async fn login_callback_handler(
         .set_pkce_verifier(oauth2::PkceCodeVerifier::new(
           oauth_state.pkce_code_verifier,
         ))
-        .request_async(async_http_client)
+        .request_async(&oauth2_http_request)
         .await?;
 
       db.delete_oauth_state(&oauth_state.csrf_token).await?;
@@ -193,7 +229,7 @@ pub async fn login_callback_handler(
         .set_pkce_verifier(oauth2::PkceCodeVerifier::new(
           oauth_state.pkce_code_verifier,
         ))
-        .request_async(async_http_client)
+        .request_async(&oauth2_http_request)
         .await?;
 
       db.delete_oauth_state(&oauth_state.csrf_token).await?;
@@ -385,7 +421,7 @@ pub async fn connect_callback_handler(
             .parse("./connect/callback/github")
             .unwrap(),
         )))
-        .request_async(async_http_client)
+        .request_async(&oauth2_http_request)
         .await?;
 
       db.delete_oauth_state(&oauth_state.csrf_token).await?;
@@ -407,7 +443,7 @@ pub async fn connect_callback_handler(
             .parse("./connect/callback/gitlab")
             .unwrap(),
         )))
-        .request_async(async_http_client)
+        .request_async(&oauth2_http_request)
         .await?;
 
       db.delete_oauth_state(&oauth_state.csrf_token).await?;
@@ -468,14 +504,14 @@ pub async fn disconnect_handler(
           .revoke_token(StandardRevocableToken::RefreshToken(
             RefreshToken::new(identity.refresh_token.unwrap()),
           ))?
-          .request_async(async_http_client)
+          .request_async(&oauth2_http_request)
           .await?;
         gitlab_oauth2_client
           .0
           .revoke_token(StandardRevocableToken::AccessToken(AccessToken::new(
             identity.access_token.unwrap(),
           )))?
-          .request_async(async_http_client)
+          .request_async(&oauth2_http_request)
           .await?;
       }
     }
@@ -578,6 +614,47 @@ mod tests {
       .await;
   }
 
+  // The login flow is started by a form POST carrying the Turnstile token in
+  // its body. A bare GET must not start one: that is what stops the captcha
+  // from being sidestepped by navigating straight to this route.
+  #[tokio::test]
+  async fn login_does_not_start_a_flow_on_get() {
+    let mut t = TestSetup::new().await;
+
+    let resp = t.unauthed_http().get("/login/github").call().await.unwrap();
+
+    assert!(resp.status().is_client_error());
+    assert!(resp.headers().get(hyper::header::SET_COOKIE).is_none());
+  }
+
+  // With no secret key configured the captcha check is skipped, so a POST with
+  // no token still redirects to the identity provider. It must be a 303: a 307
+  // would preserve the method and make the browser POST the login form to
+  // GitHub's authorization endpoint.
+  #[tokio::test]
+  async fn login_post_redirects_to_provider_with_see_other() {
+    let mut t = TestSetup::new().await;
+
+    let resp = t
+      .unauthed_http()
+      .post("/login/github")
+      .call()
+      .await
+      .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::SEE_OTHER);
+    let location = resp
+      .headers()
+      .get(hyper::header::LOCATION)
+      .unwrap()
+      .to_str()
+      .unwrap();
+    assert!(
+      location.starts_with("https://github.com/login/oauth/authorize"),
+      "unexpected location: {location}"
+    );
+  }
+
   // The login callback is bound to the browser that started the flow via the
   // `oauth_login_csrf` cookie. Without that cookie the returned `state` is one
   // the browser never initiated, so the callback must reject it (login CSRF).
@@ -616,17 +693,16 @@ mod tests {
   #[tokio::test]
   async fn user_admin_api() {
     let mut t = TestSetup::new().await;
-    let mock_user_id: uuid::Uuid =
-      "00000000-0000-0000-0000-000000000000".try_into().unwrap();
+    let user_id = t.user1.user.id;
 
-    let user = t.db().get_user(mock_user_id).await.unwrap().unwrap();
+    let user = t.db().get_user(user_id).await.unwrap().unwrap();
     assert!(!user.is_staff);
     assert!(!user.is_blocked);
 
     let token = t.staff_user.token.clone();
     let resp = t
       .http()
-      .patch(format!("/api/admin/users/{}", mock_user_id))
+      .patch(format!("/api/admin/users/{}", user_id))
       .body_json(json!({
         "isStaff": true
       }))
@@ -635,18 +711,17 @@ mod tests {
       .await
       .unwrap();
 
-    eprintln!("resp status {}", resp.status());
     assert!(resp.status().is_success());
-    let user = t.db().get_user(mock_user_id).await.unwrap().unwrap();
+    let user = t.db().get_user(user_id).await.unwrap().unwrap();
     assert!(user.is_staff);
     assert!(!user.is_blocked);
 
     // Try again without authorization header
     let resp = t
       .http()
-      .patch(format!("/api/admin/users/{}", mock_user_id))
+      .patch(format!("/api/admin/users/{}", user_id))
       .body_json(json!({
-        "isStaff": true
+        "isStaff": false
       }))
       .token(None)
       .call()
@@ -658,7 +733,7 @@ mod tests {
 
     let resp = t
       .http()
-      .patch(format!("/api/admin/users/{}", mock_user_id))
+      .patch(format!("/api/admin/users/{}", user_id))
       .body_json(json!({
         "isStaff": false,
         "isBlocked": true,
@@ -669,10 +744,10 @@ mod tests {
       .await
       .unwrap();
     assert!(resp.status().is_success());
-    let user = t.db().get_user(mock_user_id).await.unwrap().unwrap();
+    let user = t.db().get_user(user_id).await.unwrap().unwrap();
     assert!(!user.is_staff);
     assert!(user.is_blocked);
-    assert_eq!(user.scope_limit, 30);
+    assert_eq!(user.scope_limit, Some(30));
   }
 
   #[tokio::test]

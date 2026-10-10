@@ -59,6 +59,21 @@ resource "google_cloud_scheduler_job" "requeue_stuck_publishing_tasks" {
   }
 }
 
+resource "google_cloud_scheduler_job" "anonymize_deleted_users" {
+  name        = "anonymize-deleted-users"
+  description = "Strip name and email from user_delete audit tombstones older than 1 year."
+  schedule    = "0 4 * * *"
+  region      = "us-central1"
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_v2_service.registry_api_tasks.uri}/tasks/anonymize_deleted_users"
+    oidc_token {
+      service_account_email = google_service_account.task_dispatcher.email
+    }
+  }
+}
+
 resource "google_cloud_scheduler_job" "scrape_download_counts" {
   name        = "scrape-download-counts"
   description = "Scrape download counts from Analytics Engine and insert them into Postgres."
@@ -68,6 +83,21 @@ resource "google_cloud_scheduler_job" "scrape_download_counts" {
   http_target {
     http_method = "POST"
     uri         = "${google_cloud_run_v2_service.registry_api_tasks.uri}/tasks/scrape_download_counts?intervalHrs=12"
+    oidc_token {
+      service_account_email = google_service_account.task_dispatcher.email
+    }
+  }
+}
+
+resource "google_cloud_scheduler_job" "sweep_pending_emails" {
+  name        = "sweep-pending-emails"
+  description = "Re-drive queued emails whose Cloud Tasks hand-off never happened or whose task was dropped."
+  schedule    = "*/5 * * * *"
+  region      = "us-central1"
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_v2_service.registry_api_tasks.uri}/tasks/sweep_pending_emails"
     oidc_token {
       service_account_email = google_service_account.task_dispatcher.email
     }

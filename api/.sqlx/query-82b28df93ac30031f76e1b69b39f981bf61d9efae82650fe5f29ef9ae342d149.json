@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE audit_logs\n      SET meta = meta - 'name' - 'email'\n      WHERE action = 'user_delete'\n        AND created_at < $1\n        AND (meta ? 'name' OR meta ? 'email')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "82b28df93ac30031f76e1b69b39f981bf61d9efae82650fe5f29ef9ae342d149"
+}

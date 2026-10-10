@@ -42,8 +42,9 @@ while (true) {
 
 const objects = packages
   .filter((entry) =>
-    entry.versionCount > 0 || !entry.isArchived ||
-    !entry.description.startsWith("INTERNAL")
+    entry.versionCount > 0 && !entry.isArchived &&
+    !entry.description.startsWith("INTERNAL") &&
+    entry.latestVersion !== null
   )
   .map((entry) => ({
     objectID: `@${entry.scope}/${entry.name}`,

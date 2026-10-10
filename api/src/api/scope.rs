@@ -4,7 +4,9 @@ use std::sync::OnceLock;
 
 use crate::RegistryUrl;
 use crate::api::package::package_router;
+use crate::emails;
 use crate::emails::EmailArgs;
+use crate::emails::EmailQueue;
 use crate::emails::EmailSender;
 use crate::iam::ReqIamExt;
 use hyper::Body;
@@ -85,7 +87,10 @@ async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiScope> {
   // TODO(bartlomieju): this should be done in a transaction and we should check
   // for no of scopes after creating it and if it exceeds the limit rollback.
   // How many scopes has this user created?
-  if user.scope_usage >= user.scope_limit.into() {
+  if user
+    .scope_limit
+    .is_some_and(|scope_limit| user.scope_usage >= scope_limit.into())
+  {
     return Err(ApiError::ScopeLimitReached);
   }
 
@@ -315,13 +320,18 @@ async fn invite_member_handler(
         support_email: Cow::Borrowed(&email_sender.from),
         inviter_name: Cow::Borrowed(&current_user.name),
       };
-      email_sender
-        .send(email.clone(), email_args)
-        .await
-        .map_err(|e| {
-          tracing::error!("failed to send email: {:?}", e);
-          ApiError::InternalServerError
-        })?;
+      if let Err(err) = emails::enqueue(
+        db,
+        email_sender,
+        req.data::<EmailQueue>().unwrap(),
+        email.clone(),
+        email_args,
+        None,
+      )
+      .await
+      {
+        tracing::error!("failed to queue email: {:?}", err);
+      }
     }
   }
 

@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use anyhow::Context;
+use bytes::Bytes;
 use chrono::Utc;
 use comrak::adapters::SyntaxHighlighterAdapter;
 use deno_ast::MediaType;
@@ -11,12 +12,13 @@ use deno_graph::Module;
 use deno_graph::Resolution;
 use deno_graph::WorkspaceMember;
 use deno_graph::analysis::ModuleInfo;
-use deno_graph::ast::CapturingModuleAnalyzer;
+use deno_graph::ast::ParserModuleAnalyzer;
 use deno_graph::source::JsrUrlProvider;
 use deno_graph::source::LoadError;
 use deno_graph::source::LoadOptions;
 use deno_graph::source::NullFileSystem;
 use deno_semver::StackString;
+use deno_semver::VersionReq;
 use futures::StreamExt;
 use futures::TryFutureExt;
 use futures::future::Either;
@@ -35,6 +37,8 @@ use serde::Deserialize;
 use serde::Serialize;
 use sha2::Digest;
 use std::borrow::Cow;
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::io;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -48,6 +52,7 @@ use tracing::instrument;
 use url::Url;
 use uuid::Uuid;
 
+use crate::FallbackRegistryUrl;
 use crate::NpmUrl;
 use crate::RegistryUrl;
 use crate::analysis::JsrResolver;
@@ -66,6 +71,7 @@ use crate::docs::GeneratedDocsOutput;
 use crate::external::algolia::AlgoliaClient;
 use crate::external::cloudflare::CachePurge;
 use crate::gcp;
+use crate::iam::IamInfo;
 use crate::iam::ReqIamExt;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
@@ -121,6 +127,10 @@ use super::ApiUpdatePackageRequest;
 use super::ApiUpdatePackageVersionRequest;
 
 pub const MAX_PUBLISH_TARBALL_SIZE: u64 = 20 * 1024 * 1024; // 20mb
+
+/// The maximum number of downloads a version may have to still be deletable by
+/// a scope admin.
+const MAX_DELETABLE_VERSION_DOWNLOADS: i64 = 10;
 
 pub struct PublishQueue(pub Option<gcp::Queue>);
 
@@ -207,8 +217,12 @@ pub fn package_router() -> Router<Body, ApiError> {
       ),
     )
     .get(
+      // `_shared`: like `docs` above, both search payloads are derived purely
+      // from the published version, with no permission/member/sudo branch, so
+      // the lb may serve them from its shared cache to authenticated callers
+      // instead of bypassing on auth.
       "/:package/versions/:version/docs/search",
-      util::cache_versioned(
+      util::cache_versioned_shared(
         CacheDuration::FIVE_MINUTES,
         CacheDuration::THIRTY_DAYS,
         util::json(get_docs_search_handler),
@@ -216,7 +230,7 @@ pub fn package_router() -> Router<Body, ApiError> {
     )
     .get(
       "/:package/versions/:version/docs/search_structured",
-      util::cache_versioned(
+      util::cache_versioned_shared(
         CacheDuration::FIVE_MINUTES,
         CacheDuration::THIRTY_DAYS,
         util::json(get_docs_search_structured_handler),
@@ -249,8 +263,21 @@ pub fn package_router() -> Router<Body, ApiError> {
       ),
     )
     .get(
+      // The graph is resolved live — a `jsr:` range in the package's source
+      // picks up whatever version matches it today — so even a pinned version
+      // is not immutable, and a day is the ceiling rather than the obvious
+      // answer. "latest" moves on publish on top of that, so it stays short;
+      // it used to be pinned for a day along with everything else.
+      //
+      // `_shared`: the handler reads nothing but the buckets, keyed by scope,
+      // package and version — no db, no iam, no permission branch — so the
+      // response is identity-independent and the lb may serve it from its
+      // shared cache to authenticated callers. Without this every signed-in
+      // view of a dependency graph bypassed the cache and paid the full cold
+      // build, which is by far the most expensive handler in the API.
       "/:package/versions/:version/dependencies/graph",
-      util::cache(
+      util::cache_versioned_shared(
+        CacheDuration::FIVE_MINUTES,
         CacheDuration::ONE_DAY,
         util::json(get_dependencies_graph_handler),
       ),
@@ -435,11 +462,7 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiPackage> {
   let dependent_count_cache =
     req.data::<crate::db::DependentCountCache>().unwrap();
   let dependent_count = dependent_count_cache
-    .count_package_dependents(
-      db,
-      crate::db::DependencyKind::Jsr,
-      &format!("@{}/{}", scope, package),
-    )
+    .count_package_dependents(db, &scope, &package)
     .await?;
   api_package.dependent_count = dependent_count as u64;
 
@@ -486,8 +509,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
   }
 
   // Every update variant mutates the aggressively-cached `:package` response,
-  // so cache-bust it (and the scope aggregates) afterwards. Built before the
-  // match because the GitHub-repository arm consumes `scope`/`package_name`.
+  // so cache-bust it (and the scope aggregates) afterwards.
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let purge_urls = crate::s3_paths::package_api_cache_urls(
     &registry_url,
@@ -495,7 +517,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     &package_name,
   );
 
-  let result = match body {
+  let result: Result<ApiPackage, ApiError> = match body {
     ApiUpdatePackageRequest::Description(description) => {
       let npm_url = &req.data::<NpmUrl>().unwrap().0;
       let buckets = req.data::<Buckets>().unwrap().clone();
@@ -516,25 +538,56 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
       Ok(ApiPackage::from((package, repo, meta)))
     }
     ApiUpdatePackageRequest::GithubRepository(None) => {
+      let npm_url = &req.data::<NpmUrl>().unwrap().0;
+      let buckets = req.data::<Buckets>().unwrap();
+      let cache_purge = req.data::<CachePurge>().unwrap();
       let package = db
         .delete_package_github_repository(&user.id, sudo, &scope, &package_name)
         .await?;
+      // The GitHub repository is embedded in the package `meta.json` and the
+      // npm compatibility manifest, so regenerate them.
+      upload_package_manifests(
+        db,
+        buckets,
+        &registry_url,
+        npm_url,
+        cache_purge,
+        &scope,
+        &package_name,
+      )
+      .await?;
       Ok(ApiPackage::from((package, None, meta)))
     }
     ApiUpdatePackageRequest::GithubRepository(Some(repo)) => {
+      let npm_url = &req.data::<NpmUrl>().unwrap().0;
+      let buckets = req.data::<Buckets>().unwrap();
+      let cache_purge = req.data::<CachePurge>().unwrap();
       let github_oauth2_client =
         req.data::<auth::github::Oauth2Client>().unwrap();
-      update_github_repository(
+      let package = update_github_repository(
         &user.id,
         sudo,
         user,
         db,
         github_oauth2_client,
-        scope,
-        package_name,
+        &scope,
+        &package_name,
         repo,
       )
-      .await
+      .await?;
+      // The GitHub repository is embedded in the package `meta.json` and the
+      // npm compatibility manifest, so regenerate them.
+      upload_package_manifests(
+        db,
+        buckets,
+        &registry_url,
+        npm_url,
+        cache_purge,
+        &scope,
+        &package_name,
+      )
+      .await?;
+      Ok(package)
     }
     ApiUpdatePackageRequest::RuntimeCompat(runtime_compat) => {
       let runtime_compat: RuntimeCompat = runtime_compat.into();
@@ -681,11 +734,11 @@ async fn update_description(
     .await?;
 
   cache_purge
-    .purge(vec![crate::s3_paths::npm_version_manifest_url(
+    .purge(crate::s3_paths::npm_version_manifest_purge_urls(
       npm_url,
       scope,
       &package.name,
-    )])
+    ))
     .await;
 
   Ok(package)
@@ -699,8 +752,8 @@ async fn update_github_repository(
   user: &User,
   db: &Database,
   github_oauth2_client: &auth::github::Oauth2Client,
-  scope: ScopeName,
-  package: PackageName,
+  scope: &ScopeName,
+  package: &PackageName,
   req: ApiUpdatePackageGithubRepositoryRequest,
 ) -> Result<ApiPackage, ApiError> {
   let gh_user_id = user.github_id.ok_or_else(|| {
@@ -743,11 +796,67 @@ async fn update_github_repository(
 
   let (package, repo, score) = db
     .update_package_github_repository(
-      actor_id, is_sudo, &scope, &package, new_repo,
+      actor_id, is_sudo, scope, package, new_repo,
     )
     .await?;
 
   Ok(ApiPackage::from((package, Some(repo), score)))
+}
+
+/// Regenerates the package-level `meta.json` and the npm compatibility
+/// version manifest from the current database state, uploads them to their
+/// buckets, and purges their CDN cache entries.
+async fn upload_package_manifests(
+  db: &Database,
+  buckets: &Buckets,
+  registry_url: &Url,
+  npm_url: &Url,
+  cache_purge: &CachePurge,
+  scope: &ScopeName,
+  package: &PackageName,
+) -> Result<(), ApiError> {
+  let package_metadata_path = crate::s3_paths::package_metadata(scope, package);
+  let package_metadata = PackageMetadata::create(db, scope, package).await?;
+  let content = serde_json::to_vec(&package_metadata)?;
+  buckets
+    .modules_bucket
+    .upload(
+      package_metadata_path.into(),
+      UploadTaskBody::Bytes(content.into()),
+      S3UploadOptions {
+        content_type: Some("application/json".into()),
+        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
+        gzip_encoded: false,
+      },
+    )
+    .await?;
+
+  let npm_version_manifest_path =
+    crate::s3_paths::npm_version_manifest_path(scope, package);
+  let npm_version_manifest =
+    generate_npm_version_manifest(db, npm_url, scope, package).await?;
+  let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
+  buckets
+    .npm_bucket
+    .upload(
+      npm_version_manifest_path.into(),
+      UploadTaskBody::Bytes(content.into()),
+      S3UploadOptions {
+        content_type: Some("application/json".into()),
+        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
+        gzip_encoded: false,
+      },
+    )
+    .await?;
+
+  let mut purge_urls =
+    crate::s3_paths::package_metadata_purge_urls(registry_url, scope, package);
+  purge_urls.extend(crate::s3_paths::npm_version_manifest_purge_urls(
+    npm_url, scope, package,
+  ));
+  cache_purge.purge(purge_urls).await;
+
+  Ok(())
 }
 
 #[instrument(
@@ -922,6 +1031,8 @@ pub async fn version_publish_handler(
   let license_store = req.data::<LicenseStore>().unwrap().clone();
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
+  let fallback_registry_url =
+    req.data::<FallbackRegistryUrl>().unwrap().0.clone();
   let publish_queue = req.data::<PublishQueue>().unwrap().0.clone();
   let cache_purge = req.data::<CachePurge>().unwrap().clone();
   let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap().clone();
@@ -1020,12 +1131,6 @@ pub async fn version_publish_handler(
   // Otherwise, we can just propagate the error.
   upload_result?;
 
-  // Record the hash of the uploaded tarball so that a later provenance
-  // statement can be bound to the actual published bytes, not just the package
-  // name@version.
-  db.set_publishing_task_tarball_hash(publishing_task.id, &hash)
-    .await?;
-
   if let Some(queue) = publish_queue {
     let body = serde_json::to_vec(&publishing_task.id).unwrap();
     queue.task_buffer(None, Some(body.into())).await?;
@@ -1033,10 +1138,12 @@ pub async fn version_publish_handler(
     let span = Span::current();
     let fut = publish_task(
       publishing_task.id,
+      0,
       buckets,
       license_store,
       registry_url,
       npm_url,
+      fallback_registry_url,
       db,
       algolia_client,
       cache_purge,
@@ -1067,6 +1174,7 @@ pub async fn version_provenance_statements_handler(
   let body: ApiProvenanceStatementRequest = decode_json(&mut req).await?;
 
   let db = req.data::<Database>().unwrap();
+  let buckets = req.data::<Buckets>().unwrap();
   let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap().clone();
 
   let iam = req.iam();
@@ -1081,20 +1189,21 @@ pub async fn version_provenance_statements_handler(
     })?;
   let expected_repo = github_repository.map(|repo| (repo.owner, repo.name));
 
-  // The attestation must be bound to the exact bytes that were published, so we
-  // compare its `subject.digest.sha256` against the tarball hash recorded at
-  // publish time. Fail closed if we have no recorded hash to compare against.
-  let tarball_hash = db
-    .get_publishing_task_tarball_hash_for_version(&scope, &package, &version)
-    .await?
-    .ok_or_else(|| {
-      error!("no recorded tarball hash for version when verifying provenance");
-      ApiError::InternalServerError
-    })?;
+  // The attestation's `subject.digest.sha256` is the SHA-256 of the published
+  // `<version>_meta.json`, which the publishing client fetches back from the
+  // registry after the version is created. Hash the stored manifest here and
+  // require the attestation to match it. Fail closed if there is no manifest.
+  let manifest_digest =
+    version_manifest_digest(buckets, &scope, &package, &version)
+      .await?
+      .ok_or_else(|| {
+        error!("no published manifest for version when verifying provenance");
+        ApiError::InternalServerError
+      })?;
 
   let name = format!("pkg:jsr/@{}/{}@{}", scope, package, version);
   let rekor_log_id =
-    provenance::verify(name, expected_repo, &tarball_hash, body.bundle)?;
+    provenance::verify(name, expected_repo, &manifest_digest, body.bundle)?;
 
   db.insert_provenance_statement(&scope, &package, &version, &rekor_log_id)
     .await?;
@@ -1109,6 +1218,32 @@ pub async fn version_provenance_statements_handler(
       .body(Body::empty())
       .unwrap(),
   )
+}
+
+/// The hex SHA-256 of the published `<version>_meta.json`, or `None` if the
+/// version has no manifest stored yet.
+///
+/// This is the artifact SLSA provenance attests over: the publishing client
+/// fetches `<version>_meta.json` back from the registry once the version is
+/// live and puts its digest in the attestation's subject. The manifest carries
+/// a checksum for every file in the version, so it transitively covers the
+/// published contents. The bytes hashed here are the exact bytes the registry
+/// serves, so the two digests are directly comparable.
+async fn version_manifest_digest(
+  buckets: &Buckets,
+  scope: &ScopeName,
+  package: &PackageName,
+  version: &Version,
+) -> Result<Option<String>, ApiError> {
+  let path = crate::s3_paths::version_metadata(scope, package, version);
+  let Some(manifest) = buckets.modules_bucket.download(path.into()).await?
+  else {
+    return Ok(None);
+  };
+  Ok(Some(format!(
+    "{:x}",
+    sha2::Sha256::digest(manifest.as_ref())
+  )))
 }
 
 #[instrument(
@@ -1148,52 +1283,24 @@ pub async fn version_update_handler(
   )
   .await?;
 
-  let package_metadata_path =
-    crate::s3_paths::package_metadata(&scope, &package);
-  let package_metadata = PackageMetadata::create(db, &scope, &package).await?;
-
-  let content = serde_json::to_vec(&package_metadata)?;
-  buckets
-    .modules_bucket
-    .upload(
-      package_metadata_path.into(),
-      UploadTaskBody::Bytes(content.into()),
-      S3UploadOptions {
-        content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
-        gzip_encoded: false,
-      },
-    )
-    .await?;
-
-  let npm_version_manifest_path =
-    crate::s3_paths::npm_version_manifest_path(&scope, &package);
-  let npm_version_manifest =
-    generate_npm_version_manifest(db, npm_url, &scope, &package).await?;
-  let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
-  buckets
-    .npm_bucket
-    .upload(
-      npm_version_manifest_path.into(),
-      crate::s3::UploadTaskBody::Bytes(content.into()),
-      S3UploadOptions {
-        content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
-        gzip_encoded: false,
-      },
-    )
-    .await?;
-
-  let mut purge_urls = vec![
-    crate::s3_paths::package_metadata_url(registry_url, &scope, &package),
-    crate::s3_paths::npm_version_manifest_url(npm_url, &scope, &package),
-  ];
-  purge_urls.extend(crate::s3_paths::package_api_cache_urls(
+  upload_package_manifests(
+    db,
+    &buckets,
     registry_url,
+    npm_url,
+    cache_purge,
     &scope,
     &package,
-  ));
-  cache_purge.purge(purge_urls).await;
+  )
+  .await?;
+
+  cache_purge
+    .purge(crate::s3_paths::package_api_cache_urls(
+      registry_url,
+      &scope,
+      &package,
+    ))
+    .await;
 
   Ok(
     Response::builder()
@@ -1223,23 +1330,78 @@ pub async fn version_delete_handler(
   let registry_url = &req.data::<RegistryUrl>().unwrap().0;
   let npm_url = &req.data::<NpmUrl>().unwrap().0;
   let cache_purge = req.data::<CachePurge>().unwrap();
+  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap().clone();
+  let iam_sudo = req.context::<IamInfo>().unwrap().sudo;
 
   let iam = req.iam();
-  let staff = iam.check_admin_access()?;
+  let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
+  // `check_scope_admin_access` only reports sudo for staff that are not scope
+  // members, so also treat a staff scope admin with sudo enabled as sudo.
+  let sudo = sudo || (user.is_staff && iam_sudo);
+  let user_id = user.id;
 
-  let count = db
-    .count_package_dependents(
-      crate::db::DependencyKind::Jsr,
-      &format!("@{}/{}", scope, package),
-    )
-    .await?;
+  let package_version = db
+    .get_package_version(&scope, &package, &version)
+    .await?
+    .ok_or(ApiError::PackageVersionNotFound)?;
 
-  if count > 0 {
-    return Err(ApiError::DeleteVersionHasDependents);
+  if !sudo {
+    if Utc::now() - package_version.created_at > chrono::Duration::hours(24) {
+      return Err(ApiError::DeleteVersionTooOld);
+    }
+
+    let downloads = db
+      .get_package_version_total_downloads(&scope, &package, &version)
+      .await?;
+    if downloads >= MAX_DELETABLE_VERSION_DOWNLOADS {
+      return Err(ApiError::DeleteVersionTooManyDownloads);
+    }
   }
 
-  db.delete_package_version(&staff.id, &scope, &package, &version)
+  let constraints = db
+    .list_package_dependent_constraints(&scope, &package)
     .await?;
+  if !constraints.is_empty() {
+    // A dependent constraint only blocks deletion if this version is the sole
+    // remaining non-yanked version satisfying it. Dependents that can resolve
+    // to a sibling version are not broken by the deletion, so a broad range
+    // (like a wildcard) does not pin every version of the package.
+    let remaining_versions = db
+      .list_package_versions_for_metadata(&scope, &package)
+      .await?
+      .into_iter()
+      .filter(|v| !v.is_yanked && v.version != version)
+      .map(|v| v.version)
+      .collect::<Vec<_>>();
+    for constraint in constraints {
+      let blocking = match VersionReq::parse_from_specifier(&constraint) {
+        Ok(req) => match req.range() {
+          Some(range) => {
+            range.satisfies(&version.0)
+              && !remaining_versions.iter().any(|v| range.satisfies(&v.0))
+          }
+          // A dist-tag constraint cannot be proven to exclude this version.
+          None => true,
+        },
+        Err(_) => true,
+      };
+      if blocking {
+        return Err(ApiError::DeleteVersionHasDependents);
+      }
+    }
+  }
+
+  // Collect the npm tarball rows before the delete cascades them away.
+  let npm_tarballs = db
+    .list_npm_tarballs_for_version(&scope, &package, &version)
+    .await?;
+
+  let deleted = db
+    .delete_package_version(&user_id, sudo, &scope, &package, &version)
+    .await?;
+  if !deleted {
+    return Err(ApiError::PackageVersionNotFound);
+  }
 
   let v1_path = crate::s3_paths::docs_v1_path(&scope, &package, &version);
   let v2_path = crate::s3_paths::docs_v2_path(&scope, &package, &version);
@@ -1253,52 +1415,41 @@ pub async fn version_delete_handler(
     crate::s3_paths::file_path_root_directory(&scope, &package, &version);
   buckets.modules_bucket.delete_directory(path.into()).await?;
 
-  let package_metadata_path =
-    crate::s3_paths::package_metadata(&scope, &package);
-  let package_metadata = PackageMetadata::create(db, &scope, &package).await?;
+  for npm_tarball in npm_tarballs {
+    let path = crate::s3_paths::npm_tarball_path(
+      &scope,
+      &package,
+      &version,
+      npm_tarball.revision as u32,
+    );
+    buckets.npm_bucket.delete_file(path.into()).await?;
+  }
 
-  let content = serde_json::to_vec(&package_metadata)?;
-  buckets
-    .modules_bucket
-    .upload(
-      package_metadata_path.into(),
-      UploadTaskBody::Bytes(content.into()),
-      S3UploadOptions {
-        content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
-        gzip_encoded: false,
-      },
-    )
-    .await?;
-
-  let npm_version_manifest_path =
-    crate::s3_paths::npm_version_manifest_path(&scope, &package);
-  let npm_version_manifest =
-    generate_npm_version_manifest(db, npm_url, &scope, &package).await?;
-  let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
-  buckets
-    .npm_bucket
-    .upload(
-      npm_version_manifest_path.into(),
-      crate::s3::UploadTaskBody::Bytes(content.into()),
-      S3UploadOptions {
-        content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
-        gzip_encoded: false,
-      },
-    )
-    .await?;
-
-  let mut purge_urls = vec![
-    crate::s3_paths::package_metadata_url(registry_url, &scope, &package),
-    crate::s3_paths::npm_version_manifest_url(npm_url, &scope, &package),
-  ];
-  purge_urls.extend(crate::s3_paths::package_api_cache_urls(
+  upload_package_manifests(
+    db,
+    &buckets,
     registry_url,
+    npm_url,
+    cache_purge,
     &scope,
     &package,
-  ));
-  cache_purge.purge(purge_urls).await;
+  )
+  .await?;
+
+  cache_purge
+    .purge(crate::s3_paths::package_api_cache_urls(
+      registry_url,
+      &scope,
+      &package,
+    ))
+    .await;
+
+  if let Some(algolia_client) = algolia_client
+    && let Some((db_package, _, meta)) =
+      db.get_package(&scope, &package).await?
+  {
+    algolia_client.upsert_package(&db_package, &meta);
+  }
 
   Ok(
     Response::builder()
@@ -1385,17 +1536,25 @@ pub async fn get_docs_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  let maybe_version = match &version_or_latest {
+  // Docs are only served for the latest version of a package. A specific
+  // version is accepted only if it is the current latest unyanked version; any
+  // other version is rejected so callers fall back to the latest version.
+  let version = match &version_or_latest {
     VersionOrLatest::Version(version) => {
-      db.get_package_version(&scope, &package_name, version)
+      let latest = db
+        .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
         .await?
+        .ok_or(ApiError::PackageVersionNotFound)?;
+      if latest.version != *version {
+        return Err(ApiError::DocsOnlyForLatestVersion);
+      }
+      latest
     }
-    VersionOrLatest::Latest => {
-      db.get_latest_unyanked_version_for_package(&scope, &package_name)
-        .await?
-    }
+    VersionOrLatest::Latest => db
+      .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
+      .await?
+      .ok_or(ApiError::PackageVersionNotFound)?,
   };
-  let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
   let has_readme = !all_symbols
     && entrypoint.is_none()
@@ -1410,7 +1569,14 @@ pub async fn get_docs_handler(
       version.readme_path.as_ref().unwrap(),
     )
     .into();
-    Either::Left(buckets.modules_bucket.download(s3_path))
+    let object_cache = req
+      .data::<crate::object_cache::ObjectCache>()
+      .unwrap()
+      .clone();
+    let modules_bucket = buckets.modules_bucket.clone();
+    Either::Left(async move {
+      object_cache.download(&modules_bucket, s3_path).await
+    })
   } else {
     Either::Right(futures::future::ready(Ok(None)))
   };
@@ -1517,17 +1683,25 @@ pub async fn get_docs_search_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  let maybe_version = match &version_or_latest {
+  // Docs are only served for the latest version of a package. A specific
+  // version is accepted only if it is the current latest unyanked version; any
+  // other version is rejected so callers fall back to the latest version.
+  let version = match &version_or_latest {
     VersionOrLatest::Version(version) => {
-      db.get_package_version(&scope, &package_name, version)
+      let latest = db
+        .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
         .await?
+        .ok_or(ApiError::PackageVersionNotFound)?;
+      if latest.version != *version {
+        return Err(ApiError::DocsOnlyForLatestVersion);
+      }
+      latest
     }
-    VersionOrLatest::Latest => {
-      db.get_latest_unyanked_version_for_package(&scope, &package_name)
-        .await?
-    }
+    VersionOrLatest::Latest => db
+      .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
+      .await?
+      .ok_or(ApiError::PackageVersionNotFound)?,
   };
-  let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
   let generate_ctx_cache =
@@ -1554,6 +1728,10 @@ pub async fn get_docs_search_handler(
     );
     ApiError::InternalServerError
   })?;
+
+  if crate::docs::all_symbols_listing_too_large(&ctx) {
+    return Err(ApiError::DocsSymbolListingTooLarge);
+  }
 
   let _permit = crate::docs::acquire_doc_render_permit().await;
   let search_index = deno_doc::html::generate_search_index(&ctx);
@@ -1583,17 +1761,25 @@ pub async fn get_docs_search_structured_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  let maybe_version = match &version_or_latest {
+  // Docs are only served for the latest version of a package. A specific
+  // version is accepted only if it is the current latest unyanked version; any
+  // other version is rejected so callers fall back to the latest version.
+  let version = match &version_or_latest {
     VersionOrLatest::Version(version) => {
-      db.get_package_version(&scope, &package_name, version)
+      let latest = db
+        .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
         .await?
+        .ok_or(ApiError::PackageVersionNotFound)?;
+      if latest.version != *version {
+        return Err(ApiError::DocsOnlyForLatestVersion);
+      }
+      latest
     }
-    VersionOrLatest::Latest => {
-      db.get_latest_unyanked_version_for_package(&scope, &package_name)
-        .await?
-    }
+    VersionOrLatest::Latest => db
+      .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
+      .await?
+      .ok_or(ApiError::PackageVersionNotFound)?,
   };
-  let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
   let generate_ctx_cache =
@@ -1620,6 +1806,10 @@ pub async fn get_docs_search_structured_handler(
     );
     ApiError::InternalServerError
   })?;
+
+  if crate::docs::all_symbols_listing_too_large(&ctx) {
+    return Err(ApiError::DocsSymbolListingTooLarge);
+  }
 
   let _permit = crate::docs::acquire_doc_render_permit().await;
   let docs = crate::docs::render_docs_html(
@@ -1665,7 +1855,7 @@ pub async fn get_source_handler(
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap();
-  let _ = db
+  let (_, repo, _) = db
     .get_package(&scope, &package)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
@@ -1690,9 +1880,10 @@ pub async fn get_source_handler(
   } else if path == format!("{}_meta.json", version.version) {
     let source_file_path =
       crate::s3_paths::version_metadata(&scope, &package, &version.version);
-    buckets
-      .modules_bucket
-      .download(source_file_path.into())
+    req
+      .data::<crate::object_cache::ObjectCache>()
+      .unwrap()
+      .download(&buckets.modules_bucket, source_file_path.into())
       .await?
   } else if path != "/" {
     let package_path = PackagePath::try_from(path.as_str()).map_err(|err| {
@@ -1714,18 +1905,32 @@ pub async fn get_source_handler(
     None
   };
 
-  let path_buf = std::path::PathBuf::from(path);
+  let path_buf = std::path::PathBuf::from(&path);
 
   let source = if let Some(file) = file {
     let size = file.len();
 
-    let highlighter = deno_doc::html::comrak::ComrakHighlightWrapperAdapter(
-      Some(Arc::new(crate::tree_sitter::ComrakAdapter {
-        show_line_numbers: true,
-      })),
-    );
-
     let view = if let Ok(file) = String::from_utf8(file.to_vec()) {
+      let links = source_specifier_links(
+        &scope,
+        &package,
+        &version.version,
+        &path,
+        &file,
+        buckets,
+        req.data::<crate::object_cache::ObjectCache>().unwrap(),
+        req.data::<RegistryUrl>().unwrap().0.as_str(),
+      )
+      .await;
+
+      let mut adapter = crate::tree_sitter::ComrakAdapter::new(true);
+      adapter.links = links;
+      let highlighter = deno_doc::html::comrak::ComrakHighlightWrapperAdapter(
+        Some(Arc::new(adapter)),
+      );
+
+      // comrak's adapters write through `fmt::Write` now, so collect into a
+      // String rather than a byte buffer.
       let mut out = String::new();
       highlighter.write_pre_tag(&mut out, Default::default())?;
       highlighter.write_code_tag(&mut out, Default::default())?;
@@ -1749,7 +1954,31 @@ pub async fn get_source_handler(
       None
     };
 
-    ApiSource::File { size, view }
+    // Markdown files additionally get a rendered form so the frontend can
+    // offer a GitHub-style preview next to the source.
+    let rendered = if path_buf
+      .extension()
+      .is_some_and(|ext| matches!(&*ext.to_string_lossy(), "md" | "markdown"))
+    {
+      std::str::from_utf8(&file).ok().and_then(|md| {
+        crate::docs::render_markdown_file(
+          md,
+          &scope,
+          &package,
+          &version.version,
+          repo,
+          path_buf.to_string_lossy().as_ref(),
+        )
+      })
+    } else {
+      None
+    };
+
+    ApiSource::File {
+      size,
+      view,
+      rendered,
+    }
   } else {
     let files = db
       .list_package_files(&scope, &package, &version.version)
@@ -1808,6 +2037,76 @@ pub async fn get_source_handler(
   })
 }
 
+/// Finds the import/export specifiers of the file being viewed, so the
+/// highlighter can render them as links (jsr-io/jsr#17).
+///
+/// The ranges come from the `moduleGraph2` recorded at publish time, so
+/// nothing is re-parsed here. Links are a nicety: anything missing or
+/// unreadable just yields a file view without them.
+#[allow(clippy::too_many_arguments)]
+async fn source_specifier_links(
+  scope: &ScopeName,
+  package: &PackageName,
+  version: &Version,
+  path: &str,
+  source: &str,
+  buckets: &Buckets,
+  object_cache: &crate::object_cache::ObjectCache,
+  registry_url: &str,
+) -> Vec<crate::tree_sitter::SourceLink> {
+  if !crate::source_links::is_module_path(path) {
+    return Vec::new();
+  }
+
+  // Immutable per version and shared by every file in it, so this goes
+  // through the object cache: without it each source-file view re-downloaded
+  // the whole manifest just to read one module's entry.
+  let metadata_path =
+    crate::s3_paths::version_metadata(scope, package, version);
+  let metadata = match object_cache
+    .download(&buckets.modules_bucket, metadata_path.into())
+    .await
+  {
+    Ok(Some(bytes)) => {
+      match serde_json::from_slice::<crate::metadata::VersionMetadata>(&bytes) {
+        Ok(metadata) => metadata,
+        Err(err) => {
+          error!("failed to parse version metadata for links: {err}");
+          return Vec::new();
+        }
+      }
+    }
+    Ok(None) => return Vec::new(),
+    Err(err) => {
+      error!("failed to download version metadata for links: {err}");
+      return Vec::new();
+    }
+  };
+
+  let Some(module_info) = metadata.module_graph_2.get(path) else {
+    return Vec::new();
+  };
+
+  let files = metadata
+    .manifest
+    .keys()
+    .map(|path| path.to_string())
+    .collect();
+
+  crate::source_links::specifier_links(
+    module_info,
+    source,
+    &crate::source_links::LinkContext {
+      scope,
+      package,
+      version,
+      current_path: path,
+      files: &files,
+      registry_url,
+    },
+  )
+}
+
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package/diff/:old_version/:new_version",
   skip(req),
@@ -1816,6 +2115,12 @@ pub async fn get_source_handler(
 pub async fn get_diff_handler(
   req: Request<Body>,
 ) -> ApiResult<ApiPackageVersionDocs> {
+  // The diff view is disabled. Flip to `true` to re-enable it.
+  const DIFF_ENABLED: bool = false;
+  if !DIFF_ENABLED {
+    return Err(ApiError::DiffDisabled);
+  }
+
   let scope = req.param_scope()?;
   let package_name = req.param_package()?;
   Span::current().record("scope", field::display(&scope));
@@ -1943,6 +2248,8 @@ pub async fn get_diff_handler(
     repo,
     false,
     package.runtime_compat,
+    // diff pages don't render usage instructions at all
+    false,
     registry_url,
     Some((diff, full)),
   );
@@ -1995,12 +2302,10 @@ pub async fn list_dependents_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  let dep_name = format!("@{}/{}", scope, package);
-
   let (total, deps) = db
     .list_package_dependents(
-      crate::db::DependencyKind::Jsr,
-      &dep_name,
+      &scope,
+      &package,
       start,
       limit,
       versions_per_package_limit,
@@ -2119,12 +2424,190 @@ pub async fn list_dependencies_handler(
   Ok(deps)
 }
 
+/// Upper bound on a single fallback-registry request made while building a
+/// dependency graph.
+///
+/// Deliberately much tighter than [`crate::tarball::FALLBACK_REQUEST_TIMEOUT`],
+/// which this used to share. A publish can afford to wait half a minute on a
+/// degraded fallback; a page render cannot, and the probe fires once per object
+/// the modules bucket does not hold — so on a fallback-hosted package the
+/// registry's patience is paid for every file in the package, one after another.
+const DEP_TREE_FALLBACK_REQUEST_TIMEOUT: std::time::Duration =
+  std::time::Duration::from_secs(5);
+
+/// The body handed to deno_graph for a module whose structure came from
+/// metadata. It only ever reaches `Module::source`, and the one thing this
+/// endpoint reads off a source is its length — which [`MetadataSizes`] has.
+///
+/// Wasm is the exception: deno_graph runs wasm bytes through `wasm_module_to_dts`
+/// and an empty body would error the module out of the graph, so it gets the
+/// minimum valid wasm module instead. That leaves the module in the graph and
+/// costs nothing, because `build_module_info` drops `Module::Wasm` anyway.
+fn stub_module_body(specifier: &ModuleSpecifier) -> Arc<[u8]> {
+  if MediaType::from_specifier(specifier) == MediaType::Wasm {
+    Arc::new([
+      0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00, 0x0A, 0x01, 0x00,
+    ])
+  } else {
+    Arc::new([])
+  }
+}
+
+/// Cache for the metadata documents a dependency graph is built from.
+///
+/// A build is now almost entirely `meta.json` and `<version>_meta.json` reads,
+/// and it walks them a level at a time: a package's dependencies aren't known
+/// until its metadata arrives, so the endpoint's latency is round trips to the
+/// modules bucket, in series, two per level of the dependency tree. The bucket
+/// is in a different cloud from the API, so each of those is an internet round
+/// trip.
+///
+/// Across builds they are overwhelmingly the same documents — the handful of
+/// packages nearly every dependency tree bottoms out in. Over a sweep of 419
+/// packages, 56% of these reads were repeats, and `@std/path/meta.json` alone
+/// was read by one build in seven. Holding them here takes the repeats off the
+/// critical path entirely.
+#[derive(Clone)]
+pub struct RegistryMetadataCache {
+  /// `<version>_meta.json`. Published once and never rewritten (it goes up with
+  /// `CACHE_CONTROL_IMMUTABLE`), so the only reason to expire it is to give the
+  /// memory back.
+  version: moka::sync::Cache<Arc<str>, Bytes>,
+  /// `meta.json`, the package's version list. Rewritten by every publish, and
+  /// it decides which version a `jsr:` range resolves to — so it is held only
+  /// briefly, and a newly published version starts being picked up within
+  /// [`PACKAGE_METADATA_TTL`].
+  package: moka::sync::Cache<Arc<str>, Bytes>,
+}
+
+/// Ceiling on the metadata held in memory. Documents average ~12KB, so this is
+/// room for a few thousand of them — far more than the popular tail that
+/// actually repeats.
+const REGISTRY_METADATA_CACHE_BYTES: u64 = 64 * 1024 * 1024;
+
+/// How long a package's version list may be served from memory. This is the
+/// delay before a `jsr:` range in some other package starts resolving to a
+/// newly published version.
+const PACKAGE_METADATA_TTL: std::time::Duration =
+  std::time::Duration::from_secs(60);
+
+/// How long a version's metadata is held. The document itself never changes, so
+/// this is not about staleness but about deletion: a staff version delete
+/// removes it from the bucket and purges the CDN, and this cache is per instance
+/// so no purge can reach it. Keeping the window short bounds how long a deleted
+/// version can still appear in a graph. Anything read more than once in this
+/// window — which is every package a dependency tree bottoms out in — still
+/// stays warm.
+const VERSION_METADATA_TTL: std::time::Duration =
+  std::time::Duration::from_secs(5 * 60);
+
+impl RegistryMetadataCache {
+  pub fn new() -> Self {
+    fn build(ttl: std::time::Duration) -> moka::sync::Cache<Arc<str>, Bytes> {
+      moka::sync::Cache::builder()
+        .max_capacity(REGISTRY_METADATA_CACHE_BYTES)
+        .weigher(|_key: &Arc<str>, value: &Bytes| {
+          value.len().try_into().unwrap_or(u32::MAX)
+        })
+        .time_to_live(ttl)
+        .build()
+    }
+    Self {
+      version: build(VERSION_METADATA_TTL),
+      package: build(PACKAGE_METADATA_TTL),
+    }
+  }
+
+  /// Read a metadata document, from memory if it is there.
+  ///
+  /// Only a document the bucket actually holds is cached. A miss falls through
+  /// to the caller unrecorded, so the fallback-registry probe still runs on
+  /// every request for a package this registry doesn't have, and a package that
+  /// gets published later isn't pinned as missing.
+  async fn get_or_download(
+    &self,
+    kind: MetadataKind,
+    path: Arc<str>,
+    bucket: &crate::s3::BucketWithQueue,
+  ) -> Result<Option<Bytes>, crate::s3::S3Error> {
+    let cache = match kind {
+      MetadataKind::Version => &self.version,
+      MetadataKind::Package => &self.package,
+    };
+    if let Some(hit) = cache.get(&path) {
+      return Ok(Some(hit));
+    }
+    let bytes = bucket.download(path.clone()).await?;
+    if let Some(bytes) = &bytes {
+      cache.insert(path, bytes.clone());
+    }
+    Ok(bytes)
+  }
+}
+
+impl Default for RegistryMetadataCache {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
+/// Which of the two metadata documents a registry path is, if either.
+#[derive(Clone, Copy)]
+enum MetadataKind {
+  /// `<version>_meta.json`
+  Version,
+  /// `meta.json`
+  Package,
+}
+
+impl MetadataKind {
+  /// Classify a path *within a package*, i.e. what `JSR_DEP_PATH_RE` captures
+  /// after the scope and name. Anything else is one of the package's files.
+  fn of(path: &str) -> Option<Self> {
+    if path.ends_with("_meta.json") {
+      Some(Self::Version)
+    } else if path.ends_with("/meta.json") {
+      Some(Self::Package)
+    } else {
+      None
+    }
+  }
+}
+
+/// Sizes of the files a dependency graph can report without downloading them,
+/// keyed by `@scope/name@version/path`.
+///
+/// Filled in as the loader reads each dependency's `<version>_meta.json`, and
+/// only for files that version's `moduleGraph2` also describes — those are
+/// exactly the files deno_graph builds from metadata, so a size here means the
+/// file's bytes are needed for nothing at all.
+type MetadataSizes = Arc<tokio::sync::Mutex<HashMap<String, u64>>>;
+
+fn metadata_size_key(
+  scope: &str,
+  package: &str,
+  version: &str,
+  path: &str,
+) -> String {
+  format!("@{scope}/{package}@{version}{path}")
+}
+
 struct DepTreeLoader {
   scope: ScopeName,
   package: PackageName,
   version: crate::ids::Version,
   bucket: crate::s3::BucketWithQueue,
   exports: Arc<tokio::sync::Mutex<IndexMap<String, IndexMap<String, String>>>>,
+  registry_url: Url,
+  fallback_registry_url: Option<Url>,
+  fallback_packages: Arc<tokio::sync::Mutex<HashSet<String>>>,
+  /// `moduleGraph2` of the package being viewed. Its own modules are `file:`
+  /// specifiers, so they get none of deno_graph's `jsr:` metadata handling —
+  /// this is what lets [`DepTreeAnalyzer`] describe them without a parse, and
+  /// the loader serve them without a download.
+  root_module_info: Arc<HashMap<String, ModuleInfo>>,
+  metadata_sizes: MetadataSizes,
+  metadata_cache: RegistryMetadataCache,
 }
 
 impl DepTreeLoader {
@@ -2170,6 +2653,11 @@ impl DepTreeLoader {
       "http" | "https" => {
         let bucket = self.bucket.clone();
         let exports = self.exports.clone();
+        let registry_url = self.registry_url.clone();
+        let fallback_registry_url = self.fallback_registry_url.clone();
+        let fallback_packages = self.fallback_packages.clone();
+        let metadata_sizes = self.metadata_sizes.clone();
+        let metadata_cache = self.metadata_cache.clone();
 
         async move {
           let jsr_matches = JSR_DEP_PATH_RE.captures(specifier.path()).unwrap();
@@ -2178,6 +2666,29 @@ impl DepTreeLoader {
           let package = jsr_matches.name("package").unwrap();
           let version = jsr_matches.name("version");
           let path = jsr_matches.name("path").unwrap();
+
+          // deno_graph already built this module from the `moduleGraph2` in the
+          // package's `<version>_meta.json` and is asking for the bytes only to
+          // fill in `Module::source`. We recorded its size off the same
+          // metadata, so there is nothing left to fetch.
+          if let Some(version) = &version
+            && metadata_sizes
+              .lock()
+              .await
+              .contains_key(&metadata_size_key(
+                scope.as_str(),
+                package.as_str(),
+                version.as_str(),
+                path.as_str(),
+              ))
+          {
+            return Ok(Some(deno_graph::source::LoadResponse::Module {
+              content: stub_module_body(&specifier),
+              mtime: None,
+              specifier: specifier.clone(),
+              maybe_headers: None,
+            }));
+          }
 
           let full_path: Arc<str> = format!(
             "@{}/{}/{}{}",
@@ -2195,11 +2706,75 @@ impl DepTreeLoader {
           )
           .into();
 
-          let Some(bytes) = bucket
-            .download(full_path.clone())
-            .await
-            .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e))))?
-          else {
+          // The two metadata documents are what every dependency tree is
+          // walked through, and the popular ones are read by a large share of
+          // all builds, so they are served from memory where possible. A
+          // package's own files are read at most once per build and are not
+          // worth holding.
+          let mut bytes = match MetadataKind::of(path.as_str()) {
+            Some(kind) => {
+              metadata_cache
+                .get_or_download(kind, full_path.clone(), &bucket)
+                .await
+            }
+            None => bucket.download(full_path.clone()).await,
+          }
+          .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e))))?;
+
+          let mut from_fallback = false;
+
+          if bytes.is_none()
+            && let Some(fallback_url) = &fallback_registry_url
+          {
+            // `registry_url` is a prefix of `specifier` (the graph was built
+            // against it), so the single replacement swaps the origin and
+            // leaves any later occurrence inside the path alone. If the prefix
+            // unexpectedly doesn't match, skip the fallback entirely — the
+            // alternative would be re-fetching the primary registry's own URL
+            // and mislabeling the result as fallback-hosted.
+            if specifier.as_str().starts_with(registry_url.as_str()) {
+              let fallback_specifier = specifier.as_str().replacen(
+                registry_url.as_str(),
+                fallback_url.as_str(),
+                1,
+              );
+
+              let response = crate::util::shared_http_client()
+                .get(&fallback_specifier)
+                .timeout(DEP_TREE_FALLBACK_REQUEST_TIMEOUT)
+                .send()
+                .await
+                .ok();
+              if let Some(response) = response
+                && response.status().is_success()
+                // Only a fully-read body counts as served by the fallback: a
+                // mid-body failure must not taint the package as
+                // fallback-hosted below.
+                && let Ok(body) = response.bytes().await
+              {
+                bytes = Some(body);
+                from_fallback = true;
+              }
+            } else {
+              tracing::warn!(
+                "registry url {registry_url} is not a prefix of module specifier {specifier}; skipping fallback registry"
+              );
+            }
+          }
+
+          if from_fallback {
+            // Tainting is per package, not per file: a single file served by
+            // the fallback means this registry does not hold the package, so
+            // the whole package is presented as living on the fallback. Files
+            // of one package can therefore come from both registries within a
+            // graph — the link tells the reader where the package lives, not
+            // which bytes came from where.
+            let package_id =
+              format!("@{}/{}", scope.as_str(), package.as_str());
+            fallback_packages.lock().await.insert(package_id);
+          }
+
+          let Some(bytes) = bytes else {
             return Ok(None);
           };
 
@@ -2207,8 +2782,34 @@ impl DepTreeLoader {
             && let Some(captures) = JSR_DEP_META_RE.captures(path.as_str())
           {
             let version = captures.name("version").unwrap();
-            let meta =
-              serde_json::from_slice::<VersionMetadata>(&bytes).unwrap();
+            // The bytes may have come from the fallback registry over HTTP, so
+            // a parse failure is a load error, not a programmer error.
+            let meta = serde_json::from_slice::<VersionMetadata>(&bytes)
+              .map_err(|e| {
+                LoadError::Other(Arc::new(JsErrorBox::from_err(e)))
+              })?;
+
+            // Record what this metadata lets us answer without ever fetching
+            // the files it describes: their sizes. Restricted to files
+            // `moduleGraph2` also covers, because those are the ones deno_graph
+            // will build from metadata — anything else still needs its source
+            // parsed, and so still needs downloading.
+            let mut sizes = metadata_sizes.lock().await;
+            for (path, entry) in &meta.manifest {
+              let path = path.to_string();
+              if meta.module_graph_2.contains_key(&path) {
+                sizes.insert(
+                  metadata_size_key(
+                    scope.as_str(),
+                    package.as_str(),
+                    version.as_str(),
+                    &path,
+                  ),
+                  entry.size as u64,
+                );
+              }
+            }
+            drop(sizes);
 
             let mut lock = exports.lock().await;
             lock.insert(
@@ -2248,8 +2849,46 @@ impl deno_graph::source::Loader for DepTreeLoader {
   fn load(
     &self,
     specifier: &ModuleSpecifier,
-    _options: LoadOptions,
+    options: LoadOptions,
   ) -> deno_graph::source::LoadFuture {
+    use futures::FutureExt;
+
+    // `CacheSetting::Only` asks whether we already have this module's source at
+    // hand. We never do — every load is a bucket round trip — and the loader
+    // contract is to answer `Ok(None)` in that case. Answering it makes
+    // deno_graph build the module from the `moduleGraph2` entry already in the
+    // package's `<version>_meta.json` (which it has fetched anyway, to resolve
+    // the `jsr:` specifier) rather than downloading and parsing the file to
+    // rediscover dependencies we recorded when the file was published.
+    //
+    // That is what made this endpoint slow: the walk could only advance one
+    // module at a time, because a module's dependencies were unknown until its
+    // source came back and went through swc. Off the metadata, a package's
+    // whole internal structure arrives in one object.
+    if options.cache_setting == deno_graph::source::CacheSetting::Only {
+      return async { Ok(None) }.boxed();
+    }
+
+    // The package being viewed. Its modules are `file:` specifiers, outside
+    // deno_graph's `jsr:` handling, so the same saving has to be made here: its
+    // `moduleGraph2` describes this module, [`DepTreeAnalyzer`] will hand that
+    // description back without parsing, and the size comes from the manifest
+    // beside it — so the source is dead weight.
+    if specifier.scheme() == "file"
+      && self.root_module_info.contains_key(specifier.path())
+    {
+      let specifier = specifier.clone();
+      return async move {
+        Ok(Some(deno_graph::source::LoadResponse::Module {
+          content: stub_module_body(&specifier),
+          mtime: None,
+          specifier,
+          maybe_headers: None,
+        }))
+      }
+      .boxed();
+    }
+
     self.load_inner(specifier)
   }
 }
@@ -2262,23 +2901,33 @@ impl JsrUrlProvider for DepTreeJsrUrlProvider {
   }
 }
 
+/// Analyzer for the dependency graph endpoint.
+///
+/// Nothing published by this registry should reach the parser at all: every
+/// dependency is built from its own `moduleGraph2` by deno_graph, and the
+/// package being viewed is built from `root_module_info` here. What is left is
+/// the fallback registry, and packages old enough that their metadata predates
+/// `moduleGraph2` — those still get parsed, as before.
+///
+/// Unlike [`crate::analysis::ModuleAnalyzer`] this keeps nothing: the endpoint
+/// reads dependencies, size and media type off the graph and never looks at a
+/// [`deno_ast::ParsedSource`], so retaining every parse for the life of the
+/// request only cost memory.
 struct DepTreeAnalyzer {
-  pub analyzer: CapturingModuleAnalyzer,
-  pub module_info:
-    std::cell::RefCell<std::collections::HashMap<Url, Vec<String>>>,
+  root_module_info: Arc<HashMap<String, ModuleInfo>>,
 }
 
-impl Default for DepTreeAnalyzer {
-  fn default() -> Self {
-    Self {
-      analyzer: CapturingModuleAnalyzer::new(
-        Some(Box::new(ModuleParser::default())),
-        None,
-      ),
-      module_info: Default::default(),
-    }
-  }
-}
+/// Every module parsed while building a dependency graph — that is, every
+/// module whose dependencies could not be read off published metadata.
+/// Recorded by specifier rather than counted so that tests running in parallel
+/// don't see each other's entries.
+///
+/// The saving is invisible in the endpoint's output — the graph is identical
+/// either way — so without this nothing would notice a drift back to
+/// downloading and parsing every module of every package in the graph.
+#[cfg(test)]
+static MODULES_PARSED: std::sync::Mutex<Vec<String>> =
+  std::sync::Mutex::new(Vec::new());
 
 #[async_trait::async_trait(?Send)]
 impl deno_graph::analysis::ModuleAnalyzer for DepTreeAnalyzer {
@@ -2288,31 +2937,18 @@ impl deno_graph::analysis::ModuleAnalyzer for DepTreeAnalyzer {
     source: Arc<str>,
     media_type: MediaType,
   ) -> Result<ModuleInfo, JsErrorBox> {
-    let module_info =
-      self.analyzer.analyze(specifier, source, media_type).await?;
-
-    let deps = module_info
-      .dependencies
-      .iter()
-      .filter_map(|dep| {
-        dep.as_static().and_then(|dep| {
-          if dep.specifier.starts_with("jsr:") {
-            Some(dep.specifier.clone())
-          } else {
-            None
-          }
-        })
-      })
-      .collect::<Vec<_>>();
-
-    if !deps.is_empty() {
-      self
-        .module_info
-        .borrow_mut()
-        .insert(specifier.clone(), deps.clone());
+    if specifier.scheme() == "file"
+      && let Some(info) = self.root_module_info.get(specifier.path())
+    {
+      return Ok(info.clone());
     }
 
-    Ok(module_info)
+    #[cfg(test)]
+    MODULES_PARSED.lock().unwrap().push(specifier.to_string());
+
+    ParserModuleAnalyzer::new(&ModuleParser::default())
+      .analyze(specifier, source, media_type)
+      .await
   }
 }
 
@@ -2323,19 +2959,53 @@ lazy_static::lazy_static! {
 
 // We have to spawn another tokio runtime, because
 // `deno_graph::ModuleGraph::build` is not thread-safe.
+/// Where a dependency graph reads the registry from.
+struct DepTreeRegistry {
+  url: Url,
+  fallback_url: Option<Url>,
+  bucket: crate::s3::BucketWithQueue,
+  metadata_cache: RegistryMetadataCache,
+}
+
 #[allow(clippy::result_large_err)]
 #[tokio::main(flavor = "current_thread")]
 async fn analyze_deps_tree(
-  registry_url: Url,
+  registry: DepTreeRegistry,
   scope: ScopeName,
   package: PackageName,
   version: crate::ids::Version,
-  bucket: crate::s3::BucketWithQueue,
-  exports: IndexMap<String, String>,
+  version_meta: VersionMetadata,
 ) -> Result<
   IndexMap<DependencyKind, DependencyInfo>,
   deno_graph::ModuleGraphError,
 > {
+  let DepTreeRegistry {
+    url: registry_url,
+    fallback_url: fallback_registry_url,
+    bucket,
+    metadata_cache,
+  } = registry;
+  let VersionMetadata {
+    exports,
+    manifest: root_manifest,
+    module_graph_2: root_module_info,
+  } = version_meta;
+  let root_sizes = root_manifest
+    .into_iter()
+    .map(|(path, entry)| (path.to_string(), entry.size as u64))
+    .collect::<HashMap<_, _>>();
+  // Only keep the modules whose size is also recorded: answering one from
+  // metadata means its source is never fetched, so a module described here but
+  // missing from the manifest would be reported with no size at all. The two
+  // are written together at publish time, so this drops nothing in practice —
+  // it just makes "described here" and "measurable" the same set.
+  let root_module_info = Arc::new(
+    root_module_info
+      .into_iter()
+      .filter(|(path, _)| root_sizes.contains_key(path))
+      .collect::<HashMap<_, _>>(),
+  );
+
   let roots = exports
     .values()
     .map(|path| Url::parse(&format!("file://{}", path)).unwrap())
@@ -2348,7 +3018,9 @@ async fn analyze_deps_tree(
     exports: exports.clone(),
   };
 
-  let module_analyzer = DepTreeAnalyzer::default();
+  let module_analyzer = DepTreeAnalyzer {
+    root_module_info: root_module_info.clone(),
+  };
   let mut graph = deno_graph::ModuleGraph::new(GraphKind::All);
   let loader = DepTreeLoader {
     scope,
@@ -2356,6 +3028,12 @@ async fn analyze_deps_tree(
     version,
     bucket,
     exports: Default::default(),
+    registry_url: registry_url.clone(),
+    fallback_registry_url: fallback_registry_url.clone(),
+    fallback_packages: Default::default(),
+    root_module_info,
+    metadata_sizes: Default::default(),
+    metadata_cache,
   };
   graph
     .build(
@@ -2367,7 +3045,7 @@ async fn analyze_deps_tree(
         module_analyzer: &module_analyzer,
         // todo: use the data in the package for the file system
         file_system: &NullFileSystem,
-        jsr_url_provider: &DepTreeJsrUrlProvider(registry_url),
+        jsr_url_provider: &DepTreeJsrUrlProvider(registry_url.clone()),
         jsr_version_resolver: Default::default(),
         passthrough_jsr_specifiers: false,
         resolver: Some(&JsrResolver { member }),
@@ -2378,11 +3056,11 @@ async fn analyze_deps_tree(
         skip_dynamic_deps: false,
         module_info_cacher: Default::default(),
         unstable_bytes_imports: false,
-        unstable_config_imports: false,
-        prefer_cached_jsr_versions: false,
         jsr_metadata_store: None,
 
         unstable_css_imports: false,
+        unstable_config_imports: false,
+        prefer_cached_jsr_versions: false,
       },
     )
     .await;
@@ -2412,14 +3090,22 @@ async fn analyze_deps_tree(
     })
     .collect();
 
-  for root in roots {
-    GraphDependencyCollector::collect(
-      &graph,
-      &root,
-      &exports_by_identifier,
-      &mut index,
-      &mut dependencies,
-    );
+  let fallback_packages_set = loader.fallback_packages.lock().await.clone();
+  let metadata_sizes = loader.metadata_sizes.lock().await.clone();
+
+  let mut collector = GraphDependencyCollector {
+    graph: &graph,
+    dependencies: &mut dependencies,
+    exports: &exports_by_identifier,
+    id_index: &mut index,
+    visited: Default::default(),
+    fallback_registry_url: fallback_registry_url.as_ref(),
+    fallback_packages: &fallback_packages_set,
+    root_sizes: &root_sizes,
+    metadata_sizes: &metadata_sizes,
+  };
+  for root in &roots {
+    collector.collect_root(root);
   }
 
   Ok(dependencies)
@@ -2431,33 +3117,35 @@ struct GraphDependencyCollector<'a> {
   exports: &'a IndexMap<String, IndexMap<String, String>>,
   id_index: &'a mut usize,
   visited: IndexSet<DependencyKind>,
+  fallback_registry_url: Option<&'a Url>,
+  fallback_packages: &'a HashSet<String>,
+  /// Sizes of the viewed package's files, by path, and of every dependency's
+  /// files, by [`metadata_size_key`]. A module the loader answered from
+  /// metadata has no source to measure, so its size comes from here; anything
+  /// missing was loaded for real and is measured off the module as before.
+  root_sizes: &'a HashMap<String, u64>,
+  metadata_sizes: &'a HashMap<String, u64>,
 }
 
-impl<'a> GraphDependencyCollector<'a> {
-  pub fn collect(
-    graph: &'a deno_graph::ModuleGraph,
-    root: &'a ModuleSpecifier,
-    exports: &'a IndexMap<String, IndexMap<String, String>>,
-    id_index: &'a mut usize,
-    dependencies: &'a mut IndexMap<DependencyKind, DependencyInfo>,
-  ) {
-    let root_module = graph.try_get(root).unwrap().unwrap();
-
-    Self {
-      graph,
-      dependencies,
-      exports,
-      id_index,
-      visited: Default::default(),
-    }
-    .build_module_info(root_module)
-    .unwrap();
+impl GraphDependencyCollector<'_> {
+  /// Walk one entrypoint, adding what it reaches to the shared node map.
+  ///
+  /// `visited` is per entrypoint, not shared: it only breaks cycles within a
+  /// walk. Nodes are deduplicated across entrypoints by `dependencies`, which
+  /// every walk adds to.
+  pub fn collect_root(&mut self, root: &ModuleSpecifier) {
+    self.visited = Default::default();
+    let root_module = self.graph.try_get(root).unwrap().unwrap();
+    self.build_module_info(root_module).unwrap();
   }
 
   fn build_module_info(&mut self, module: &Module) -> Option<usize> {
     let specifier = module.specifier();
 
-    let dependency = match module {
+    // `published_size` is the size as published, for the modules the loader
+    // answered out of metadata rather than downloading — their `Module::source`
+    // is a stub, so there is nothing to measure.
+    let (dependency, published_size) = match module {
       Module::Js(_) | Module::Json(_) => {
         if let Some(jsr_matches) = JSR_DEP_PATH_RE.captures(specifier.as_str())
         {
@@ -2483,16 +3171,39 @@ impl<'a> GraphDependencyCollector<'a> {
             JsrEntrypoint::Path(path.as_str().to_string())
           };
 
-          DependencyKind::Jsr {
-            scope: scope.as_str().to_string(),
-            package: package.as_str().to_string(),
-            version: version.as_str().to_string(),
-            entrypoint,
-          }
+          // Check if this package was loaded from the fallback registry
+          let package_id = format!("@{}/{}", scope.as_str(), package.as_str());
+          let fallback_url = if self.fallback_packages.contains(&package_id) {
+            self.fallback_registry_url.map(|url| url.to_string())
+          } else {
+            None
+          };
+
+          (
+            DependencyKind::Jsr {
+              scope: scope.as_str().to_string(),
+              package: package.as_str().to_string(),
+              version: version.as_str().to_string(),
+              entrypoint,
+              fallback_url,
+            },
+            self
+              .metadata_sizes
+              .get(&metadata_size_key(
+                scope.as_str(),
+                package.as_str(),
+                version.as_str(),
+                path.as_str(),
+              ))
+              .copied(),
+          )
         } else {
-          DependencyKind::Root {
-            path: specifier.path().to_string(),
-          }
+          (
+            DependencyKind::Root {
+              path: specifier.path().to_string(),
+            },
+            self.root_sizes.get(specifier.path()).copied(),
+          )
         }
       }
       Module::Wasm(_)
@@ -2512,14 +3223,14 @@ impl<'a> GraphDependencyCollector<'a> {
     if let Some(info) = self.dependencies.get(&dependency) {
       Some(info.id)
     } else {
-      let maybe_size = match module {
+      let maybe_size = published_size.or_else(|| match module {
         Module::Js(js) => Some(js.size() as u64),
         Module::Json(json) => Some(json.size() as u64),
         Module::Wasm(_)
         | Module::Node(_)
         | Module::Npm(_)
         | Module::External(_) => None,
-      };
+      });
 
       let media_type = match module {
         Module::Js(js) => Some(js.media_type),
@@ -2619,11 +3330,13 @@ pub enum JsrEntrypoint {
 #[derive(Serialize, Deserialize, Hash, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum DependencyKind {
+  #[serde(rename_all = "camelCase")]
   Jsr {
     scope: String,
     package: String,
     version: String,
     entrypoint: JsrEntrypoint,
+    fallback_url: Option<String>,
   },
   Npm {
     package: String,
@@ -2660,25 +3373,36 @@ pub async fn get_dependencies_graph_handler(
   Span::current().record("version", field::display(&version));
 
   let buckets = req.data::<Buckets>().unwrap().clone();
+  let metadata_cache = req.data::<RegistryMetadataCache>().unwrap().clone();
+
+  // Through the same cache the graph build uses: this is a `<version>_meta.json`
+  // like any other, and it is the document the whole build hangs off, so a
+  // request for a package that is being looked at at all reaches the bucket
+  // zero times.
   let s3_path =
     crate::s3_paths::version_metadata(&scope, &package, &version).into();
-  let version_meta = buckets
-    .modules_bucket
-    .download(s3_path)
+  let version_meta = metadata_cache
+    .get_or_download(MetadataKind::Version, s3_path, &buckets.modules_bucket)
     .await?
     .ok_or(ApiError::PackageVersionNotFound)?;
   let version_meta = serde_json::from_slice::<VersionMetadata>(&version_meta)?;
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
+  let fallback_registry_url =
+    req.data::<FallbackRegistryUrl>().unwrap().0.clone();
 
   let deps = tokio::task::spawn_blocking(|| {
     analyze_deps_tree(
-      registry_url,
+      DepTreeRegistry {
+        url: registry_url,
+        fallback_url: fallback_registry_url,
+        bucket: buckets.modules_bucket,
+        metadata_cache,
+      },
       scope,
       package,
       version,
-      buckets.modules_bucket,
-      version_meta.exports,
+      version_meta,
     )
   })
   .await
@@ -2747,11 +3471,6 @@ pub async fn get_score_handler(
 
 #[cfg(test)]
 mod test {
-  use hyper::Body;
-  use hyper::StatusCode;
-  use indexmap::IndexSet;
-  use serde_json::json;
-
   use crate::api::ApiDependencyGraphItem;
   use crate::api::ApiDependencyKind;
   use crate::api::ApiDependent;
@@ -2768,25 +3487,36 @@ mod test {
   use crate::api::{ApiDependency, ApiReadmeSource};
   use crate::db::CreatePackageResult;
   use crate::db::CreatePublishingTaskResult;
+  use crate::db::DownloadKind;
   use crate::db::ExportsMap;
   use crate::db::NewGithubRepository;
   use crate::db::NewPackageVersion;
   use crate::db::NewPublishingTask;
   use crate::db::NewScopeInvite;
+  use crate::db::NewScopeMember;
   use crate::db::PackagePublishPermission;
   use crate::db::Permission;
   use crate::db::Permissions;
   use crate::db::PublishingTaskStatus;
   use crate::db::TokenType;
+  use crate::db::VersionDownloadCount;
   use crate::ids::{
     PackageName, PackagePath, ScopeDescription, ScopeName, Version,
   };
   use crate::publish::tests::create_mock_tarball;
   use crate::publish::tests::process_tarball_setup;
   use crate::publish::tests::process_tarball_setup2;
+  use crate::s3::S3UploadOptions;
+  use crate::s3::UploadTaskBody;
   use crate::token::create_token;
   use crate::util::test::ApiResultExt;
+  use crate::util::test::FakeFallbackRegistry;
   use crate::util::test::TestSetup;
+  use chrono::Utc;
+  use hyper::Body;
+  use hyper::StatusCode;
+  use indexmap::IndexSet;
+  use serde_json::json;
 
   #[tokio::test]
   async fn test_packages_list() {
@@ -3172,6 +3902,7 @@ mod test {
     use crate::provenance::*;
     use base64::Engine;
     use base64::prelude::BASE64_STANDARD;
+    use sha2::Digest;
 
     let mut t = TestSetup::new().await;
     let scope = t.scope.scope.clone();
@@ -3199,30 +3930,28 @@ mod test {
       .await
       .unwrap();
 
-    // Record a tarball hash for 1.0.0 so the provenance endpoint can bind the
-    // attestation to it. Without a recorded hash the request is rejected before
-    // signature verification; 1.0.1 deliberately has none, which exercises that
-    // rejection below.
-    let tarball_digest =
-      "1c3b44ea2ac86f7133791a4a004f633993784da783a3e0f5c226dd7a4141f9f5";
-    let CreatePublishingTaskResult::Created((task, _)) = t
-      .ephemeral_database
-      .create_publishing_task(NewPublishingTask {
-        user_id: None,
-        package_scope: &scope,
-        package_name: &name,
-        package_version: &"1.0.0".try_into().unwrap(),
-        config_file: &"/jsr.json".try_into().unwrap(),
-      })
-      .await
-      .unwrap()
-    else {
-      unreachable!()
-    };
-    t.ephemeral_database
-      .set_publishing_task_tarball_hash(
-        task.id,
-        &format!("sha256-{tarball_digest}"),
+    // Store a version manifest for 1.0.0 so the provenance endpoint has
+    // something to bind the attestation to. The digest the client attests is the
+    // SHA-256 of these exact bytes (jsr-io/jsr#1474). 1.0.1 deliberately has no
+    // manifest, which exercises the fail-closed path below.
+    let manifest =
+      br#"{"exports":{".":"/mod.ts"},"manifest":{},"moduleGraph2":{}}"#;
+    let manifest_digest = format!("{:x}", sha2::Sha256::digest(manifest));
+    t.buckets()
+      .modules_bucket
+      .upload(
+        crate::s3_paths::version_metadata(
+          &scope,
+          &name,
+          &"1.0.0".try_into().unwrap(),
+        )
+        .into(),
+        UploadTaskBody::Bytes(manifest.as_slice().into()),
+        S3UploadOptions {
+          content_type: Some("application/json".into()),
+          cache_control: None,
+          gzip_encoded: false,
+        },
       )
       .await
       .unwrap();
@@ -3311,7 +4040,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       Subject {
         name: format!("pkg:jsr/@{}/{}@1.0.0", scope, name),
         digest: SubjectDigest {
-          sha256: tarball_digest.to_string(),
+          sha256: manifest_digest,
         },
       },
     );
@@ -3538,6 +4267,110 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     resp
       .expect_err_code(StatusCode::NOT_FOUND, "packageNotFound")
       .await;
+  }
+
+  #[tokio::test]
+  async fn package_manifests_include_github_repository() {
+    let mut t = TestSetup::new().await;
+
+    let task = process_tarball_setup(&t, create_mock_tarball("ok")).await;
+    assert_eq!(
+      task.status,
+      PublishingTaskStatus::Success,
+      "{:?}",
+      task.error
+    );
+
+    let scope = t.scope.scope.clone();
+    let name = PackageName::try_from("foo").unwrap();
+
+    let download_meta_json = |t: &TestSetup| {
+      let bucket = t.buckets.modules_bucket.clone();
+      async move {
+        let json = bucket
+          .download("@scope/foo/meta.json".into())
+          .await
+          .unwrap()
+          .unwrap();
+        serde_json::from_slice::<serde_json::Value>(&json).unwrap()
+      }
+    };
+    let download_npm_manifest = |t: &TestSetup| {
+      let bucket = t.buckets.npm_bucket.clone();
+      async move {
+        let json = bucket
+          .download("@jsr/scope__foo".into())
+          .await
+          .unwrap()
+          .unwrap();
+        serde_json::from_slice::<serde_json::Value>(&json).unwrap()
+      }
+    };
+
+    // No repository is linked yet, so the manifests don't contain one.
+    let meta_json = download_meta_json(&t).await;
+    assert!(meta_json.get("githubRepository").is_none());
+    let npm_json = download_npm_manifest(&t).await;
+    assert!(npm_json.get("repository").is_none());
+
+    t.ephemeral_database
+      .update_package_github_repository(
+        &t.user1.user.id,
+        false,
+        &scope,
+        &name,
+        NewGithubRepository {
+          id: 42,
+          owner: "octocat",
+          name: "hello-world",
+        },
+      )
+      .await
+      .unwrap();
+
+    // Yank state updates regenerate the manifests, which now include the
+    // linked repository.
+    let mut resp = t
+      .http()
+      .patch("/api/scopes/scope/packages/foo/versions/1.2.3")
+      .body_json(json!({ "yanked": false }))
+      .call()
+      .await
+      .unwrap();
+    resp.expect_ok_no_content().await;
+
+    let meta_json = download_meta_json(&t).await;
+    assert_eq!(
+      meta_json.get("githubRepository").unwrap(),
+      &json!({ "owner": "octocat", "name": "hello-world" })
+    );
+    let npm_json = download_npm_manifest(&t).await;
+    let expected_repository = json!({
+      "type": "git",
+      "url": "git+https://github.com/octocat/hello-world.git"
+    });
+    assert_eq!(npm_json.get("repository").unwrap(), &expected_repository);
+    assert_eq!(
+      npm_json["versions"]["1.2.3"].get("repository").unwrap(),
+      &expected_repository
+    );
+
+    // Unlinking the repository regenerates the manifests without it.
+    let mut resp = t
+      .http()
+      .patch("/api/scopes/scope/packages/foo")
+      .body_json(json!({ "githubRepository": null }))
+      .call()
+      .await
+      .unwrap();
+    let package: ApiPackage = resp.expect_ok().await;
+    assert!(package.github_repository.is_none());
+
+    let meta_json = download_meta_json(&t).await;
+    assert!(meta_json.get("githubRepository").is_none());
+    let npm_json = download_npm_manifest(&t).await;
+    assert!(npm_json.get("repository").is_none());
+    assert!(npm_json["versions"]["1.2.3"].get("repository").is_none());
   }
 
   #[tokio::test]
@@ -3944,7 +4777,8 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let task = process_tarball_setup(&t, create_mock_tarball("ok")).await;
     assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
 
-    // index page
+    // index page (pinned version): usage snippets install exactly this
+    // version, and the jsr specifier is pinned to it
     let mut resp = t
       .http()
       .get("/api/scopes/scope/packages/foo/versions/1.2.3/docs")
@@ -3958,11 +4792,38 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         comrak_css: _,
         script: _,
         breadcrumbs,
-        toc: _,
+        toc,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
         assert!(breadcrumbs.is_none(), "{:?}", breadcrumbs);
+        let toc_json = serde_json::to_string(&toc).unwrap();
+        assert!(
+          toc_json.contains("deno add jsr:@scope/foo@1.2.3"),
+          "{toc_json}"
+        );
+        assert!(toc_json.contains("jsr:@scope/foo@1.2.3"), "{toc_json}");
+      }
+      ApiPackageVersionDocs::Redirect { .. } => panic!(),
+    }
+
+    // index page (latest): add commands are unversioned, but the direct jsr
+    // specifier carries a caret constraint on the latest version
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/latest/docs")
+      .call()
+      .await
+      .unwrap();
+    let docs: ApiPackageVersionDocs = resp.expect_ok().await;
+    match docs {
+      ApiPackageVersionDocs::Content { toc, .. } => {
+        let toc_json = serde_json::to_string(&toc).unwrap();
+        assert!(
+          !toc_json.contains("deno add jsr:@scope/foo@1.2.3"),
+          "{toc_json}"
+        );
+        assert!(toc_json.contains("jsr:@scope/foo@^1.2.3"), "{toc_json}");
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
@@ -4073,6 +4934,146 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     resp
       .expect_err_code(StatusCode::NOT_FOUND, "entrypointOrSymbolNotFound")
       .await;
+
+    // the "latest" alias resolves to the latest version
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/latest/docs")
+      .call()
+      .await
+      .unwrap();
+    let docs: ApiPackageVersionDocs = resp.expect_ok().await;
+    match docs {
+      ApiPackageVersionDocs::Content { version, .. } => {
+        assert_eq!(version.version, task.package_version);
+      }
+      ApiPackageVersionDocs::Redirect { .. } => panic!(),
+    }
+
+    // docs are only served for the latest version; any other version is
+    // rejected so callers fall back to the latest version
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/1.0.0/docs")
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "docsOnlyForLatestVersion")
+      .await;
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/1.0.0/docs/search")
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "docsOnlyForLatestVersion")
+      .await;
+    let mut resp = t
+      .http()
+      .get(
+        "/api/scopes/scope/packages/foo/versions/1.0.0/docs/search_structured",
+      )
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "docsOnlyForLatestVersion")
+      .await;
+
+    // the diff view is disabled
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/diff/1.0.0/1.2.3?all_symbols")
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "diffDisabled")
+      .await;
+  }
+
+  #[tokio::test]
+  async fn test_package_docs_merged_export_name() {
+    let mut t = TestSetup::new().await;
+
+    let task =
+      process_tarball_setup(&t, create_mock_tarball("merged_export_name"))
+        .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    // `ArrayExpression` is both a re-exported function (through a value
+    // `export *`) and an interface (through an `export type *`); the symbol
+    // page must show both.
+    let mut resp = t
+      .http()
+      .get(
+        "/api/scopes/scope/packages/foo/versions/1.2.3/docs?symbol=ArrayExpression",
+      )
+      .call()
+      .await
+      .unwrap();
+    let docs: ApiPackageVersionDocs = resp.expect_ok().await;
+    match docs {
+      ApiPackageVersionDocs::Content { main, .. } => {
+        let main = serde_json::to_string(&main).unwrap();
+        assert!(
+          main.contains("builder function"),
+          "function part missing from symbol page: {main}"
+        );
+        assert!(
+          main.contains("node interface"),
+          "interface part missing from symbol page: {main}"
+        );
+      }
+      ApiPackageVersionDocs::Redirect { .. } => panic!(),
+    }
+  }
+
+  #[tokio::test]
+  async fn test_package_docs_prerelease_only() {
+    let mut t = TestSetup::new().await;
+
+    // publish a package that only has a prerelease version (no stable release)
+    let package_name = PackageName::try_from("foo").unwrap();
+    let version = Version::try_from("1.2.3-alpha.1").unwrap();
+    let task = crate::publish::tests::process_tarball_setup2(
+      &t,
+      create_mock_tarball("ok_prerelease"),
+      &package_name,
+      &version,
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    // with no stable release, docs fall back to the latest prerelease for both
+    // the "latest" alias and the explicit prerelease version
+    for path in [
+      "/api/scopes/scope/packages/foo/versions/latest/docs",
+      "/api/scopes/scope/packages/foo/versions/1.2.3-alpha.1/docs",
+    ] {
+      let mut resp = t.http().get(path).call().await.unwrap();
+      let docs: ApiPackageVersionDocs = resp.expect_ok().await;
+      match docs {
+        ApiPackageVersionDocs::Content { version, .. } => {
+          assert_eq!(version.version, task.package_version);
+        }
+        ApiPackageVersionDocs::Redirect { .. } => panic!(),
+      }
+    }
+
+    // a version that is not the latest prerelease is still rejected
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/1.0.0/docs")
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "docsOnlyForLatestVersion")
+      .await;
   }
 
   #[tokio::test]
@@ -4148,13 +5149,15 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
           kind: ApiDependencyKind::Jsr,
           name: "@scope/foo".to_string(),
           constraint: "1".to_string(),
-          path: "".to_string()
+          path: "".to_string(),
+          fallback_url: None,
         },
         ApiDependency {
           kind: ApiDependencyKind::Npm,
           name: "express".to_string(),
           constraint: "4".to_string(),
-          path: "".to_string()
+          path: "".to_string(),
+          fallback_url: None,
         },
       ],
     );
@@ -4293,6 +5296,73 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       ],
     );
     assert_eq!(dependents.total, 2);
+
+    // Packages that depend on this package through the npm compatibility
+    // layer (`npm:@jsr/scope__name`) are also counted as dependents.
+    let package_name = PackageName::try_from("qux").unwrap();
+    let version = Version::try_from("1.2.3").unwrap();
+    let task = crate::publish::tests::process_tarball_setup2(
+      &t,
+      create_mock_tarball("depends_on_ok_npm_mapped"),
+      &package_name,
+      &version,
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/qux/versions/1.2.3/dependencies")
+      .call()
+      .await
+      .unwrap();
+    let deps: Vec<ApiDependency> = resp.expect_ok().await;
+    assert_eq!(
+      deps,
+      vec![ApiDependency {
+        kind: ApiDependencyKind::Npm,
+        name: "@jsr/scope__foo".to_string(),
+        constraint: "1".to_string(),
+        path: "".to_string(),
+        fallback_url: None,
+      }],
+    );
+
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/dependents")
+      .call()
+      .await
+      .unwrap();
+    let dependents: ApiList<ApiDependent> = resp.expect_ok().await;
+    assert_eq!(
+      dependents.items,
+      vec![
+        ApiDependent {
+          scope: "scope".try_into().unwrap(),
+          package: "bar".try_into().unwrap(),
+          versions: vec![
+            "1.2.3".try_into().unwrap(),
+            "1.2.4".try_into().unwrap()
+          ],
+          total_versions: 2,
+        },
+        ApiDependent {
+          scope: "scope".try_into().unwrap(),
+          package: "baz".try_into().unwrap(),
+          versions: vec!["1.2.3".try_into().unwrap()],
+          total_versions: 1,
+        },
+        ApiDependent {
+          scope: "scope".try_into().unwrap(),
+          package: "qux".try_into().unwrap(),
+          versions: vec!["1.2.3".try_into().unwrap()],
+          total_versions: 1,
+        },
+      ],
+    );
+    assert_eq!(dependents.total, 3);
   }
 
   #[tokio::test]
@@ -4363,7 +5433,8 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
             scope: "scope".to_string(),
             package: "foo".to_string(),
             version: "1.2.3".to_string(),
-            entrypoint: super::JsrEntrypoint::Entrypoint(".".to_string())
+            entrypoint: super::JsrEntrypoint::Entrypoint(".".to_string()),
+            fallback_url: None,
           },
           children: IndexSet::new(),
           size: Some(155),
@@ -4379,6 +5450,25 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
           media_type: Some("TypeScript".to_string())
         }
       ]
+    );
+
+    // Both packages are above with their real sizes and media types, so the
+    // graph is complete — but every module in it got there off the
+    // `moduleGraph2` recorded when it was published, without its source ever
+    // being fetched or parsed. Re-deriving all of that per request, by
+    // downloading and parsing every module of every package in the graph, is
+    // what made this endpoint slow.
+    //
+    // `bar`'s own modules are `file:` specifiers and `@scope/foo`'s are
+    // registry URLs; the two take different routes to the same saving, so both
+    // are asserted. Modules from the fallback registry are exempt — nothing
+    // has published metadata for those.
+    let parsed = super::MODULES_PARSED.lock().unwrap().clone();
+    assert!(
+      !parsed
+        .iter()
+        .any(|s| s.starts_with("file:") || s.contains("/@scope/foo/")),
+      "modules were parsed instead of read from published metadata: {parsed:?}"
     );
   }
 
@@ -4663,12 +5753,18 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let mut resp = t.http().get(url).call().await.unwrap();
     let body = resp.expect_ok::<ApiPackageVersionSource>().await;
 
-    let ApiSource::File { size, view } = body.source else {
+    let ApiSource::File {
+      size,
+      view,
+      rendered,
+    } = body.source
+    else {
       panic!();
     };
 
     assert_eq!(size, 124);
     assert!(view.is_some());
+    assert!(rendered.is_none());
 
     let url = format!(
       "/api/scopes/{}/packages/{}/versions/{}/source?path=/bin.bin",
@@ -4677,12 +5773,18 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let mut resp = t.http().get(url).call().await.unwrap();
     let body = resp.expect_ok::<ApiPackageVersionSource>().await;
 
-    let ApiSource::File { size, view } = body.source else {
+    let ApiSource::File {
+      size,
+      view,
+      rendered,
+    } = body.source
+    else {
       panic!();
     };
 
     assert_eq!(size, 1000);
     assert!(view.is_none());
+    assert!(rendered.is_none());
   }
 
   #[tokio::test]
@@ -4766,12 +5868,31 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
   #[tokio::test]
   async fn delete_version() {
     let mut t = TestSetup::new().await;
+    let admin_token = t.user1.token.clone();
+    let member_token = t.user2.token.clone();
+    let non_member_token = t.user3.token.clone();
     let staff_token = t.staff_user.token.clone();
 
-    // unpublished package
+    let scope_name = t.scope.scope.clone();
+    let foo_name = PackageName::try_from("foo").unwrap();
+
+    t.db()
+      .add_user_to_scope(NewScopeMember {
+        scope: &scope_name,
+        user_id: t.user2.user.id,
+        is_admin: false,
+      })
+      .await
+      .unwrap();
+
+    let task = process_tarball_setup(&t, create_mock_tarball("ok")).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    // deleting a version that does not exist is a 404
     let mut resp = t
       .http()
-      .get("/api/scopes/scope/packages/foo/versions/0.0.1/dependencies/graph")
+      .delete("/api/scopes/scope/packages/foo/versions/0.0.1")
+      .token(Some(&admin_token))
       .call()
       .await
       .unwrap();
@@ -4779,26 +5900,36 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .expect_err_code(StatusCode::NOT_FOUND, "packageVersionNotFound")
       .await;
 
-    let task = process_tarball_setup(&t, create_mock_tarball("ok")).await;
-    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
-
-    // Now publish a package that has a few deps
-    let package_name = PackageName::try_from("bar").unwrap();
+    // publish bar@1.2.3, which depends on jsr:@scope/foo@1
+    let bar_name = PackageName::try_from("bar").unwrap();
     let version = Version::try_from("1.2.3").unwrap();
     let task = process_tarball_setup2(
       &t,
       create_mock_tarball("depends_on_ok"),
-      &package_name,
+      &bar_name,
       &version,
       false,
     )
     .await;
     assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
 
+    // foo@1.2.3 is matched by bar's `@1` constraint, so it cannot be deleted,
+    // not even by staff with sudo
     let mut resp = t
       .http()
-      .delete("/api/scopes/scope/packages/foo/versions/0.0.1")
+      .delete("/api/scopes/scope/packages/foo/versions/1.2.3")
+      .token(Some(&admin_token))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::BAD_REQUEST, "deleteVersionHasDependents")
+      .await;
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/1.2.3")
       .token(Some(&staff_token))
+      .sudo(true)
       .call()
       .await
       .unwrap();
@@ -4806,34 +5937,345 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .expect_err_code(StatusCode::BAD_REQUEST, "deleteVersionHasDependents")
       .await;
 
-    let mut resp = t
-      .http()
-      .delete("/api/scopes/scope/packages/bar/versions/1.2.3")
-      .token(Some(&staff_token))
-      .call()
-      .await
-      .unwrap();
-    resp.expect_ok_no_content().await;
-
-    let mut resp = t
-      .http()
-      .delete("/api/scopes/scope/packages/foo/versions/0.0.1")
-      .token(Some(&staff_token))
-      .call()
-      .await
-      .unwrap();
-    resp.expect_ok_no_content().await;
-
-    let package_name = PackageName::try_from("foo").unwrap();
-    let version = Version::try_from("0.0.1").unwrap();
+    // publish foo@1.3.0, which is also matched by bar's `@1` constraint
+    let version13 = Version::try_from("1.3.0").unwrap();
     let task = process_tarball_setup2(
       &t,
-      create_mock_tarball("ok"),
-      &package_name,
-      &version,
+      create_mock_tarball("ok3"),
+      &foo_name,
+      &version13,
       false,
     )
     .await;
-    assert_eq!(task.status, PublishingTaskStatus::Failure, "{:?}", task);
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    // with foo@1.2.3 yanked, foo@1.3.0 is the only non-yanked version that
+    // bar's `@1` constraint can resolve to, so it cannot be deleted
+    let version = Version::try_from("1.2.3").unwrap();
+    t.db()
+      .yank_package_version(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        &foo_name,
+        &version,
+        true,
+      )
+      .await
+      .unwrap();
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/1.3.0")
+      .token(Some(&admin_token))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::BAD_REQUEST, "deleteVersionHasDependents")
+      .await;
+
+    // once foo@1.2.3 is unyanked, bar's `@1` constraint can resolve to it, so
+    // foo@1.3.0 can be deleted even though bar depends on `@1`
+    t.db()
+      .yank_package_version(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        &foo_name,
+        &version,
+        false,
+      )
+      .await
+      .unwrap();
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/1.3.0")
+      .token(Some(&admin_token))
+      .call()
+      .await
+      .unwrap();
+    resp.expect_ok_no_content().await;
+
+    // publish foo@2.0.0, which is not matched by bar's `@1` constraint
+    let version2 = Version::try_from("2.0.0").unwrap();
+    let task = process_tarball_setup2(
+      &t,
+      create_mock_tarball("ok2"),
+      &foo_name,
+      &version2,
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    // only scope admins may delete versions
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/2.0.0")
+      .token(Some(&member_token))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeAdmin")
+      .await;
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/2.0.0")
+      .token(Some(&non_member_token))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeMember")
+      .await;
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/2.0.0")
+      .token(Some(&staff_token))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeMember")
+      .await;
+
+    // a version with too many downloads cannot be deleted by a scope admin
+    let time_bucket = Utc::now() - chrono::Duration::hours(48);
+    t.db()
+      .insert_download_entries(vec![VersionDownloadCount {
+        scope: scope_name.clone(),
+        package: foo_name.clone(),
+        version: version2.clone(),
+        time_bucket,
+        kind: DownloadKind::JsrMeta,
+        count: 10,
+      }])
+      .await
+      .unwrap();
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/2.0.0")
+      .token(Some(&admin_token))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::BAD_REQUEST, "deleteVersionTooManyDownloads")
+      .await;
+
+    // lower the download count below the threshold again
+    t.db()
+      .insert_download_entries(vec![VersionDownloadCount {
+        scope: scope_name.clone(),
+        package: foo_name.clone(),
+        version: version2.clone(),
+        time_bucket,
+        kind: DownloadKind::JsrMeta,
+        count: 5,
+      }])
+      .await
+      .unwrap();
+
+    // the npm tarball for foo@2.0.0 exists before deletion
+    let npm_tarballs = t
+      .db()
+      .list_npm_tarballs_for_version(&scope_name, &foo_name, &version2)
+      .await
+      .unwrap();
+    assert!(!npm_tarballs.is_empty());
+    let npm_tarball_paths = npm_tarballs
+      .iter()
+      .map(|tarball| {
+        crate::s3_paths::npm_tarball_path(
+          &scope_name,
+          &foo_name,
+          &version2,
+          tarball.revision as u32,
+        )
+      })
+      .collect::<Vec<_>>();
+    for path in &npm_tarball_paths {
+      let obj = t.buckets.npm_bucket.download(path.as_str().into()).await;
+      assert!(obj.unwrap().is_some(), "{path} missing before delete");
+    }
+
+    // now a scope admin can delete foo@2.0.0
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/2.0.0")
+      .token(Some(&admin_token))
+      .call()
+      .await
+      .unwrap();
+    resp.expect_ok_no_content().await;
+
+    let version = t
+      .db()
+      .get_package_version(&scope_name, &foo_name, &version2)
+      .await
+      .unwrap();
+    assert!(version.is_none());
+    for path in &npm_tarball_paths {
+      let obj = t.buckets.npm_bucket.download(path.as_str().into()).await;
+      assert!(obj.unwrap().is_none(), "{path} present after delete");
+    }
+
+    // a version published more than 24 hours ago cannot be deleted by a scope
+    // admin
+    let version = Version::try_from("1.2.3").unwrap();
+    t.db()
+      .set_package_version_created_at_for_test(
+        &scope_name,
+        &foo_name,
+        &version,
+        Utc::now() - chrono::Duration::hours(25),
+      )
+      .await
+      .unwrap();
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/1.2.3")
+      .token(Some(&admin_token))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::BAD_REQUEST, "deleteVersionTooOld")
+      .await;
+
+    // delete the dependent bar@1.2.3 (fresh, no dependents, no downloads)
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/bar/versions/1.2.3")
+      .token(Some(&admin_token))
+      .call()
+      .await
+      .unwrap();
+    resp.expect_ok_no_content().await;
+
+    // foo@1.2.3 is still too old for a scope admin, but staff with sudo
+    // bypasses the age and download restrictions
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/1.2.3")
+      .token(Some(&admin_token))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::BAD_REQUEST, "deleteVersionTooOld")
+      .await;
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/1.2.3")
+      .token(Some(&staff_token))
+      .sudo(true)
+      .call()
+      .await
+      .unwrap();
+    resp.expect_ok_no_content().await;
+
+    // the publishing task for a deleted version survives, so the version
+    // cannot be re-published
+    let CreatePublishingTaskResult::Exists((task, _)) = t
+      .db()
+      .create_publishing_task(NewPublishingTask {
+        user_id: Some(t.user1.user.id),
+        package_scope: &scope_name,
+        package_name: &foo_name,
+        package_version: &version,
+        config_file: &PackagePath::try_from("/jsr.json").unwrap(),
+      })
+      .await
+      .unwrap()
+    else {
+      panic!("expected the old publishing task to block re-publishing");
+    };
+    assert_eq!(task.status, PublishingTaskStatus::Success);
+  }
+
+  #[tokio::test]
+  async fn test_package_dependencies_with_fallback() {
+    let fallback = FakeFallbackRegistry::start().await;
+    let mut t = TestSetup::with_fallback_registry(Some(fallback.url())).await;
+
+    let bytes = create_mock_tarball("fallback_import");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("fallback-test").unwrap(),
+      &Version::try_from("1.0.0").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(
+      task.status,
+      PublishingTaskStatus::Success,
+      "publishing task failed: {task:#?}"
+    );
+
+    let mut resp = t
+      .http()
+      .get(
+        "/api/scopes/scope/packages/fallback-test/versions/1.0.0/dependencies",
+      )
+      .call()
+      .await
+      .unwrap();
+    let deps: Vec<ApiDependency> = resp.expect_ok().await;
+    assert_eq!(deps.len(), 1);
+    assert_eq!(deps[0].kind, ApiDependencyKind::Jsr);
+    assert_eq!(deps[0].name, "@std/assert");
+    assert_eq!(deps[0].fallback_url, Some(fallback.url().to_string()));
+  }
+
+  #[tokio::test]
+  async fn test_package_dependencies_graph_with_fallback() {
+    let fallback = FakeFallbackRegistry::start().await;
+    let mut t = TestSetup::with_fallback_registry(Some(fallback.url())).await;
+
+    let bytes = create_mock_tarball("fallback_import");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("fallback-test").unwrap(),
+      &Version::try_from("1.0.0").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(
+      task.status,
+      PublishingTaskStatus::Success,
+      "publishing task failed: {task:#?}"
+    );
+
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/fallback-test/versions/1.0.0/dependencies/graph")
+      .call()
+      .await
+      .unwrap();
+    let deps: Vec<ApiDependencyGraphItem> = resp.expect_ok().await;
+
+    // Find the JSR dependency in the graph
+    let jsr_dep = deps
+      .iter()
+      .find(|d| matches!(&d.dependency, super::DependencyKind::Jsr { .. }))
+      .expect("should have a JSR dependency");
+
+    match &jsr_dep.dependency {
+      super::DependencyKind::Jsr {
+        scope,
+        package,
+        fallback_url,
+        ..
+      } => {
+        assert_eq!(scope, "std");
+        assert_eq!(package, "assert");
+        assert_eq!(fallback_url, &Some(fallback.url().to_string()));
+      }
+      _ => panic!("expected JSR dependency"),
+    }
   }
 }

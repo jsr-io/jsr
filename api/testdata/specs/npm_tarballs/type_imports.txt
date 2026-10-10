@@ -65,16 +65,16 @@ export declare function createAdd(): Add;
 
 # output
 == /_dist/main.d.ts ==
-export { type Add as Add2 } from "./foo.d.ts";
-export type { Add as Add3 } from "./foo.d.ts";
-export type * from "./foo.d.ts";
-export type * as Foo from "./foo.d.ts";
-import { Add } from "./foo.d.ts";
+export { type Add as Add2 } from "../foo.js";
+export type { Add as Add3 } from "../foo.js";
+export type * from "../foo.js";
+export type * as Foo from "../foo.js";
+import { Add } from "../foo.js";
 export declare function createAdd(): Add;
 //# sourceMappingURL=main.d.ts.map
 
 == /_dist/main.d.ts.map ==
-{"version":3,"file":"main.d.ts","sources":["../main.ts"],"names":[],"mappings":"AAAA,SAAS,KAAK,OAAO,IAAI,QAAQ,aAAW;AAC5C,cAAc,OAAO,IAAI,QAAQ,aAAW;AAC5C,mBAAmB,aAAW;AAC9B,YAAO,KAAU,GAAG,MAAM,aAAW;AACrC,SAAc,GAAG,QAAQ,aAAW;AAEpC,OAAO,iBAAS,aAAa"}
+{"version":3,"file":"main.d.ts","sources":["../main.ts"],"names":[],"mappings":"AAAA,SAAS,KAAK,OAAO,IAAI,oBAAmB;AAC5C,cAAc,OAAO,IAAI,oBAAmB;AAC5C,+BAA8B;AAC9B,YAAO,KAAU,GAAG,kBAAiB;AACrC,SAAc,GAAG,oBAAmB;AAEpC,OAAO,iBAAS,aAAa"}
 
 == /adder.d.ts ==
 export interface Adder {
