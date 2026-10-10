@@ -79,6 +79,17 @@ resource "cloudflare_worker_version" "jsr_api" {
       name = name
       text = value
     }],
+    [for bucket in [
+      cloudflare_r2_bucket.publishing,
+      cloudflare_r2_bucket.modules,
+      cloudflare_r2_bucket.docs,
+      cloudflare_r2_bucket.npm,
+      cloudflare_r2_bucket.ticket_attachments,
+      ] : {
+      type        = "r2_bucket"
+      name        = "R2_${replace(bucket.name, "-", "_")}"
+      bucket_name = bucket.name
+    }],
   )
 }
 

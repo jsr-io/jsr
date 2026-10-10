@@ -137,9 +137,13 @@ js-sys = "0.3"
 web-sys = { version = "0.3", features = [
     "Headers",
     "Request",
+    "RequestInit",
+    "RequestRedirect",
     "Response",
     "ResponseInit",
+    "WorkerGlobalScope",
 ] }
+worker-sys = "0.8.7"
 # aws-lc doesn't build for emscripten.
 jsonwebtoken = { version = "11", features = ["rust_crypto"] }
 

@@ -3685,6 +3685,7 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "worker",
+ "worker-sys",
  "x509-parser",
 ]
 

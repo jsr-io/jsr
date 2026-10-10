@@ -1,4 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+use crate::util::Fetch;
 use anyhow::Context;
 use bytes::Bytes;
 use reqwest::StatusCode;
@@ -76,7 +77,7 @@ impl Client {
       ),
       _ => None,
     };
-    let http_without_compression = crate::util::http_client_builder()
+    let http_without_compression = reqwest::ClientBuilder::new()
       .user_agent(crate::util::USER_AGENT)
       .connect_timeout(HTTP_CONNECT_TIMEOUT)
       .no_gzip()
@@ -159,7 +160,7 @@ impl ClientInner {
       .http()
       .get(url)
       .header("Metadata-Flavor", "Google")
-      .send()
+      .fetch()
       .await?;
     if resp.status() != StatusCode::OK {
       let status = resp.status();
@@ -201,7 +202,7 @@ impl ClientInner {
         ("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer"),
         ("assertion", &assertion),
       ])
-      .send()
+      .fetch()
       .await?;
     if resp.status() != StatusCode::OK {
       let status = resp.status();
@@ -256,7 +257,7 @@ impl Queue {
     } else {
       req
     };
-    let resp = req.send().await?;
+    let resp = req.fetch().await?;
     let status = resp.status();
     if status != StatusCode::OK {
       let body = resp.text().await?;

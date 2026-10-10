@@ -36,6 +36,8 @@ mod traced_router;
 mod tracing;
 mod tree_sitter;
 mod util;
+#[cfg(target_arch = "wasm32")]
+mod worker_js;
 
 use crate::api::InboundTrustedAuthservId;
 use crate::api::PostmarkWebhookPassword;
@@ -545,14 +547,11 @@ mod worker {
     // Each request runs on its own tokio runtime, so nothing (the DB connection
     // included) can be reused across requests.
     env_into_process(&env);
+    crate::worker_js::set_env(env);
     let config =
       Config::try_parse_from(["registry_api", "--api", "--tasks=false"])
         .map_err(|e| JsValue::from_str(&format!("config: {e}")))?;
-    for host in [host_of(&config.database_url), host_of(&config.s3_endpoint)]
-      .into_iter()
-      .flatten()
-      .collect::<std::collections::BTreeSet<_>>()
-    {
+    if let Some(host) = host_of(&config.database_url) {
       dns_prewarm(&host)
         .await
         .map_err(|e| JsValue::from_str(&e))?;

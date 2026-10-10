@@ -34,25 +34,20 @@ use crate::router::RequestExt;
 
 pub const USER_AGENT: &str = "JSR";
 
-/// On the worker, resolves names with tokio's async lookup: emscripten's
-/// blocking `getaddrinfo` only answers from the cache that fills.
-pub fn http_client_builder() -> reqwest::ClientBuilder {
-  let builder = reqwest::Client::builder();
-  #[cfg(target_arch = "wasm32")]
-  let builder = builder.dns_resolver(Arc::new(AsyncResolver));
-  builder
+/// Sends requests through the runtime's `fetch` on the worker, which can't open
+/// sockets to Cloudflare's IP ranges.
+pub trait Fetch {
+  fn fetch(
+    self,
+  ) -> impl Future<Output = reqwest::Result<reqwest::Response>> + Send;
 }
 
-#[cfg(target_arch = "wasm32")]
-struct AsyncResolver;
-
-#[cfg(target_arch = "wasm32")]
-impl reqwest::dns::Resolve for AsyncResolver {
-  fn resolve(&self, name: reqwest::dns::Name) -> reqwest::dns::Resolving {
-    Box::pin(async move {
-      let addrs = tokio::net::lookup_host((name.as_str(), 0)).await?;
-      Ok(Box::new(addrs.collect::<Vec<_>>().into_iter()) as reqwest::dns::Addrs)
-    })
+impl Fetch for reqwest::RequestBuilder {
+  async fn fetch(self) -> reqwest::Result<reqwest::Response> {
+    #[cfg(target_arch = "wasm32")]
+    return Ok(crate::worker_js::fetch(self.build()?, true).await);
+    #[cfg(not(target_arch = "wasm32"))]
+    self.send().await
   }
 }
 
@@ -62,7 +57,7 @@ pub fn shared_http_client() -> &'static reqwest::Client {
   static CLIENT: std::sync::OnceLock<reqwest::Client> =
     std::sync::OnceLock::new();
   CLIENT.get_or_init(|| {
-    http_client_builder()
+    reqwest::Client::builder()
       .user_agent(USER_AGENT)
       .connect_timeout(std::time::Duration::from_secs(10))
       .build()
@@ -81,7 +76,7 @@ pub async fn oauth2_http_request(
   static CLIENT: std::sync::OnceLock<reqwest::Client> =
     std::sync::OnceLock::new();
   let client = CLIENT.get_or_init(|| {
-    http_client_builder()
+    reqwest::Client::builder()
       .user_agent(USER_AGENT)
       .connect_timeout(std::time::Duration::from_secs(10))
       .timeout(std::time::Duration::from_secs(30))
@@ -89,6 +84,12 @@ pub async fn oauth2_http_request(
       .build()
       .expect("failed to build oauth2 reqwest client")
   });
+  #[cfg(target_arch = "wasm32")]
+  let mut response = {
+    let _ = client;
+    crate::worker_js::fetch(request.try_into()?, false).await
+  };
+  #[cfg(not(target_arch = "wasm32"))]
   let mut response = client.execute(request.try_into()?).await?;
   let status = response.status();
   let headers = std::mem::take(response.headers_mut());

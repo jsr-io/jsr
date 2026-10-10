@@ -8,6 +8,7 @@ use futures::FutureExt;
 use futures::Stream;
 use futures::StreamExt;
 use futures::TryStreamExt;
+use futures::stream::BoxStream;
 use hyper::StatusCode;
 use rusty_s3::S3Action;
 use std::borrow::Cow;
@@ -62,7 +63,10 @@ pub enum S3Error {
   #[error("client error when communicating with S3: {0} ({0:?})")]
   Client(StatusCode),
   #[error(transparent)]
-  Http(#[from] reqwest::Error),
+  Http(reqwest::Error),
+  #[cfg(target_arch = "wasm32")]
+  #[error("R2 binding: {0}")]
+  R2(String),
   #[error("invalid S3 bucket: {0}")]
   InvalidBucket(#[from] rusty_s3::BucketError),
   #[error("invalid S3 list response: {0}")]
@@ -75,10 +79,21 @@ impl S3Error {
   /// 408, 429, and 5xx errors are retryable.
   /// https://cloud.google.com/storage/docs/retry-strategy
   pub fn is_retryable(&self) -> bool {
+    #[cfg(target_arch = "wasm32")]
+    if matches!(self, Self::R2(_)) {
+      return true;
+    }
     matches!(
       self,
       Self::RequestTimeout | Self::TooManyRequests | Self::Server(_)
     )
+  }
+}
+
+// Presigned URLs carry a signature, so they are kept out of errors.
+impl From<reqwest::Error> for S3Error {
+  fn from(err: reqwest::Error) -> Self {
+    Self::Http(err.without_url())
   }
 }
 
@@ -109,7 +124,7 @@ impl S3Client {
     // reqwest is built with `gzip`/`brotli` for the rest of the app, which
     // would transparently inflate objects we store with
     // `Content-Encoding: gzip`. Their readers expect the stored bytes.
-    let http = crate::util::http_client_builder()
+    let http = reqwest::Client::builder()
       .no_gzip()
       .no_brotli()
       .timeout(HTTP_CONNECT_TIMEOUT)
@@ -132,6 +147,8 @@ pub struct Bucket {
   client: S3Client,
   bucket: Arc<rusty_s3::Bucket>,
   pub(crate) name: String,
+  #[cfg(target_arch = "wasm32")]
+  r2: Option<crate::worker_js::R2Bucket>,
 }
 
 impl Bucket {
@@ -146,6 +163,8 @@ impl Bucket {
     Ok(Self {
       client: client.clone(),
       bucket: Arc::new(bucket),
+      #[cfg(target_arch = "wasm32")]
+      r2: crate::worker_js::R2Bucket::new(&name),
       name,
     })
   }
@@ -223,6 +242,13 @@ impl Bucket {
 
   #[instrument(name = "s3::Bucket::download", skip(self), err, fields(bucket = %self.name))]
   pub async fn download(&self, path: &str) -> Result<Option<Bytes>, S3Error> {
+    #[cfg(target_arch = "wasm32")]
+    if let Some(r2) = &self.r2 {
+      return r2
+        .get(path, None)
+        .await
+        .map_err(|err| S3Error::R2(err.to_string()));
+    }
     match self.get(path, None).await? {
       Some(resp) => Ok(Some(resp.bytes().await?)),
       None => Ok(None),
@@ -234,10 +260,19 @@ impl Bucket {
     &self,
     path: &str,
     offset: Option<usize>,
-  ) -> Result<Option<impl Stream<Item = Result<Bytes, S3Error>> + use<>>, S3Error>
-  {
+  ) -> Result<Option<BoxStream<'static, Result<Bytes, S3Error>>>, S3Error> {
+    #[cfg(target_arch = "wasm32")]
+    if let Some(r2) = &self.r2 {
+      let bytes = r2
+        .get(path, offset)
+        .await
+        .map_err(|err| S3Error::R2(err.to_string()))?;
+      return Ok(
+        bytes.map(|bytes| futures::stream::once(async { Ok(bytes) }).boxed()),
+      );
+    }
     let resp = self.get(path, offset).await?;
-    Ok(resp.map(|resp| resp.bytes_stream().map_err(S3Error::Http)))
+    Ok(resp.map(|resp| resp.bytes_stream().map_err(S3Error::from).boxed()))
   }
 
   #[instrument(name = "s3::Bucket::upload", skip(self, data), err, fields(bucket = %self.name, size = %data.len()))]
@@ -254,6 +289,19 @@ impl Bucket {
     } else {
       "identity"
     };
+    #[cfg(target_arch = "wasm32")]
+    if let Some(r2) = &self.r2 {
+      return r2
+        .put(
+          path,
+          &data,
+          options.content_type.as_deref(),
+          options.cache_control.as_deref(),
+          content_encoding,
+        )
+        .await
+        .map_err(|err| S3Error::R2(err.to_string()));
+    }
     let mut headers = vec![(header::CONTENT_ENCODING, content_encoding)];
     if let Some(content_type) = &options.content_type {
       headers.push((header::CONTENT_TYPE, content_type));
@@ -280,6 +328,13 @@ impl Bucket {
   /// The keys of all objects whose key starts with `prefix`.
   #[instrument(name = "s3::Bucket::list", skip(self), err, fields(bucket = %self.name))]
   pub async fn list(&self, prefix: &str) -> Result<Vec<String>, S3Error> {
+    #[cfg(target_arch = "wasm32")]
+    if let Some(r2) = &self.r2 {
+      return r2
+        .list(prefix)
+        .await
+        .map_err(|err| S3Error::R2(err.to_string()));
+    }
     let mut keys = Vec::new();
     let mut continuation_token = None;
     loop {
@@ -311,6 +366,13 @@ impl Bucket {
 
   #[instrument(name = "s3::Bucket::delete", skip(self), err, fields(bucket = %self.name))]
   pub async fn delete_file(&self, path: &str) -> Result<bool, S3Error> {
+    #[cfg(target_arch = "wasm32")]
+    if let Some(r2) = &self.r2 {
+      r2.delete(path)
+        .await
+        .map_err(|err| S3Error::R2(err.to_string()))?;
+      return Ok(false);
+    }
     let url = self
       .bucket
       .delete_object(self.credentials(), path)

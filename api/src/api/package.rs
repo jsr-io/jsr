@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use crate::router::RequestExt;
+use crate::util::Fetch;
 use anyhow::Context;
 use axum::Router;
 use axum::body::Body;
@@ -2758,7 +2759,7 @@ impl DepTreeLoader {
               let response = crate::util::shared_http_client()
                 .get(&fallback_specifier)
                 .timeout(DEP_TREE_FALLBACK_REQUEST_TIMEOUT)
-                .send()
+                .fetch()
                 .await
                 .ok();
               if let Some(response) = response
