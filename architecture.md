@@ -56,7 +56,7 @@ via the Cloudflare Analytics Engine.
 
 ## API (`api/`)
 
-The API is a Rust HTTP server built with Hyper and Routerify. It is the single
+The API is a Rust HTTP server built with Hyper and axum. It is the single
 source of truth for all write operations and business logic.
 
 ### Directory Structure
@@ -113,7 +113,7 @@ api/
 ### Key Dependencies
 
 - **sqlx** — compile-time verified SQL queries against PostgreSQL
-- **hyper + routerify** — HTTP server and routing
+- **hyper + axum** — HTTP server and routing
 - **deno_doc / deno_ast / deno_graph** — documentation generation and dependency
   analysis
 - **rust-s3** — Cloudflare R2 / S3 integration

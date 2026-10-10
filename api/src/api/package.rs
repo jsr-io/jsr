@@ -1,5 +1,13 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+use crate::router::RequestExt;
 use anyhow::Context;
+use axum::Router;
+use axum::body::Body;
+use axum::body::HttpBody;
+use axum::routing::delete;
+use axum::routing::get;
+use axum::routing::patch;
+use axum::routing::post;
 use bytes::Bytes;
 use chrono::Utc;
 use comrak::adapters::SyntaxHighlighterAdapter;
@@ -22,17 +30,12 @@ use deno_semver::VersionReq;
 use futures::StreamExt;
 use futures::TryFutureExt;
 use futures::future::Either;
-use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
-use hyper::body::HttpBody;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use regex::Regex;
-use routerify::Router;
-use routerify::prelude::RequestExt;
-use routerify_query::RequestQueryExt;
 use serde::Deserialize;
 use serde::Serialize;
 use sha2::Digest;
@@ -134,135 +137,149 @@ const MAX_DELETABLE_VERSION_DOWNLOADS: i64 = 10;
 
 pub struct PublishQueue(pub Option<gcp::Queue>);
 
-pub fn package_router() -> Router<Body, ApiError> {
-  Router::builder()
-    .get(
+pub fn package_router() -> Router {
+  Router::new()
+    .route(
       // Cache-busted on publish/create/delete via `package_api_cache_urls` /
       // `scope_api_cache_urls`.
       "/",
-      util::cache(CacheDuration::ONE_DAY, util::json(list_handler)),
+      get(util::cache(
+        CacheDuration::ONE_DAY,
+        util::json(list_handler),
+      )),
     )
-    .post("/", util::json(create_handler))
-    .get(
+    .route("/", post(util::json(create_handler)))
+    .route(
       // Cached aggressively; cache-busted on publish/yank/update/delete via
       // `package_api_cache_urls` (this endpoint has no query params, so the
       // canonical URL purge is exact).
-      "/:package",
-      util::cache(CacheDuration::THIRTY_DAYS, util::json(get_handler)),
+      "/{package}",
+      get(util::cache(
+        CacheDuration::THIRTY_DAYS,
+        util::json(get_handler),
+      )),
     )
-    .patch("/:package", util::auth(util::json(update_handler)))
-    .delete("/:package", util::auth(delete_handler))
-    .get(
+    .route("/{package}", patch(util::auth(util::json(update_handler))))
+    .route("/{package}", delete(util::auth(delete_handler)))
+    .route(
       // Cache-busted on publish/yank/delete. The canonical (unpaginated) URL is
       // purged exactly; paginated variants fall back to a 1-day bound.
-      "/:package/versions",
-      util::cache(CacheDuration::ONE_DAY, util::json(list_versions_handler)),
+      "/{package}/versions",
+      get(util::cache(
+        CacheDuration::ONE_DAY,
+        util::json(list_versions_handler),
+      )),
     )
-    .get(
-      "/:package/dependents",
-      util::cache(
+    .route(
+      "/{package}/dependents",
+      get(util::cache(
         CacheDuration::FIVE_MINUTES,
         util::json(list_dependents_handler),
-      ),
+      )),
     )
-    .get(
+    .route(
       // Refreshed by the daily download-count scrape, not by publish; a 1-day
       // TTL matches that cadence.
-      "/:package/downloads",
-      util::cache(CacheDuration::ONE_DAY, util::json(get_downloads_handler)),
+      "/{package}/downloads",
+      get(util::cache(
+        CacheDuration::ONE_DAY,
+        util::json(get_downloads_handler),
+      )),
     )
-    .get(
-      "/:package/versions/:version",
-      util::cache_versioned(
+    .route(
+      "/{package}/versions/{version}",
+      get(util::cache_versioned(
         CacheDuration::ONE_MINUTE,
         CacheDuration::THIRTY_DAYS,
         util::json(get_version_handler),
-      ),
+      )),
     )
-    .post(
-      "/:package/versions/:version",
-      util::auth(util::json(version_publish_handler)),
+    .route(
+      "/{package}/versions/{version}",
+      post(util::auth(util::json(version_publish_handler))),
     )
-    .patch(
-      "/:package/versions/:version",
-      util::auth(version_update_handler),
+    .route(
+      "/{package}/versions/{version}",
+      patch(util::auth(version_update_handler)),
     )
-    .delete(
-      "/:package/versions/:version",
-      util::auth(version_delete_handler),
+    .route(
+      "/{package}/versions/{version}",
+      delete(util::auth(version_delete_handler)),
     )
-    .post(
-      "/:package/versions/:version/provenance",
-      util::auth(version_provenance_statements_handler),
+    .route(
+      "/{package}/versions/{version}/provenance",
+      post(util::auth(version_provenance_statements_handler)),
     )
-    .get(
-      "/:package/versions/:version/tarball",
-      util::cache(CacheDuration::FOREVER, version_tarball_handler),
+    .route(
+      "/{package}/versions/{version}/tarball",
+      get(util::cache(CacheDuration::FOREVER, version_tarball_handler)),
     )
-    .get(
+    .route(
       // For a specific (non-"latest") version the content is immutable, so the
       // versioned arm is cached for 30 days. The "latest" arm moves on publish
       // and can carry query params (symbol/entrypoint), so it stays short — but
       // this is the default package-page render, by far the hottest docs call,
       // so 5 minutes (vs 60s) cuts its origin rate ~5x while staying fresh
       // enough that a new publish appears promptly.
-      "/:package/versions/:version/docs",
-      // `_shared`: the docs response is identity-independent (no permission/
-      // member/sudo branch), so the lb may serve it from its shared cache to
-      // authenticated callers too, rather than bypassing cache on auth.
-      util::cache_versioned_shared(
-        CacheDuration::FIVE_MINUTES,
-        CacheDuration::THIRTY_DAYS,
-        util::json(get_docs_handler),
+      "/{package}/versions/{version}/docs",
+      get(
+        // `_shared`: the docs response is identity-independent (no permission/
+        // member/sudo branch), so the lb may serve it from its shared cache to
+        // authenticated callers too, rather than bypassing cache on auth.
+        util::cache_versioned_shared(
+          CacheDuration::FIVE_MINUTES,
+          CacheDuration::THIRTY_DAYS,
+          util::json(get_docs_handler),
+        ),
       ),
     )
-    .get(
+    .route(
       // `_shared`: like `docs` above, both search payloads are derived purely
       // from the published version, with no permission/member/sudo branch, so
       // the lb may serve them from its shared cache to authenticated callers
       // instead of bypassing on auth.
-      "/:package/versions/:version/docs/search",
-      util::cache_versioned_shared(
+      "/{package}/versions/{version}/docs/search",
+      get(util::cache_versioned_shared(
         CacheDuration::FIVE_MINUTES,
         CacheDuration::THIRTY_DAYS,
         util::json(get_docs_search_handler),
-      ),
+      )),
     )
-    .get(
-      "/:package/versions/:version/docs/search_structured",
-      util::cache_versioned_shared(
+    .route(
+      "/{package}/versions/{version}/docs/search_structured",
+      get(util::cache_versioned_shared(
         CacheDuration::FIVE_MINUTES,
         CacheDuration::THIRTY_DAYS,
         util::json(get_docs_search_structured_handler),
-      ),
+      )),
     )
-    .get(
-      "/:package/versions/:version/source",
-      util::cache_versioned(
+    .route(
+      "/{package}/versions/{version}/source",
+      get(util::cache_versioned(
         CacheDuration::FIVE_MINUTES,
         CacheDuration::THIRTY_DAYS,
         util::json(get_source_handler),
-      ),
+      )),
     )
-    .get(
+    .route(
       // Both versions are immutable, so the diff between them never changes.
       // `_shared`: identity-independent (see docs above), so the lb shares it
       // across authenticated callers.
-      "/:package/diff/:old_version/:new_version",
-      util::cache_shared(
+      "/{package}/diff/{old_version}/{new_version}",
+      get(util::cache_shared(
         CacheDuration::THIRTY_DAYS,
         util::json(get_diff_handler),
-      ),
+      )),
     )
-    .get(
-      "/:package/versions/:version/dependencies",
-      util::cache_versioned(
+    .route(
+      "/{package}/versions/{version}/dependencies",
+      get(util::cache_versioned(
         CacheDuration::ONE_MINUTE,
         CacheDuration::THIRTY_DAYS,
         util::json(list_dependencies_handler),
-      ),
+      )),
     )
-    .get(
+    .route(
       // The graph is resolved live — a `jsr:` range in the package's source
       // picks up whatever version matches it today — so even a pinned version
       // is not immutable, and a day is the ceiling rather than the obvious
@@ -275,23 +292,24 @@ pub fn package_router() -> Router<Body, ApiError> {
       // shared cache to authenticated callers. Without this every signed-in
       // view of a dependency graph bypassed the cache and paid the full cold
       // build, which is by far the most expensive handler in the API.
-      "/:package/versions/:version/dependencies/graph",
-      util::cache_versioned_shared(
+      "/{package}/versions/{version}/dependencies/graph",
+      get(util::cache_versioned_shared(
         CacheDuration::FIVE_MINUTES,
         CacheDuration::ONE_DAY,
         util::json(get_dependencies_graph_handler),
-      ),
+      )),
     )
-    .get(
-      "/:package/publishing_tasks",
-      util::json(list_publishing_tasks_handler),
+    .route(
+      "/{package}/publishing_tasks",
+      get(util::json(list_publishing_tasks_handler)),
     )
-    .get(
-      "/:package/score",
-      util::cache(CacheDuration::FIVE_MINUTES, util::json(get_score_handler)),
+    .route(
+      "/{package}/score",
+      get(util::cache(
+        CacheDuration::FIVE_MINUTES,
+        util::json(get_score_handler),
+      )),
     )
-    .build()
-    .unwrap()
 }
 
 #[instrument(name = "GET /api/packages", skip(req), fields(query))]
@@ -1074,7 +1092,7 @@ pub async fn version_publish_handler(
 
   let s3_path = bucket_tarball_path(publishing_task.id);
 
-  let body = req.into_body();
+  let body = req.into_body().into_data_stream();
   let total_size = Arc::new(AtomicU64::new(0));
   let total_size_ = total_size.clone();
 
@@ -1494,7 +1512,7 @@ pub async fn version_tarball_handler(
     Response::builder()
       .status(StatusCode::OK)
       .header(hyper::header::CONTENT_TYPE, "application/gzip")
-      .body(Body::wrap_stream(body.map(|r| {
+      .body(Body::from_stream(body.map(|r| {
         r.map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
           Box::new(e)
         })
@@ -3510,8 +3528,8 @@ mod test {
   use crate::util::test::ApiResultExt;
   use crate::util::test::FakeFallbackRegistry;
   use crate::util::test::TestSetup;
+  use axum::body::Body;
   use chrono::Utc;
-  use hyper::Body;
   use hyper::StatusCode;
   use indexmap::IndexSet;
   use serde_json::json;

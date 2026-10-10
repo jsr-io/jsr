@@ -4,14 +4,15 @@
 //! support address; each one either opens a support ticket or is appended to the
 //! ticket it is replying to.
 
+use crate::router::RequestExt;
+use axum::Router;
+use axum::body::Body;
+use axum::routing::post;
 use base64::Engine;
 use bytes::Bytes;
-use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
-use routerify::Router;
-use routerify::prelude::RequestExt;
 use serde::Deserialize;
 use std::borrow::Cow;
 use std::sync::LazyLock;
@@ -67,11 +68,8 @@ const MAX_ATTACHMENTS_PER_MESSAGE: usize = 20;
 /// without bound. Anything longer is truncated with a marker.
 const MAX_BODY_BYTES: usize = 256 * 1024;
 
-pub fn hooks_router() -> Router<Body, ApiError> {
-  Router::builder()
-    .post("/postmark", postmark_inbound_handler)
-    .build()
-    .unwrap()
+pub fn hooks_router() -> Router {
+  Router::new().route("/postmark", post(postmark_inbound_handler))
 }
 
 /// The subset of Postmark's inbound webhook payload we act on.
@@ -347,7 +345,7 @@ pub async fn postmark_inbound_handler(
         tracing::info!("ignoring already-ingested inbound email");
       }
     }
-    None => open_ticket(&req, message, &email).await?,
+    None => open_ticket(&mut req, message, &email).await?,
   }
 
   Ok(util::create_response(StatusCode::OK, "text/plain", "OK"))
@@ -381,7 +379,7 @@ async fn resolve_ticket(
 
 /// Opens a new ticket for an email that matched nothing, and acknowledges it.
 async fn open_ticket(
-  req: &Request<Body>,
+  req: &mut Request<Body>,
   message: NewTicketEmailMessage,
   email: &InboundEmail,
 ) -> Result<(), ApiError> {
@@ -758,6 +756,7 @@ mod integration {
   use crate::util::test::ApiResultExt;
   use crate::util::test::TEST_POSTMARK_WEBHOOK_PASSWORD;
   use crate::util::test::TestSetup;
+  use axum::body::Body;
   use base64::Engine;
   use hyper::StatusCode;
   use serde_json::Value;
@@ -782,10 +781,7 @@ mod integration {
     })
   }
 
-  async fn deliver(
-    t: &mut TestSetup,
-    payload: Value,
-  ) -> hyper::Response<hyper::Body> {
+  async fn deliver(t: &mut TestSetup, payload: Value) -> hyper::Response<Body> {
     t.http()
       .post("/api/hooks/postmark")
       .token(None)
@@ -1039,7 +1035,10 @@ mod integration {
     assert!(disposition.starts_with("attachment;"), "{disposition}");
     assert!(disposition.contains("log.txt"), "{disposition}");
 
-    let body = hyper::body::to_bytes(resp.body_mut()).await.unwrap();
+    let body =
+      axum::body::to_bytes(std::mem::take(resp.body_mut()), usize::MAX)
+        .await
+        .unwrap();
     assert_eq!(body.as_ref(), content);
 
     // A stranger cannot pull the file out of somebody else's ticket.

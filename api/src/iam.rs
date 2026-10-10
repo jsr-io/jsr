@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use hyper::Body;
+use crate::router::RequestExt;
+use axum::body::Body;
 use hyper::Request;
-use routerify::prelude::RequestExt;
 use uuid::Uuid;
 
 use crate::api::ApiError;
