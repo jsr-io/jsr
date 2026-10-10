@@ -68,6 +68,9 @@ const SAMPLE_RATIO: f64 = 0.05;
 #[cfg(not(target_arch = "wasm32"))]
 static DISPATCH: OnceLock<WeakDispatch> = OnceLock::new();
 
+// The worker parses the OTLP config like the native server but never exports
+// (the whole exporter stack is native-only), so on wasm nothing reads these.
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 pub enum TracingExportTarget {
   Otlp {
     endpoint: String,

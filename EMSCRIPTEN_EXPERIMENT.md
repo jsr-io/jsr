@@ -14,9 +14,10 @@ no local patches of third-party crates), so the wasm link does not succeed from
 a clean checkout until they land upstream. The pipeline is `api/build-worker.sh`
 (`worker-build --emscripten --release`, workers-rs 0.8.7) driven by wrangler's
 `[build]` command, on the upstream tokio patchset. Against a local Postgres:
-`GET /api/packages?limit=1` → `{"items":[],"total":0}` in ~0.13 s, **32/32 and
-64/64 concurrent** requests return 200, `/api/scopes/std` → a proper
-`404 scopeNotFound`, `/api/users/<bad>` → `400 malformedRequest`. Release wasm is
+`GET /api/packages?limit=1` → `{"items":[],"total":0}` in ~0.23 s cold,
+`/api/scopes/std` → a proper `404`, `/api/users/<bad>` → `400`. **64/64
+concurrent** requests return 200, though each takes ~7.7 s at that concurrency —
+memory and the per-request router rebuild, not correctness (see Known gaps). Release wasm is
 **25.9 MB** (`opt-level = "s"` + fat LTO; see [Size](#size)).
 
 Getting past "it builds" originally took a chain of **runtime** fixes — see
@@ -74,7 +75,7 @@ Getting past "it builds" originally took a chain of **runtime** fixes — see
 
 ### Toolchain
 `worker-build --emscripten` (workers-rs 0.8.7, `cargo install worker-build` —
-needs rustc ≥ 1.91, so not jsr's pinned 1.89.0) is the driver. It provisions the
+needs rustc >= 1.91, so still not jsr's pinned 1.90.0) is the driver. It provisions the
 Emscripten SDK and patches its frontend, and supplies `-Crelocation-model=static`,
 the exnref exception-handling flags (`-Cllvm-args=-wasm-use-legacy-eh=false`,
 `EMCC_CFLAGS=-fwasm-exceptions -sWASM_LEGACY_EXCEPTIONS=0`) and the `-s` link
@@ -197,7 +198,7 @@ docker compose up -d postgres
 DATABASE_URL='postgres://user:password@localhost/registry' \
   sqlx migrate run --source api/migrations
 
-# 1. Install the build driver (needs rustc >= 1.91, not jsr's pinned 1.89.0).
+# 1. Install the build driver (needs rustc >= 1.91, above jsr's pinned 1.90.0).
 RUSTUP_TOOLCHAIN=stable cargo install worker-build --version 0.8.7
 
 # 2. Build + run. wrangler's `[build] command` in api/wrangler.toml runs
