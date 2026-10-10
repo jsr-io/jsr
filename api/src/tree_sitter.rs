@@ -1,6 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+use std::borrow::Cow;
 use std::collections::HashMap;
-use std::io::Write;
+use std::fmt::Write;
 use std::ops::Range;
 use std::sync::OnceLock;
 
@@ -41,7 +42,7 @@ impl comrak::adapters::SyntaxHighlighterAdapter for ComrakAdapter {
     output: &mut dyn Write,
     lang: Option<&str>,
     code: &str,
-  ) -> std::io::Result<()> {
+  ) -> std::fmt::Result {
     let lang = lang.unwrap_or_default();
     let config = tree_sitter_language_cb(lang);
     let source = code.as_bytes();
@@ -86,7 +87,7 @@ impl comrak::adapters::SyntaxHighlighterAdapter for ComrakAdapter {
                 lines
               };
 
-              return output.write_all(html.as_bytes());
+              return output.write_str(&html);
             }
             Err(err) => {
               eprintln!("Error rendering code: {}", err);
@@ -99,26 +100,27 @@ impl comrak::adapters::SyntaxHighlighterAdapter for ComrakAdapter {
       }
     }
 
-    comrak::html::escape(output, source)
+    comrak::html::escape(output, code)
   }
 
   fn write_pre_tag(
     &self,
     output: &mut dyn Write,
-    attributes: HashMap<String, String>,
-  ) -> std::io::Result<()> {
+    attributes: HashMap<&'static str, Cow<'_, str>>,
+  ) -> std::fmt::Result {
     comrak::html::write_opening_tag(output, "pre", attributes)
   }
 
   fn write_code_tag(
     &self,
     output: &mut dyn Write,
-    mut attributes: HashMap<String, String>,
-  ) -> std::io::Result<()> {
+    mut attributes: HashMap<&'static str, Cow<'_, str>>,
+  ) -> std::fmt::Result {
     if self.show_line_numbers {
       attributes
-        .entry("class".into())
+        .entry("class")
         .or_default()
+        .to_mut()
         .push_str(" flex! gap-2");
     }
     comrak::html::write_opening_tag(output, "code", attributes)
@@ -615,11 +617,11 @@ mod tests {
 
   fn highlight(lang: &str, code: &str) -> String {
     let adapter = ComrakAdapter::new(false);
-    let mut out = Vec::new();
+    let mut out = String::new();
     adapter
       .write_highlighted(&mut out, Some(lang), code)
       .unwrap();
-    String::from_utf8(out).unwrap()
+    out
   }
 
   #[test]
