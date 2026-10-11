@@ -2,7 +2,7 @@
 import { HttpError, IS_BROWSER } from "fresh/runtime";
 import type { TraceSpan } from "./tracing.ts";
 import type { ErrorStatus } from "@std/http";
-import { workerLb } from "./worker_env.ts";
+import { workerApi } from "./worker_env.ts";
 
 export type QueryParams = Record<string, string | number | null>;
 
@@ -213,15 +213,15 @@ export class API {
       headers.set("User-Agent", this.#userAgent);
     }
     try {
-      // On Cloudflare Workers, route API subrequests through the LB
-      // service binding rather than a plain `fetch()` — same-zone
-      // subrequests from a Worker bypass Workers Routes, so a plain
-      // `fetch("https://api.<zone>/…")` skips the LB and 525s on
-      // direct TLS to origin. Elsewhere (client, Deno dev, Cloud Run)
-      // workerLb() is undefined and we fall back to global fetch.
-      const lb = workerLb();
-      const doFetch: typeof fetch = lb ? lb.fetch.bind(lb) : fetch;
-      const resp = await doFetch(url.href, {
+      // On Cloudflare Workers, call the API worker through its service
+      // binding; it serves the API under /api, which the LB otherwise adds.
+      // Elsewhere (client, Deno dev) workerApi() is undefined.
+      const api = workerApi();
+      const target = api
+        ? new URL(`/api${url.pathname}${url.search}`, url)
+        : url;
+      const doFetch: typeof fetch = api ? api.fetch.bind(api) : fetch;
+      const resp = await doFetch(target.href, {
         method: req.method,
         headers,
         body: req.body ? JSON.stringify(req.body) : undefined,

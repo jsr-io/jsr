@@ -27,7 +27,7 @@ resource "cloudflare_workers_script" "jsr_lb" {
     }
   }
 
-  bindings = concat([
+  bindings = [
     {
       type    = "analytics_engine"
       name    = "DOWNLOADS"
@@ -53,12 +53,9 @@ resource "cloudflare_workers_script" "jsr_lb" {
       name = "NPM_DOMAIN"
       text = local.npm_domain
       }, {
-      # Cloud Run service URLs aren't secret; keep as plain_text so the
-      # current value is visible from the worker's bindings page (needed
-      # to verify the LB is pointing at a live Cloud Run revision).
-      type = "plain_text"
-      name = "REGISTRY_API_URL"
-      text = google_cloud_run_v2_service.registry_api.uri
+      type    = "service"
+      name    = "API"
+      service = cloudflare_worker.jsr_api.name
       }, {
       # Service binding to the frontend Worker. Terraform uploads new
       # versions via `cloudflare_worker_version.jsr_frontend` and
@@ -97,13 +94,7 @@ resource "cloudflare_workers_script" "jsr_lb" {
         period = 60
       }
     }
-    ], [
-    for name in cloudflare_worker.jsr_api[*].name : {
-      type    = "service"
-      name    = "API"
-      service = name
-    }
-  ])
+  ]
 
   depends_on = [
     cloudflare_workers_deployment.jsr_frontend,
