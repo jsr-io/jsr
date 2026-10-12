@@ -583,11 +583,20 @@ impl Database {
       }
     }
 
-    // Transfer tickets, ticket_messages, and audit_logs to service account,
-    // rather than nulling them: a ticket without a creator must have a
-    // reporter email (tickets_reporter_xor), which a deleted user's ticket lacks.
+    // Transfer tickets, ticket_messages, ticket_events, and audit_logs to the
+    // service account, rather than nulling them: a ticket without a creator
+    // must have a reporter email (tickets_reporter_xor), which a deleted user's
+    // ticket lacks.
     sqlx::query!(
       r#"UPDATE ticket_messages SET author = $1 WHERE author = $2"#,
+      service_account_id,
+      id,
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    sqlx::query!(
+      r#"UPDATE ticket_events SET actor = $1 WHERE actor = $2"#,
       service_account_id,
       id,
     )
@@ -5180,34 +5189,33 @@ gitlab_id: r.user_gitlab_id,
     Ok(full)
   }
 
-  #[instrument(name = "Database::get_ticket_audit_logs", skip(self), err)]
-  pub async fn get_ticket_audit_logs(
+  #[instrument(name = "Database::get_ticket_events", skip(self), err)]
+  pub async fn get_ticket_events(
     &self,
     ticket_id: Uuid,
-  ) -> Result<Vec<(AuditLog, UserPublic)>> {
-    let mut tx = self.pool.begin().await?;
-
-    let audit_logs = query_concat!(
+  ) -> Result<Vec<(TicketEvent, UserPublic)>> {
+    query_concat!(
       "SELECT
-          ", AUDIT_LOG_SELECT_JOINED, ",
+          ticket_events.id, ticket_events.ticket_id, ticket_events.actor, ticket_events.kind as \"kind: TicketEventKind\", ticket_events.status as \"status: TicketStatus\", ticket_events.created_at,
           ", USER_PUBLIC_SELECT_JOINED_RT, "
         FROM
-          audit_logs
-        LEFT JOIN
-          users ON audit_logs.actor_id = users.id
+          ticket_events
+        INNER JOIN
+          users ON ticket_events.actor = users.id
         WHERE
-          audit_logs.meta::text LIKE $1
-        ORDER BY audit_logs.created_at DESC;
+          ticket_events.ticket_id = $1
+        ORDER BY ticket_events.created_at ASC;
         ";
-      format!("%\"ticket_id\": \"{}\"%", ticket_id),
+      ticket_id as _,
     )
     .map(|r| {
-      let audit_log = AuditLog {
-        actor_id: r.audit_log_actor_id,
-        is_sudo: r.audit_log_is_sudo,
-        action: r.audit_log_action,
-        meta: r.audit_log_meta,
-        created_at: r.audit_log_created_at,
+      let event = TicketEvent {
+        id: r.id,
+        ticket_id: r.ticket_id,
+        actor: r.actor,
+        kind: r.kind,
+        status: r.status,
+        created_at: r.created_at,
       };
 
       let user = UserPublic {
@@ -5220,14 +5228,10 @@ gitlab_id: r.user_gitlab_id,
         created_at: r.user_created_at,
       };
 
-      (audit_log, user)
+      (event, user)
     })
-    .fetch_all(&mut *tx)
-    .await?;
-
-    tx.commit().await?;
-
-    Ok(audit_logs)
+    .fetch_all(&self.pool)
+    .await
   }
 
   /// Appends a message written through the web UI by a signed-in account.
@@ -5399,6 +5403,9 @@ gitlab_id: r.user_gitlab_id,
       return Ok(None);
     }
 
+    ticket_event(&mut tx, ticket_id, &user_id, TicketEventKind::Claimed, None)
+      .await?;
+
     let full = Self::load_full_ticket(&mut tx, ticket_id).await?;
 
     tx.commit().await?;
@@ -5451,6 +5458,15 @@ gitlab_id: r.user_gitlab_id,
       "ticket_id": ticket_id,
       "status": status,
       }),
+    )
+    .await?;
+
+    ticket_event(
+      &mut tx,
+      ticket_id,
+      staff_id,
+      TicketEventKind::StatusChange,
+      Some(status),
     )
     .await?;
 
@@ -5705,6 +5721,27 @@ async fn insert_inbound_email_message(
 
   Ok(true)
 }
+/// Records an entry in a ticket's timeline.
+async fn ticket_event(
+  tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+  ticket_id: Uuid,
+  actor: &Uuid,
+  kind: TicketEventKind,
+  status: Option<TicketStatus>,
+) -> Result<()> {
+  sqlx::query!(
+    r#"INSERT INTO ticket_events (ticket_id, actor, kind, status) VALUES ($1, $2, $3, $4)"#,
+    ticket_id as _,
+    actor as _,
+    kind as _,
+    status as _,
+  )
+  .execute(&mut **tx)
+  .await?;
+
+  Ok(())
+}
+
 async fn audit_log(
   tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
   actor_id: &Uuid,
