@@ -1,0 +1,8 @@
+# Local development only; staging deploys through terraform.
+name = "jsr-api"
+main = "build/index.js"
+compatibility_date = "2026-09-02"
+compatibility_flags = ["nodejs_compat"]
+
+[build]
+command = "./build-worker.sh"

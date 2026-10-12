@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
+#[cfg(not(target_arch = "wasm32"))]
 #[global_allocator]
 static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
@@ -15,6 +16,7 @@ mod external;
 mod gcp;
 mod iam;
 mod ids;
+#[cfg(not(target_arch = "wasm32"))]
 mod jemalloc_profiling;
 mod metadata;
 mod npm;
@@ -34,6 +36,8 @@ mod traced_router;
 mod tracing;
 mod tree_sitter;
 mod util;
+#[cfg(target_arch = "wasm32")]
+mod worker_js;
 
 use crate::api::InboundTrustedAuthservId;
 use crate::api::PostmarkWebhookPassword;
@@ -64,6 +68,7 @@ use axum::Router;
 use axum::routing::get;
 use axum::routing::post;
 use clap::Parser;
+#[cfg(not(target_arch = "wasm32"))]
 use std::net::SocketAddr;
 use std::time::Duration;
 use tasks::AnalyticsEngineConfig;
@@ -196,13 +201,7 @@ pub(crate) fn main_router(
   router::app(router, data)
 }
 
-#[tokio::main]
-async fn main() {
-  dotenvy::from_filename(".env.local").ok();
-  dotenvy::dotenv().ok();
-  let config = Config::parse();
-  println!("{config:?}");
-
+async fn build_router(config: Config) -> App {
   // Treat a present-but-empty OTLP_ENDPOINT as unset: clap parses an empty env
   // var as Some(""), which would otherwise build a schemeless endpoint and
   // panic the exporter at boot. Filtering here means empty == export disabled.
@@ -256,7 +255,10 @@ async fn main() {
   )
   .unwrap();
 
-  let gcp_client = gcp::Client::new(config.metadata_strategy);
+  let gcp_client = gcp::Client::new(
+    config.metadata_strategy,
+    config.gcp_service_account_key.as_deref(),
+  );
   let publishing_bucket = s3::BucketWithQueue::new(
     s3::Bucket::new(&s3_client, config.publishing_bucket).unwrap(),
   );
@@ -366,7 +368,7 @@ async fn main() {
   let object_cache = crate::object_cache::ObjectCache::new();
   let registry_metadata_cache = crate::api::RegistryMetadataCache::new();
 
-  let router = main_router(MainRouterOptions {
+  main_router(MainRouterOptions {
     database,
     buckets,
     generate_ctx_cache,
@@ -394,13 +396,25 @@ async fn main() {
     ),
     expose_api: config.api,
     expose_tasks: config.tasks,
-  });
+  })
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[tokio::main]
+async fn main() {
+  dotenvy::from_filename(".env.local").ok();
+  dotenvy::dotenv().ok();
+  let config = Config::parse();
+  println!("{config:?}");
+  let port = config.port;
+
+  let router = build_router(config).await;
 
   // Create a Service from the router above to handle incoming requests.
   let service = TracedRouterService::new(router, true);
 
   // The address on which the server will be listening.
-  let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
+  let addr = SocketAddr::from(([0, 0, 0, 0], port));
   let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
 
   println!("App is running on: {}", addr);
@@ -408,5 +422,148 @@ async fn main() {
     axum::serve(listener, axum::ServiceExt::into_make_service(service)).await
   {
     eprintln!("Server error: {}", err);
+  }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn main() {}
+
+#[cfg(target_arch = "wasm32")]
+mod worker {
+  use super::*;
+  use axum::body::Body;
+  use tower::ServiceExt;
+  use wasm_bindgen::prelude::*;
+
+  fn env_into_process(env: &JsValue) {
+    let Ok(entries) =
+      js_sys::Object::entries(&js_sys::Object::from(env.clone()))
+        .dyn_into::<js_sys::Array>()
+    else {
+      return;
+    };
+    for entry in entries.iter() {
+      let pair = js_sys::Array::from(&entry);
+      if let (Some(k), Some(v)) =
+        (pair.get(0).as_string(), pair.get(1).as_string())
+      {
+        // SAFETY: single-threaded emscripten worker; no other threads race here.
+        unsafe { std::env::set_var(k, v) };
+      }
+    }
+  }
+
+  fn host_of(url: &str) -> Option<String> {
+    let after_scheme = url.split_once("://").map(|(_, r)| r).unwrap_or(url);
+    let authority = after_scheme.split(['/', '?', '#']).next().unwrap_or("");
+    let host = authority
+      .rsplit_once('@')
+      .map(|(_, h)| h)
+      .unwrap_or(authority);
+    let host = if host.starts_with('[') {
+      host
+    } else {
+      host.split(':').next().unwrap_or(host)
+    };
+    (!host.is_empty()).then(|| host.to_string())
+  }
+
+  /// sqlx resolves with a blocking `getaddrinfo`, which on emscripten only
+  /// answers from the cache this async lookup fills.
+  async fn dns_prewarm(host: &str) -> Result<(), String> {
+    tokio::net::lookup_host((host, 0))
+      .await
+      .map(|_| ())
+      .map_err(|e| format!("dns prewarm for {host:?}: {e}"))
+  }
+
+  async fn to_hyper_request(
+    req: web_sys::Request,
+  ) -> Result<hyper::Request<Body>, JsValue> {
+    let method = hyper::Method::from_bytes(req.method().as_bytes())
+      .map_err(|e| JsValue::from_str(&format!("bad method: {e}")))?;
+    let uri: hyper::Uri = req
+      .url()
+      .parse()
+      .map_err(|e| JsValue::from_str(&format!("bad uri: {e}")))?;
+    let mut builder = hyper::Request::builder().method(method).uri(uri);
+
+    let headers = req.headers();
+    if let Some(iter) = js_sys::try_iter(&headers)? {
+      for entry in iter {
+        let pair = js_sys::Array::from(&entry?);
+        if let (Some(k), Some(v)) =
+          (pair.get(0).as_string(), pair.get(1).as_string())
+        {
+          builder = builder.header(k, v);
+        }
+      }
+    }
+
+    let buf = wasm_bindgen_futures::JsFuture::from(req.array_buffer()?).await?;
+    let bytes = js_sys::Uint8Array::new(&buf).to_vec();
+    let body = if bytes.is_empty() {
+      Body::empty()
+    } else {
+      Body::from(bytes)
+    };
+    builder
+      .body(body)
+      .map_err(|e| JsValue::from_str(&format!("build request: {e}")))
+  }
+
+  async fn to_web_response(
+    resp: hyper::Response<Body>,
+  ) -> Result<web_sys::Response, JsValue> {
+    let (parts, body) = resp.into_parts();
+    let bytes = axum::body::to_bytes(body, usize::MAX)
+      .await
+      .map_err(|e| JsValue::from_str(&format!("read response body: {e}")))?;
+
+    let headers = web_sys::Headers::new()?;
+    for (k, v) in parts.headers.iter() {
+      if let Ok(v) = v.to_str() {
+        headers.append(k.as_str(), v)?;
+      }
+    }
+
+    let init = web_sys::ResponseInit::new();
+    init.set_status(parts.status.as_u16());
+    init.set_headers(&headers);
+
+    let mut body_vec = bytes.to_vec();
+    web_sys::Response::new_with_opt_u8_array_and_init(
+      Some(&mut body_vec),
+      &init,
+    )
+  }
+
+  #[wasm_bindgen(experimental_tokio = "isolated")]
+  pub async fn fetch(
+    request: web_sys::Request,
+    env: JsValue,
+    _ctx: JsValue,
+  ) -> Result<web_sys::Response, JsValue> {
+    // Each request runs on its own tokio runtime, so nothing (the DB connection
+    // included) can be reused across requests.
+    env_into_process(&env);
+    crate::worker_js::set_env(env);
+    if let Some(url) = crate::worker_js::hyperdrive_database_url() {
+      // SAFETY: single-threaded emscripten worker; no other threads race here.
+      unsafe { std::env::set_var("DATABASE_URL", url) };
+    }
+    let config =
+      Config::try_parse_from(["registry_api", "--api", "--tasks=false"])
+        .map_err(|e| JsValue::from_str(&format!("config: {e}")))?;
+    if let Some(host) = host_of(&config.database_url) {
+      dns_prewarm(&host)
+        .await
+        .map_err(|e| JsValue::from_str(&e))?;
+    }
+    let app = build_router(config).await;
+    let hyper_req = to_hyper_request(request).await?;
+    let Ok(hyper_resp) =
+      TracedRouterService::new(app, true).oneshot(hyper_req).await;
+    to_web_response(hyper_resp).await
   }
 }

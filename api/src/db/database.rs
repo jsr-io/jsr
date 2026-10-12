@@ -99,11 +99,23 @@ impl Database {
         .ssl_client_cert_from_pem(tls.client_cert.into_bytes())
         .ssl_client_key_from_pem(tls.client_key.into_bytes());
     }
+    #[cfg(not(target_arch = "wasm32"))]
     let pool = PgPoolOptions::new()
       .max_connections(pool_size)
       .acquire_timeout(acquire_timeout)
       .connect_with(opts)
       .await?;
+    // A Worker can't reuse I/O across requests, so open one connection when a
+    // query needs it and never park or reap it.
+    #[cfg(target_arch = "wasm32")]
+    let pool = PgPoolOptions::new()
+      .max_connections(1)
+      .min_connections(0)
+      .acquire_timeout(acquire_timeout)
+      .test_before_acquire(false)
+      .idle_timeout(None)
+      .max_lifetime(None)
+      .connect_lazy_with(opts);
     if std::env::var("DATABASE_DISABLE_MIGRATIONS").is_err() {
       migrate!("./migrations")
         .run(&pool)
