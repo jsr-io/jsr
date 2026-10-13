@@ -1,0 +1,60 @@
+# index.jsx
+/** @jsxImportSource npm:preact@^10.22.0 */
+export function Hello() {
+  return <div>hello</div>;
+}
+
+# jsr.json
+{
+  "name": "@scope/foo",
+  "version": "1.0.0",
+  "exports": "./index.jsx"
+}
+
+# npm:preact@^10.22.0
+<external>
+
+# npm:preact@^10.22.0/jsx-runtime
+<external>
+
+# output
+== /index.js ==
+import { jsx as _jsx } from "preact/jsx-runtime";
+/** @jsxImportSource npm:preact@^10.22.0 */ export function Hello() {
+  return /*#__PURE__*/ _jsx("div", {
+    children: "hello"
+  });
+}
+//# sourceMappingURL=index.js.map
+
+== /index.js.map ==
+{"version":3,"file":"index.js","sources":["./index.jsx"],"names":[],"mappings":";AAAA,yCAAyC,GACzC,OAAO,SAAS;EACd,qBAAO,KAAC;cAAI;;AACd"}
+
+== /index.jsx ==
+/** @jsxImportSource npm:preact@^10.22.0 */
+export function Hello() {
+  return <div>hello</div>;
+}
+
+== /jsr.json ==
+{
+  "name": "@scope/foo",
+  "version": "1.0.0",
+  "exports": "./index.jsx"
+}
+
+== /package.json ==
+{
+  "name": "@jsr/scope__foo",
+  "version": "1.0.0",
+  "homepage": "http://jsr.test/@scope/foo",
+  "type": "module",
+  "dependencies": {},
+  "exports": {
+    ".": {
+      "default": "./index.js"
+    }
+  },
+  "_jsr_revision": 0
+}
+
