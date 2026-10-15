@@ -40,6 +40,11 @@ variable "postmark_webhook_password" {
   sensitive = true
 }
 
+variable "discord_support_webhook_url" {
+  type      = string
+  sensitive = true
+}
+
 variable "email_from_name" {
   type = string
 }

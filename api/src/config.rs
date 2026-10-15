@@ -233,6 +233,14 @@ pub struct Config {
   /// unset.
   pub inbound_trusted_authserv_id: Option<String>,
 
+  #[clap(
+    long = "discord_support_webhook_url",
+    env = "DISCORD_SUPPORT_WEBHOOK_URL"
+  )]
+  /// A Discord incoming webhook URL. New support tickets, and replies from the
+  /// people who opened them, are posted to its channel. Skipped if unset.
+  pub discord_support_webhook_url: Option<String>,
+
   #[clap(long = "email_from", env = "EMAIL_FROM")]
   /// The email address to send emails from.
   pub email_from: Option<String>,
@@ -298,6 +306,10 @@ impl std::fmt::Debug for Config {
       .field(
         "inbound_trusted_authserv_id",
         &self.inbound_trusted_authserv_id,
+      )
+      .field(
+        "discord_support_webhook_url",
+        &self.discord_support_webhook_url.as_ref().map(|_| "***"),
       )
       .field("email_from", &self.email_from)
       .field("email_from_name", &self.email_from_name)

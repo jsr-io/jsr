@@ -61,6 +61,20 @@ resource "google_secret_manager_secret_version" "postmark_webhook_password" {
   secret_data = var.postmark_webhook_password
 }
 
+// Incoming webhook new support tickets and replies are posted to. See
+// api/src/external/discord.rs.
+resource "google_secret_manager_secret" "discord_support_webhook_url" {
+  secret_id = "discord-support-webhook-url"
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "discord_support_webhook_url" {
+  secret      = google_secret_manager_secret.discord_support_webhook_url.id
+  secret_data = var.discord_support_webhook_url
+}
+
 resource "google_secret_manager_secret" "algolia_write_api_key" {
   secret_id = "algolia-write-api-key"
   replication {
