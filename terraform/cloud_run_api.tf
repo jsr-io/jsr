@@ -165,6 +165,19 @@ resource "google_cloud_run_v2_service" "registry_api" {
         }
       }
 
+      dynamic "env" {
+        for_each = google_secret_manager_secret.discord_support_webhook_url[*].id
+        content {
+          name = "DISCORD_SUPPORT_WEBHOOK_URL"
+          value_source {
+            secret_key_ref {
+              secret  = env.value
+              version = "latest"
+            }
+          }
+        }
+      }
+
       env {
         name = "ALGOLIA_WRITE_API_KEY"
         value_source {
@@ -410,6 +423,13 @@ resource "google_secret_manager_secret_iam_member" "postmark_token" {
 
 resource "google_secret_manager_secret_iam_member" "postmark_webhook_password" {
   secret_id = google_secret_manager_secret.postmark_webhook_password.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.registry_api.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "discord_support_webhook_url" {
+  count     = var.production ? 1 : 0
+  secret_id = google_secret_manager_secret.discord_support_webhook_url[0].id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }

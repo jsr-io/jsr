@@ -47,6 +47,8 @@ use crate::external::algolia::AlgoliaClient;
 use crate::external::cloudflare::CachePurge;
 use crate::external::cloudflare::Turnstile;
 use crate::external::cloudflare::TurnstileClient;
+use crate::external::discord::DiscordWebhookClient;
+use crate::external::discord::SupportDiscord;
 use crate::gcp::Queue;
 use crate::router::App;
 use crate::router::Data;
@@ -92,6 +94,7 @@ pub struct MainRouterOptions {
   )>,
   cache_purge_client: Option<external::cloudflare::CachePurgeClient>,
   turnstile: Turnstile,
+  support_discord: SupportDiscord,
   postmark_webhook_password: PostmarkWebhookPassword,
   inbound_trusted_authserv_id: InboundTrustedAuthservId,
   expose_api: bool,
@@ -123,6 +126,7 @@ pub(crate) fn main_router(
     analytics_engine_config,
     cache_purge_client,
     turnstile,
+    support_discord,
     postmark_webhook_password,
     inbound_trusted_authserv_id,
     expose_api,
@@ -149,6 +153,7 @@ pub(crate) fn main_router(
     .with(AnalyticsEngineConfig(analytics_engine_config))
     .with(CachePurge(cache_purge_client))
     .with(turnstile)
+    .with(support_discord)
     .with(postmark_webhook_password)
     .with(inbound_trusted_authserv_id)
     .with(db::DependentCountCache::new());
@@ -386,6 +391,11 @@ async fn main() {
     analytics_engine_config,
     cache_purge_client,
     turnstile,
+    support_discord: SupportDiscord(
+      config
+        .discord_support_webhook_url
+        .map(DiscordWebhookClient::new),
+    ),
     postmark_webhook_password: PostmarkWebhookPassword(
       config.postmark_webhook_password,
     ),

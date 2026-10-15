@@ -20,12 +20,15 @@ use crate::db::FullTicketMessage;
 use crate::db::NewTicket;
 use crate::db::NewTicketMessage;
 use crate::db::Ticket;
+use crate::db::TicketStatus;
 use crate::db::{Database, UserPublic};
 use crate::emails;
 use crate::emails::EmailArgs;
 use crate::emails::EmailQueue;
 use crate::emails::EmailSender;
 use crate::emails::EmailThread;
+use crate::external::discord::SupportDiscord;
+use crate::external::discord::TicketEvent;
 use crate::iam::ReqIamExt;
 use crate::s3::Buckets;
 use crate::util;
@@ -174,10 +177,22 @@ pub async fn post_handler(mut req: Request<Body>) -> ApiResult<ApiTicket> {
   }
 
   let (ticket, user, message) = db.create_ticket(user.id, new_ticket).await?;
+  let registry_url = req.data::<RegistryUrl>().unwrap();
+
+  req
+    .data::<SupportDiscord>()
+    .unwrap()
+    .notify(
+      &registry_url.0,
+      &ticket,
+      TicketEvent::Opened,
+      &user.name,
+      &message.message,
+    )
+    .await;
 
   if let Some(email) = &user.email {
     let email_sender = req.data::<Option<EmailSender>>().unwrap();
-    let registry_url = req.data::<RegistryUrl>().unwrap();
     if let Some(email_sender) = email_sender {
       let email_args = EmailArgs::SupportTicketCreated {
         name: Cow::Borrowed(&user.name),
@@ -254,6 +269,9 @@ pub async fn post_message_handler(
   // Who should be told about this message by email: the person on the other side
   // of the conversation, if it wasn't them who just wrote it.
   let notify: Option<(String, String)>;
+  // Who to name as the author in the support channel, for a message support
+  // hasn't seen yet. `None` for anything staff wrote.
+  let notify_support: Option<String>;
 
   let message = match access {
     TicketAccess::Reporter => {
@@ -263,6 +281,10 @@ pub async fn post_message_handler(
         .ok_or(ApiError::TicketNotFound)?;
       // The reporter writing to themselves needs no email.
       notify = None;
+      notify_support = Some(match &ticket.reporter_name {
+        Some(name) => format!("{name} <{reporter_email}>"),
+        None => reporter_email.clone(),
+      });
       let message = db
         .ticket_add_reporter_message(
           id,
@@ -274,9 +296,10 @@ pub async fn post_message_handler(
         .await?;
       (message, None, vec![])
     }
-    TicketAccess::User { .. } => {
+    TicketAccess::User { staff } => {
       let iam = req.iam();
       let author = iam.check_current_user_access()?;
+      notify_support = (!staff).then(|| author.name.clone());
       notify = if new_message.internal {
         // Nobody is told about a note. It exists only inside the ticket.
         None
@@ -317,6 +340,22 @@ pub async fn post_message_handler(
       (message, Some(user), vec![])
     }
   };
+
+  if let Some(from) = notify_support
+    && ticket.status != TicketStatus::Spam
+  {
+    req
+      .data::<SupportDiscord>()
+      .unwrap()
+      .notify(
+        &registry_url.0,
+        &ticket,
+        TicketEvent::Replied,
+        &from,
+        &message.0.message,
+      )
+      .await;
+  }
 
   if let Some((email, name)) = notify
     && let Some(email_sender) = email_sender
