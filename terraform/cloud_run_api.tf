@@ -165,12 +165,15 @@ resource "google_cloud_run_v2_service" "registry_api" {
         }
       }
 
-      env {
-        name = "DISCORD_SUPPORT_WEBHOOK_URL"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.discord_support_webhook_url.id
-            version = "latest"
+      dynamic "env" {
+        for_each = google_secret_manager_secret.discord_support_webhook_url[*].id
+        content {
+          name = "DISCORD_SUPPORT_WEBHOOK_URL"
+          value_source {
+            secret_key_ref {
+              secret  = env.value
+              version = "latest"
+            }
           }
         }
       }
@@ -425,7 +428,8 @@ resource "google_secret_manager_secret_iam_member" "postmark_webhook_password" {
 }
 
 resource "google_secret_manager_secret_iam_member" "discord_support_webhook_url" {
-  secret_id = google_secret_manager_secret.discord_support_webhook_url.id
+  count     = var.production ? 1 : 0
+  secret_id = google_secret_manager_secret.discord_support_webhook_url[0].id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }
