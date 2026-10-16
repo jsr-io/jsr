@@ -11,19 +11,22 @@ on:
 env:
   TERRAFORM_VERSION: "1.4.2"
 
+# Read-only by default; the jobs that need more declare their own block.
+permissions:
+  contents: read
+
 jobs:
   frontend:
     if: github.event_name != 'push'
     runs-on: ubuntu-22.04
     permissions:
       contents: read
-      id-token: write
     steps:
       - name: Clone repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Install Deno
-        uses: denoland/setup-deno@v2
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
 
       - name: Check license headers
         run: deno task lint:license
@@ -50,10 +53,10 @@ jobs:
       contents: read
     steps:
       - name: Clone repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Install Deno
-        uses: denoland/setup-deno@v2
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
 
       - name: Check formatting
         run: deno fmt --check
@@ -73,15 +76,15 @@ jobs:
       contents: read
     steps:
       - name: Clone repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Install Rust
-        uses: dsherret/rust-toolchain-file@v1
+        uses: dsherret/rust-toolchain-file@3551321aa44dd44a0393eb3b6bdfbc5d25ecf621 # v1
 
       - name: Add wasm target
         run: rustup target add wasm32-unknown-unknown
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: workers-rs
 
@@ -102,14 +105,14 @@ jobs:
     if: github.event_name != 'push'
     steps:
       - name: Clone repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           lfs: true
 
       - name: Install Rust
-        uses: dsherret/rust-toolchain-file@v1
+        uses: dsherret/rust-toolchain-file@3551321aa44dd44a0393eb3b6bdfbc5d25ecf621 # v1
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
       - name: Format
         run: cargo fmt --all -- --check
@@ -118,7 +121,7 @@ jobs:
       - name: Setup postgres for tests
         run: docker compose up -d
 
-      - uses: taiki-e/cache-cargo-install-action@v3
+      - uses: taiki-e/cache-cargo-install-action@9ee83daaa7b96a6fab930949ecf1122bba04a389 # v3.0.8
         with:
           tool: sqlx-cli@0.7.1
 
@@ -139,14 +142,14 @@ jobs:
     if: github.event_name != 'push'
     steps:
       - name: Clone repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           lfs: true
 
       - name: Install Rust
-        uses: dsherret/rust-toolchain-file@v1
+        uses: dsherret/rust-toolchain-file@3551321aa44dd44a0393eb3b6bdfbc5d25ecf621 # v1
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
       - name: Setup postgres for tests
         run: docker compose up -d
@@ -171,18 +174,18 @@ jobs:
       api_image_id: ${{ steps.api_image_id.outputs.image_id }}
     steps:
       - name: Clone repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Authenticate with GCP
         id: gcp_auth
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
         with:
           project_id: deno-registry3-infra
           token_format: access_token
           workload_identity_provider: projects/289615555261/locations/global/workloadIdentityPools/github-actions/providers/github-actions
           service_account: github-actions@deno-registry3-infra.iam.gserviceaccount.com
 
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: us-central1-docker.pkg.dev
           username: oauth2accesstoken
@@ -202,11 +205,11 @@ jobs:
 
       - name: Set up docker buildx
         if: github.event_name != 'push' || steps.check_existing.outputs.exists != 'true'
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: Build and push api docker image
         if: github.event_name != 'push' || steps.check_existing.outputs.exists != 'true'
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
         id: api_push
         with:
           context: .
@@ -242,19 +245,19 @@ jobs:
       id-token: write
     steps:
       - name: Clone repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Install Deno
-        uses: denoland/setup-deno@v2
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
 
       - name: Install terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
 
       - name: Authenticate with GCP
         id: gcp_auth
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
         with:
           project_id: deno-registry3-staging
           workload_identity_provider: projects/1067420915575/locations/global/workloadIdentityPools/github-actions/providers/github-actions
@@ -310,19 +313,19 @@ jobs:
       id-token: write
     steps:
       - name: Clone repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Install Deno
-        uses: denoland/setup-deno@v2
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
 
       - name: Install terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
 
       - name: Authenticate with GCP
         id: gcp_auth
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
         with:
           project_id: deno-registry3-prod
           workload_identity_provider: projects/614736529383/locations/global/workloadIdentityPools/github-actions/providers/github-actions

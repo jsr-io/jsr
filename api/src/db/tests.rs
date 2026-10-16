@@ -372,7 +372,7 @@ async fn users() {
   assert_eq!(user.name, "Alice");
   assert_eq!(user.avatar_url, "https://example.com/alice.png");
   assert_eq!(user.email, Some("alice@example.com".to_string()));
-  assert_eq!(user.scope_limit, 3);
+  assert_eq!(user.scope_limit, Some(3));
   assert!(user.is_staff);
   assert!(!user.is_blocked);
 
@@ -419,8 +419,20 @@ async fn users() {
   assert_eq!(users[0].scope_usage, 0);
   assert_eq!(users[2].id, uuid::Uuid::default()); // added by migrations
 
-  let user3 = db.delete_user(user.id).await.unwrap().unwrap();
-  assert_eq!(user3.id, user.id);
+  // A deletion hold is enforced inside delete_user itself, not just by the
+  // handlers' pre-checks.
+  db.user_set_deletion_hold(&staff_user.id, user.id, true)
+    .await
+    .unwrap();
+  let held = db.delete_user(&user.id, false, user.id).await.unwrap();
+  assert_eq!(held, UserDeleteResult::Held);
+  assert!(db.get_user(user.id).await.unwrap().is_some());
+  db.user_set_deletion_hold(&staff_user.id, user.id, false)
+    .await
+    .unwrap();
+
+  let deleted = db.delete_user(&user.id, false, user.id).await.unwrap();
+  assert_eq!(deleted, UserDeleteResult::Deleted);
 
   let no_user = db.get_user(user.id).await.unwrap();
   assert!(no_user.is_none());
@@ -429,8 +441,8 @@ async fn users() {
   assert_eq!(total_users, 2);
   assert_eq!(users.len(), 2); // just the default user added by migrations
 
-  let no_user = db.delete_user(user.id).await.unwrap();
-  assert!(no_user.is_none());
+  let no_user = db.delete_user(&user.id, false, user.id).await.unwrap();
+  assert_eq!(no_user, UserDeleteResult::NotFound);
 }
 
 #[tokio::test]

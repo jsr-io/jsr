@@ -1,4 +1,8 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+use crate::router::RequestExt;
+use axum::Router;
+use axum::body::Body;
+use axum::routing::post;
 use bytes::Bytes;
 use chrono::Duration;
 use chrono::Utc;
@@ -9,13 +13,9 @@ use deno_semver::package::PackageReqReference;
 use deno_semver::package::PackageSubPath;
 use futures::StreamExt;
 use futures::stream;
-use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
-use routerify::Router;
-use routerify::ext::RequestExt;
-use routerify_query::RequestQueryExt;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet;
@@ -68,37 +68,42 @@ pub struct AnalyticsEngineConfig(
   )>,
 );
 
-pub fn tasks_router() -> Router<Body, ApiError> {
-  Router::builder()
-    .post("/publish", util::json(publish::publish_handler))
-    .post("/npm_tarball_build", util::json(npm_tarball_build_handler))
-    .post(
+pub fn tasks_router() -> Router {
+  Router::new()
+    .route("/publish", post(util::json(publish::publish_handler)))
+    .route(
+      "/npm_tarball_build",
+      post(util::json(npm_tarball_build_handler)),
+    )
+    .route(
       "/npm_tarball_enqueue",
-      util::json(npm_tarball_enqueue_handler),
+      post(util::json(npm_tarball_enqueue_handler)),
     )
-    .post(
+    .route(
       "/scrape_download_counts",
-      util::json(scrape_download_counts_handler),
+      post(util::json(scrape_download_counts_handler)),
     )
-    .post(
+    .route(
       "/clean_oauth_states",
-      util::json(clean_oauth_states_handler),
+      post(util::json(clean_oauth_states_handler)),
     )
-    .post("/send_email", send_email_handler)
-    .post(
+    .route("/send_email", post(send_email_handler))
+    .route(
       "/sweep_pending_emails",
-      util::json(sweep_pending_emails_handler),
+      post(util::json(sweep_pending_emails_handler)),
     )
-    .post(
+    .route(
       "/clean_download_counts_4h",
-      util::json(clean_download_counts_4h_handler),
+      post(util::json(clean_download_counts_4h_handler)),
     )
-    .post(
+    .route(
       "/requeue_stuck_publishing_tasks",
-      util::json(requeue_stuck_publishing_tasks_handler),
+      post(util::json(requeue_stuck_publishing_tasks_handler)),
     )
-    .build()
-    .unwrap()
+    .route(
+      "/anonymize_deleted_users",
+      post(util::json(anonymize_deleted_users_handler)),
+    )
 }
 
 /// Re-drive publishing tasks that got stranded in a non-terminal state.
@@ -429,6 +434,22 @@ pub async fn clean_oauth_states_handler(req: Request<Body>) -> ApiResult<()> {
   let cutoff = Utc::now() - Duration::hours(1);
   let deleted = db.delete_expired_oauth_states(cutoff).await?;
   tracing::info!(deleted, "cleaned up expired oauth states");
+  Ok(())
+}
+
+/// Strips name and email from the `user_delete` audit tombstones of accounts
+/// deleted more than a year ago. The identity data is kept for that window so
+/// abuse and supply-chain attacks can still be investigated after an account
+/// is deleted; afterwards only the pseudonymous identifiers remain (see
+/// `Database::delete_user`). Run periodically by Cloud Scheduler.
+#[instrument(name = "POST /tasks/anonymize_deleted_users", skip(req), err)]
+pub async fn anonymize_deleted_users_handler(
+  req: Request<Body>,
+) -> ApiResult<()> {
+  let db = req.data::<Database>().unwrap().clone();
+  let cutoff = Utc::now() - Duration::days(365);
+  let anonymized = db.anonymize_deleted_users(cutoff).await?;
+  tracing::info!(anonymized, "anonymized deleted user tombstones");
   Ok(())
 }
 

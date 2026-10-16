@@ -41,8 +41,9 @@ pub struct User {
   pub gitlab_id: Option<i64>,
   pub is_blocked: bool,
   pub is_staff: bool,
+  pub deletion_hold: bool,
   pub scope_usage: i64,
-  pub scope_limit: i32,
+  pub scope_limit: Option<i32>,
   pub invite_count: i64,
   pub newer_ticket_messages_count: i64,
 }
@@ -59,6 +60,11 @@ impl FromRow<'_, sqlx::postgres::PgRow> for User {
       gitlab_id: try_get_row_or(row, "gitlab_id", "user_gitlab_id")?,
       is_blocked: try_get_row_or(row, "is_blocked", "user_is_blocked")?,
       is_staff: try_get_row_or(row, "is_staff", "user_is_staff")?,
+      deletion_hold: try_get_row_or(
+        row,
+        "deletion_hold",
+        "user_deletion_hold",
+      )?,
       scope_usage: try_get_row_or(row, "scope_usage", "user_scope_usage")?,
       scope_limit: try_get_row_or(row, "scope_limit", "user_scope_limit")?,
       invite_count: try_get_row_or(row, "invite_count", "user_invite_count")?,

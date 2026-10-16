@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use hyper::Body;
+use axum::body::Body;
 use hyper::Response;
 use std::borrow::Cow;
 
@@ -30,6 +30,18 @@ errors!(
   UserNotFound {
     status: NOT_FOUND,
     "The requested user was not found. Only users who have logged in to JSR at least once are visible.",
+  },
+  CannotDeleteServiceAccount {
+    status: BAD_REQUEST,
+    "The service account cannot be deleted.",
+  },
+  CannotModifyServiceAccount {
+    status: BAD_REQUEST,
+    "The service account cannot be modified.",
+  },
+  UserDeletionHeld {
+    status: CONFLICT,
+    "This account cannot be deleted at this time because it is subject to a deletion hold, for example due to a pending legal or moderation matter. Contact support for more information.",
   },
   ScopeNotFound {
     status: NOT_FOUND,
@@ -433,6 +445,12 @@ impl From<S3Error> for ApiError {
 
 impl From<std::io::Error> for ApiError {
   fn from(error: std::io::Error) -> ApiError {
+    anyhow::Error::from(error).into()
+  }
+}
+
+impl From<std::fmt::Error> for ApiError {
+  fn from(error: std::fmt::Error) -> ApiError {
     anyhow::Error::from(error).into()
   }
 }

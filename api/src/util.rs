@@ -1,15 +1,14 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+use axum::body::Body;
+use axum::middleware::Next;
+use axum::response::IntoResponse;
 use futures::FutureExt;
-use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
-use hyper::body;
 use hyper::header;
 use hyper::header::COOKIE;
 use hyper::http::HeaderName;
-use routerify::prelude::RequestExt;
-use routerify_query::RequestQueryExt;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::future::Future;
@@ -31,6 +30,7 @@ use crate::iam::ReqIamExt as _;
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
 use crate::ids::Version;
+use crate::router::RequestExt;
 
 pub const USER_AGENT: &str = "JSR";
 
@@ -81,15 +81,31 @@ pub type ApiResult<D> = Result<D, ApiError>;
 pub type ApiHandlerFuture<D> =
   Pin<Box<dyn Future<Output = ApiResult<D>> + Send>>;
 
+pub trait RouteHandler:
+  Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+  + Clone
+  + Send
+  + Sync
+  + 'static
+{
+}
+
+impl<T> RouteHandler for T where
+  T: Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+    + Clone
+    + Send
+    + Sync
+    + 'static
+{
+}
+
 /// Wrap an endpoint handler converting it's success return value into a JSON response
 ///
 /// Uses [`respond_json`] under the hood, with a 200 status code.
-pub fn json<D, H, HF>(
-  handler: H,
-) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+pub fn json<D, H, HF>(handler: H) -> impl RouteHandler
 where
   D: Serialize,
-  H: Fn(Request<Body>) -> HF,
+  H: Fn(Request<Body>) -> HF + Clone + Send + Sync + 'static,
   HF: Future<Output = ApiResult<D>> + Send + 'static,
 {
   move |req: Request<Body>| {
@@ -134,9 +150,7 @@ where
 /// `pending`/`processing` status makes `deno publish` hang until the entry
 /// expires even though the task already finished. Stamping `no-store` keeps the
 /// lb (and any downstream cache) from ever storing the response.
-pub fn no_store<H, HF>(
-  handler: H,
-) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+pub fn no_store<H, HF>(handler: H) -> impl RouteHandler
 where
   H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
   HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
@@ -156,9 +170,7 @@ where
   }
 }
 
-pub fn auth<H, HF>(
-  handler: H,
-) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+pub fn auth<H, HF>(handler: H) -> impl RouteHandler
 where
   H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
   HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
@@ -289,10 +301,7 @@ fn is_cacheable_error_status(status: StatusCode) -> bool {
 
 /// Cache an immutable-ish response for `duration`. See [`cache_shared`] for the
 /// identity-independent variant.
-pub fn cache<H, HF>(
-  duration: CacheDuration,
-  handler: H,
-) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+pub fn cache<H, HF>(duration: CacheDuration, handler: H) -> impl RouteHandler
 where
   H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
   HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
@@ -309,7 +318,7 @@ where
 pub fn cache_shared<H, HF>(
   duration: CacheDuration,
   handler: H,
-) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+) -> impl RouteHandler
 where
   H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
   HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
@@ -321,7 +330,7 @@ fn cache_impl<H, HF>(
   duration: CacheDuration,
   shared: bool,
   handler: H,
-) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+) -> impl RouteHandler
 where
   H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
   HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
@@ -387,7 +396,7 @@ pub fn cache_versioned<H, HF>(
   latest_duration: CacheDuration,
   versioned_duration: CacheDuration,
   handler: H,
-) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+) -> impl RouteHandler
 where
   H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
   HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
@@ -403,7 +412,7 @@ pub fn cache_versioned_shared<H, HF>(
   latest_duration: CacheDuration,
   versioned_duration: CacheDuration,
   handler: H,
-) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+) -> impl RouteHandler
 where
   H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
   HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
@@ -416,7 +425,7 @@ fn cache_versioned_impl<H, HF>(
   versioned_duration: CacheDuration,
   shared: bool,
   handler: H,
-) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+) -> impl RouteHandler
 where
   H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
   HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
@@ -504,7 +513,9 @@ where
 }
 
 #[instrument(name = "auth", skip(req), err, fields(token.kind, user.id, repo.id))]
-pub async fn auth_middleware(req: Request<Body>) -> ApiResult<Request<Body>> {
+pub async fn auth_middleware(
+  mut req: Request<Body>,
+) -> ApiResult<Request<Body>> {
   let db = req.data::<Database>().unwrap();
   let token = extract_token_and_sudo(&req);
 
@@ -545,14 +556,19 @@ pub async fn auth_middleware(req: Request<Body>) -> ApiResult<Request<Body>> {
     None => IamInfo::anonymous(),
   };
 
-  req.set_context(iam_info);
+  req.extensions_mut().insert(iam_info);
 
   Ok(req)
 }
 
-pub fn full_auth<H, HF>(
-  handler: H,
-) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+pub async fn auth_layer(req: Request<Body>, next: Next) -> Response<Body> {
+  match auth_middleware(req).await {
+    Ok(req) => next.run(req).await,
+    Err(err) => err.into_response(),
+  }
+}
+
+pub fn full_auth<H, HF>(handler: H) -> impl RouteHandler
 where
   H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
   HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
@@ -628,7 +644,7 @@ pub async fn decode_json<T>(req: &mut Request<Body>) -> ApiResult<T>
 where
   T: DeserializeOwned,
 {
-  let bytes = body::to_bytes(req.body_mut())
+  let bytes = axum::body::to_bytes(std::mem::take(req.body_mut()), usize::MAX)
     .await
     .map_err(anyhow::Error::from)?;
   let data = serde_json::from_slice(&bytes).map_err(|error| {
@@ -844,7 +860,6 @@ pub fn license_store() -> LicenseStore {
 
 #[cfg(test)]
 pub mod test {
-  use crate::ApiError;
   use crate::MainRouterOptions;
   use crate::db::Database;
   use crate::db::EphemeralDatabase;
@@ -879,20 +894,18 @@ pub mod test {
       FakeS3Tester::new();
     });
   }
+  use crate::router::App;
   use crate::util::sanitize_redirect_url;
-  use hyper::Body;
+  use axum::body::Body;
   use hyper::HeaderMap;
   use hyper::Response;
   use hyper::StatusCode;
   use hyper::http::HeaderName;
   use hyper::http::HeaderValue;
-  use hyper::service::Service;
-  use routerify::RequestService;
-  use routerify::RouteError;
   use serde::de::DeserializeOwned;
+  use std::convert::Infallible;
   use std::net::Ipv4Addr;
-  use std::net::SocketAddr;
-  use std::net::SocketAddrV4;
+  use tower::ServiceExt;
   use url::Url;
 
   #[derive(Debug)]
@@ -917,24 +930,22 @@ pub mod test {
 
   impl FakeFallbackRegistry {
     pub async fn start() -> Self {
-      let listener =
-        std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+      let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
+        .await
+        .unwrap();
       let addr = listener.local_addr().unwrap();
 
       let (tx, rx) = tokio::sync::oneshot::channel();
-      let server = hyper::Server::from_tcp(listener)
-        .unwrap()
-        .serve(hyper::service::make_service_fn(|_| async {
-          Ok::<_, hyper::Error>(hyper::service::service_fn(
-            |req: hyper::Request<Body>| async move {
-              Ok::<_, hyper::Error>(Self::respond(req.uri().path()))
-            },
-          ))
-        }))
-        .with_graceful_shutdown(async {
-          let _ = rx.await;
+      let app =
+        axum::Router::new().fallback(|req: hyper::Request<Body>| async move {
+          Self::respond(req.uri().path())
         });
-      tokio::spawn(server);
+      let server = axum::serve(listener, app).with_graceful_shutdown(async {
+        let _ = rx.await;
+      });
+      tokio::spawn(async move {
+        let _ = server.await;
+      });
 
       Self {
         url: Url::parse(&format!("http://{addr}/")).unwrap(),
@@ -1021,7 +1032,7 @@ pub mod test {
     pub github_oauth2_client: crate::auth::github::Oauth2Client,
     #[allow(dead_code)]
     pub gitlab_oauth2_client: crate::auth::gitlab::Oauth2Client,
-    pub service: RequestService<Body, ApiError>,
+    pub service: App,
     pub fallback_registry_url: Option<Url>,
   }
 
@@ -1169,7 +1180,7 @@ pub mod test {
       let license_store =
         LICENSE_STORE.get_or_init(super::license_store).clone();
 
-      let router = crate::main_router(MainRouterOptions {
+      let service = crate::main_router(MainRouterOptions {
         database: db,
         buckets: buckets.clone(),
         generate_ctx_cache: crate::docs::GenerateCtxCache::new(),
@@ -1200,10 +1211,6 @@ pub mod test {
         expose_api: true,   // api enabled
         expose_tasks: true, // task endpoints enabled
       });
-
-      let service = routerify::RequestServiceBuilder::new(router)
-        .unwrap()
-        .build(SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 8080)));
 
       Self {
         ephemeral_database,
@@ -1300,7 +1307,7 @@ pub mod test {
   }
 
   pub struct TestHttpClient<'s, 't> {
-    service: &'s mut RequestService<Body, ApiError>,
+    service: &'s mut App,
     auth: Option<&'t str>,
   }
 
@@ -1329,7 +1336,6 @@ pub mod test {
         self.auth,
       )
     }
-    #[allow(dead_code)]
     pub fn put<U: AsRef<str>>(&'s mut self, uri: U) -> TestHttpCall<'s> {
       TestHttpCall::new(
         self.service,
@@ -1346,10 +1352,18 @@ pub mod test {
         self.auth,
       )
     }
+    pub fn options<U: AsRef<str>>(&'s mut self, uri: U) -> TestHttpCall<'s> {
+      TestHttpCall::new(
+        self.service,
+        "OPTIONS",
+        uri.as_ref().to_string(),
+        self.auth,
+      )
+    }
   }
 
   pub struct TestHttpCall<'s> {
-    service: &'s mut RequestService<Body, ApiError>,
+    service: &'s mut App,
     method: &'static str,
     uri: String,
     body: Body,
@@ -1360,7 +1374,7 @@ pub mod test {
 
   impl<'s> TestHttpCall<'s> {
     fn new(
-      service: &'s mut RequestService<Body, ApiError>,
+      service: &'s mut App,
       method: &'static str,
       uri: String,
       token: Option<&'s str>,
@@ -1408,15 +1422,15 @@ pub mod test {
       self
     }
 
-    pub async fn call(self) -> Result<hyper::Response<Body>, RouteError> {
+    pub async fn call(self) -> Result<hyper::Response<Body>, Infallible> {
       let mut req = hyper::Request::builder().method(self.method).uri(self.uri);
 
       for (key, value) in self.headers.into_iter() {
         req = req.header(key.unwrap(), value)
       }
       if let Some(token) = self.token {
-        req = req
-          .header(hyper::header::AUTHORIZATION, &format!("Bearer {}", token));
+        req =
+          req.header(hyper::header::AUTHORIZATION, format!("Bearer {}", token));
       }
 
       if self.sudo {
@@ -1425,7 +1439,7 @@ pub mod test {
       }
 
       let req = req.body(self.body).unwrap();
-      self.service.call(req).await
+      self.service.clone().oneshot(req).await
     }
   }
 
@@ -1469,7 +1483,10 @@ pub mod test {
       &mut self,
       status: StatusCode,
     ) -> T {
-      let bytes = hyper::body::to_bytes(self.body_mut()).await.unwrap();
+      let bytes =
+        axum::body::to_bytes(std::mem::take(self.body_mut()), usize::MAX)
+          .await
+          .unwrap();
       let body = std::str::from_utf8(&bytes).expect("invalid utf8");
       assert_eq!(
         self.status(),
@@ -1484,7 +1501,10 @@ pub mod test {
 
     #[track_caller]
     async fn expect_ok_no_content(&mut self) {
-      let bytes = hyper::body::to_bytes(self.body_mut()).await.unwrap();
+      let bytes =
+        axum::body::to_bytes(std::mem::take(self.body_mut()), usize::MAX)
+          .await
+          .unwrap();
       let body = std::str::from_utf8(&bytes).expect("invalid utf8");
       assert_eq!(
         self.status(),

@@ -1,9 +1,8 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use std::borrow::Cow;
 
-use hyper::Body;
-use hyper::Response;
-use routerify::RequestInfo;
+use axum::response::IntoResponse;
+use axum::response::Response;
 use serde::Deserialize;
 use serde::Serialize;
 use tracing::Span;
@@ -127,27 +126,23 @@ macro_rules! errors {
   };
 }
 
-pub async fn error_handler(
-  err: routerify::RouteError,
-  _: RequestInfo,
-) -> Response<Body> {
-  // Because `routerify::RouteError` is a boxed error, it must be downcast
-  // first. Unwrap for simplicity.
-  let api_err = err.downcast::<ApiError>().unwrap();
-  let is_server_error = api_err.status_code().is_server_error();
-  let span = Span::current();
-  span.record(
-    "otel.status_code",
-    if is_server_error { "error" } else { "ok" },
-  );
-  // Only server errors (5xx) are logged. Client errors (4xx, e.g. 404s) are
-  // expected and would otherwise pollute error logs and trace error rates. The
-  // route handlers no longer carry `err` on their `#[instrument]`, so this is
-  // the single place a directly-constructed 5xx `ApiError` gets surfaced;
-  // anyhow-backed 5xx are additionally logged at their origin (leaf spans keep
-  // `err`).
-  if is_server_error {
-    error!(error = %api_err, status = api_err.status_code().as_u16());
+impl IntoResponse for ApiError {
+  fn into_response(self) -> Response {
+    let is_server_error = self.status_code().is_server_error();
+    let span = Span::current();
+    span.record(
+      "otel.status_code",
+      if is_server_error { "error" } else { "ok" },
+    );
+    // Only server errors (5xx) are logged. Client errors (4xx, e.g. 404s) are
+    // expected and would otherwise pollute error logs and trace error rates. The
+    // route handlers no longer carry `err` on their `#[instrument]`, so this is
+    // the single place a directly-constructed 5xx `ApiError` gets surfaced;
+    // anyhow-backed 5xx are additionally logged at their origin (leaf spans keep
+    // `err`).
+    if is_server_error {
+      error!(error = %self, status = self.status_code().as_u16());
+    }
+    self.json_response()
   }
-  api_err.json_response()
 }

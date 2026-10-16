@@ -4,7 +4,7 @@
 # workspace member that depends on the workspace-local `crates/jsr_types` path
 # crate. CI builds it with `context: .` and `file: api/Dockerfile`.
 
-FROM rust:bookworm AS build
+FROM rust:1.98.1-bookworm@sha256:93ce27a88655056a51dbdd8f5f2d7ddc071c7b0070fb288a37b5a285fc83971e AS build
 
 WORKDIR /app
 
@@ -45,7 +45,7 @@ RUN rm -f ./target/release/deps/registry_api* ./target/release/deps/libregistry_
 RUN cargo build --release -p registry_api
 
 # our final base
-FROM debian:bookworm-20250428-slim
+FROM debian:bookworm-20250428-slim@sha256:4b50eb66f977b4062683ff434ef18ac191da862dbe966961bc11990cf5791a8d
 
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 

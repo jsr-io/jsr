@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT user_id FROM scope_members\n          WHERE scope = $1 AND user_id != $2\n          ORDER BY is_admin DESC, created_at ASC\n          LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "6f0000e8729f0802ecfe73d0b11c8d2b662a8f1f203e6162e4fa83f163c07829"
+}

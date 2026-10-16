@@ -1,12 +1,13 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
-use hyper::Body;
+use crate::router::RequestExt;
+use axum::Router;
+use axum::body::Body;
+use axum::routing::get;
+use axum::routing::post;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
-use routerify::Router;
-use routerify::prelude::RequestExt;
-use routerify_query::RequestQueryExt;
 use std::borrow::Cow;
 use tracing::Span;
 use tracing::field;
@@ -38,18 +39,16 @@ use super::ApiTicketMessage;
 use super::ApiTicketMessageOrAuditLog;
 use super::ApiTicketOverview;
 
-pub fn tickets_router() -> Router<Body, ApiError> {
-  Router::builder()
-    .post("/", util::auth(util::json(post_handler)))
-    .get("/:id", util::auth(util::json(get_handler)))
-    .post("/:id", util::auth(util::json(post_message_handler)))
-    .post("/:id/claim", util::auth(util::json(claim_handler)))
-    .get(
-      "/:id/attachments/:attachment",
-      util::auth(get_attachment_handler),
+pub fn tickets_router() -> Router {
+  Router::new()
+    .route("/", post(util::auth(util::json(post_handler))))
+    .route("/{id}", get(util::auth(util::json(get_handler))))
+    .route("/{id}", post(util::auth(util::json(post_message_handler))))
+    .route("/{id}/claim", post(util::auth(util::json(claim_handler))))
+    .route(
+      "/{id}/attachments/{attachment}",
+      get(util::auth(get_attachment_handler)),
     )
-    .build()
-    .unwrap()
 }
 
 /// How the caller proved they are allowed to see a ticket.

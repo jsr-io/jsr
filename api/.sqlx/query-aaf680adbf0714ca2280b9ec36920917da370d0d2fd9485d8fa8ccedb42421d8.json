@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,\n(SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as \"invite_count!\",\n(SELECT COUNT(created_at) FROM scopes WHERE creator = id) as \"scope_usage!\",\n(CASE WHEN users.is_staff THEN (\n  SELECT COUNT(tickets.created_at) FROM tickets WHERE tickets.status NOT IN ('closed', 'spam') AND (\n    SELECT tm.direction FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND NOT tm.internal ORDER BY tm.created_at DESC LIMIT 1\n  ) = 'inbound'\n) ELSE (\n  SELECT COUNT(tickets.created_at) FROM tickets WHERE tickets.creator = users.id AND tickets.status NOT IN ('closed', 'spam') AND (\n    SELECT tm.direction FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND NOT tm.internal ORDER BY tm.created_at DESC LIMIT 1\n  ) = 'outbound'\n) END) as \"newer_ticket_messages_count!\"  FROM users WHERE gitlab_id = $1",
+  "query": "UPDATE users SET gitlab_id = $1 WHERE id = $2\n      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, deletion_hold, scope_limit as \"scope_limit?\",\n(SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as \"invite_count!\",\n(SELECT COUNT(created_at) FROM scopes WHERE creator = id) as \"scope_usage!\",\n(CASE WHEN users.is_staff THEN (\n  SELECT COUNT(tickets.created_at) FROM tickets WHERE tickets.status NOT IN ('closed', 'spam') AND (\n    SELECT tm.direction FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND NOT tm.internal ORDER BY tm.created_at DESC LIMIT 1\n  ) = 'inbound'\n) ELSE (\n  SELECT COUNT(tickets.created_at) FROM tickets WHERE tickets.creator = users.id AND tickets.status NOT IN ('closed', 'spam') AND (\n    SELECT tm.direction FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND NOT tm.internal ORDER BY tm.created_at DESC LIMIT 1\n  ) = 'outbound'\n) END) as \"newer_ticket_messages_count!\" ",
   "describe": {
     "columns": [
       {
@@ -55,28 +55,34 @@
       },
       {
         "ordinal": 10,
-        "name": "scope_limit",
-        "type_info": "Int4"
+        "name": "deletion_hold",
+        "type_info": "Bool"
       },
       {
         "ordinal": 11,
+        "name": "scope_limit?",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 12,
         "name": "invite_count!",
         "type_info": "Int8"
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "scope_usage!",
         "type_info": "Int8"
       },
       {
-        "ordinal": 13,
+        "ordinal": 14,
         "name": "newer_ticket_messages_count!",
         "type_info": "Int8"
       }
     ],
     "parameters": {
       "Left": [
-        "Int8"
+        "Int8",
+        "Uuid"
       ]
     },
     "nullable": [
@@ -91,10 +97,11 @@
       false,
       false,
       false,
+      true,
       null,
       null,
       null
     ]
   },
-  "hash": "aabe59cf8c1ce9acf6fcf7e7e447bc7495df524296893c6b6c2c10ca3a957595"
+  "hash": "aaf680adbf0714ca2280b9ec36920917da370d0d2fd9485d8fa8ccedb42421d8"
 }

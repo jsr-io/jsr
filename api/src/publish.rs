@@ -25,6 +25,7 @@ use crate::metadata::PackageMetadata;
 use crate::metadata::VersionMetadata;
 use crate::npm::NPM_TARBALL_REVISION;
 use crate::npm::generate_npm_version_manifest;
+use crate::router::RequestExt;
 use crate::s3::Buckets;
 use crate::s3::CACHE_CONTROL_IMMUTABLE;
 use crate::s3::CACHE_CONTROL_MANIFEST;
@@ -37,10 +38,9 @@ use crate::tarball::process_tarball;
 use crate::util::ApiResult;
 use crate::util::LicenseStore;
 use crate::util::decode_json;
-use hyper::Body;
+use axum::body::Body;
 use hyper::Request;
 use indexmap::IndexMap;
-use routerify::ext::RequestExt;
 use tracing::error;
 use tracing::instrument;
 use url::Url;
@@ -908,7 +908,7 @@ pub mod tests {
   #[tokio::test]
   async fn payload_too_large_stream() {
     // Convert the Vec<u8> into a hyper Body with chunked transfer encoding
-    let body = Body::wrap_stream(tokio_stream::once(Ok::<_, std::io::Error>(
+    let body = Body::from_stream(tokio_stream::once(Ok::<_, std::io::Error>(
       vec![0; MAX_PUBLISH_TARBALL_SIZE as usize + 10],
     )));
 
@@ -941,7 +941,7 @@ pub mod tests {
 
     // Convert the Vec<u8> into a hyper Body with chunked transfer encoding
     let body_stream = tokio_stream::once(Ok::<_, std::io::Error>(data));
-    let body = Body::wrap_stream(body_stream);
+    let body = Body::from_stream(body_stream);
 
     let mut resp = t
       .http()
@@ -964,31 +964,25 @@ pub mod tests {
       .buckets
       .modules_bucket
       .bucket
-      .bucket
       .get_object("@scope/foo/1.2.3/jsr.json")
-      .await
-      .unwrap();
-    assert_eq!(response.status_code(), 200);
+      .await;
+    assert_eq!(response.status(), 200);
     assert_eq!(response.headers()["content-type"], "application/json");
     let response = t
       .buckets
       .modules_bucket
       .bucket
-      .bucket
       .get_object("@scope/foo/1.2.3/mod.ts")
-      .await
-      .unwrap();
-    assert_eq!(response.status_code(), 200);
+      .await;
+    assert_eq!(response.status(), 200);
     assert_eq!(response.headers()["content-type"], "text/typescript");
     let response = t
       .buckets
       .modules_bucket
       .bucket
-      .bucket
       .get_object("@scope/foo/1.2.3/logo.svg")
-      .await
-      .unwrap();
-    assert_eq!(response.status_code(), 200);
+      .await;
+    assert_eq!(response.status(), 200);
     assert_eq!(response.headers()["content-type"], "image/svg+xml");
   }
 
@@ -1039,7 +1033,7 @@ pub mod tests {
 
     // Convert the Vec<u8> into a hyper Body with chunked transfer encoding
     let body_stream = tokio_stream::once(Ok::<_, std::io::Error>(data));
-    let body = Body::wrap_stream(body_stream);
+    let body = Body::from_stream(body_stream);
 
     let token = t.user2.token.clone();
 
@@ -1913,14 +1907,12 @@ pub mod tests {
       .buckets
       .npm_bucket
       .bucket
-      .bucket
       .get_object("@jsr/scope__foo")
-      .await
-      .unwrap();
-    assert_eq!(response.status_code(), 200);
+      .await;
+    assert_eq!(response.status(), 200);
     assert_eq!(response.headers()["content-type"], "application/json");
     let mut json: serde_json::Value =
-      serde_json::from_slice(&response.into_bytes()).unwrap();
+      serde_json::from_slice(&response.bytes().await.unwrap()).unwrap();
     json.as_object_mut().unwrap().remove("time");
     let dist = json
       .as_object_mut()
@@ -1969,11 +1961,9 @@ pub mod tests {
       .buckets
       .npm_bucket
       .bucket
-      .bucket
       .get_object(res_url.as_str())
-      .await
-      .unwrap();
-    assert_eq!(response.status_code(), 200);
+      .await;
+    assert_eq!(response.status(), 200);
     assert_eq!(
       response.headers()["content-type"],
       "application/octet-stream"

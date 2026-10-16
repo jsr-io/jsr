@@ -22,7 +22,7 @@ pub struct TurnstileClient {
 }
 
 /// Wrapper around an optional `TurnstileClient` so it can be stored in the
-/// routerify data map alongside other shared services. A `None` value means no
+/// router data alongside other shared services. A `None` value means no
 /// secret key was configured (local dev, tests), and the captcha check is
 /// skipped — matching the frontend, which only renders the widget when it has a
 /// site key.
@@ -131,7 +131,7 @@ pub struct CachePurgeClient {
 }
 
 /// Wrapper around an optional `CachePurgeClient` so it can be stored in
-/// the routerify data map alongside other shared services. A `None`
+/// the router data alongside other shared services. A `None`
 /// value means cache purging is disabled (e.g. local dev), and call
 /// sites should treat it as a no-op.
 #[derive(Clone)]

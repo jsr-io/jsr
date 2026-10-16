@@ -5,17 +5,16 @@ use crate::api::ApiError;
 use crate::db::*;
 use crate::external::cloudflare::Turnstile;
 use crate::iam::ReqIamExt;
+use crate::router::RequestExt;
 use crate::util::ApiResult;
 use crate::util::oauth2_http_request;
 use crate::util::sanitize_redirect_url;
-use hyper::Body;
+use axum::body::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
 use hyper::header;
 use oauth2::{AccessToken, RedirectUrl, RefreshToken, StandardRevocableToken};
-use routerify::ext::RequestExt;
-use routerify_query::RequestQueryExt;
 use std::borrow::Cow;
 use tracing::Span;
 use tracing::instrument;
@@ -73,7 +72,7 @@ const TURNSTILE_FIELD: &str = "cf-turnstile-response";
 async fn turnstile_token(
   req: &mut Request<Body>,
 ) -> Result<Option<String>, ApiError> {
-  let bytes = hyper::body::to_bytes(req.body_mut())
+  let bytes = axum::body::to_bytes(std::mem::take(req.body_mut()), usize::MAX)
     .await
     .map_err(anyhow::Error::from)?;
 
@@ -693,17 +692,16 @@ mod tests {
   #[tokio::test]
   async fn user_admin_api() {
     let mut t = TestSetup::new().await;
-    let mock_user_id: uuid::Uuid =
-      "00000000-0000-0000-0000-000000000000".try_into().unwrap();
+    let user_id = t.user1.user.id;
 
-    let user = t.db().get_user(mock_user_id).await.unwrap().unwrap();
+    let user = t.db().get_user(user_id).await.unwrap().unwrap();
     assert!(!user.is_staff);
     assert!(!user.is_blocked);
 
     let token = t.staff_user.token.clone();
     let resp = t
       .http()
-      .patch(format!("/api/admin/users/{}", mock_user_id))
+      .patch(format!("/api/admin/users/{}", user_id))
       .body_json(json!({
         "isStaff": true
       }))
@@ -712,18 +710,17 @@ mod tests {
       .await
       .unwrap();
 
-    eprintln!("resp status {}", resp.status());
     assert!(resp.status().is_success());
-    let user = t.db().get_user(mock_user_id).await.unwrap().unwrap();
+    let user = t.db().get_user(user_id).await.unwrap().unwrap();
     assert!(user.is_staff);
     assert!(!user.is_blocked);
 
     // Try again without authorization header
     let resp = t
       .http()
-      .patch(format!("/api/admin/users/{}", mock_user_id))
+      .patch(format!("/api/admin/users/{}", user_id))
       .body_json(json!({
-        "isStaff": true
+        "isStaff": false
       }))
       .token(None)
       .call()
@@ -735,7 +732,7 @@ mod tests {
 
     let resp = t
       .http()
-      .patch(format!("/api/admin/users/{}", mock_user_id))
+      .patch(format!("/api/admin/users/{}", user_id))
       .body_json(json!({
         "isStaff": false,
         "isBlocked": true,
@@ -746,10 +743,10 @@ mod tests {
       .await
       .unwrap();
     assert!(resp.status().is_success());
-    let user = t.db().get_user(mock_user_id).await.unwrap().unwrap();
+    let user = t.db().get_user(user_id).await.unwrap().unwrap();
     assert!(!user.is_staff);
     assert!(user.is_blocked);
-    assert_eq!(user.scope_limit, 30);
+    assert_eq!(user.scope_limit, Some(30));
   }
 
   #[tokio::test]
