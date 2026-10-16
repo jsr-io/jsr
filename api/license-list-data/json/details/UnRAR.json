@@ -6,11 +6,11 @@
   "licenseId": "UnRAR",
   "crossRef": [
     {
-      "match": "true",
+      "match": "N/A",
       "url": "https://public.dhe.ibm.com/aix/freeSoftware/aixtoolbox/LICENSES/unRAR.txt",
       "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-08-27T17:06:19Z",
+      "isLive": false,
+      "timestamp": "2026-09-16T17:03:31Z",
       "isWayBackLink": false,
       "order": 0
     }

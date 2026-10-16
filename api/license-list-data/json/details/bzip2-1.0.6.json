@@ -8,31 +8,31 @@
   "licenseId": "bzip2-1.0.6",
   "crossRef": [
     {
-      "match": "N/A",
-      "url": "https://sourceware.org/git/?p\u003dbzip2.git;a\u003dblob;f\u003dLICENSE;hb\u003dbzip2-1.0.6",
-      "isValid": true,
-      "isLive": false,
-      "timestamp": "2026-08-27T16:56:07Z",
-      "isWayBackLink": false,
-      "order": 0
-    },
-    {
-      "match": "N/A",
-      "url": "https://sourceware.org/cgit/valgrind/tree/mpi/libmpiwrap.c",
-      "isValid": true,
-      "isLive": false,
-      "timestamp": "2026-08-27T16:56:07Z",
-      "isWayBackLink": false,
-      "order": 2
-    },
-    {
       "match": "false",
       "url": "http://bzip.org/1.0.5/bzip2-manual-1.0.5.html",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T16:56:08Z",
+      "timestamp": "2026-09-16T16:58:57Z",
       "isWayBackLink": false,
       "order": 1
+    },
+    {
+      "match": "false",
+      "url": "https://sourceware.org/git/?p\u003dbzip2.git;a\u003dblob;f\u003dLICENSE;hb\u003dbzip2-1.0.6",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-09-16T16:58:58Z",
+      "isWayBackLink": false,
+      "order": 0
+    },
+    {
+      "match": "false",
+      "url": "https://sourceware.org/cgit/valgrind/tree/mpi/libmpiwrap.c",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-09-16T16:58:58Z",
+      "isWayBackLink": false,
+      "order": 2
     }
   ],
   "seeAlso": [

@@ -10,16 +10,16 @@
       "url": "https://git.openldap.org/openldap/openldap/-/blob/master/COPYRIGHT#L55-63",
       "isValid": true,
       "isLive": false,
-      "timestamp": "2026-08-27T16:57:41Z",
+      "timestamp": "2026-09-16T17:02:24Z",
       "isWayBackLink": false,
       "order": 1
     },
     {
-      "match": "N/A",
+      "match": "false",
       "url": "https://sourceware.org/git/?p\u003dbinutils-gdb.git;a\u003dblob;f\u003dlibiberty/strcasecmp.c;h\u003d131d81c2ce7881fa48c363dc5bf5fb302c61ce0b;hb\u003dHEAD",
       "isValid": true,
-      "isLive": false,
-      "timestamp": "2026-08-27T16:57:41Z",
+      "isLive": true,
+      "timestamp": "2026-09-16T17:02:24Z",
       "isWayBackLink": false,
       "order": 0
     }
