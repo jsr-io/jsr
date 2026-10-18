@@ -115,7 +115,11 @@ pub fn tasks_router() -> Router {
 /// finishes regenerating the package-level `meta.json`, so the published
 /// version stays invisible to Deno's resolver, and the version cannot be
 /// re-published because of the `status != 'failure'` guard in
-/// `create_publishing_task`. This handler, run periodically by Cloud
+/// `create_publishing_task`. A publish request that dies before enqueueing its
+/// task leaves it stuck in `pending` with the same effect. The queue retries
+/// a task at most a minute apart and a worker run is capped at 10 minutes, so
+/// a task that has not changed for `STALE_PUBLISHING_TASK_SECS` is not in
+/// flight. This handler, run periodically by Cloud
 /// Scheduler, finds those tasks and pushes them back through the publish
 /// queue, which runs `publish_task`'s state machine to completion.
 #[instrument(
@@ -139,7 +143,9 @@ pub async fn requeue_stuck_publishing_tasks_handler(
     // transaction is atomic), so it is safe to reset it to `pending` and let
     // the worker reprocess the tarball from scratch. A `processed` task
     // already has its rows committed and only needs the metadata-upload step
-    // re-driven, so it is requeued as-is.
+    // re-driven, and a `pending` task is picked up from the start, so both are
+    // requeued as-is. If a `pending` task's tarball upload never completed,
+    // the worker fails it with `missingTarball`.
     if status == PublishingTaskStatus::Processing
       && let Err(err) = db
         .update_publishing_task_status(

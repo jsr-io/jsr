@@ -67,6 +67,8 @@ use crate::db::Database;
 use crate::db::NewGithubRepository;
 use crate::db::NewPublishingTask;
 use crate::db::Package;
+use crate::db::PublishingTaskError;
+use crate::db::PublishingTaskStatus;
 use crate::db::RuntimeCompat;
 use crate::db::User;
 use crate::docs::DocsRequest;
@@ -1090,87 +1092,128 @@ pub async fn version_publish_handler(
     }
   };
 
-  let s3_path = bucket_tarball_path(publishing_task.id);
+  // The task row now exists as `pending`, and `create_publishing_task` turns
+  // away every other publish of this version until it reaches `failure`. If
+  // anything below fails, the task is never enqueued, so fail it here to let
+  // the client retry instead of waiting on a task nothing will pick up.
+  let publishing_task_id = publishing_task.id;
+  let res = async {
+    let s3_path = bucket_tarball_path(publishing_task.id);
 
-  let body = req.into_body().into_data_stream();
-  let total_size = Arc::new(AtomicU64::new(0));
-  let total_size_ = total_size.clone();
+    let body = req.into_body().into_data_stream();
+    let total_size = Arc::new(AtomicU64::new(0));
+    let total_size_ = total_size.clone();
 
-  let hash = Arc::new(Mutex::new(Some(sha2::Sha256::new())));
+    let hash = Arc::new(Mutex::new(Some(sha2::Sha256::new())));
 
-  let hash_ = hash.clone();
-  let stream = body.map(move |res| match res {
-    Ok(bytes) => {
-      hash_.lock().unwrap().as_mut().unwrap().update(&bytes);
-      total_size_.fetch_add(bytes.len() as u64, Ordering::SeqCst);
-      if total_size_.load(Ordering::SeqCst) > MAX_PUBLISH_TARBALL_SIZE {
-        Err(io::Error::other("Payload too large"))
-      } else {
-        Ok(bytes)
+    let hash_ = hash.clone();
+    let stream = body.map(move |res| match res {
+      Ok(bytes) => {
+        hash_.lock().unwrap().as_mut().unwrap().update(&bytes);
+        total_size_.fetch_add(bytes.len() as u64, Ordering::SeqCst);
+        if total_size_.load(Ordering::SeqCst) > MAX_PUBLISH_TARBALL_SIZE {
+          Err(io::Error::other("Payload too large"))
+        } else {
+          Ok(bytes)
+        }
       }
-    }
-    Err(err) => Err(io::Error::other(err)),
-  });
-
-  let upload_result = buckets
-    .publishing_bucket
-    .upload(
-      s3_path.into(),
-      crate::s3::UploadTaskBody::Stream(Box::new(stream)),
-      S3UploadOptions {
-        content_type: Some("application/x-tar".into()),
-        cache_control: None,
-        gzip_encoded: true,
-      },
-    )
-    .await;
-
-  let hash = hash.lock().unwrap().take().unwrap().finalize();
-  let hash = format!("sha256-{:02x}", hash);
-  if let Some(tarball_hash) = access_restriction.tarball_hash
-    && tarball_hash != hash
-  {
-    error!(
-      "Tarball hash mismatch: expected {}, got {}",
-      tarball_hash, hash
-    );
-    return Err(ApiError::MissingPermission);
-  }
-
-  // If the upload failed due to the size limit, we can cancel the task.
-  let total_size = total_size.load(Ordering::SeqCst);
-  if total_size > MAX_PUBLISH_TARBALL_SIZE {
-    return Err(ApiError::TarballSizeLimitExceeded {
-      size: total_size,
-      max_size: MAX_PUBLISH_TARBALL_SIZE,
+      Err(err) => Err(io::Error::other(err)),
     });
+
+    let upload_result = buckets
+      .publishing_bucket
+      .upload(
+        s3_path.into(),
+        crate::s3::UploadTaskBody::Stream(Box::new(stream)),
+        S3UploadOptions {
+          content_type: Some("application/x-tar".into()),
+          cache_control: None,
+          gzip_encoded: true,
+        },
+      )
+      .await;
+
+    let hash = hash.lock().unwrap().take().unwrap().finalize();
+    let hash = format!("sha256-{:02x}", hash);
+    if let Some(tarball_hash) = access_restriction.tarball_hash
+      && tarball_hash != hash
+    {
+      error!(
+        "Tarball hash mismatch: expected {}, got {}",
+        tarball_hash, hash
+      );
+      return Err(ApiError::MissingPermission);
+    }
+
+    // If the upload failed due to the size limit, report that instead.
+    let total_size = total_size.load(Ordering::SeqCst);
+    if total_size > MAX_PUBLISH_TARBALL_SIZE {
+      return Err(ApiError::TarballSizeLimitExceeded {
+        size: total_size,
+        max_size: MAX_PUBLISH_TARBALL_SIZE,
+      });
+    }
+
+    // Otherwise, we can just propagate the error.
+    upload_result?;
+
+    if let Some(queue) = publish_queue {
+      let body = serde_json::to_vec(&publishing_task.id).unwrap();
+      queue.task_buffer(None, Some(body.into())).await?;
+    } else {
+      let span = Span::current();
+      let fut = publish_task(
+        publishing_task.id,
+        0,
+        buckets,
+        license_store,
+        registry_url,
+        npm_url,
+        fallback_registry_url,
+        db.clone(),
+        algolia_client,
+        cache_purge,
+      )
+      .instrument(span);
+      tokio::spawn(fut);
+    }
+
+    Ok::<_, ApiError>(())
   }
-
-  // Otherwise, we can just propagate the error.
-  upload_result?;
-
-  if let Some(queue) = publish_queue {
-    let body = serde_json::to_vec(&publishing_task.id).unwrap();
-    queue.task_buffer(None, Some(body.into())).await?;
-  } else {
-    let span = Span::current();
-    let fut = publish_task(
-      publishing_task.id,
-      0,
-      buckets,
-      license_store,
-      registry_url,
-      npm_url,
-      fallback_registry_url,
-      db,
-      algolia_client,
-      cache_purge,
-    )
-    .instrument(span);
-    tokio::spawn(fut);
+  .await;
+  if let Err(err) = res {
+    fail_unqueued_publishing_task(&db, publishing_task_id, &err).await;
+    return Err(err);
   }
 
   Ok((publishing_task, user).into())
+}
+
+/// Mark a publishing task that never reached the publish queue as failed, so
+/// the version can be published again.
+async fn fail_unqueued_publishing_task(
+  db: &Database,
+  id: Uuid,
+  err: &ApiError,
+) {
+  let error = PublishingTaskError {
+    code: err.code().to_string(),
+    message: err.message().into_owned(),
+  };
+  // A failed update only means the task stays `pending` until the stale-task
+  // reaper re-drives it, so log and move on.
+  if let Err(db_err) = db
+    .update_publishing_task_status(
+      None,
+      id,
+      PublishingTaskStatus::Pending,
+      PublishingTaskStatus::Failure,
+      Some(error),
+    )
+    .await
+  {
+    error!("failed to mark unqueued publishing task {id} as failed: {db_err}");
+  }
 }
 
 #[instrument(

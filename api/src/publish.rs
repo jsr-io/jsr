@@ -755,16 +755,18 @@ pub mod tests {
     );
   }
 
-  #[tokio::test]
-  async fn publish_fails_fast_after_max_attempts() {
-    let t = TestSetup::new().await;
+  /// Create a publishing task for `@scope/<package>@<version>` without
+  /// uploading a tarball for it.
+  async fn create_task_without_tarball(
+    t: &TestSetup,
+    package_name: &PackageName,
+    version: &Version,
+  ) -> PublishingTask {
     let scope_name = "scope".try_into().unwrap();
-    let package_name = PackageName::try_from("foo").unwrap();
-    let version = Version::try_from("1.2.3").unwrap();
 
     let res = t
       .db()
-      .create_package(&scope_name, &package_name)
+      .create_package(&scope_name, package_name)
       .await
       .unwrap();
     assert!(matches!(res, crate::db::CreatePackageResult::Ok(_)));
@@ -774,8 +776,8 @@ pub mod tests {
       .create_publishing_task(NewPublishingTask {
         user_id: Some(t.user1.user.id),
         package_scope: &scope_name,
-        package_name: &package_name,
-        package_version: &version,
+        package_name,
+        package_version: version,
         config_file: &PackagePath::try_from("/jsr.json").unwrap(),
       })
       .await
@@ -783,13 +785,39 @@ pub mod tests {
     else {
       unreachable!()
     };
+    task.0
+  }
 
-    // No tarball was uploaded, so processing fails with a retryable error.
-    // Below the attempt cap the task goes back to `pending` for the queue to
-    // retry, and the error propagates so Cloud Tasks schedules that retry.
+  #[tokio::test]
+  async fn publish_fails_fast_after_max_attempts() {
+    let t =
+      TestSetup::with_fallback_registry(Some(unreachable_fallback_url())).await;
+    let package_name = PackageName::try_from("fallback-test").unwrap();
+    let version = Version::try_from("1.0.0").unwrap();
+    let task = create_task_without_tarball(&t, &package_name, &version).await;
+    t.buckets
+      .publishing_bucket
+      .upload(
+        bucket_tarball_path(task.id).into(),
+        crate::s3::UploadTaskBody::Bytes(create_mock_tarball(
+          "fallback_import",
+        )),
+        S3UploadOptions {
+          content_type: Some("application/x-tar".into()),
+          cache_control: None,
+          gzip_encoded: true,
+        },
+      )
+      .await
+      .unwrap();
+
+    // The fallback registry can't be reached, so processing fails with a
+    // retryable error. Below the attempt cap the task goes back to `pending`
+    // for the queue to retry, and the error propagates so Cloud Tasks
+    // schedules that retry.
     let run = |retry_count| {
       publish_task(
-        task.0.id,
+        task.id,
         retry_count,
         t.buckets(),
         t.license_store(),
@@ -802,26 +830,47 @@ pub mod tests {
       )
     };
     run(0).await.unwrap_err();
-    let (task_after, _) = t
-      .db()
-      .get_publishing_task(task.0.id)
-      .await
-      .unwrap()
-      .unwrap();
+    let (task_after, _) =
+      t.db().get_publishing_task(task.id).await.unwrap().unwrap();
     assert_eq!(task_after.status, PublishingTaskStatus::Pending);
     assert!(task_after.error.is_none());
 
     // On the final allowed attempt the task is marked as failed instead, so
     // clients stop polling (jsr-io/jsr#1505).
     run(MAX_PUBLISH_ATTEMPTS - 1).await.unwrap();
-    let (task_after, _) = t
-      .db()
-      .get_publishing_task(task.0.id)
-      .await
-      .unwrap()
-      .unwrap();
+    let (task_after, _) =
+      t.db().get_publishing_task(task.id).await.unwrap().unwrap();
     assert_eq!(task_after.status, PublishingTaskStatus::Failure);
     assert_eq!(task_after.error.unwrap().code, "internalError");
+  }
+
+  /// A task whose tarball upload never completed can't succeed on retry, so
+  /// the first attempt fails it (jsr-io/jsr#1554).
+  #[tokio::test]
+  async fn publish_without_tarball_fails() {
+    let t = TestSetup::new().await;
+    let package_name = PackageName::try_from("foo").unwrap();
+    let version = Version::try_from("1.2.3").unwrap();
+    let task = create_task_without_tarball(&t, &package_name, &version).await;
+
+    publish_task(
+      task.id,
+      0,
+      t.buckets(),
+      t.license_store(),
+      t.registry_url(),
+      t.npm_url(),
+      t.fallback_registry_url.clone(),
+      t.db(),
+      None,
+      CachePurge(None),
+    )
+    .await
+    .unwrap();
+    let (task_after, _) =
+      t.db().get_publishing_task(task.id).await.unwrap().unwrap();
+    assert_eq!(task_after.status, PublishingTaskStatus::Failure);
+    assert_eq!(task_after.error.unwrap().code, "missingTarball");
   }
 
   pub fn create_mock_tarball(name: &str) -> Bytes {
@@ -929,6 +978,21 @@ pub mod tests {
         "tarballSizeLimitExceeded",
       )
       .await;
+
+    // The rejected upload must not leave a `pending` task behind that blocks
+    // publishing this version again (jsr-io/jsr#1554).
+    let body = Body::from_stream(tokio_stream::once(Ok::<_, std::io::Error>(
+      create_mock_tarball("ok"),
+    )));
+    let mut resp = t
+      .http()
+      .post("/api/scopes/scope/packages/foo/versions/1.2.3?config=/jsr.json")
+      .gzip()
+      .body(body)
+      .call()
+      .await
+      .unwrap();
+    resp.expect_ok::<ApiPublishingTask>().await;
   }
 
   #[tokio::test]
