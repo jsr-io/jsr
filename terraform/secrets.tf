@@ -62,16 +62,8 @@ resource "google_secret_manager_secret_version" "postmark_webhook_password" {
 }
 
 // Incoming webhook new support tickets and replies are posted to. See
-// api/src/external/discord.rs. Optional: left unset, nothing is created and the
-// API posts nothing.
-locals {
-  # The URL itself is sensitive, but whether one was given is not, and `count`
-  # must be known in the plan.
-  discord_support_webhook_enabled = nonsensitive(var.discord_support_webhook_url != "")
-}
-
+// api/src/external/discord.rs.
 resource "google_secret_manager_secret" "discord_support_webhook_url" {
-  count     = local.discord_support_webhook_enabled ? 1 : 0
   secret_id = "discord-support-webhook-url"
   replication {
     auto {}
@@ -79,8 +71,7 @@ resource "google_secret_manager_secret" "discord_support_webhook_url" {
 }
 
 resource "google_secret_manager_secret_version" "discord_support_webhook_url" {
-  count       = local.discord_support_webhook_enabled ? 1 : 0
-  secret      = google_secret_manager_secret.discord_support_webhook_url[0].id
+  secret      = google_secret_manager_secret.discord_support_webhook_url.id
   secret_data = var.discord_support_webhook_url
 }
 

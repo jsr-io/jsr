@@ -394,6 +394,7 @@ async fn main() {
     support_discord: SupportDiscord(
       config
         .discord_support_webhook_url
+        .filter(|url| !url.is_empty())
         .map(DiscordWebhookClient::new),
     ),
     postmark_webhook_password: PostmarkWebhookPassword(

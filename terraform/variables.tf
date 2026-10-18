@@ -40,11 +40,9 @@ variable "postmark_webhook_password" {
   sensitive = true
 }
 
-# Optional; see secrets.tf.
 variable "discord_support_webhook_url" {
   type      = string
   sensitive = true
-  default   = ""
 }
 
 variable "email_from_name" {
