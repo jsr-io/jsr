@@ -9,10 +9,19 @@
   "crossRef": [
     {
       "match": "false",
+      "url": "https://github.com/freebsd/pkg/blob/main/src/add.c",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-09-16T16:58:59Z",
+      "isWayBackLink": false,
+      "order": 3
+    },
+    {
+      "match": "false",
       "url": "https://github.com/libarchive/libarchive/blob/master/libarchive_fe/line_reader.c",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T17:00:52Z",
+      "timestamp": "2026-09-16T16:59:00Z",
       "isWayBackLink": false,
       "order": 2
     },
@@ -21,25 +30,16 @@
       "url": "https://cgit.freebsd.org/src/tree/usr.bin/sockstat/sockstat.c",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T17:00:53Z",
+      "timestamp": "2026-09-16T16:59:00Z",
       "isWayBackLink": false,
       "order": 1
-    },
-    {
-      "match": "false",
-      "url": "https://github.com/freebsd/pkg/blob/main/src/add.c",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-08-27T17:00:54Z",
-      "isWayBackLink": false,
-      "order": 3
     },
     {
       "match": "false",
       "url": "https://scancode-licensedb.aboutcode.org/bsd-unchanged",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T17:00:54Z",
+      "timestamp": "2026-09-16T16:59:00Z",
       "isWayBackLink": false,
       "order": 0
     }

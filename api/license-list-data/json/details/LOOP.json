@@ -6,29 +6,11 @@
   "licenseId": "LOOP",
   "crossRef": [
     {
-      "match": "false",
-      "url": "https://gitlab.com/embeddable-common-lisp/ecl/-/blob/develop/src/lsp/loop.lsp",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-08-27T17:03:36Z",
-      "isWayBackLink": false,
-      "order": 0
-    },
-    {
-      "match": "false",
-      "url": "https://gitlab.common-lisp.net/cmucl/cmucl/-/blob/master/src/code/loop.lisp",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-08-27T17:03:37Z",
-      "isWayBackLink": false,
-      "order": 5
-    },
-    {
       "match": "N/A",
       "url": "https://sourceforge.net/p/sbcl/sbcl/ci/master/tree/src/code/loop.lisp",
       "isValid": true,
       "isLive": false,
-      "timestamp": "2026-08-27T17:03:37Z",
+      "timestamp": "2026-09-16T16:58:24Z",
       "isWayBackLink": false,
       "order": 2
     },
@@ -37,7 +19,7 @@
       "url": "http://git.savannah.gnu.org/cgit/gcl.git/tree/gcl/lsp/gcl_loop.lsp?h\u003dVersion_2_6_13pre",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T17:03:38Z",
+      "timestamp": "2026-09-16T16:58:24Z",
       "isWayBackLink": false,
       "order": 1
     },
@@ -46,7 +28,7 @@
       "url": "https://github.com/blakemcbride/eclipse-lisp/blob/master/lisp/loop.lisp",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T17:03:40Z",
+      "timestamp": "2026-09-16T16:58:25Z",
       "isWayBackLink": false,
       "order": 4
     },
@@ -55,9 +37,27 @@
       "url": "https://github.com/cl-adams/adams/blob/master/LICENSE.md",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T17:03:41Z",
+      "timestamp": "2026-09-16T16:58:26Z",
       "isWayBackLink": false,
       "order": 3
+    },
+    {
+      "match": "false",
+      "url": "https://gitlab.com/embeddable-common-lisp/ecl/-/blob/develop/src/lsp/loop.lsp",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-09-16T16:58:27Z",
+      "isWayBackLink": false,
+      "order": 0
+    },
+    {
+      "match": "false",
+      "url": "https://gitlab.common-lisp.net/cmucl/cmucl/-/blob/master/src/code/loop.lisp",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-09-16T16:58:28Z",
+      "isWayBackLink": false,
+      "order": 5
     }
   ],
   "seeAlso": [

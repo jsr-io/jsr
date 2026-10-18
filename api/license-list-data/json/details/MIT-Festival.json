@@ -6,22 +6,22 @@
   "licenseId": "MIT-Festival",
   "crossRef": [
     {
-      "match": "false",
-      "url": "https://github.com/festvox/flite/blob/master/COPYING",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-08-27T16:56:06Z",
-      "isWayBackLink": false,
-      "order": 0
-    },
-    {
       "match": "true",
       "url": "https://github.com/festvox/speech_tools/blob/master/COPYING",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T16:56:06Z",
+      "timestamp": "2026-09-16T17:01:53Z",
       "isWayBackLink": false,
       "order": 1
+    },
+    {
+      "match": "false",
+      "url": "https://github.com/festvox/flite/blob/master/COPYING",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-09-16T17:01:53Z",
+      "isWayBackLink": false,
+      "order": 0
     }
   ],
   "seeAlso": [
