@@ -3628,7 +3628,8 @@ gitlab_id: r.user_gitlab_id,
   }
 
   /// List publishing tasks that have been stuck in a non-terminal state
-  /// (`processing` or `processed`) for longer than `stale_after_seconds`.
+  /// (`pending`, `processing` or `processed`) for longer than
+  /// `stale_after_seconds`.
   ///
   /// A task is normally driven from `pending` to `success` within seconds by
   /// the publish queue. If the queue worker is killed mid-flight (e.g. the
@@ -3636,7 +3637,9 @@ gitlab_id: r.user_gitlab_id,
   /// stranded: `processing` means the version row was never committed, while
   /// `processed` means the version exists but its package-level `meta.json`
   /// was never regenerated, leaving the version invisible to the resolver.
-  /// Either state also blocks re-publishing that exact version (see the
+  /// A `pending` task is stranded when the publish request died between
+  /// creating the task and enqueueing it, so no worker ever saw it. Any of
+  /// these states blocks re-publishing that exact version (see the
   /// `status != 'failure'` guard in `create_publishing_task`). The reaper at
   /// `POST /tasks/requeue_stuck_publishing_tasks` re-drives these.
   #[instrument(name = "Database::list_stale_publishing_tasks", skip(self), err)]
@@ -3647,7 +3650,7 @@ gitlab_id: r.user_gitlab_id,
     sqlx::query!(
       r#"SELECT id, status as "status: PublishingTaskStatus"
       FROM publishing_tasks
-      WHERE status IN ('processing', 'processed')
+      WHERE status IN ('pending', 'processing', 'processed')
         AND updated_at < now() - ($1::bigint * interval '1 second')
       ORDER BY updated_at ASC
       LIMIT 1000"#,

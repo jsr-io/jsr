@@ -196,11 +196,12 @@ async fn list_stale_publishing_tasks() {
 
   // With a zero threshold every already-updated task qualifies on time, so the
   // result is governed purely by the status filter: only the non-terminal
-  // `processing` and `processed` tasks should be returned.
+  // `pending`, `processing` and `processed` tasks should be returned.
   let stale = db.list_stale_publishing_tasks(0).await.unwrap();
   let stale_ids: std::collections::HashSet<_> =
     stale.iter().map(|(id, _)| *id).collect();
-  assert_eq!(stale.len(), 2, "{stale:?}");
+  assert_eq!(stale.len(), 3, "{stale:?}");
+  assert!(stale_ids.contains(&ids["1.0.0"]), "pending must be listed");
   assert!(
     stale_ids.contains(&ids["2.0.0"]),
     "processing must be listed"
@@ -209,7 +210,6 @@ async fn list_stale_publishing_tasks() {
     stale_ids.contains(&ids["3.0.0"]),
     "processed must be listed"
   );
-  assert!(!stale_ids.contains(&ids["1.0.0"]), "pending excluded");
   assert!(!stale_ids.contains(&ids["4.0.0"]), "success excluded");
   assert!(!stale_ids.contains(&ids["5.0.0"]), "failure excluded");
 

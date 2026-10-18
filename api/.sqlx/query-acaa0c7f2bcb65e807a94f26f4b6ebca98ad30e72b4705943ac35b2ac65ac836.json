@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, status as \"status: PublishingTaskStatus\"\n      FROM publishing_tasks\n      WHERE status IN ('processing', 'processed')\n        AND updated_at < now() - ($1::bigint * interval '1 second')\n      ORDER BY updated_at ASC\n      LIMIT 1000",
+  "query": "SELECT id, status as \"status: PublishingTaskStatus\"\n      FROM publishing_tasks\n      WHERE status IN ('pending', 'processing', 'processed')\n        AND updated_at < now() - ($1::bigint * interval '1 second')\n      ORDER BY updated_at ASC\n      LIMIT 1000",
   "describe": {
     "columns": [
       {
@@ -37,5 +37,5 @@
       false
     ]
   },
-  "hash": "c3c5af9e0e7091e64cb202578b02fa87bcc6e38b29644b69e79afad0e91cae98"
+  "hash": "acaa0c7f2bcb65e807a94f26f4b6ebca98ad30e72b4705943ac35b2ac65ac836"
 }
