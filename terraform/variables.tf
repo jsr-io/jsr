@@ -42,6 +42,7 @@ variable "postmark_webhook_password" {
 
 variable "discord_support_webhook_url" {
   type      = string
+  default   = ""
   sensitive = true
 }
 
