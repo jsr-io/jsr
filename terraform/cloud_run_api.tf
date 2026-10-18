@@ -428,7 +428,7 @@ resource "google_secret_manager_secret_iam_member" "postmark_webhook_password" {
 }
 
 resource "google_secret_manager_secret_iam_member" "discord_support_webhook_url" {
-  count     = var.production ? 1 : 0
+  count     = local.discord_support_webhook_enabled ? 1 : 0
   secret_id = google_secret_manager_secret.discord_support_webhook_url[0].id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.registry_api.email}"

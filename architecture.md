@@ -263,8 +263,9 @@ dashboard, not in terraform:
 
 New tickets, and replies from whoever opened them (by email or on the web), are
 posted to a channel in the JSR Discord through the incoming webhook in
-`DISCORD_SUPPORT_WEBHOOK_URL` (`api/src/external/discord.rs`). It is only set
-in production; staging posts nothing. Staff replies,
+`DISCORD_SUPPORT_WEBHOOK_URL` (`api/src/external/discord.rs`). It is optional:
+an environment without the GitHub secret gets no Secret Manager secret or env
+var, and posts nothing. Staff replies,
 staff notes and mail to tickets marked spam are not posted. Posting is
 best-effort: a Discord failure is logged and never fails the request or the
 Postmark delivery.
