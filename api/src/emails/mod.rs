@@ -58,6 +58,9 @@ pub enum EmailArgs<'a> {
     name: Cow<'a, str>,
     ticket_id: Cow<'a, str>,
     ticket_number: Cow<'a, str>,
+    /// The ticket's own subject, for a ticket opened by email or by staff
+    /// outreach. `None` for a web-opened ticket, which has none.
+    subject: Option<Cow<'a, str>>,
     content: Cow<'a, str>,
     registry_url: Cow<'a, str>,
     registry_name: Cow<'a, str>,
@@ -107,22 +110,26 @@ impl EmailArgs<'_> {
       // reply which arrives with no usable threading headers can still be
       // matched back to its ticket. See `api/src/api/hooks.rs`.
       EmailArgs::SupportTicketCreated { ticket_number, .. }
-      | EmailArgs::SupportTicketMessage { ticket_number, .. } => {
-        format!("[{ticket_number}] Support request")
-      }
-      EmailArgs::SupportTicketAutoReply {
+      | EmailArgs::SupportTicketMessage {
         ticket_number,
-        original_subject,
+        subject: None,
         ..
       } => {
-        // Keep the reporter's own subject so the exchange still reads as one
-        // thread in their mail client, without stacking up `Re:` prefixes.
-        let subject = original_subject
-          .trim()
-          .strip_prefix("Re:")
-          .unwrap_or(original_subject)
-          .trim();
-        format!("[{ticket_number}] Re: {subject}")
+        format!("[{ticket_number}] Support request")
+      }
+      // Replies keep the subject the conversation started under, so the
+      // exchange reads as one thread in the recipient's mail client.
+      EmailArgs::SupportTicketMessage {
+        ticket_number,
+        subject: Some(subject),
+        ..
+      }
+      | EmailArgs::SupportTicketAutoReply {
+        ticket_number,
+        original_subject: subject,
+        ..
+      } => {
+        format!("[{ticket_number}] Re: {}", strip_reply_prefixes(subject))
       }
       EmailArgs::SupportTicketOutreach {
         ticket_number,
@@ -157,6 +164,18 @@ impl EmailArgs<'_> {
       EmailArgs::SupportTicketOutreach { .. } => SUPPORT_TICKET_OUTREACH_HTML,
     }
   }
+}
+
+/// Strips any leading `Re:` prefixes (in any case) so that replying to a
+/// reply doesn't stack them up.
+fn strip_reply_prefixes(subject: &str) -> &str {
+  let mut subject = subject.trim();
+  while let Some(prefix) = subject.get(..3)
+    && prefix.eq_ignore_ascii_case("re:")
+  {
+    subject = subject[3..].trim_start();
+  }
+  subject
 }
 
 fn init_handlebars()
@@ -501,5 +520,39 @@ pub async fn deliver(
       }
       Ok(abandoned)
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn message(subject: Option<&str>) -> EmailArgs<'_> {
+    EmailArgs::SupportTicketMessage {
+      name: Cow::Borrowed("Ada"),
+      ticket_id: Cow::Borrowed("id"),
+      ticket_number: Cow::Borrowed("TICKET-20261002-78109"),
+      subject: subject.map(Cow::Borrowed),
+      content: Cow::Borrowed("hi"),
+      registry_url: Cow::Borrowed("https://jsr.io"),
+      registry_name: Cow::Borrowed("JSR"),
+      support_email: Cow::Borrowed("help@jsr.io"),
+    }
+  }
+
+  #[test]
+  fn ticket_message_subject_follows_the_thread() {
+    assert_eq!(
+      message(Some("Account deletion request")).subject(),
+      "[TICKET-20261002-78109] Re: Account deletion request"
+    );
+    assert_eq!(
+      message(Some("RE: re:Account deletion request")).subject(),
+      "[TICKET-20261002-78109] Re: Account deletion request"
+    );
+    assert_eq!(
+      message(None).subject(),
+      "[TICKET-20261002-78109] Support request"
+    );
   }
 }
