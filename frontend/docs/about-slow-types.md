@@ -502,7 +502,7 @@ for consumers of the package.
 To ignore slow type diagnostics for a package, add the `--allow-slow-types` flag
 to `jsr publish` or `deno publish`.
 
-When using Deno, one can supress slow type diagnostics from being surfaced in
+When using Deno, one can suppress slow type diagnostics from being surfaced in
 `deno lint` by adding an exclude for the `no-slow-types` rule. This can be done
 by specifying `--rules-exclude=no-slow-types` when running `deno lint`, or by
 adding the following to your `deno.json(c)` configuration file:
