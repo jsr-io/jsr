@@ -31,10 +31,10 @@ use crate::analysis::RebuildNpmTarballData;
 use crate::analysis::rebuild_npm_tarball;
 use crate::api::ApiError;
 use crate::api::PublishQueue;
+use crate::db::ABANDON_PUBLISHING_TASK_SECS;
 use crate::db::Database;
 use crate::db::DownloadKind;
 use crate::db::NewNpmTarball;
-use crate::db::PublishingTaskStatus;
 use crate::db::STALE_PUBLISHING_TASK_SECS;
 use crate::db::VersionDownloadCount;
 use crate::emails;
@@ -135,34 +135,17 @@ pub async fn requeue_stuck_publishing_tasks_handler(
   let queue = queue.ok_or(ApiError::InternalServerError)?;
 
   let stale = db
-    .list_stale_publishing_tasks(STALE_PUBLISHING_TASK_SECS)
+    .claim_stale_publishing_tasks(
+      STALE_PUBLISHING_TASK_SECS,
+      ABANDON_PUBLISHING_TASK_SECS,
+    )
     .await?;
 
-  for (id, status) in stale {
-    // A `processing` task never committed its version row (the finalize
-    // transaction is atomic), so it is safe to reset it to `pending` and let
-    // the worker reprocess the tarball from scratch. A `processed` task
-    // already has its rows committed and only needs the metadata-upload step
-    // re-driven, and a `pending` task is picked up from the start, so both are
-    // requeued as-is. If a `pending` task's tarball upload never completed,
-    // the worker fails it with `missingTarball`.
-    if status == PublishingTaskStatus::Processing
-      && let Err(err) = db
-        .update_publishing_task_status(
-          None,
-          id,
-          PublishingTaskStatus::Processing,
-          PublishingTaskStatus::Pending,
-          None,
-        )
-        .await
-    {
-      // Lost a race (the task changed status concurrently) or a transient DB
-      // error. Skip it — a later run will pick it up again if still stuck.
-      error!("failed to reset stuck publishing task {id}: {err}");
-      continue;
-    }
+  for id in &stale.abandoned {
+    error!("abandoned stuck publishing task {id}");
+  }
 
+  for id in stale.claimed {
     let body = serde_json::to_vec(&id)?;
     queue.task_buffer(None, Some(body.into())).await?;
   }
