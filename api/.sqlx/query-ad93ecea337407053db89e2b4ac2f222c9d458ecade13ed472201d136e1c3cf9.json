@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE publishing_tasks\n      SET status = 'failure', error = $3\n      WHERE status IN ('pending', 'processing')\n        AND updated_at < now() - ($1::bigint * interval '1 second')\n        AND created_at < now() - ($2::bigint * interval '1 second')\n      RETURNING id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Jsonb"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "ad93ecea337407053db89e2b4ac2f222c9d458ecade13ed472201d136e1c3cf9"
+}

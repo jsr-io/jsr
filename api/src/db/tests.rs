@@ -119,7 +119,7 @@ async fn publishing_tasks() {
 }
 
 #[tokio::test]
-async fn list_stale_publishing_tasks() {
+async fn claim_stale_publishing_tasks() {
   let db = EphemeralDatabase::create().await;
 
   let user_id = uuid::Uuid::default();
@@ -194,28 +194,77 @@ async fn list_stale_publishing_tasks() {
     ids.insert(version_str, pt.id);
   }
 
-  // With a zero threshold every already-updated task qualifies on time, so the
-  // result is governed purely by the status filter: only the non-terminal
-  // `pending`, `processing` and `processed` tasks should be returned.
-  let stale = db.list_stale_publishing_tasks(0).await.unwrap();
-  let stale_ids: std::collections::HashSet<_> =
-    stale.iter().map(|(id, _)| *id).collect();
-  assert_eq!(stale.len(), 3, "{stale:?}");
-  assert!(stale_ids.contains(&ids["1.0.0"]), "pending must be listed");
-  assert!(
-    stale_ids.contains(&ids["2.0.0"]),
-    "processing must be listed"
-  );
-  assert!(
-    stale_ids.contains(&ids["3.0.0"]),
-    "processed must be listed"
-  );
-  assert!(!stale_ids.contains(&ids["4.0.0"]), "success excluded");
-  assert!(!stale_ids.contains(&ids["5.0.0"]), "failure excluded");
+  let get_status = |id| {
+    let db = &db;
+    async move { db.get_publishing_task(id).await.unwrap().unwrap().0.status }
+  };
 
-  // With a long threshold the freshly-updated tasks are not yet stale.
-  let none_stale = db.list_stale_publishing_tasks(3600).await.unwrap();
-  assert!(none_stale.is_empty(), "{none_stale:?}");
+  for id in ids.values() {
+    db.backdate_publishing_task(*id, 3600, 3600).await.unwrap();
+  }
+  let stale = db.claim_stale_publishing_tasks(1800, 86400).await.unwrap();
+  let claimed: std::collections::HashSet<_> =
+    stale.claimed.iter().copied().collect();
+  assert!(stale.abandoned.is_empty(), "{stale:?}");
+  assert_eq!(
+    claimed,
+    [ids["1.0.0"], ids["2.0.0"], ids["3.0.0"]]
+      .into_iter()
+      .collect(),
+    "{stale:?}"
+  );
+  assert_eq!(
+    get_status(ids["1.0.0"]).await,
+    PublishingTaskStatus::Pending
+  );
+  assert_eq!(
+    get_status(ids["2.0.0"]).await,
+    PublishingTaskStatus::Pending
+  );
+  assert_eq!(
+    get_status(ids["3.0.0"]).await,
+    PublishingTaskStatus::Processed
+  );
+
+  let stale = db.claim_stale_publishing_tasks(1800, 86400).await.unwrap();
+  assert!(stale.claimed.is_empty(), "{stale:?}");
+  assert!(stale.abandoned.is_empty(), "{stale:?}");
+
+  db.update_publishing_task_status(
+    None,
+    ids["2.0.0"],
+    PublishingTaskStatus::Pending,
+    PublishingTaskStatus::Processing,
+    None,
+  )
+  .await
+  .unwrap();
+  for id in ids.values() {
+    db.backdate_publishing_task(*id, 2 * 86400, 3600)
+      .await
+      .unwrap();
+  }
+  let stale = db.claim_stale_publishing_tasks(1800, 86400).await.unwrap();
+  let abandoned: std::collections::HashSet<_> =
+    stale.abandoned.iter().copied().collect();
+  assert_eq!(
+    abandoned,
+    [ids["1.0.0"], ids["2.0.0"]].into_iter().collect(),
+    "{stale:?}"
+  );
+  assert_eq!(stale.claimed, vec![ids["3.0.0"]], "{stale:?}");
+  assert_eq!(
+    get_status(ids["1.0.0"]).await,
+    PublishingTaskStatus::Failure
+  );
+  assert_eq!(
+    get_status(ids["2.0.0"]).await,
+    PublishingTaskStatus::Failure
+  );
+  assert_eq!(
+    get_status(ids["4.0.0"]).await,
+    PublishingTaskStatus::Success
+  );
 }
 
 #[tokio::test]

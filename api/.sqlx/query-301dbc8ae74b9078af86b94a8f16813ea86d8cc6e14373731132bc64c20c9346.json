@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE publishing_tasks\n      SET status = CASE WHEN status = 'processing' THEN 'pending' ELSE status END,\n        updated_at = now()\n      WHERE id IN (\n        SELECT id FROM publishing_tasks\n        WHERE status IN ('pending', 'processing', 'processed')\n          AND updated_at < now() - ($1::bigint * interval '1 second')\n        ORDER BY updated_at ASC\n        LIMIT 1000\n        FOR UPDATE SKIP LOCKED\n      )\n      RETURNING id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "301dbc8ae74b9078af86b94a8f16813ea86d8cc6e14373731132bc64c20c9346"
+}
