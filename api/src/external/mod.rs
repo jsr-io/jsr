@@ -4,6 +4,7 @@ use percent_encoding::CONTROLS;
 
 pub mod algolia;
 pub mod cloudflare;
+pub mod discord;
 pub mod github;
 pub mod gitlab;
 pub mod oidc;

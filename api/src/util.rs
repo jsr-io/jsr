@@ -1202,6 +1202,8 @@ pub mod test {
         cache_purge_client: None,      // no Cloudflare purge locally
         // No secret key, so the login captcha is not verified in tests.
         turnstile: crate::external::cloudflare::Turnstile(None),
+        // No webhook, so ticket activity is not posted to Discord in tests.
+        support_discord: crate::external::discord::SupportDiscord(None),
         postmark_webhook_password: crate::api::PostmarkWebhookPassword(Some(
           TEST_POSTMARK_WEBHOOK_PASSWORD.to_owned(),
         )),

@@ -8,7 +8,11 @@ locals {
     var.otlp_headers != "" ? { "OTLP_HEADERS" = var.otlp_headers } : {},
   )
 
-  api_envs = merge(local.otlp_envs, {
+  discord_envs = merge(
+    var.discord_support_webhook_url != "" ? { "DISCORD_SUPPORT_WEBHOOK_URL" = var.discord_support_webhook_url } : {},
+  )
+
+  api_envs = merge(local.otlp_envs, local.discord_envs, {
     "DATABASE_URL" = local.postgres_url
     "NO_COLOR"     = "true"
 

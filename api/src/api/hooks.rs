@@ -27,11 +27,15 @@ use crate::db::NewEmailTicket;
 use crate::db::NewTicketAttachment;
 use crate::db::NewTicketEmailMessage;
 use crate::db::NewTicketSystemMessage;
+use crate::db::Ticket;
+use crate::db::TicketStatus;
 use crate::emails;
 use crate::emails::EmailArgs;
 use crate::emails::EmailQueue;
 use crate::emails::EmailSender;
 use crate::emails::EmailThread;
+use crate::external::discord::SupportDiscord;
+use crate::external::discord::TicketEvent;
 use crate::s3::Buckets;
 use crate::s3::S3UploadOptions;
 use crate::s3::UploadTaskBody;
@@ -335,17 +339,39 @@ pub async fn postmark_inbound_handler(
     attachments,
   };
 
-  match ticket_id {
+  let from = support_from_label(&message);
+  let body = message.message.clone();
+
+  let ticket = match ticket_id {
     Some(ticket_id) => {
-      if db
-        .ticket_add_email_message(ticket_id, message)
-        .await?
-        .is_none()
-      {
+      let Some((ticket, ..)) =
+        db.ticket_add_email_message(ticket_id, message).await?
+      else {
         tracing::info!("ignoring already-ingested inbound email");
-      }
+        return Ok(util::create_response(StatusCode::OK, "text/plain", "OK"));
+      };
+      // Mail to a ticket already marked spam is kept, but nobody needs to
+      // hear about it.
+      (ticket.status != TicketStatus::Spam)
+        .then_some((ticket, TicketEvent::Replied))
     }
-    None => open_ticket(&mut req, message, &email).await?,
+    None => open_ticket(&mut req, message, &email)
+      .await?
+      .map(|ticket| (ticket, TicketEvent::Opened)),
+  };
+
+  if let Some((ticket, event)) = ticket {
+    req
+      .data::<SupportDiscord>()
+      .unwrap()
+      .notify(
+        &req.data::<RegistryUrl>().unwrap().0,
+        &ticket,
+        event,
+        &from,
+        &body,
+      )
+      .await;
   }
 
   Ok(util::create_response(StatusCode::OK, "text/plain", "OK"))
@@ -377,12 +403,27 @@ async fn resolve_ticket(
   Ok(db.find_ticket_by_number(ticket_number.as_str()).await?)
 }
 
+/// Names the sender of an inbound email for the support channel, flagging an
+/// address that could have been forged.
+fn support_from_label(message: &NewTicketEmailMessage) -> String {
+  let mut label = match &message.author_name {
+    Some(name) => format!("{name} <{}>", message.author_email),
+    None => message.author_email.clone(),
+  };
+  if !message.author_email_verified {
+    label.push_str(" (unverified sender)");
+  }
+  label
+}
+
 /// Opens a new ticket for an email that matched nothing, and acknowledges it.
+///
+/// Returns the new ticket, or `None` if this email had already opened one.
 async fn open_ticket(
   req: &mut Request<Body>,
   message: NewTicketEmailMessage,
   email: &InboundEmail,
-) -> Result<(), ApiError> {
+) -> Result<Option<Ticket>, ApiError> {
   let db = req.data::<Database>().unwrap();
   let registry_url = req.data::<RegistryUrl>().unwrap();
   let email_sender = req.data::<Option<EmailSender>>().unwrap();
@@ -421,13 +462,13 @@ async fn open_ticket(
   let Some((ticket, ..)) = db.create_ticket_from_email(new_ticket).await?
   else {
     tracing::info!("ignoring already-ingested inbound email");
-    return Ok(());
+    return Ok(None);
   };
 
   Span::current().record("ticket_id", field::display(ticket.id));
 
   let Some(email_sender) = email_sender else {
-    return Ok(());
+    return Ok(Some(ticket));
   };
 
   let claim_url = format!(
@@ -465,7 +506,7 @@ async fn open_ticket(
     tracing::error!("failed to queue support ticket auto-reply: {:?}", err);
   }
 
-  Ok(())
+  Ok(Some(ticket))
 }
 
 /// Uploads an email's attachments and returns the rows to record for them.
