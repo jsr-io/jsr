@@ -319,7 +319,14 @@ impl Bucket {
       req = req.header(name, value);
     }
 
-    let resp = req.body(data).send().await?;
+    // hyper leaves out `Content-Length` when the body is empty, and GCS
+    // rejects a PUT without it (411 Length Required), so zero-byte files
+    // could not be published. Always send it explicitly.
+    let resp = req
+      .header(header::CONTENT_LENGTH, data.len())
+      .body(data)
+      .send()
+      .await?;
     Bucket::check_status(resp.status().as_u16())?;
 
     Ok(())
@@ -850,5 +857,52 @@ mod tests {
 
     let response = bucket.download("hello.txt.gz").await.unwrap().unwrap();
     assert_eq!(response, gzipped);
+  }
+
+  /// GCS answers a PUT without `Content-Length` with 411 Length Required,
+  /// which hyper produces for an empty body unless the header is set
+  /// explicitly. minio accepts such a PUT, so this uses a server that
+  /// enforces the header the way GCS does.
+  #[tokio::test]
+  async fn empty_upload_sends_content_length() {
+    let listener =
+      tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
+        .await
+        .unwrap();
+    let addr = listener.local_addr().unwrap();
+    let app = axum::Router::new().fallback(
+      |req: hyper::Request<axum::body::Body>| async move {
+        match req.headers().get(hyper::header::CONTENT_LENGTH) {
+          Some(len) if len == "0" => StatusCode::OK,
+          Some(_) => StatusCode::BAD_REQUEST,
+          None => StatusCode::LENGTH_REQUIRED,
+        }
+      },
+    );
+    tokio::spawn(async move {
+      let _ = axum::serve(listener, app).await;
+    });
+
+    let client = S3Client::new(
+      &format!("http://{addr}"),
+      "us-east-1".to_string(),
+      "access".to_string(),
+      "secret".to_string(),
+    )
+    .unwrap();
+    let bucket = Bucket::new(&client, "testbucket".to_string()).unwrap();
+
+    bucket
+      .upload(
+        "empty.ts",
+        Bytes::new(),
+        &S3UploadOptions {
+          content_type: None,
+          cache_control: None,
+          gzip_encoded: false,
+        },
+      )
+      .await
+      .unwrap();
   }
 }

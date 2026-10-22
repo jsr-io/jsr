@@ -753,7 +753,9 @@ pub enum PublishError {
   #[error("s3 download error: {0}")]
   S3DownloadError(S3Error),
 
-  #[error("missing tarball")]
+  #[error(
+    "The package tarball was never fully uploaded. Please publish this version again."
+  )]
   MissingTarball,
 
   #[error("s3 upload error: {0}")]
@@ -939,9 +941,9 @@ impl PublishError {
     match self {
       PublishError::S3DownloadError(_) => None,
       PublishError::S3UploadError(_) => None,
-      PublishError::MissingTarball => None,
       PublishError::DatabaseError(_) => None,
       PublishError::UnexpectedError(_) => None,
+      PublishError::MissingTarball => Some("missingTarball"),
       PublishError::InvalidTarball(_) => Some("invalidTarball"),
       PublishError::LinkInTarball { .. } => Some("linkInTarball"),
       PublishError::InvalidEntryType { .. } => Some("invalidEntryType"),

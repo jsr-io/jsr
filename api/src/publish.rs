@@ -38,11 +38,13 @@ use crate::tarball::process_tarball;
 use crate::util::ApiResult;
 use crate::util::LicenseStore;
 use crate::util::decode_json;
+use anyhow::Context;
 use axum::body::Body;
 use hyper::Request;
 use indexmap::IndexMap;
 use tracing::error;
 use tracing::instrument;
+use tracing::warn;
 use url::Url;
 use uuid::Uuid;
 
@@ -186,8 +188,8 @@ pub async fn publish_task(
         }
       }
       PublishingTaskStatus::Processing => {
-        error!("publishing task already processing");
-        return Err(ApiError::InternalServerError);
+        warn!("publishing task already processing");
+        return Ok(());
       }
       PublishingTaskStatus::Processed => {
         upload_package_manifest(
@@ -252,7 +254,7 @@ async fn process_publishing_task(
   fallback_registry_url: Option<Url>,
   publishing_task: &mut PublishingTask,
 ) -> Result<(), anyhow::Error> {
-  *publishing_task = db
+  *publishing_task = match db
     .update_publishing_task_status(
       None,
       publishing_task.id,
@@ -260,7 +262,49 @@ async fn process_publishing_task(
       PublishingTaskStatus::Processing,
       None,
     )
-    .await?;
+    .await
+  {
+    Ok(task) => task,
+    Err(sqlx::Error::RowNotFound) => {
+      let (task, _) = db
+        .get_publishing_task(publishing_task.id)
+        .await?
+        .context("publishing task disappeared")?;
+      *publishing_task = task;
+      return Ok(());
+    }
+    Err(err) => return Err(err.into()),
+  };
+
+  if db
+    .get_package_version(
+      &publishing_task.package_scope,
+      &publishing_task.package_name,
+      &publishing_task.package_version,
+    )
+    .await?
+    .is_some()
+  {
+    error!("publishing task is for a version that already exists");
+    *publishing_task = db
+      .update_publishing_task_status(
+        None,
+        publishing_task.id,
+        PublishingTaskStatus::Processing,
+        PublishingTaskStatus::Failure,
+        Some(PublishingTaskError {
+          code: "versionAlreadyExists".to_owned(),
+          message: format!(
+            "@{}/{}@{} has already been published",
+            publishing_task.package_scope,
+            publishing_task.package_name,
+            publishing_task.package_version
+          ),
+        }),
+      )
+      .await?;
+    return Ok(());
+  }
 
   let output = match process_tarball(
     db,
@@ -755,16 +799,18 @@ pub mod tests {
     );
   }
 
-  #[tokio::test]
-  async fn publish_fails_fast_after_max_attempts() {
-    let t = TestSetup::new().await;
+  /// Create a publishing task for `@scope/<package>@<version>` without
+  /// uploading a tarball for it.
+  async fn create_task_without_tarball(
+    t: &TestSetup,
+    package_name: &PackageName,
+    version: &Version,
+  ) -> PublishingTask {
     let scope_name = "scope".try_into().unwrap();
-    let package_name = PackageName::try_from("foo").unwrap();
-    let version = Version::try_from("1.2.3").unwrap();
 
     let res = t
       .db()
-      .create_package(&scope_name, &package_name)
+      .create_package(&scope_name, package_name)
       .await
       .unwrap();
     assert!(matches!(res, crate::db::CreatePackageResult::Ok(_)));
@@ -774,8 +820,8 @@ pub mod tests {
       .create_publishing_task(NewPublishingTask {
         user_id: Some(t.user1.user.id),
         package_scope: &scope_name,
-        package_name: &package_name,
-        package_version: &version,
+        package_name,
+        package_version: version,
         config_file: &PackagePath::try_from("/jsr.json").unwrap(),
       })
       .await
@@ -783,13 +829,39 @@ pub mod tests {
     else {
       unreachable!()
     };
+    task.0
+  }
 
-    // No tarball was uploaded, so processing fails with a retryable error.
-    // Below the attempt cap the task goes back to `pending` for the queue to
-    // retry, and the error propagates so Cloud Tasks schedules that retry.
+  #[tokio::test]
+  async fn publish_fails_fast_after_max_attempts() {
+    let t =
+      TestSetup::with_fallback_registry(Some(unreachable_fallback_url())).await;
+    let package_name = PackageName::try_from("fallback-test").unwrap();
+    let version = Version::try_from("1.0.0").unwrap();
+    let task = create_task_without_tarball(&t, &package_name, &version).await;
+    t.buckets
+      .publishing_bucket
+      .upload(
+        bucket_tarball_path(task.id).into(),
+        crate::s3::UploadTaskBody::Bytes(create_mock_tarball(
+          "fallback_import",
+        )),
+        S3UploadOptions {
+          content_type: Some("application/x-tar".into()),
+          cache_control: None,
+          gzip_encoded: true,
+        },
+      )
+      .await
+      .unwrap();
+
+    // The fallback registry can't be reached, so processing fails with a
+    // retryable error. Below the attempt cap the task goes back to `pending`
+    // for the queue to retry, and the error propagates so Cloud Tasks
+    // schedules that retry.
     let run = |retry_count| {
       publish_task(
-        task.0.id,
+        task.id,
         retry_count,
         t.buckets(),
         t.license_store(),
@@ -802,26 +874,224 @@ pub mod tests {
       )
     };
     run(0).await.unwrap_err();
-    let (task_after, _) = t
-      .db()
-      .get_publishing_task(task.0.id)
-      .await
-      .unwrap()
-      .unwrap();
+    let (task_after, _) =
+      t.db().get_publishing_task(task.id).await.unwrap().unwrap();
     assert_eq!(task_after.status, PublishingTaskStatus::Pending);
     assert!(task_after.error.is_none());
 
     // On the final allowed attempt the task is marked as failed instead, so
     // clients stop polling (jsr-io/jsr#1505).
     run(MAX_PUBLISH_ATTEMPTS - 1).await.unwrap();
-    let (task_after, _) = t
-      .db()
-      .get_publishing_task(task.0.id)
-      .await
-      .unwrap()
-      .unwrap();
+    let (task_after, _) =
+      t.db().get_publishing_task(task.id).await.unwrap().unwrap();
     assert_eq!(task_after.status, PublishingTaskStatus::Failure);
     assert_eq!(task_after.error.unwrap().code, "internalError");
+  }
+
+  /// A task whose tarball upload never completed can't succeed on retry, so
+  /// the first attempt fails it (jsr-io/jsr#1554).
+  #[tokio::test]
+  async fn publish_without_tarball_fails() {
+    let t = TestSetup::new().await;
+    let package_name = PackageName::try_from("foo").unwrap();
+    let version = Version::try_from("1.2.3").unwrap();
+    let task = create_task_without_tarball(&t, &package_name, &version).await;
+
+    publish_task(
+      task.id,
+      0,
+      t.buckets(),
+      t.license_store(),
+      t.registry_url(),
+      t.npm_url(),
+      t.fallback_registry_url.clone(),
+      t.db(),
+      None,
+      CachePurge(None),
+    )
+    .await
+    .unwrap();
+    let (task_after, _) =
+      t.db().get_publishing_task(task.id).await.unwrap().unwrap();
+    assert_eq!(task_after.status, PublishingTaskStatus::Failure);
+    assert_eq!(task_after.error.unwrap().code, "missingTarball");
+  }
+
+  #[tokio::test]
+  async fn publish_duplicate_delivery_is_dropped() {
+    let t = TestSetup::new().await;
+    let package_name = PackageName::try_from("foo").unwrap();
+    let version = Version::try_from("1.2.3").unwrap();
+    let task = create_task_without_tarball(&t, &package_name, &version).await;
+    t.db()
+      .update_publishing_task_status(
+        None,
+        task.id,
+        PublishingTaskStatus::Pending,
+        PublishingTaskStatus::Processing,
+        None,
+      )
+      .await
+      .unwrap();
+
+    publish_task(
+      task.id,
+      0,
+      t.buckets(),
+      t.license_store(),
+      t.registry_url(),
+      t.npm_url(),
+      t.fallback_registry_url.clone(),
+      t.db(),
+      None,
+      CachePurge(None),
+    )
+    .await
+    .unwrap();
+    let (task_after, _) =
+      t.db().get_publishing_task(task.id).await.unwrap().unwrap();
+    assert_eq!(task_after.status, PublishingTaskStatus::Processing);
+  }
+
+  #[tokio::test]
+  async fn publish_lost_claim_keeps_other_delivery() {
+    let t = TestSetup::new().await;
+    let package_name = PackageName::try_from("foo").unwrap();
+    let version = Version::try_from("1.2.3").unwrap();
+    let mut task =
+      create_task_without_tarball(&t, &package_name, &version).await;
+    t.db()
+      .update_publishing_task_status(
+        None,
+        task.id,
+        PublishingTaskStatus::Pending,
+        PublishingTaskStatus::Processing,
+        None,
+      )
+      .await
+      .unwrap();
+
+    process_publishing_task(
+      &t.db(),
+      &t.buckets(),
+      &t.license_store(),
+      &None,
+      t.registry_url(),
+      t.fallback_registry_url.clone(),
+      &mut task,
+    )
+    .await
+    .unwrap();
+    assert_eq!(task.status, PublishingTaskStatus::Processing);
+    let (task_after, _) =
+      t.db().get_publishing_task(task.id).await.unwrap().unwrap();
+    assert_eq!(task_after.status, PublishingTaskStatus::Processing);
+  }
+
+  #[tokio::test]
+  async fn publish_existing_version_is_not_reprocessed() {
+    let t = TestSetup::new().await;
+    let package_name = PackageName::try_from("foo").unwrap();
+    let version = Version::try_from("1.2.3").unwrap();
+
+    let stale = create_task_without_tarball(&t, &package_name, &version).await;
+    t.db()
+      .update_publishing_task_status(
+        None,
+        stale.id,
+        PublishingTaskStatus::Pending,
+        PublishingTaskStatus::Failure,
+        Some(PublishingTaskError {
+          code: "x".to_string(),
+          message: "x".to_string(),
+        }),
+      )
+      .await
+      .unwrap();
+    let task = process_tarball_setup2(
+      &t,
+      create_mock_tarball("ok"),
+      &package_name,
+      &version,
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+
+    let meta_path = crate::s3_paths::version_metadata(
+      &task.package_scope,
+      &task.package_name,
+      &task.package_version,
+    );
+    let meta_before = t
+      .buckets
+      .modules_bucket
+      .bucket
+      .get_object(&meta_path)
+      .await
+      .bytes()
+      .await
+      .unwrap();
+
+    t.db()
+      .update_publishing_task_status(
+        None,
+        stale.id,
+        PublishingTaskStatus::Failure,
+        PublishingTaskStatus::Pending,
+        None,
+      )
+      .await
+      .unwrap();
+    t.buckets
+      .publishing_bucket
+      .upload(
+        bucket_tarball_path(stale.id).into(),
+        crate::s3::UploadTaskBody::Bytes(create_mock_tarball("with_svg")),
+        S3UploadOptions {
+          content_type: Some("application/x-tar".into()),
+          cache_control: None,
+          gzip_encoded: true,
+        },
+      )
+      .await
+      .unwrap();
+    publish_task(
+      stale.id,
+      0,
+      t.buckets(),
+      t.license_store(),
+      t.registry_url(),
+      t.npm_url(),
+      t.fallback_registry_url.clone(),
+      t.db(),
+      None,
+      CachePurge(None),
+    )
+    .await
+    .unwrap();
+
+    let (stale_after, _) =
+      t.db().get_publishing_task(stale.id).await.unwrap().unwrap();
+    assert_eq!(stale_after.status, PublishingTaskStatus::Failure);
+    assert_eq!(stale_after.error.unwrap().code, "versionAlreadyExists");
+    let meta_after = t
+      .buckets
+      .modules_bucket
+      .bucket
+      .get_object(&meta_path)
+      .await
+      .bytes()
+      .await
+      .unwrap();
+    assert_eq!(meta_before, meta_after);
+    let svg = t
+      .buckets
+      .modules_bucket
+      .bucket
+      .get_object("@scope/foo/1.2.3/logo.svg")
+      .await;
+    assert_eq!(svg.status(), 404);
   }
 
   pub fn create_mock_tarball(name: &str) -> Bytes {
@@ -929,6 +1199,21 @@ pub mod tests {
         "tarballSizeLimitExceeded",
       )
       .await;
+
+    // The rejected upload must not leave a `pending` task behind that blocks
+    // publishing this version again (jsr-io/jsr#1554).
+    let body = Body::from_stream(tokio_stream::once(Ok::<_, std::io::Error>(
+      create_mock_tarball("ok"),
+    )));
+    let mut resp = t
+      .http()
+      .post("/api/scopes/scope/packages/foo/versions/1.2.3?config=/jsr.json")
+      .gzip()
+      .body(body)
+      .call()
+      .await
+      .unwrap();
+    resp.expect_ok::<ApiPublishingTask>().await;
   }
 
   #[tokio::test]

@@ -31,10 +31,10 @@ use crate::analysis::RebuildNpmTarballData;
 use crate::analysis::rebuild_npm_tarball;
 use crate::api::ApiError;
 use crate::api::PublishQueue;
+use crate::db::ABANDON_PUBLISHING_TASK_SECS;
 use crate::db::Database;
 use crate::db::DownloadKind;
 use crate::db::NewNpmTarball;
-use crate::db::PublishingTaskStatus;
 use crate::db::STALE_PUBLISHING_TASK_SECS;
 use crate::db::VersionDownloadCount;
 use crate::emails;
@@ -115,7 +115,11 @@ pub fn tasks_router() -> Router {
 /// finishes regenerating the package-level `meta.json`, so the published
 /// version stays invisible to Deno's resolver, and the version cannot be
 /// re-published because of the `status != 'failure'` guard in
-/// `create_publishing_task`. This handler, run periodically by Cloud
+/// `create_publishing_task`. A publish request that dies before enqueueing its
+/// task leaves it stuck in `pending` with the same effect. The queue retries
+/// a task at most a minute apart and a worker run is capped at 10 minutes, so
+/// a task that has not changed for `STALE_PUBLISHING_TASK_SECS` is not in
+/// flight. This handler, run periodically by Cloud
 /// Scheduler, finds those tasks and pushes them back through the publish
 /// queue, which runs `publish_task`'s state machine to completion.
 #[instrument(
@@ -131,32 +135,17 @@ pub async fn requeue_stuck_publishing_tasks_handler(
   let queue = queue.ok_or(ApiError::InternalServerError)?;
 
   let stale = db
-    .list_stale_publishing_tasks(STALE_PUBLISHING_TASK_SECS)
+    .claim_stale_publishing_tasks(
+      STALE_PUBLISHING_TASK_SECS,
+      ABANDON_PUBLISHING_TASK_SECS,
+    )
     .await?;
 
-  for (id, status) in stale {
-    // A `processing` task never committed its version row (the finalize
-    // transaction is atomic), so it is safe to reset it to `pending` and let
-    // the worker reprocess the tarball from scratch. A `processed` task
-    // already has its rows committed and only needs the metadata-upload step
-    // re-driven, so it is requeued as-is.
-    if status == PublishingTaskStatus::Processing
-      && let Err(err) = db
-        .update_publishing_task_status(
-          None,
-          id,
-          PublishingTaskStatus::Processing,
-          PublishingTaskStatus::Pending,
-          None,
-        )
-        .await
-    {
-      // Lost a race (the task changed status concurrently) or a transient DB
-      // error. Skip it — a later run will pick it up again if still stuck.
-      error!("failed to reset stuck publishing task {id}: {err}");
-      continue;
-    }
+  for id in &stale.abandoned {
+    error!("abandoned stuck publishing task {id}");
+  }
 
+  for id in stale.claimed {
     let body = serde_json::to_vec(&id)?;
     queue.task_buffer(None, Some(body.into())).await?;
   }

@@ -61,6 +61,7 @@ macro_rules! sort_by {
 /// `create_publishing_task` fails a stranded `processing` task inline when a
 /// new publish for the same version arrives.
 pub const STALE_PUBLISHING_TASK_SECS: i64 = 30 * 60;
+pub const ABANDON_PUBLISHING_TASK_SECS: i64 = 24 * 60 * 60;
 
 #[derive(Debug, Clone)]
 pub struct Database {
@@ -3639,8 +3640,9 @@ gitlab_id: r.user_gitlab_id,
     Ok(task)
   }
 
-  /// List publishing tasks that have been stuck in a non-terminal state
-  /// (`processing` or `processed`) for longer than `stale_after_seconds`.
+  /// Claim publishing tasks that have been stuck in a non-terminal state
+  /// (`pending`, `processing` or `processed`) for longer than
+  /// `stale_after_seconds`.
   ///
   /// A task is normally driven from `pending` to `success` within seconds by
   /// the publish queue. If the queue worker is killed mid-flight (e.g. the
@@ -3648,26 +3650,83 @@ gitlab_id: r.user_gitlab_id,
   /// stranded: `processing` means the version row was never committed, while
   /// `processed` means the version exists but its package-level `meta.json`
   /// was never regenerated, leaving the version invisible to the resolver.
-  /// Either state also blocks re-publishing that exact version (see the
+  /// A `pending` task is stranded when the publish request died between
+  /// creating the task and enqueueing it, so no worker ever saw it. Any of
+  /// these states blocks re-publishing that exact version (see the
   /// `status != 'failure'` guard in `create_publishing_task`). The reaper at
   /// `POST /tasks/requeue_stuck_publishing_tasks` re-drives these.
-  #[instrument(name = "Database::list_stale_publishing_tasks", skip(self), err)]
-  pub async fn list_stale_publishing_tasks(
+  #[instrument(
+    name = "Database::claim_stale_publishing_tasks",
+    skip(self),
+    err
+  )]
+  pub async fn claim_stale_publishing_tasks(
     &self,
     stale_after_seconds: i64,
-  ) -> Result<Vec<(Uuid, PublishingTaskStatus)>> {
-    sqlx::query!(
-      r#"SELECT id, status as "status: PublishingTaskStatus"
-      FROM publishing_tasks
-      WHERE status IN ('processing', 'processed')
+    abandon_after_seconds: i64,
+  ) -> Result<StalePublishingTasks> {
+    let mut tx = self.pool.begin().await?;
+
+    let abandon_error = PublishingTaskError {
+      code: "internalError".to_string(),
+      message: "the registry could not finish processing this publish; please retry, and report the problem at https://github.com/jsr-io/jsr/issues if it keeps happening".to_string(),
+    };
+    let abandoned = sqlx::query_scalar!(
+      r#"UPDATE publishing_tasks
+      SET status = 'failure', error = $3
+      WHERE status IN ('pending', 'processing')
         AND updated_at < now() - ($1::bigint * interval '1 second')
-      ORDER BY updated_at ASC
-      LIMIT 1000"#,
+        AND created_at < now() - ($2::bigint * interval '1 second')
+      RETURNING id"#,
+      stale_after_seconds,
+      abandon_after_seconds,
+      abandon_error as _,
+    )
+    .fetch_all(&mut *tx)
+    .await?;
+
+    let claimed = sqlx::query_scalar!(
+      r#"UPDATE publishing_tasks
+      SET status = CASE WHEN status = 'processing' THEN 'pending' ELSE status END,
+        updated_at = now()
+      WHERE id IN (
+        SELECT id FROM publishing_tasks
+        WHERE status IN ('pending', 'processing', 'processed')
+          AND updated_at < now() - ($1::bigint * interval '1 second')
+        ORDER BY updated_at ASC
+        LIMIT 1000
+        FOR UPDATE SKIP LOCKED
+      )
+      RETURNING id"#,
       stale_after_seconds,
     )
-    .map(|r| (r.id, r.status))
-    .fetch_all(&self.pool)
-    .await
+    .fetch_all(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(StalePublishingTasks { claimed, abandoned })
+  }
+
+  #[cfg(test)]
+  pub async fn backdate_publishing_task(
+    &self,
+    id: Uuid,
+    created_secs_ago: i64,
+    updated_secs_ago: i64,
+  ) -> Result<()> {
+    sqlx::query!(
+      "UPDATE publishing_tasks
+      SET created_at = now() - ($2::bigint * interval '1 second'),
+        updated_at = now() - ($3::bigint * interval '1 second')
+      WHERE id = $1",
+      id,
+      created_secs_ago,
+      updated_secs_ago,
+    )
+    .execute(&self.pool)
+    .await?;
+    Ok(())
   }
 
   #[instrument(name = "Database::get_oauth_state", skip(self), err)]
@@ -5758,6 +5817,12 @@ pub enum CreatePackageResult {
   AlreadyExists,
   WeeklyPackageLimitExceeded(i32),
   PackageLimitExceeded(i32),
+}
+
+#[derive(Debug)]
+pub struct StalePublishingTasks {
+  pub claimed: Vec<Uuid>,
+  pub abandoned: Vec<Uuid>,
 }
 
 #[derive(Debug)]
