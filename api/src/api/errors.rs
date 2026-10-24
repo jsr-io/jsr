@@ -60,6 +60,11 @@ errors!(
     fields: { msg: String },
     ({ msg }) => "Failed to re-analyze the package version: {msg}.",
   },
+  ProvenanceVerificationFailed {
+    status: BAD_REQUEST,
+    fields: { msg: String },
+    ({ msg }) => "Provenance verification failed: {msg}.",
+  },
   DiffNoIndex {
     status: NOT_FOUND,
     "Diffs do not have an index.",
