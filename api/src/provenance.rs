@@ -26,6 +26,15 @@ const GITHUB_ACTIONS_ISSUER: &str =
 const FULCIO_OID_ISSUER_V1: &str = "1.3.6.1.4.1.57264.1.1";
 const FULCIO_OID_ISSUER_V2: &str = "1.3.6.1.4.1.57264.1.8";
 
+/// Sigstore/Fulcio X.509v3 extension OID for the Source Repository URI: a DER
+/// `UTF8String` holding `https://github.com/<owner>/<repo>` for the repository
+/// the workflow run belongs to (the OIDC token's `repository` claim). This is
+/// distinct from the SAN (and the Build Signer URI, `.1.9`), which name the
+/// workflow that requested the certificate. The two differ for a reusable
+/// workflow (`on: workflow_call`) hosted in another repository: the SAN then
+/// points at the *called* workflow's repository, not the one being built.
+const FULCIO_OID_SOURCE_REPOSITORY_URI: &str = "1.3.6.1.4.1.57264.1.12";
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Signature {
@@ -179,15 +188,24 @@ fn verify_ecdsa_p256(ec_point: &[u8], msg: &[u8], sig: &[u8]) -> bool {
   })
 }
 
-/// A repository identity extracted from a Fulcio signing certificate's SAN.
+/// A repository identity extracted from a Fulcio signing certificate.
 struct RepoIdentity {
   owner: String,
   name: String,
 }
 
 /// Validate that `cert` is a GitHub Actions Fulcio signing certificate: it must
-/// be valid at `now`, carry the GitHub Actions OIDC issuer, and have a
-/// `github.com/<owner>/<repo>/...` SAN. Returns the repository identity.
+/// be valid at `now`, carry the GitHub Actions OIDC issuer, and identify a
+/// `github.com/<owner>/<repo>` repository. Returns that repository.
+///
+/// The repository is read from the Source Repository URI extension, which names
+/// the repository the workflow run belongs to. That is what a package is linked
+/// to, and it is also what `gh attestation verify --repo` checks. Only when the
+/// extension is absent does this fall back to the SAN, which names the workflow
+/// that requested the certificate. The two differ when a workflow calls a
+/// reusable workflow hosted in another repository (jsr-io/jsr#1578): the SAN is
+/// then `https://github.com/<other-owner>/<other-repo>/.github/workflows/...`,
+/// while the package is linked to the repository that ran the workflow.
 fn verify_certificate_identity(
   cert: &x509_parser::certificate::X509Certificate,
   now: ASN1Time,
@@ -206,8 +224,19 @@ fn verify_certificate_identity(
     bail!("provenance certificate was not issued to GitHub Actions");
   }
 
-  // The SAN encodes the signing workflow identity as a URI such as
-  // `https://github.com/<owner>/<repo>/.github/workflows/<file>@<ref>`.
+  // Prefer the Source Repository URI: the repository the workflow run belongs
+  // to, regardless of which repository hosts the workflow that signed.
+  if let Some(uri) = source_repository_uri(cert)? {
+    return parse_github_repo(&uri).ok_or_else(|| {
+      anyhow::anyhow!(
+        "provenance certificate source repository {uri} is not a github.com repository"
+      )
+    });
+  }
+
+  // Certificates without that extension (Fulcio v1 OIDs only) identify the
+  // repository through the SAN, which encodes the signing workflow as a URI
+  // such as `https://github.com/<owner>/<repo>/.github/workflows/<file>@<ref>`.
   let san = cert
     .subject_alternative_name()?
     .ok_or_else(|| anyhow::anyhow!("provenance certificate has no SAN"))?;
@@ -219,6 +248,29 @@ fn verify_certificate_identity(
     }
   }
   bail!("provenance certificate SAN is not a github.com workflow identity")
+}
+
+/// The certificate's Source Repository URI extension, decoded from its DER
+/// `UTF8String`, or `None` when the certificate does not carry one.
+fn source_repository_uri(
+  cert: &x509_parser::certificate::X509Certificate,
+) -> Result<Option<String>> {
+  let Some(ext) = cert
+    .extensions()
+    .iter()
+    .find(|ext| ext.oid.to_id_string() == FULCIO_OID_SOURCE_REPOSITORY_URI)
+  else {
+    return Ok(None);
+  };
+  let (_, value) = x509_parser::der_parser::der::parse_der_utf8string(
+    ext.value,
+  )
+  .map_err(|err| {
+    anyhow::anyhow!(
+      "provenance certificate source repository extension is malformed: {err}"
+    )
+  })?;
+  Ok(Some(value.as_str()?.to_string()))
 }
 
 /// Parse `https://github.com/<owner>/<repo>/...` into its owner and repo.
@@ -254,13 +306,14 @@ fn digest_matches(expected_sha256: &str, subject_sha256: &str) -> bool {
 /// it. That manifest lists a checksum for every file in the version, so binding
 /// the attestation to it transitively binds it to the published contents.
 /// `expected_repo`, when present, is the GitHub repository linked to the
-/// package; the signing certificate's identity must match it.
+/// package; the repository the signing certificate was issued for must match it.
 ///
 /// Verification:
 ///  1. The signing (leaf) certificate chains to the Fulcio intermediate.
 ///  2. The leaf certificate is a valid GitHub Actions identity (within validity
-///     window, GitHub Actions OIDC issuer, `github.com/<owner>/<repo>` SAN) and,
-///     if the package is linked to a repository, that the repository matches.
+///     window, GitHub Actions OIDC issuer, `github.com/<owner>/<repo>` Source
+///     Repository URI or SAN) and, if the package is linked to a repository,
+///     that the repository matches.
 ///  3. The DSSE envelope signature is valid for the leaf certificate's key. This
 ///     is what binds the (otherwise attacker-supplied) payload to the
 ///     certificate: without the certificate's private key the signature cannot
@@ -397,7 +450,30 @@ mod tests {
   const NEAT_AI_MANIFEST_DIGEST: &str =
     "9141591496a48c5b815722bf6aa16e85083729f0ed1a5abbccacbbd1d4b41e82";
 
-  fn neat_ai_bundle() -> ProvenanceBundle {
+  /// A real provenance bundle produced by a *reusable* workflow, reassembled
+  /// from Rekor log entry 3437915504: the publish of `@kuboon/chat-element@0.1.0`
+  /// on 2026-10-24. The package is linked to `kuboon/jsr`, whose release
+  /// workflow calls `kuboon/workflows/.github/workflows/release-jsr.yml`, so the
+  /// certificate's SAN names `kuboon/workflows` while its Source Repository URI
+  /// names `kuboon/jsr` (jsr-io/jsr#1578).
+  const CHAT_ELEMENT_CERT: &str =
+    include_str!("../testdata/provenance/chat-element-0.1.0.cert.pem");
+  const CHAT_ELEMENT_PAYLOAD: &str =
+    include_str!("../testdata/provenance/chat-element-0.1.0.payload.json");
+  const CHAT_ELEMENT_SIG: &str =
+    include_str!("../testdata/provenance/chat-element-0.1.0.sig.b64");
+  /// 2026-10-24T08:05:00Z — inside the certificate's 08:00:06–08:10:06 window.
+  const CHAT_ELEMENT_SIGNED_AT: i64 = 1792829100;
+  /// SHA-256 of `https://jsr.io/@kuboon/chat-element/0.1.0_meta.json`.
+  const CHAT_ELEMENT_MANIFEST_DIGEST: &str =
+    "fd8b9dd0f8403168718031ac2dd070e56ea1f4ef3c5e488f8c5dc6264cf5cf27";
+
+  fn bundle(
+    cert: &str,
+    payload: &str,
+    sig: &str,
+    log_index: u64,
+  ) -> ProvenanceBundle {
     ProvenanceBundle {
       media_type: "application/vnd.dev.sigstore.bundle+json;version=0.1"
         .to_string(),
@@ -405,10 +481,10 @@ mod tests {
         case: "dsseEnvelope".to_string(),
         dsse_envelope: Envelope {
           payload_type: "application/vnd.in-toto+json".to_string(),
-          payload: BASE64_STANDARD.encode(NEAT_AI_PAYLOAD),
+          payload: BASE64_STANDARD.encode(payload),
           signatures: [Signature {
             keyid: String::new(),
-            sig: NEAT_AI_SIG.trim().to_string(),
+            sig: sig.trim().to_string(),
           }],
         },
       },
@@ -417,15 +493,45 @@ mod tests {
           case: "x509CertificateChain".to_string(),
           x509_certificate_chain: X509CertificateChain {
             certificates: [X509Certificate {
-              raw_bytes: NEAT_AI_CERT.to_string(),
+              raw_bytes: cert.to_string(),
             }],
           },
         },
-        tlog_entries: [TlogEntry {
-          log_index: 2313255666,
-        }],
+        tlog_entries: [TlogEntry { log_index }],
       },
     }
+  }
+
+  fn neat_ai_bundle() -> ProvenanceBundle {
+    bundle(NEAT_AI_CERT, NEAT_AI_PAYLOAD, NEAT_AI_SIG, 2313255666)
+  }
+
+  fn chat_element_bundle() -> ProvenanceBundle {
+    bundle(
+      CHAT_ELEMENT_CERT,
+      CHAT_ELEMENT_PAYLOAD,
+      CHAT_ELEMENT_SIG,
+      3437915504,
+    )
+  }
+
+  fn verify_chat_element(
+    expected_repo: Option<(String, String)>,
+  ) -> Result<String> {
+    verify_at(
+      "pkg:jsr/@kuboon/chat-element@0.1.0".to_string(),
+      expected_repo,
+      CHAT_ELEMENT_MANIFEST_DIGEST,
+      chat_element_bundle(),
+      ASN1Time::from_timestamp(CHAT_ELEMENT_SIGNED_AT).unwrap(),
+    )
+  }
+
+  fn parse_cert(pem: &str) -> x509_parser::certificate::X509Certificate<'_> {
+    // Leak the DER so the borrowed certificate can be returned.
+    let der: &'static [u8] =
+      Box::leak(parse_x509_pem(pem.as_bytes()).unwrap().1.contents.into());
+    parse_x509_certificate(der).unwrap().1
   }
 
   fn verify_neat_ai(
@@ -475,6 +581,59 @@ mod tests {
     )
     .unwrap_err();
     assert!(err.to_string().contains("does not match"), "{err}");
+  }
+
+  /// Regression test for jsr-io/jsr#1578: a package built by a reusable
+  /// workflow hosted in another repository must verify against the repository
+  /// the workflow ran for, which is what the package is linked to.
+  #[test]
+  fn verify_accepts_a_real_reusable_workflow_bundle() {
+    let log_index =
+      verify_chat_element(Some(("kuboon".to_string(), "jsr".to_string())))
+        .unwrap();
+    assert_eq!(log_index, "3437915504");
+    assert!(verify_chat_element(None).is_ok());
+  }
+
+  #[test]
+  fn verify_rejects_a_reusable_workflow_bundle_for_the_signer_repository() {
+    // The repository hosting the reusable workflow signed the attestation, but
+    // the build was not of that repository, so linking a package to it must not
+    // earn the badge.
+    let err = verify_chat_element(Some((
+      "kuboon".to_string(),
+      "workflows".to_string(),
+    )))
+    .unwrap_err();
+    assert!(
+      err.to_string().contains(
+        "identity kuboon/jsr does not match the package's linked repository kuboon/workflows"
+      ),
+      "{err}"
+    );
+  }
+
+  #[test]
+  fn source_repository_uri_is_read_from_the_certificate() {
+    // For a plain workflow the Source Repository URI and the SAN agree.
+    let neat_ai = parse_cert(NEAT_AI_CERT);
+    assert_eq!(
+      source_repository_uri(&neat_ai).unwrap().as_deref(),
+      Some("https://github.com/stSoftwareAU/NEAT-AI")
+    );
+
+    // For a reusable workflow only the Source Repository URI names the
+    // repository being built; the SAN names the workflow's host repository.
+    let chat_element = parse_cert(CHAT_ELEMENT_CERT);
+    assert_eq!(
+      source_repository_uri(&chat_element).unwrap().as_deref(),
+      Some("https://github.com/kuboon/jsr")
+    );
+    let san = chat_element.subject_alternative_name().unwrap().unwrap();
+    assert!(san.value.general_names.iter().any(|name| matches!(
+      name,
+      GeneralName::URI(uri) if uri.starts_with("https://github.com/kuboon/workflows/")
+    )));
   }
 
   #[test]

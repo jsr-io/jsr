@@ -52,6 +52,7 @@ use tracing::Span;
 use tracing::error;
 use tracing::field;
 use tracing::instrument;
+use tracing::warn;
 use url::Url;
 use uuid::Uuid;
 
@@ -1264,7 +1265,17 @@ pub async fn version_provenance_statements_handler(
 
   let name = format!("pkg:jsr/@{}/{}@{}", scope, package, version);
   let rekor_log_id =
-    provenance::verify(name, expected_repo, &manifest_digest, body.bundle)?;
+    provenance::verify(name, expected_repo, &manifest_digest, body.bundle)
+      .map_err(|err| {
+        // A bundle that does not verify is a client-side problem, so answer
+        // with the reason (the Deno CLI relays it to the publisher) instead of
+        // a 500 that hides it. Still log it: a systemic rejection, as in
+        // jsr-io/jsr#1474, would otherwise go unnoticed.
+        warn!("provenance verification failed: {err:#}");
+        ApiError::ProvenanceVerificationFailed {
+          msg: format!("{err:#}"),
+        }
+      })?;
 
   db.insert_provenance_statement(&scope, &package, &version, &rekor_log_id)
     .await?;
@@ -4110,9 +4121,18 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .call()
       .await
       .unwrap();
-    resp
-      .expect_err_code(StatusCode::INTERNAL_SERVER_ERROR, "internalServerError")
+    // The rejection reason reaches the publisher as a 4xx carrying the
+    // verifier's message, not as an opaque 500 (jsr-io/jsr#1578).
+    let err = resp
+      .expect_err_code(StatusCode::BAD_REQUEST, "provenanceVerificationFailed")
       .await;
+    assert!(
+      err
+        .message
+        .starts_with("Provenance verification failed: provenance certificate"),
+      "{}",
+      err.message
+    );
 
     let mut resp = t
       .http()
@@ -4123,7 +4143,8 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let score: ApiPackageScore = resp.expect_ok().await;
     assert!(!score.has_provenance);
 
-    // Invalid subject.
+    // Invalid subject, for a version with no stored manifest: verification
+    // fails closed before the bundle is even looked at.
     update_bundle_subject(
       &mut bundle,
       Subject {
@@ -4144,7 +4165,8 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .expect_err_code(StatusCode::INTERNAL_SERVER_ERROR, "internalServerError")
       .await;
 
-    // Invalid certificate.
+    // Invalid certificate: a malformed bundle is the client's fault, so it is
+    // reported as such rather than as a 500.
     bundle
       .verification_material
       .content
@@ -4153,13 +4175,13 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .raw_bytes = "invalid".to_string();
     let mut resp = t
       .http()
-      .post("/api/scopes/scope/packages/foo/versions/1.0.1/provenance")
+      .post("/api/scopes/scope/packages/foo/versions/1.0.0/provenance")
       .body_json(serde_json::json!({ "bundle": bundle }))
       .call()
       .await
       .unwrap();
     resp
-      .expect_err_code(StatusCode::INTERNAL_SERVER_ERROR, "internalServerError")
+      .expect_err_code(StatusCode::BAD_REQUEST, "provenanceVerificationFailed")
       .await;
   }
 
