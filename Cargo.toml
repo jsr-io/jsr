@@ -1,3 +1,18 @@
 [workspace]
 members = ["api", "api/macros", "crates/jsr_types"]
 resolver = "2"
+
+# For wasm32-unknown-emscripten, each pending an upstream release.
+
+# The mio branch takes libc from git.
+[patch."https://github.com/rust-lang/libc"]
+libc = { version = "0.2.190" }
+
+[patch.crates-io]
+# https://github.com/tokio-rs/tokio/pull/8484
+tokio = { git = "https://github.com/guybedford/tokio", tag = "1.53.1-cf.emscripten" }
+tokio-macros = { git = "https://github.com/guybedford/tokio", tag = "1.53.1-cf.emscripten" }
+# https://github.com/tokio-rs/mio/pull/1969
+mio = { git = "https://github.com/guybedford/mio", tag = "1.2.3-cf.emscripten" }
+# https://github.com/briansmith/ring/pull/2877
+ring = { git = "https://github.com/guybedford/ring", branch = "emscripten" }
