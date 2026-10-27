@@ -22,33 +22,40 @@ use super::query::query_as;
 use super::query::query_scalar;
 use super::sql_fragments::*;
 
+/// Picks the statement for a user-requested sort order. `$before` and
+/// `$after` are the SQL around the `ORDER BY` expression; each allowed key
+/// (`!key` for the reverse order) gets its own statement, built at compile
+/// time, so the SQL that runs is always one of a fixed set.
 macro_rules! sort_by {
-  ($maybe_sort:expr => { $(@timestamps $($timestamp:literal),+;)? $( $key:expr $(=> $val:expr)? ),+, } || $default:expr) => {
-    if let Some(sort) = $maybe_sort {
-      let mut inverse = sort.starts_with('!');
-      let sort = if inverse { &sort[1..] } else { sort };
+  ($maybe_sort:expr, $before:expr, $after:expr => { $(@timestamps $($timestamp:literal),+;)? $( $key:literal $(=> $val:literal)? ),+, } || $default:literal) => {{
+    const BEFORE: &str = $before;
+    const AFTER: &str = $after;
 
+    let sort = $maybe_sort.map(|sort| {
+      let mut desc = sort.starts_with('!');
+      let sort = if desc { &sort[1..] } else { sort };
+
+      // Timestamps sort newest first by default.
       $(
         if [$($timestamp),+].contains(&sort) {
-          inverse = !inverse;
+          desc = !desc;
         }
       )?
 
-      let order = if inverse { "DESC" } else { "ASC" };
+      (sort, desc)
+    });
 
-      match sort {
-        $(
-          $key => format!("{} {order}", sort_by!(@expand $key $(, $val)? )),
-        )+
-        _ => $default.to_string(),
-      }
-    } else {
-      $default.to_string()
+    match sort {
+      $(
+        Some(($key, false)) => concatcp!(BEFORE, sort_by!(@expand $key $(, $val)?), " ASC", AFTER),
+        Some(($key, true)) => concatcp!(BEFORE, sort_by!(@expand $key $(, $val)?), " DESC", AFTER),
+      )+
+      _ => concatcp!(BEFORE, $default, AFTER),
     }
-  };
+  }};
 
-  (@expand $key:expr, $val:expr) => { $val };
-  (@expand $key:expr) => { $key };
+  (@expand $key:literal, $val:literal) => { $val };
+  (@expand $key:literal) => { $key };
 }
 
 /// How long a publishing task may stay in a non-terminal state
@@ -201,7 +208,14 @@ impl Database {
       }
     );
 
-    let sort = sort_by!(maybe_sort => {
+    let sql = sort_by!(
+      maybe_sort,
+      concatcp!("SELECT ", USER_SELECT_FULL, "
+      FROM users
+      WHERE (name ILIKE $1 OR email ILIKE $1) AND (id = $2 OR $2 IS NULL)
+      ORDER BY "),
+      " OFFSET $3 LIMIT $4"
+      => {
       @timestamps "created_at";
       "email",
       "github_id",
@@ -211,18 +225,10 @@ impl Database {
       "created_at",
     } || "created_at DESC");
 
-    let users: Vec<User> = query_as::<User>(
-      &format!(
-        r#"SELECT {}
-      FROM users
-      WHERE (name ILIKE $1 OR email ILIKE $1) AND (id = $2 OR $2 IS NULL)
-      ORDER BY {sort} OFFSET $3 LIMIT $4"#,
-        USER_SELECT_FULL,
-      ),
-      &[&search, &maybe_id, &start, &limit],
-    )
-    .fetch_all(&tx)
-    .await?;
+    let users: Vec<User> =
+      query_as::<User>(sql, &[&search, &maybe_id, &start, &limit])
+        .fetch_all(&tx)
+        .await?;
 
     let total_users = query_scalar::<i64>(r#"SELECT COUNT(created_at) as "count" FROM users WHERE (name ILIKE $1 OR email ILIKE $1) AND (id = $2 OR $2 IS NULL);"#, &[&search, &maybe_id])
       .fetch_one(&tx)
@@ -1268,7 +1274,17 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", user
     let tx = conn.transaction().await?;
 
     let search = format!("%{}%", maybe_search_query.unwrap_or(""));
-    let sort = sort_by!(maybe_sort => {
+    let sql = sort_by!(
+      maybe_sort,
+      concatcp!("SELECT ", SCOPE_SELECT_JOINED, ", ", USER_PUBLIC_SELECT_JOINED, ", ", SCOPE_USAGE_SELECT, "
+      FROM scopes
+      LEFT JOIN users ON scopes.creator = users.id
+      WHERE scopes.scope ILIKE $1 OR users.name ILIKE $1
+      ORDER BY "),
+      "
+      OFFSET $2 LIMIT $3
+      "
+      => {
       @timestamps "created_at";
       "scope" => "scopes.scope",
       "creator" => "users.name",
@@ -1278,28 +1294,16 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", user
       "created_at" => "scopes.created_at",
     } || "scopes.created_at DESC");
 
-    let scopes = query(
-      &format!(
-        r#"SELECT {}, {}, {}
-      FROM scopes
-      LEFT JOIN users ON scopes.creator = users.id
-      WHERE scopes.scope ILIKE $1 OR users.name ILIKE $1
-      ORDER BY {sort}
-      OFFSET $2 LIMIT $3
-      "#,
-        SCOPE_SELECT_JOINED, USER_PUBLIC_SELECT_JOINED, SCOPE_USAGE_SELECT,
-      ),
-      &[&search, &start, &limit],
-    )
-    .map(|r| {
-      let scope = Scope::from_row_prefixed(r, "scope_")?;
-      let usage = ScopeUsage::from_row_prefixed(r, "usage_")?;
-      let user = UserPublic::from_row_prefixed(r, "user_")?;
+    let scopes = query(sql, &[&search, &start, &limit])
+      .map(|r| {
+        let scope = Scope::from_row_prefixed(r, "scope_")?;
+        let usage = ScopeUsage::from_row_prefixed(r, "usage_")?;
+        let user = UserPublic::from_row_prefixed(r, "user_")?;
 
-      Ok((scope, usage, user))
-    })
-    .fetch_all(&tx)
-    .await?;
+        Ok((scope, usage, user))
+      })
+      .fetch_all(&tx)
+      .await?;
 
     let total_scopes = query_scalar::<i64>(r#"SELECT COUNT(scopes.created_at) FROM scopes LEFT JOIN users ON scopes.creator = users.id WHERE scopes.scope ILIKE $1 OR users.name ILIKE $1;"#, &[&search])
       .fetch_one(&tx)
@@ -1556,7 +1560,23 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", user
         "".to_string(),
       )
     };
-    let sort = sort_by!(maybe_sort => {
+    let sql = sort_by!(
+      maybe_sort,
+      concatcp!("SELECT ", PACKAGE_BASE_SELECT_JOINED, ", ", PACKAGE_VERSION_AGG_SELECT, ", ", GITHUB_REPOSITORY_SELECT_JOINED, "
+       FROM packages
+       LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
+       ", PACKAGE_VERSION_LATERAL_JOINS, "
+       WHERE (packages.scope ILIKE $1 OR packages.name ILIKE $2) AND (packages.github_repository_id = $5 OR $5 IS NULL) AND NOT packages.is_archived
+       ORDER BY
+         CASE
+           WHEN packages.name ILIKE $3 THEN 1 -- Exact match for package name
+           WHEN packages.scope ILIKE $4 THEN 2 -- Exact match for scope name
+           ELSE 3 -- Fuzzy matches will be ordered by package name and then scope name below
+        END,
+        "),
+      "
+       OFFSET $6 LIMIT $7"
+      => {
       @timestamps "when_featured", "updated_at", "created_at";
       "scope" => "packages.scope",
       "name" => "packages.name",
@@ -1567,27 +1587,21 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", user
       "created_at" => "packages.created_at",
     } || "packages.name ASC, packages.scope ASC");
 
-    let packages = query(&format!(r#"SELECT {}, {}, {}
-       FROM packages
-       LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
-       {}
-       WHERE (packages.scope ILIKE $1 OR packages.name ILIKE $2) AND (packages.github_repository_id = $5 OR $5 IS NULL) AND NOT packages.is_archived
-       ORDER BY
-         CASE
-           WHEN packages.name ILIKE $3 THEN 1 -- Exact match for package name
-           WHEN packages.scope ILIKE $4 THEN 2 -- Exact match for scope name
-           ELSE 3 -- Fuzzy matches will be ordered by package name and then scope name below
-        END,
-        {sort}
-       OFFSET $6 LIMIT $7"#,
-        PACKAGE_BASE_SELECT_JOINED,
-        PACKAGE_VERSION_AGG_SELECT,
-        GITHUB_REPOSITORY_SELECT_JOINED,
-        PACKAGE_VERSION_LATERAL_JOINS,
-      ), &[&scope_ilike_query, &package_ilike_query, &package_exact_query, &scope_exact_query, &maybe_github_repo_id, &start, &limit])
-      .map(package_with_github_repository_and_meta)
-      .fetch_all(&tx)
-      .await?;
+    let packages = query(
+      sql,
+      &[
+        &scope_ilike_query,
+        &package_ilike_query,
+        &package_exact_query,
+        &scope_exact_query,
+        &maybe_github_repo_id,
+        &start,
+        &limit,
+      ],
+    )
+    .map(package_with_github_repository_and_meta)
+    .fetch_all(&tx)
+    .await?;
 
     let total_packages = query_scalar::<i64>(r#"SELECT COUNT(created_at) FROM packages WHERE (packages.scope ILIKE $1 OR packages.name ILIKE $2) AND (packages.github_repository_id = $3 OR $3 IS NULL);"#, &[&scope_ilike_query, &package_ilike_query, &maybe_github_repo_id])
       .fetch_one(&tx)
@@ -2920,7 +2934,18 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", user
     let tx = conn.transaction().await?;
 
     let search = format!("%{}%", maybe_search_query.unwrap_or(""));
-    let sort = sort_by!(maybe_sort => {
+    let sql = sort_by!(
+      maybe_sort,
+      concatcp!("SELECT
+        ", PUBLISHING_TASK_SELECT_JOINED, ", ", USER_PUBLIC_SELECT_JOINED, "
+      FROM publishing_tasks
+      LEFT JOIN users on publishing_tasks.user_id = users.id
+      WHERE publishing_tasks.package_scope ILIKE $1
+         OR publishing_tasks.package_name ILIKE $1
+         OR publishing_tasks.package_version ILIKE $1
+      ORDER BY "),
+      " OFFSET $2 LIMIT $3"
+      => {
       @timestamps "updated_at", "created_at";
       "status" => "publishing_tasks.status",
       "user" => "users.name",
@@ -2931,28 +2956,15 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", user
       "created_at" => "publishing_tasks.created_at",
     } || "publishing_tasks.created_at DESC");
 
-    let publishing_tasks = query(
-      &format!(
-        r#"SELECT
-        {}, {}
-      FROM publishing_tasks
-      LEFT JOIN users on publishing_tasks.user_id = users.id
-      WHERE publishing_tasks.package_scope ILIKE $1
-         OR publishing_tasks.package_name ILIKE $1
-         OR publishing_tasks.package_version ILIKE $1
-      ORDER BY {sort} OFFSET $2 LIMIT $3"#,
-        PUBLISHING_TASK_SELECT_JOINED, USER_PUBLIC_SELECT_JOINED,
-      ),
-      &[&search, &start, &limit],
-    )
-    .map(|r| {
-      let task = PublishingTask::from_row_prefixed(r, "task_")?;
-      let user = UserPublic::from_row_optional(r, "user_", "id")?;
+    let publishing_tasks = query(sql, &[&search, &start, &limit])
+      .map(|r| {
+        let task = PublishingTask::from_row_prefixed(r, "task_")?;
+        let user = UserPublic::from_row_optional(r, "user_", "id")?;
 
-      Ok((task, user))
-    })
-    .fetch_all(&tx)
-    .await?;
+        Ok((task, user))
+      })
+      .fetch_all(&tx)
+      .await?;
 
     let total_publishing_tasks = query_scalar::<i64>(r#"SELECT COUNT(created_at) FROM publishing_tasks WHERE package_scope ILIKE $1 OR package_name ILIKE $1 OR package_version ILIKE $1;"#, &[&search])
       .fetch_one(&tx)
@@ -4230,14 +4242,6 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", user
     let tx = conn.transaction().await?;
 
     let search = format!("%{}%", maybe_search_query.unwrap_or(""));
-    let sort = sort_by!(maybe_sort => {
-      @timestamps "updated_at", "created_at";
-      "kind" => "tickets.kind",
-      "creator" => "users.name",
-      "status" => "tickets.status",
-      "updated_at" => "tickets.updated_at",
-      "created_at" => "tickets.created_at",
-    } || "tickets.status ASC, tickets.created_at DESC");
 
     // An email-opened ticket has no joined user to search by name, so the
     // reporter's own details, the subject line and the ticket number are
@@ -4246,7 +4250,7 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", user
     // The status filter is a separate AND so that it narrows the search rather
     // than widening it. `$2` is always bound, and is NULL when no status was
     // asked for.
-    let where_clause = r#"WHERE ($2::ticket_status IS NULL OR tickets.status = $2)
+    const WHERE_CLAUSE: &str = r#"WHERE ($2::ticket_status IS NULL OR tickets.status = $2)
        AND (users.name ILIKE $1
        OR tickets.ticket_number ILIKE $1
        OR tickets.subject ILIKE $1
@@ -4259,25 +4263,32 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", user
            AND ticket_messages.message ILIKE $1
        ))"#;
 
-    let tickets = query(
-      &format!(
-        r#"SELECT {}, {} FROM tickets
+    let sql = sort_by!(
+      maybe_sort,
+      concatcp!("SELECT ", TICKET_SELECT_JOINED, ", ", USER_SELECT_FULL_JOINED, " FROM tickets
     LEFT JOIN users ON users.id = tickets.creator
-    {where_clause}
-    ORDER BY {sort} OFFSET $3 LIMIT $4
-"#,
-        TICKET_SELECT_JOINED, USER_SELECT_FULL_JOINED,
-      ),
-      &[&search, &maybe_status, &start, &limit],
-    )
-    .map(|r| {
-      let ticket = Ticket::from_row_prefixed(r, "ticket_")?;
-      let user = User::from_row_optional(r, "user_", "id")?;
+    ", WHERE_CLAUSE, "
+    ORDER BY "),
+      " OFFSET $3 LIMIT $4
+"
+      => {
+      @timestamps "updated_at", "created_at";
+      "kind" => "tickets.kind",
+      "creator" => "users.name",
+      "status" => "tickets.status",
+      "updated_at" => "tickets.updated_at",
+      "created_at" => "tickets.created_at",
+    } || "tickets.status ASC, tickets.created_at DESC");
 
-      Ok((ticket, user))
-    })
-    .fetch_all(&tx)
-    .await?;
+    let tickets = query(sql, &[&search, &maybe_status, &start, &limit])
+      .map(|r| {
+        let ticket = Ticket::from_row_prefixed(r, "ticket_")?;
+        let user = User::from_row_optional(r, "user_", "id")?;
+
+        Ok((ticket, user))
+      })
+      .fetch_all(&tx)
+      .await?;
 
     let mut out = Vec::with_capacity(tickets.len());
     for (ticket, user) in tickets {
@@ -4286,10 +4297,11 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", user
     }
 
     let total_tickets = query_scalar::<i64>(
-      &format!(
-        r#"SELECT COUNT(tickets.created_at) FROM tickets
+      concatcp!(
+        "SELECT COUNT(tickets.created_at) FROM tickets
     LEFT JOIN users ON users.id = tickets.creator
-    {where_clause}"#
+    ",
+        WHERE_CLAUSE
       ),
       &[&search, &maybe_status],
     )
@@ -4713,37 +4725,35 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", user
     let tx = conn.transaction().await?;
 
     let search = format!("%{}%", maybe_search_query.unwrap_or(""));
-    let sort = sort_by!(maybe_sort => {
-      @timestamps "created_at";
-      "action" => "audit_logs.action",
-      "user" => "users.name",
-      "created_at" => "audit_logs.created_at",
-    } || "audit_logs.created_at DESC");
-
-    let scopes = query(
-      &format!(
-        r#"SELECT
-      {}, {}
+    let sql = sort_by!(
+      maybe_sort,
+      concatcp!("SELECT
+      ", AUDIT_LOG_SELECT_JOINED, ", ", USER_PUBLIC_SELECT_JOINED, "
       FROM audit_logs
       LEFT JOIN users ON audit_logs.actor_id = users.id
       WHERE (audit_logs.action ILIKE $1
          OR users.name ILIKE $1
          OR audit_logs.meta::text ILIKE $1)
          AND ($2 IS NOT TRUE OR audit_logs.is_sudo = TRUE)
-      ORDER BY {sort} OFFSET $3 LIMIT $4
-      "#,
-        AUDIT_LOG_SELECT_JOINED, USER_PUBLIC_SELECT_JOINED,
-      ),
-      &[&search, &sudo_only, &start, &limit],
-    )
-    .map(|r| {
-      let audit_log = AuditLog::from_row_prefixed(r, "audit_log_")?;
-      let user = UserPublic::from_row_prefixed(r, "user_")?;
+      ORDER BY "),
+      " OFFSET $3 LIMIT $4
+      "
+      => {
+      @timestamps "created_at";
+      "action" => "audit_logs.action",
+      "user" => "users.name",
+      "created_at" => "audit_logs.created_at",
+    } || "audit_logs.created_at DESC");
 
-      Ok((audit_log, user))
-    })
-    .fetch_all(&tx)
-    .await?;
+    let scopes = query(sql, &[&search, &sudo_only, &start, &limit])
+      .map(|r| {
+        let audit_log = AuditLog::from_row_prefixed(r, "audit_log_")?;
+        let user = UserPublic::from_row_prefixed(r, "user_")?;
+
+        Ok((audit_log, user))
+      })
+      .fetch_all(&tx)
+      .await?;
 
     let total_scopes = query_scalar::<i64>(r#"SELECT COUNT(audit_logs.created_at) FROM audit_logs LEFT JOIN users ON audit_logs.actor_id = users.id WHERE audit_logs.action ILIKE $1 OR users.name ILIKE $2 AND ($3 IS NOT TRUE OR audit_logs.is_sudo = TRUE);"#, &[&search, &search, &sudo_only])
       .fetch_one(&tx)

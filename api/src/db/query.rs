@@ -125,13 +125,17 @@ impl_executor!(deadpool_postgres::Transaction<'_>);
 
 /// A query returning raw rows. See [`query_as`] and [`query_scalar`] for
 /// queries returning models and single values.
-pub fn query<'a>(sql: &'a str, params: Params<'a>) -> Query<'a> {
+///
+/// The SQL is `'static` so that every statement is fixed at compile time:
+/// values go in parameters, and shared SQL is composed with `concatcp!` (see
+/// `sort_by!` for picking between statements at runtime).
+pub fn query<'a>(sql: &'static str, params: Params<'a>) -> Query<'a> {
   Query { sql, params }
 }
 
 /// A query whose rows are mapped with `T`'s [`FromRow`] impl.
 pub fn query_as<'a, T: FromRow>(
-  sql: &'a str,
+  sql: &'static str,
   params: Params<'a>,
 ) -> Map<'a, impl Fn(&Row) -> Result<T>> {
   query(sql, params).map(T::from_row)
@@ -139,14 +143,14 @@ pub fn query_as<'a, T: FromRow>(
 
 /// A query returning the first column of each row.
 pub fn query_scalar<'a, T: for<'r> FromSql<'r>>(
-  sql: &'a str,
+  sql: &'static str,
   params: Params<'a>,
 ) -> Map<'a, impl Fn(&Row) -> Result<T>> {
   query(sql, params).map(|row| Ok(row.try_get(0)?))
 }
 
 pub struct Query<'a> {
-  sql: &'a str,
+  sql: &'static str,
   params: Params<'a>,
 }
 
