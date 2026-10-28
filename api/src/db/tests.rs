@@ -995,6 +995,54 @@ async fn tokens() {
   assert!(no_token.is_none());
 }
 
+/// The Postgres enums' labels are written out in `jsr_types`, so check them
+/// against the migrated schema.
+#[tokio::test]
+async fn enum_labels_match_database() {
+  use jsr_types::postgres::PgEnum;
+
+  fn rust_labels<T: PgEnum>() -> (&'static str, Vec<&'static str>) {
+    (
+      T::NAME,
+      T::VARIANTS.iter().map(|(_, label)| *label).collect(),
+    )
+  }
+
+  let db = EphemeralDatabase::create().await;
+  let (client, connection) =
+    tokio_postgres::connect(&db.database_url, tokio_postgres::NoTls)
+      .await
+      .unwrap();
+  tokio::spawn(connection);
+
+  for (name, mut expected) in [
+    rust_labels::<PublishingTaskStatus>(),
+    rust_labels::<ReadmeSource>(),
+    rust_labels::<TokenType>(),
+    rust_labels::<DependencyKind>(),
+    rust_labels::<DownloadKind>(),
+    rust_labels::<TicketKind>(),
+    rust_labels::<TicketStatus>(),
+    rust_labels::<TicketMessageDirection>(),
+  ] {
+    let mut labels: Vec<String> = client
+      .query(
+        "SELECT enumlabel FROM pg_enum
+        JOIN pg_type ON pg_type.oid = pg_enum.enumtypid
+        WHERE pg_type.typname = $1",
+        &[&name],
+      )
+      .await
+      .unwrap()
+      .iter()
+      .map(|row| row.get(0))
+      .collect();
+    labels.sort();
+    expected.sort();
+    assert_eq!(labels, expected, "labels of {name}");
+  }
+}
+
 // The tests below run the queries that no other test reaches, against rows,
 // so the SQL, the parameter types and the row mappers all get checked. There
 // is no compile-time checking of queries, so a new query needs a test that

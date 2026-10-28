@@ -30,15 +30,15 @@ pub const USER_SELECT_FULL: &str = r#"id, name, email, avatar_url, updated_at, c
 
 pub const SCOPE_SELECT: &str = r#"scope, description, creator, package_limit, new_package_per_week_limit, publish_attempts_per_week_limit, verify_oidc_actor, require_publishing_from_ci, updated_at, created_at"#;
 
-pub const PACKAGE_SELECT: &str = r#"scope, name, description, github_repository_id, runtime_compat, readme_source, when_featured, is_archived, updated_at, created_at"#;
+pub const PACKAGE_SELECT: &str = r#"scope, name, description, github_repository_id, runtime_compat, readme_source::text AS readme_source, when_featured, is_archived, updated_at, created_at"#;
 
-pub const PACKAGE_SELECT_JOINED: &str = r#"packages.scope "package_scope", packages.name "package_name", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat "package_runtime_compat", packages.readme_source "package_readme_source", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at", packages.created_at "package_created_at",
+pub const PACKAGE_SELECT_JOINED: &str = r#"packages.scope "package_scope", packages.name "package_name", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat "package_runtime_compat", packages.readme_source::text "package_readme_source", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at", packages.created_at "package_created_at",
 (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count",
 (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_latest_version",
 (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta""#;
 
 // Base package columns without version aggregates (for use with lateral joins in list queries)
-pub const PACKAGE_BASE_SELECT_JOINED: &str = r#"packages.scope "package_scope", packages.name "package_name", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat "package_runtime_compat", packages.readme_source "package_readme_source", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at", packages.created_at "package_created_at""#;
+pub const PACKAGE_BASE_SELECT_JOINED: &str = r#"packages.scope "package_scope", packages.name "package_name", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat "package_runtime_compat", packages.readme_source::text "package_readme_source", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at", packages.created_at "package_created_at""#;
 
 // Version aggregate columns from lateral join aliases (SELECT clause)
 pub const PACKAGE_VERSION_AGG_SELECT: &str = r#"COALESCE(pv_count.cnt, 0) as "package_version_count", pv_latest.version as "package_latest_version", pv_latest.meta as "package_version_meta""#;
@@ -74,9 +74,9 @@ pub const SCOPE_MEMBER_SELECT: &str =
 pub const SCOPE_INVITE_SELECT: &str =
   r#"scope, target_user_id, requesting_user_id, updated_at, created_at"#;
 
-pub const TOKEN_SELECT: &str = r#"id, hash, user_id, type, description, expires_at, permissions, updated_at, created_at"#;
+pub const TOKEN_SELECT: &str = r#"id, hash, user_id, type::text AS type, description, expires_at, permissions, updated_at, created_at"#;
 
-pub const PUBLISHING_TASK_SELECT: &str = r#"id, status, error, user_id, package_scope, package_name, package_version, config_file, created_at, updated_at"#;
+pub const PUBLISHING_TASK_SELECT: &str = r#"id, status::text AS status, error, user_id, package_scope, package_name, package_version, config_file, created_at, updated_at"#;
 
 pub const OAUTH_STATE_SELECT: &str = "csrf_token, pkce_code_verifier, redirect_url, user_id, updated_at, created_at";
 
@@ -89,9 +89,9 @@ pub const PACKAGE_FILE_SELECT: &str =
 
 pub const NPM_TARBALL_SELECT: &str = r#"scope, name, version, revision, sha1, sha512, size, updated_at, created_at"#;
 
-pub const PACKAGE_VERSION_DEPENDENCY_SELECT: &str = r#"package_scope, package_name, package_version, dependency_kind, dependency_name, dependency_constraint, dependency_path, dependency_fallback_url, updated_at, created_at"#;
+pub const PACKAGE_VERSION_DEPENDENCY_SELECT: &str = r#"package_scope, package_name, package_version, dependency_kind::text AS dependency_kind, dependency_name, dependency_constraint, dependency_path, dependency_fallback_url, updated_at, created_at"#;
 
-pub const PUBLISHING_TASK_SELECT_JOINED: &str = r#"publishing_tasks.id as "task_id", publishing_tasks.status as "task_status", publishing_tasks.error as "task_error", publishing_tasks.user_id as "task_user_id", publishing_tasks.package_scope as "task_package_scope", publishing_tasks.package_name as "task_package_name", publishing_tasks.package_version as "task_package_version", publishing_tasks.config_file as "task_config_file", publishing_tasks.created_at as "task_created_at", publishing_tasks.updated_at as "task_updated_at""#;
+pub const PUBLISHING_TASK_SELECT_JOINED: &str = r#"publishing_tasks.id as "task_id", publishing_tasks.status::text as "task_status", publishing_tasks.error as "task_error", publishing_tasks.user_id as "task_user_id", publishing_tasks.package_scope as "task_package_scope", publishing_tasks.package_name as "task_package_name", publishing_tasks.package_version as "task_package_version", publishing_tasks.config_file as "task_config_file", publishing_tasks.created_at as "task_created_at", publishing_tasks.updated_at as "task_updated_at""#;
 
 pub const SCOPE_INVITE_SELECT_JOINED: &str = r#"scope_invites.scope as "scope_invite_scope", scope_invites.target_user_id as "scope_invite_target_user_id", scope_invites.requesting_user_id as "scope_invite_requesting_user_id", scope_invites.updated_at as "scope_invite_updated_at", scope_invites.created_at as "scope_invite_created_at",
         target_user.id as "target_user_id", target_user.name as "target_user_name", target_user.avatar_url as "target_user_avatar_url", target_user.github_id as "target_user_github_id", target_user.gitlab_id as "target_user_gitlab_id", target_user.updated_at as "target_user_updated_at", target_user.created_at as "target_user_created_at",
@@ -99,7 +99,7 @@ pub const SCOPE_INVITE_SELECT_JOINED: &str = r#"scope_invites.scope as "scope_in
 
 pub const SCOPE_MEMBER_SELECT_JOINED: &str = r#"scope_members.scope as "scope_member_scope", scope_members.user_id as "scope_member_user_id", scope_members.is_admin as "scope_member_is_admin", scope_members.updated_at as "scope_member_updated_at", scope_members.created_at as "scope_member_created_at""#;
 
-pub const TICKET_SELECT_JOINED: &str = r#"tickets.id as "ticket_id", tickets.ticket_number as "ticket_ticket_number", tickets.kind as "ticket_kind", tickets.creator as "ticket_creator", tickets.reporter_email as "ticket_reporter_email", tickets.reporter_name as "ticket_reporter_name", tickets.subject as "ticket_subject", tickets.claim_token as "ticket_claim_token", tickets.meta as "ticket_meta", tickets.status as "ticket_status", tickets.closed_at as "ticket_closed_at", tickets.updated_at as "ticket_updated_at", tickets.created_at as "ticket_created_at""#;
+pub const TICKET_SELECT_JOINED: &str = r#"tickets.id as "ticket_id", tickets.ticket_number as "ticket_ticket_number", tickets.kind::text as "ticket_kind", tickets.creator as "ticket_creator", tickets.reporter_email as "ticket_reporter_email", tickets.reporter_name as "ticket_reporter_name", tickets.subject as "ticket_subject", tickets.claim_token as "ticket_claim_token", tickets.meta as "ticket_meta", tickets.status::text as "ticket_status", tickets.closed_at as "ticket_closed_at", tickets.updated_at as "ticket_updated_at", tickets.created_at as "ticket_created_at""#;
 
 // Full user columns for a LEFT JOIN: every column is nullable, so it works
 // wherever the joined user is optional — such as a support ticket opened by
@@ -117,7 +117,7 @@ pub const USER_SELECT_FULL_JOINED: &str = r#"users.id as "user_id", users.name a
   ) = 'outbound'
 ) END) as "user_newer_ticket_messages_count""#;
 
-pub const TICKET_MESSAGE_SELECT_JOINED: &str = r#"ticket_messages.id as "message_id", ticket_messages.ticket_id as "message_ticket_id", ticket_messages.author as "message_author", ticket_messages.author_email as "message_author_email", ticket_messages.author_name as "message_author_name", ticket_messages.author_email_verified as "message_author_email_verified", ticket_messages.direction as "message_direction", ticket_messages.email_message_id as "message_email_message_id", ticket_messages.internal as "message_internal", ticket_messages.message as "message_message", ticket_messages.updated_at as "message_updated_at", ticket_messages.created_at as "message_created_at""#;
+pub const TICKET_MESSAGE_SELECT_JOINED: &str = r#"ticket_messages.id as "message_id", ticket_messages.ticket_id as "message_ticket_id", ticket_messages.author as "message_author", ticket_messages.author_email as "message_author_email", ticket_messages.author_name as "message_author_name", ticket_messages.author_email_verified as "message_author_email_verified", ticket_messages.direction::text as "message_direction", ticket_messages.email_message_id as "message_email_message_id", ticket_messages.internal as "message_internal", ticket_messages.message as "message_message", ticket_messages.updated_at as "message_updated_at", ticket_messages.created_at as "message_created_at""#;
 
 pub const AUDIT_LOG_SELECT_JOINED: &str = r#"audit_logs.actor_id as "audit_log_actor_id", audit_logs.is_sudo as "audit_log_is_sudo", audit_logs.action as "audit_log_action", audit_logs.meta as "audit_log_meta", audit_logs.created_at as "audit_log_created_at""#;
 

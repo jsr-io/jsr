@@ -14,4 +14,4 @@ pub mod api;
 pub mod ids;
 pub mod models;
 #[cfg(feature = "postgres")]
-mod postgres;
+pub mod postgres;

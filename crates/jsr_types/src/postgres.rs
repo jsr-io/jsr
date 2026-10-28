@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
-//! `postgres-types` `FromSql`/`ToSql` impls for the id newtypes and the
-//! JSON-backed model types. The Postgres enums derive theirs in `models.rs`.
+//! `postgres-types` `FromSql`/`ToSql` impls for the id newtypes, the
+//! JSON-backed model types and the Postgres enums.
 
 use bytes::BytesMut;
 use postgres_types::FromSql;
@@ -18,11 +18,19 @@ use crate::ids::PackagePath;
 use crate::ids::ScopeDescription;
 use crate::ids::ScopeName;
 use crate::ids::Version;
+use crate::models::DependencyKind;
+use crate::models::DownloadKind;
 use crate::models::ExportsMap;
 use crate::models::PackageVersionMeta;
 use crate::models::Permissions;
 use crate::models::PublishingTaskError;
+use crate::models::PublishingTaskStatus;
+use crate::models::ReadmeSource;
 use crate::models::RuntimeCompat;
+use crate::models::TicketKind;
+use crate::models::TicketMessageDirection;
+use crate::models::TicketStatus;
+use crate::models::TokenType;
 
 type BoxError = Box<dyn Error + Sync + Send>;
 
@@ -146,3 +154,99 @@ impl ToSql for ExportsMap {
   accepts!(JSON, JSONB);
   to_sql_checked!();
 }
+
+/// A Rust enum stored as a Postgres enum.
+pub trait PgEnum: Sized + 'static {
+  /// The Postgres type's name.
+  const NAME: &'static str;
+  /// Every variant with its Postgres label.
+  const VARIANTS: &'static [(Self, &'static str)];
+}
+
+/// Maps a Rust enum to a Postgres enum by label.
+///
+/// Labels are also accepted as and written to `text`: queries select enum
+/// columns as `::text`, so the client never has to look up the enum's type,
+/// and send enum arrays as `text[]`.
+macro_rules! pg_enum {
+  ($ty:ident, $name:literal, { $($variant:ident => $label:literal),+ $(,)? }) => {
+    impl PgEnum for $ty {
+      const NAME: &'static str = $name;
+      const VARIANTS: &'static [(Self, &'static str)] =
+        &[$(($ty::$variant, $label)),+];
+    }
+
+    impl<'a> FromSql<'a> for $ty {
+      fn from_sql(_: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
+        match std::str::from_utf8(raw)? {
+          $($label => Ok($ty::$variant),)+
+          label => Err(format!("unknown {} label {label:?}", $name).into()),
+        }
+      }
+
+      fn accepts(ty: &Type) -> bool {
+        ty.name() == $name || matches!(*ty, Type::TEXT | Type::VARCHAR)
+      }
+    }
+
+    impl ToSql for $ty {
+      fn to_sql(&self, _: &Type, out: &mut BytesMut) -> Result<IsNull, BoxError> {
+        let label = match self {
+          $($ty::$variant => $label,)+
+        };
+        out.extend_from_slice(label.as_bytes());
+        Ok(IsNull::No)
+      }
+
+      fn accepts(ty: &Type) -> bool {
+        ty.name() == $name || matches!(*ty, Type::TEXT | Type::VARCHAR)
+      }
+
+      to_sql_checked!();
+    }
+  };
+}
+
+pg_enum!(PublishingTaskStatus, "task_status", {
+  Pending => "pending",
+  Processing => "processing",
+  Processed => "processed",
+  Success => "success",
+  Failure => "failure",
+});
+pg_enum!(ReadmeSource, "package_readme_source", {
+  Readme => "readme",
+  JSDoc => "jsdoc",
+});
+pg_enum!(TokenType, "token_type", {
+  Web => "web",
+  Device => "device",
+  Personal => "personal",
+});
+pg_enum!(DependencyKind, "dependency_kind", {
+  Jsr => "jsr",
+  Npm => "npm",
+});
+pg_enum!(DownloadKind, "download_kind", {
+  JsrMeta => "jsr_meta",
+  NpmTgz => "npm_tgz",
+});
+pg_enum!(TicketKind, "ticket_kind", {
+  UserScopeQuotaIncrease => "user_scope_quota_increase",
+  ScopeQuotaIncrease => "scope_quota_increase",
+  ScopeClaim => "scope_claim",
+  PackageReport => "package_report",
+  Other => "other",
+  StaffOutreach => "staff_outreach",
+});
+pg_enum!(TicketStatus, "ticket_status", {
+  Open => "open",
+  WaitingOnUser => "waiting_on_user",
+  WaitingOnSupport => "waiting_on_support",
+  Closed => "closed",
+  Spam => "spam",
+});
+pg_enum!(TicketMessageDirection, "ticket_message_direction", {
+  Inbound => "inbound",
+  Outbound => "outbound",
+});

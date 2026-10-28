@@ -4,9 +4,13 @@
 //!
 //! Queries are built with [`query`], [`query_as`] or [`query_scalar`] and run
 //! against an [`Executor`]: the pool (a connection per query), a pooled
-//! client, or a transaction. Every statement is prepared through the
-//! connection's statement cache, so repeated queries skip the extra round
-//! trip a fresh prepare costs.
+//! client, or a transaction.
+//!
+//! Every query is sent as an unnamed statement with the types of its
+//! parameters (`query_typed`), in a single round trip. Named prepared
+//! statements break through Cloudflare Hyperdrive, which the API worker
+//! reaches the database through. Each parameter's Postgres type comes from
+//! its Rust type, see [`PgType`].
 //!
 //! Rows are mapped with [`FromRow`]. A model's mapper reads the columns of its
 //! SQL fragment (see `sql_fragments.rs`) under an optional prefix, so the same
@@ -15,16 +19,27 @@
 
 use std::future::Future;
 
-use deadpool_postgres::GenericClient;
+use chrono::DateTime;
+use chrono::Utc;
+use jsr_types::postgres::PgEnum;
 use postgres_types::FromSql;
+use postgres_types::Kind;
 use postgres_types::ToSql;
 use postgres_types::Type;
 use tokio_postgres::Row;
 use tokio_postgres::error::SqlState;
+use uuid::Uuid;
+
+use super::models::*;
+use crate::ids::PackageName;
+use crate::ids::PackagePath;
+use crate::ids::ScopeDescription;
+use crate::ids::ScopeName;
+use crate::ids::Version;
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
-pub type Params<'a> = &'a [&'a (dyn ToSql + Sync)];
+pub type Params<'a> = &'a [&'a dyn Param];
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -71,6 +86,141 @@ impl std::fmt::Display for ErrorChain<'_> {
   }
 }
 
+/// The Postgres type a query parameter is sent as.
+#[derive(Clone)]
+pub enum ParamType {
+  Builtin(Type),
+  /// A Postgres enum. Its OID differs between databases, so it is sent as an
+  /// unspecified type, which Postgres infers from the query.
+  Enum(&'static str),
+}
+
+impl ParamType {
+  fn to_type(&self) -> Type {
+    match self {
+      ParamType::Builtin(ty) => ty.clone(),
+      ParamType::Enum(name) => {
+        Type::new(name.to_string(), 0, Kind::Pseudo, "public".to_string())
+      }
+    }
+  }
+}
+
+/// A Rust type's Postgres type, for sending it as a query parameter.
+pub trait PgType {
+  const TYPE: ParamType;
+}
+
+/// A type that can be sent in an array parameter. Arrays of enums are sent
+/// as `text[]`, so the query has to cast them (`$1::task_status[]`).
+pub trait PgArrayElement {
+  const ARRAY_TYPE: Type;
+}
+
+/// A query parameter.
+pub trait Param: ToSql + Sync {
+  fn param_type(&self) -> ParamType;
+}
+
+impl<T: PgType + ToSql + Sync> Param for T {
+  fn param_type(&self) -> ParamType {
+    T::TYPE
+  }
+}
+
+macro_rules! pg_type {
+  ($($ty:ty => $type:ident / $array:ident),* $(,)?) => {
+    $(
+      impl PgType for $ty {
+        const TYPE: ParamType = ParamType::Builtin(Type::$type);
+      }
+
+      impl PgArrayElement for $ty {
+        const ARRAY_TYPE: Type = Type::$array;
+      }
+    )*
+  };
+}
+
+pg_type!(
+  bool => BOOL / BOOL_ARRAY,
+  i16 => INT2 / INT2_ARRAY,
+  i32 => INT4 / INT4_ARRAY,
+  i64 => INT8 / INT8_ARRAY,
+  f32 => FLOAT4 / FLOAT4_ARRAY,
+  f64 => FLOAT8 / FLOAT8_ARRAY,
+  str => TEXT / TEXT_ARRAY,
+  String => TEXT / TEXT_ARRAY,
+  Uuid => UUID / UUID_ARRAY,
+  DateTime<Utc> => TIMESTAMPTZ / TIMESTAMPTZ_ARRAY,
+  serde_json::Value => JSONB / JSONB_ARRAY,
+  ScopeName => TEXT / TEXT_ARRAY,
+  ScopeDescription => TEXT / TEXT_ARRAY,
+  PackageName => TEXT / TEXT_ARRAY,
+  PackagePath => TEXT / TEXT_ARRAY,
+  Version => TEXT / TEXT_ARRAY,
+  PublishingTaskError => JSONB / JSONB_ARRAY,
+  PackageVersionMeta => JSONB / JSONB_ARRAY,
+  Permissions => JSONB / JSONB_ARRAY,
+  ExportsMap => JSONB / JSONB_ARRAY,
+  RuntimeCompat => JSONB / JSONB_ARRAY,
+);
+
+macro_rules! pg_enum_type {
+  ($($ty:ty),* $(,)?) => {
+    $(
+      impl PgType for $ty {
+        const TYPE: ParamType = ParamType::Enum(<$ty as PgEnum>::NAME);
+      }
+
+      impl PgArrayElement for $ty {
+        const ARRAY_TYPE: Type = Type::TEXT_ARRAY;
+      }
+    )*
+  };
+}
+
+pg_enum_type!(
+  PublishingTaskStatus,
+  ReadmeSource,
+  TokenType,
+  DependencyKind,
+  DownloadKind,
+  TicketKind,
+  TicketStatus,
+  TicketMessageDirection,
+);
+
+impl PgType for Vec<u8> {
+  const TYPE: ParamType = ParamType::Builtin(Type::BYTEA);
+}
+
+impl<T: PgType + ?Sized> PgType for &T {
+  const TYPE: ParamType = T::TYPE;
+}
+
+impl<T: PgType> PgType for Option<T> {
+  const TYPE: ParamType = T::TYPE;
+}
+
+impl<T: PgArrayElement> PgType for Vec<T> {
+  const TYPE: ParamType = ParamType::Builtin(T::ARRAY_TYPE);
+}
+
+impl<T: PgArrayElement> PgType for [T] {
+  const TYPE: ParamType = ParamType::Builtin(T::ARRAY_TYPE);
+}
+
+fn typed<'a>(params: Params<'a>) -> Vec<(&'a (dyn ToSql + Sync), Type)> {
+  params
+    .iter()
+    .map(|param| {
+      let ty = param.param_type().to_type();
+      (*param as &(dyn ToSql + Sync), ty)
+    })
+    .collect()
+}
+
 /// Something a query can run against.
 pub trait Executor: Sync {
   fn query_rows(
@@ -108,16 +258,34 @@ macro_rules! impl_executor {
         sql: &str,
         params: Params<'_>,
       ) -> Result<Vec<Row>> {
-        let statement = self.prepare_cached(sql).await?;
-        Ok(GenericClient::query(self, &statement, params).await?)
+        let rows = self.query_typed(sql, &typed(params)).await?;
+        #[cfg(test)]
+        assert_builtin_columns(sql, &rows);
+        Ok(rows)
       }
 
       async fn execute(&self, sql: &str, params: Params<'_>) -> Result<u64> {
-        let statement = self.prepare_cached(sql).await?;
-        Ok(GenericClient::execute(self, &statement, params).await?)
+        Ok(self.execute_typed(sql, &typed(params)).await?)
       }
     }
   };
+}
+
+/// Columns of a custom type (an enum) make tokio-postgres look the type up
+/// with named prepared statements, which is what `query_typed` is avoiding.
+/// Select them as `::text` instead.
+#[cfg(test)]
+fn assert_builtin_columns(sql: &str, rows: &[Row]) {
+  if let Some(row) = rows.first() {
+    for column in row.columns() {
+      assert!(
+        Type::from_oid(column.type_().oid()).is_some(),
+        "column {} is of type {}, select it as ::text: {sql}",
+        column.name(),
+        column.type_(),
+      );
+    }
+  }
 }
 
 impl_executor!(deadpool_postgres::Client);

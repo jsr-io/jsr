@@ -2845,7 +2845,7 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", user
         )
         SELECT
           task.id as \"task_id\",
-          task.status as \"task_status\",
+          task.status::text as \"task_status\",
           task.error as \"task_error\",
           task.user_id as \"task_user_id\",
           task.package_scope as \"task_package_scope\",
@@ -3913,7 +3913,7 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", user
     end: DateTime<Utc>,
   ) -> Result<Vec<VersionDownloadDataPoint>> {
     query_as::<VersionDownloadDataPoint>(r#"
-      SELECT version, time_bucket, kind, count::int8 as "count"
+      SELECT version, time_bucket, kind::text AS kind, count::int8 AS count
       FROM version_download_counts_24h
       WHERE scope = $1 AND package = $2 AND version = ANY($3) AND time_bucket >= $4 AND time_bucket < $5
       ORDER BY time_bucket ASC, version DESC
@@ -3955,7 +3955,7 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", user
   ) -> Result<Vec<DownloadDataPoint>> {
     query_as::<DownloadDataPoint>(
       r#"
-    SELECT time_bucket, kind, count::int8 as "count"
+    SELECT time_bucket, kind::text AS kind, count::int8 AS count
     FROM package_download_counts_24h
     WHERE scope = $1 AND package = $2 AND time_bucket >= $3 AND time_bucket < $4
     ORDER BY time_bucket ASC
