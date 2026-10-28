@@ -27,6 +27,8 @@ locals {
   }, {
     "DATABASE_DISABLE_MIGRATIONS" = "1"
     "METADATA_STRATEGY" = "service_account_key"
+    # Staging test only: log the Postgres messages on each connection.
+    "DB_PROTOCOL_TRACE" = "1"
   })
 }
 

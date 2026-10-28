@@ -377,6 +377,78 @@ struct HyperdriveSocket {
   /// Bytes of the last chunk read that didn't fit the caller's buffer.
   unread: Vec<u8>,
   write: Option<JsFuture>,
+  trace: Option<ProtocolTrace>,
+}
+
+/// Logs the Postgres message types sent and received on a connection, when
+/// `DB_PROTOCOL_TRACE` is set. Message contents aren't logged, except the
+/// text of errors from the server.
+struct ProtocolTrace {
+  id: usize,
+  /// The startup message has no type byte, so the first write is skipped.
+  started: bool,
+  /// Received bytes not yet forming a whole message.
+  pending: Vec<u8>,
+}
+
+impl ProtocolTrace {
+  fn new() -> Option<Self> {
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::atomic::Ordering;
+    static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
+    std::env::var_os("DB_PROTOCOL_TRACE")?;
+    Some(Self {
+      id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
+      started: false,
+      pending: Vec::new(),
+    })
+  }
+
+  fn sent(&mut self, bytes: &[u8]) {
+    let mut bytes = bytes;
+    if !self.started {
+      self.started = true;
+      return;
+    }
+    let mut types = String::new();
+    while bytes.len() >= 5 {
+      let len = u32::from_be_bytes(bytes[1..5].try_into().unwrap()) as usize;
+      types.push(bytes[0] as char);
+      bytes = &bytes[(1 + len).min(bytes.len())..];
+    }
+    println!("db#{} > {types}", self.id);
+  }
+
+  fn received(&mut self, bytes: &[u8]) {
+    self.pending.extend_from_slice(bytes);
+    let mut types = String::new();
+    let mut offset = 0;
+    while self.pending.len() - offset >= 5 {
+      let frame = &self.pending[offset..];
+      let len = u32::from_be_bytes(frame[1..5].try_into().unwrap()) as usize;
+      if frame.len() < 1 + len {
+        break;
+      }
+      types.push(frame[0] as char);
+      if frame[0] == b'E' || frame[0] == b'N' {
+        types.push_str(&format!("[{}]", error_message(&frame[5..1 + len])));
+      }
+      offset += 1 + len;
+    }
+    self.pending.drain(..offset);
+    println!("db#{} < {types}", self.id);
+  }
+}
+
+/// The severity, code and message fields of an ErrorResponse or
+/// NoticeResponse.
+fn error_message(body: &[u8]) -> String {
+  body
+    .split(|&b| b == 0)
+    .filter(|field| matches!(field.first(), Some(b'S' | b'C' | b'M')))
+    .map(|field| String::from_utf8_lossy(&field[1..]).into_owned())
+    .collect::<Vec<_>>()
+    .join(" ")
 }
 
 fn call(target: &JsValue, method: &str) -> Result<JsValue, JsValue> {
@@ -436,6 +508,7 @@ impl HyperdriveSocket {
       read: None,
       unread: Vec::new(),
       write: None,
+      trace: ProtocolTrace::new(),
     }
   }
 
@@ -488,6 +561,11 @@ impl AsyncRead for HyperdriveSocket {
       let value = Reflect::get(&chunk, &"value".into())
         .map_err(|err| io_error(js_error(err)))?;
       self.unread = Uint8Array::new(&value).to_vec();
+      let unread = std::mem::take(&mut self.unread);
+      if let Some(trace) = &mut self.trace {
+        trace.received(&unread);
+      }
+      self.unread = unread;
     }
   }
 }
@@ -503,6 +581,9 @@ impl AsyncWrite for HyperdriveSocket {
     // `Uint8Array::from` copies `buf`, so the stream never holds a view into
     // wasm memory. Writes queue in order; the next write, flush or shutdown
     // waits for this one.
+    if let Some(trace) = &mut self.trace {
+      trace.sent(buf);
+    }
     let chunk = Uint8Array::from(buf);
     self.write = Some(promise(call1(&self.writer, "write", &chunk))?);
     Poll::Ready(Ok(buf.len()))
