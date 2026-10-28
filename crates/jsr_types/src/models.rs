@@ -72,14 +72,6 @@ pub struct NewUser<'s> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(
-  feature = "postgres",
-  derive(postgres_types::ToSql, postgres_types::FromSql)
-)]
-#[cfg_attr(
-  feature = "postgres",
-  postgres(name = "task_status", rename_all = "lowercase")
-)]
 pub enum PublishingTaskStatus {
   /// The task is scheduled to start processing.
   Pending,
@@ -195,14 +187,6 @@ pub struct Package {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(
-  feature = "postgres",
-  derive(postgres_types::ToSql, postgres_types::FromSql)
-)]
-#[cfg_attr(
-  feature = "postgres",
-  postgres(name = "package_readme_source", rename_all = "lowercase")
-)]
 #[serde(rename_all = "lowercase")]
 pub enum ReadmeSource {
   Readme,
@@ -320,14 +304,6 @@ pub struct NewPackageFile<'s> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(
-  feature = "postgres",
-  derive(postgres_types::ToSql, postgres_types::FromSql)
-)]
-#[cfg_attr(
-  feature = "postgres",
-  postgres(name = "token_type", rename_all = "lowercase")
-)]
 pub enum TokenType {
   /// Token obtained when signing in with GitHub, used in the web UI.
   Web,
@@ -568,14 +544,6 @@ impl ExportsMap {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(
-  feature = "postgres",
-  derive(postgres_types::ToSql, postgres_types::FromSql)
-)]
-#[cfg_attr(
-  feature = "postgres",
-  postgres(name = "dependency_kind", rename_all = "lowercase")
-)]
 pub enum DependencyKind {
   Jsr,
   Npm,
@@ -710,14 +678,6 @@ pub struct VersionDownloadDataPoint {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(
-  feature = "postgres",
-  derive(postgres_types::ToSql, postgres_types::FromSql)
-)]
-#[cfg_attr(
-  feature = "postgres",
-  postgres(name = "download_kind", rename_all = "snake_case")
-)]
 #[serde(rename_all = "snake_case")]
 pub enum DownloadKind {
   /// A download of the version's JSR $version_meta.json file.
@@ -727,15 +687,7 @@ pub enum DownloadKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(
-  feature = "postgres",
-  derive(postgres_types::ToSql, postgres_types::FromSql)
-)]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(
-  feature = "postgres",
-  postgres(name = "ticket_kind", rename_all = "snake_case")
-)]
 pub enum TicketKind {
   UserScopeQuotaIncrease,
   ScopeQuotaIncrease,
@@ -748,15 +700,7 @@ pub enum TicketKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(
-  feature = "postgres",
-  derive(postgres_types::ToSql, postgres_types::FromSql)
-)]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(
-  feature = "postgres",
-  postgres(name = "ticket_status", rename_all = "snake_case")
-)]
 pub enum TicketStatus {
   Open,
   WaitingOnUser,
@@ -792,15 +736,7 @@ impl TicketStatus {
 /// ticket, `outbound` is from JSR — a staff reply or the automatic
 /// acknowledgement.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(
-  feature = "postgres",
-  derive(postgres_types::ToSql, postgres_types::FromSql)
-)]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(
-  feature = "postgres",
-  postgres(name = "ticket_message_direction", rename_all = "snake_case")
-)]
 pub enum TicketMessageDirection {
   Inbound,
   Outbound,
