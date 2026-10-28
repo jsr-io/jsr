@@ -53,12 +53,9 @@ resource "cloudflare_workers_script" "jsr_lb" {
       name = "NPM_DOMAIN"
       text = local.npm_domain
       }, {
-      # Cloud Run service URLs aren't secret; keep as plain_text so the
-      # current value is visible from the worker's bindings page (needed
-      # to verify the LB is pointing at a live Cloud Run revision).
-      type = "plain_text"
-      name = "REGISTRY_API_URL"
-      text = google_cloud_run_v2_service.registry_api.uri
+      type    = "service"
+      name    = "API"
+      service = cloudflare_worker.jsr_api.name
       }, {
       # Service binding to the frontend Worker. Terraform uploads new
       # versions via `cloudflare_worker_version.jsr_frontend` and
@@ -99,7 +96,10 @@ resource "cloudflare_workers_script" "jsr_lb" {
     }
   ]
 
-  depends_on = [cloudflare_workers_deployment.jsr_frontend]
+  depends_on = [
+    cloudflare_workers_deployment.jsr_frontend,
+    cloudflare_workers_deployment.jsr_api,
+  ]
 
   lifecycle {
     create_before_destroy = true

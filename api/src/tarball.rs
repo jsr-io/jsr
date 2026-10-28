@@ -1,4 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+use crate::util::Fetch;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io;
@@ -126,7 +127,7 @@ async fn resolve_from_fallback(
   let response = client
     .get(meta_url.clone())
     .timeout(FALLBACK_REQUEST_TIMEOUT)
-    .send()
+    .fetch()
     .await
     .map_err(|e| PublishError::FallbackRegistryError {
       url: meta_url.to_string(),
@@ -178,7 +179,7 @@ async fn resolve_from_fallback(
     let response = client
       .get(version_meta_url.clone())
       .timeout(FALLBACK_REQUEST_TIMEOUT)
-      .send()
+      .fetch()
       .await
       .map_err(|e| PublishError::FallbackRegistryError {
         url: version_meta_url.to_string(),

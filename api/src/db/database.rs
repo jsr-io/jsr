@@ -83,6 +83,8 @@ impl std::fmt::Debug for Database {
 /// when the database requires a client certificate (`ssl_mode =
 /// TRUSTED_CLIENT_CERTIFICATE_REQUIRED`); the same cert is also presented by
 /// the Hyperdrive-backed `api` Worker so both reach Cloud SQL over mTLS.
+// The worker reaches the database through Hyperdrive, which does the TLS.
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 pub struct DbTls {
   pub client_cert: String,
   pub client_key: String,
@@ -95,35 +97,58 @@ impl Database {
     acquire_timeout: std::time::Duration,
     tls: Option<DbTls>,
   ) -> anyhow::Result<Self> {
-    let mut pg_config = tokio_postgres::Config::from_str(database_url)?;
-    // Check a connection is still alive before handing it out, like sqlx's
-    // pool did, so one dropped while idle doesn't fail the next query.
-    let manager_config = deadpool_postgres::ManagerConfig {
-      recycling_method: deadpool_postgres::RecyclingMethod::Verified,
+    #[cfg(not(target_arch = "wasm32"))]
+    let pool = {
+      let mut pg_config = tokio_postgres::Config::from_str(database_url)?;
+      // Check a connection is still alive before handing it out, like sqlx's
+      // pool did, so one dropped while idle doesn't fail the next query.
+      let manager_config = deadpool_postgres::ManagerConfig {
+        recycling_method: deadpool_postgres::RecyclingMethod::Verified,
+      };
+      let manager = if let Some(tls) = tls {
+        // See `make_tls_connect` for why the server certificate isn't verified.
+        pg_config.ssl_mode(tokio_postgres::config::SslMode::Require);
+        deadpool_postgres::Manager::from_config(
+          pg_config,
+          super::tls::make_tls_connect(&tls)?,
+          manager_config,
+        )
+      } else {
+        deadpool_postgres::Manager::from_config(
+          pg_config,
+          tokio_postgres::NoTls,
+          manager_config,
+        )
+      };
+      let pool = deadpool_postgres::Pool::builder(manager)
+        .max_size(pool_size as usize)
+        .runtime(deadpool_postgres::Runtime::Tokio1)
+        .wait_timeout(Some(acquire_timeout))
+        .create_timeout(Some(acquire_timeout))
+        .build()?;
+      // Fail at startup if the database is unreachable, like the pool used to.
+      drop(pool.get().await?);
+      pool
     };
-    let manager = if let Some(tls) = tls {
-      // See `make_tls_connect` for why the server certificate isn't verified.
-      pg_config.ssl_mode(tokio_postgres::config::SslMode::Require);
-      deadpool_postgres::Manager::from_config(
-        pg_config,
-        super::tls::make_tls_connect(&tls)?,
-        manager_config,
-      )
-    } else {
-      deadpool_postgres::Manager::from_config(
-        pg_config,
-        tokio_postgres::NoTls,
-        manager_config,
-      )
+    // A Worker can't reuse I/O across requests, so open one connection when a
+    // query needs it. See `WorkerConnect` for how it reaches the database.
+    #[cfg(target_arch = "wasm32")]
+    let pool = {
+      let _ = (pool_size, tls);
+      let manager = deadpool_postgres::Manager::from_connect(
+        tokio_postgres::Config::from_str(database_url)?,
+        crate::worker_js::WorkerConnect,
+        deadpool_postgres::ManagerConfig {
+          recycling_method: deadpool_postgres::RecyclingMethod::Fast,
+        },
+      );
+      deadpool_postgres::Pool::builder(manager)
+        .max_size(1)
+        .runtime(deadpool_postgres::Runtime::Tokio1)
+        .wait_timeout(Some(acquire_timeout))
+        .create_timeout(Some(acquire_timeout))
+        .build()?
     };
-    let pool = deadpool_postgres::Pool::builder(manager)
-      .max_size(pool_size as usize)
-      .runtime(deadpool_postgres::Runtime::Tokio1)
-      .wait_timeout(Some(acquire_timeout))
-      .create_timeout(Some(acquire_timeout))
-      .build()?;
-    // Fail at startup if the database is unreachable, like the pool used to.
-    drop(pool.get().await?);
     if std::env::var("DATABASE_DISABLE_MIGRATIONS").is_err() {
       super::migrate::run(&pool)
         .await
