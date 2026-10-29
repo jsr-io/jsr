@@ -24,8 +24,7 @@ locals {
       # The database is reached through Hyperdrive, which does the TLS.
       ["DATABASE_URL", "DB_CLIENT_CERT", "DB_CLIENT_KEY"],
     ), name)
-  }, {
-    "DATABASE_DISABLE_MIGRATIONS" = "1"
+    }, {
     "METADATA_STRATEGY" = "service_account_key"
   })
 }
@@ -96,6 +95,9 @@ resource "cloudflare_worker_version" "jsr_api" {
 }
 
 resource "cloudflare_workers_deployment" "jsr_api" {
+  # Serve the new version only once the database is migrated.
+  depends_on = [google_cloud_run_v2_job.registry_api_setup]
+
   account_id  = var.cloudflare_account_id
   script_name = cloudflare_worker.jsr_api.name
   strategy    = "percentage"

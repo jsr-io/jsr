@@ -117,14 +117,14 @@ impl Database {
       .idle_timeout(None)
       .max_lifetime(None)
       .connect_lazy_with(opts);
-    if std::env::var("DATABASE_DISABLE_MIGRATIONS").is_err() {
-      migrate!("./migrations")
-        .run(&pool)
-        .await
-        .expect("database schema error");
-    }
     println!("Database ready");
     Ok(Database { pool })
+  }
+
+  /// Applies the migrations in `api/migrations` that haven't run yet.
+  pub async fn migrate(&self) -> anyhow::Result<()> {
+    migrate!("./migrations").run(&self.pool).await?;
+    Ok(())
   }
 
   #[instrument(name = "Database::get_user", skip(self), err)]
