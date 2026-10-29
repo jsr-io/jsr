@@ -117,7 +117,6 @@ impl Database {
       .idle_timeout(None)
       .max_lifetime(None)
       .connect_lazy_with(opts);
-    println!("Database ready");
     Ok(Database { pool })
   }
 
