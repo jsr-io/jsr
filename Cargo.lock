@@ -2269,7 +2269,7 @@ name = "jsr_npm_tarball"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "base64 0.21.7",
+ "base64 0.22.1",
  "deno_ast",
  "deno_error",
  "deno_graph",
