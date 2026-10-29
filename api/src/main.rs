@@ -201,6 +201,38 @@ pub(crate) fn main_router(
   router::app(router, data)
 }
 
+/// Migrates the database and upserts the service account token.
+async fn setup(database: &Database, service_account_token: Option<&str>) {
+  database.migrate().await.expect("database schema error");
+  database
+    .upsert_service_account_token(
+      service_account_token
+        .filter(|token| !token.is_empty())
+        .map(token::hash),
+    )
+    .await
+    .expect("failed to upsert service account token");
+}
+
+/// `registry_api setup`: runs [`setup`] and exits. Deploys run this once
+/// before the new version serves, see `terraform/cloud_run_api.tf`.
+#[cfg(not(target_arch = "wasm32"))]
+async fn setup_command() {
+  let config = config::SetupConfig::parse_from(std::env::args().skip(1));
+  let tls = match (config.db_client_cert, config.db_client_key) {
+    (Some(client_cert), Some(client_key)) => Some(crate::db::DbTls {
+      client_cert,
+      client_key,
+    }),
+    _ => None,
+  };
+  let database =
+    Database::connect(&config.database_url, 1, Duration::from_secs(15), tls)
+      .await
+      .unwrap();
+  setup(&database, config.service_account_token.as_deref()).await;
+}
+
 async fn build_router(config: Config) -> App {
   // Treat a present-but-empty OTLP_ENDPOINT as unset: clap parses an empty env
   // var as Some(""), which would otherwise build a schemeless endpoint and
@@ -236,16 +268,9 @@ async fn build_router(config: Config) -> App {
   .await
   .unwrap();
 
-  database
-    .upsert_service_account_token(
-      config
-        .service_account_token
-        .as_deref()
-        .filter(|token| !token.is_empty())
-        .map(token::hash),
-    )
-    .await
-    .expect("failed to upsert service account token");
+  if config.setup {
+    setup(&database, config.service_account_token.as_deref()).await;
+  }
 
   let s3_client = s3::S3Client::new(
     &config.s3_endpoint,
@@ -404,6 +429,9 @@ async fn build_router(config: Config) -> App {
 async fn main() {
   dotenvy::from_filename(".env.local").ok();
   dotenvy::dotenv().ok();
+  if std::env::args().nth(1).as_deref() == Some("setup") {
+    return setup_command().await;
+  }
   let config = Config::parse();
   println!("{config:?}");
   let port = config.port;
@@ -528,9 +556,13 @@ mod worker {
       // SAFETY: single-threaded emscripten worker; no other threads race here.
       unsafe { std::env::set_var("DATABASE_URL", url) };
     }
-    let config =
-      Config::try_parse_from(["registry_api", "--api", "--tasks=false"])
-        .map_err(|e| JsValue::from_str(&format!("config: {e}")))?;
+    let config = Config::try_parse_from([
+      "registry_api",
+      "--api",
+      "--tasks=false",
+      "--setup=false",
+    ])
+    .map_err(|e| JsValue::from_str(&format!("config: {e}")))?;
     let app = build_router(config).await;
     let hyper_req = to_hyper_request(request).await?;
     let Ok(hyper_resp) =

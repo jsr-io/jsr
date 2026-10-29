@@ -149,13 +149,14 @@ impl Database {
         .create_timeout(Some(acquire_timeout))
         .build()?
     };
-    if std::env::var("DATABASE_DISABLE_MIGRATIONS").is_err() {
-      super::migrate::run(&pool)
-        .await
-        .expect("database schema error");
-    }
     println!("Database ready");
     Ok(Database { pool })
+  }
+
+  /// Applies the migrations in `api/migrations` that haven't run yet.
+  pub async fn migrate(&self) -> anyhow::Result<()> {
+    super::migrate::run(&self.pool).await?;
+    Ok(())
   }
 
   #[instrument(name = "Database::get_user", skip(self), err)]

@@ -56,6 +56,7 @@ impl EphemeralDatabase {
       Database::connect(&database_url, 1, Duration::from_secs(5), None)
         .await
         .unwrap();
+    database.migrate().await.unwrap();
 
     Self {
       database: Some(database),
