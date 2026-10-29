@@ -258,14 +258,31 @@ macro_rules! impl_executor {
         sql: &str,
         params: Params<'_>,
       ) -> Result<Vec<Row>> {
+        #[cfg(target_arch = "wasm32")]
+        let started = crate::worker_js::now();
         let rows = self.query_typed(sql, &typed(params)).await?;
+        #[cfg(target_arch = "wasm32")]
+        println!(
+          "timing: db query {:.0}ms {}",
+          crate::worker_js::now() - started,
+          sql.split_whitespace().take(8).collect::<Vec<_>>().join(" ")
+        );
         #[cfg(test)]
         assert_builtin_columns(sql, &rows);
         Ok(rows)
       }
 
       async fn execute(&self, sql: &str, params: Params<'_>) -> Result<u64> {
-        Ok(self.execute_typed(sql, &typed(params)).await?)
+        #[cfg(target_arch = "wasm32")]
+        let started = crate::worker_js::now();
+        let result = self.execute_typed(sql, &typed(params)).await?;
+        #[cfg(target_arch = "wasm32")]
+        println!(
+          "timing: db execute {:.0}ms {}",
+          crate::worker_js::now() - started,
+          sql.split_whitespace().take(8).collect::<Vec<_>>().join(" ")
+        );
+        Ok(result)
       }
     }
   };

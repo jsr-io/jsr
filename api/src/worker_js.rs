@@ -271,35 +271,75 @@ impl deadpool_postgres::Connect for WorkerConnect {
   > {
     let pg_config = pg_config.clone();
     Box::pin(AssertSend(async move {
-      let has_binding = ENV.with(|env| {
-        env.borrow().as_ref().is_some_and(|env| {
-          Reflect::get(env, &"HYPERDRIVE".into())
-            .is_ok_and(|binding| !binding.is_undefined())
-        })
-      });
-      if has_binding {
-        let (client, connection) = pg_config
-          .connect_raw(HyperdriveSocket::open(), tokio_postgres::NoTls)
-          .await?;
-        Ok((client, spawn_connection(connection)))
-      } else {
-        // A failure to connect is returned by the socket's first read, so it
-        // surfaces as the connection's error.
-        match local_socket(&pg_config).await {
-          Ok(stream) => {
-            let (client, connection) =
-              pg_config.connect_raw(stream, tokio_postgres::NoTls).await?;
-            Ok((client, spawn_connection(connection)))
-          }
-          Err(err) => {
-            let (client, connection) = pg_config
-              .connect_raw(FailedSocket(err), tokio_postgres::NoTls)
-              .await?;
-            Ok((client, spawn_connection(connection)))
-          }
+      let started = now();
+      let result = connect(pg_config).await;
+      println!("timing: db connect {:.0}ms", now() - started);
+      result
+    }))
+  }
+}
+
+// TIMING: temporary instrumentation.
+pub fn now() -> f64 {
+  js_sys::Date::now()
+}
+
+/// Logs the data center this isolate runs in, once per isolate.
+pub async fn log_colo() {
+  thread_local! {
+    static LOGGED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+  }
+  if LOGGED.with(|logged| logged.replace(true)) {
+    return;
+  }
+  let request = reqwest::Request::new(
+    reqwest::Method::GET,
+    "https://www.cloudflare.com/cdn-cgi/trace".parse().unwrap(),
+  );
+  let response = fetch(request, true).await;
+  let body = response.text().await.unwrap_or_default();
+  let colo = body
+    .lines()
+    .find(|line| line.starts_with("colo="))
+    .unwrap_or("colo=?");
+  println!("timing: isolate runs in {colo}");
+}
+
+async fn connect(
+  pg_config: tokio_postgres::Config,
+) -> Result<
+  (tokio_postgres::Client, tokio::task::JoinHandle<()>),
+  tokio_postgres::Error,
+> {
+  {
+    let has_binding = ENV.with(|env| {
+      env.borrow().as_ref().is_some_and(|env| {
+        Reflect::get(env, &"HYPERDRIVE".into())
+          .is_ok_and(|binding| !binding.is_undefined())
+      })
+    });
+    if has_binding {
+      let (client, connection) = pg_config
+        .connect_raw(HyperdriveSocket::open(), tokio_postgres::NoTls)
+        .await?;
+      Ok((client, spawn_connection(connection)))
+    } else {
+      // A failure to connect is returned by the socket's first read, so it
+      // surfaces as the connection's error.
+      match local_socket(&pg_config).await {
+        Ok(stream) => {
+          let (client, connection) =
+            pg_config.connect_raw(stream, tokio_postgres::NoTls).await?;
+          Ok((client, spawn_connection(connection)))
+        }
+        Err(err) => {
+          let (client, connection) = pg_config
+            .connect_raw(FailedSocket(err), tokio_postgres::NoTls)
+            .await?;
+          Ok((client, spawn_connection(connection)))
         }
       }
-    }))
+    }
   }
 }
 

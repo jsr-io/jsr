@@ -563,10 +563,25 @@ mod worker {
       "--setup=false",
     ])
     .map_err(|e| JsValue::from_str(&format!("config: {e}")))?;
+    let started = crate::worker_js::now();
+    crate::worker_js::log_colo().await;
+    let colo_done = crate::worker_js::now();
     let app = build_router(config).await;
+    let built = crate::worker_js::now();
+    let url = request.url();
     let hyper_req = to_hyper_request(request).await?;
     let Ok(hyper_resp) =
       TracedRouterService::new(app, true).oneshot(hyper_req).await;
-    to_web_response(hyper_resp).await
+    let handled = crate::worker_js::now();
+    let response = to_web_response(hyper_resp).await;
+    println!(
+      "timing: request {:.0}ms (colo lookup {:.0}, build {:.0}, handle {:.0}, respond {:.0}) {url}",
+      crate::worker_js::now() - started,
+      colo_done - started,
+      built - colo_done,
+      handled - built,
+      crate::worker_js::now() - handled,
+    );
+    response
   }
 }
