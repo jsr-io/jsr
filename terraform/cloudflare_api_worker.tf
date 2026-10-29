@@ -160,14 +160,3 @@ resource "cloudflare_hyperdrive_config" "api" {
   # Leaves room under max_connections (150) for the Cloud Run tasks service.
   origin_connection_limit = 100
 }
-
-# Staging test only: reach the API worker directly on workers.dev, to compare
-# where it runs with requests that come through the LB's service binding.
-resource "cloudflare_workers_script_subdomain" "jsr_api" {
-  depends_on = [cloudflare_workers_deployment.jsr_api]
-
-  account_id       = var.cloudflare_account_id
-  script_name      = cloudflare_worker.jsr_api.name
-  enabled          = true
-  previews_enabled = false
-}
