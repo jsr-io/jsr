@@ -559,11 +559,11 @@ mod worker {
     init.set_status(parts.status.as_u16());
     init.set_headers(&headers);
 
-    let mut body_vec = bytes.to_vec();
-    web_sys::Response::new_with_opt_u8_array_and_init(
-      Some(&mut body_vec),
-      &init,
-    )
+    // Copy the body into JS memory: a `&mut [u8]` is passed as a view into
+    // wasm memory, which the runtime reads only after this function has
+    // returned and the buffer has been freed and reused.
+    let body = js_sys::Uint8Array::from(bytes.as_ref());
+    web_sys::Response::new_with_opt_buffer_source_and_init(Some(&body), &init)
   }
 
   #[wasm_bindgen(experimental_tokio = "isolated")]
