@@ -14,6 +14,7 @@ use serde::de::DeserializeOwned;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use tracing::Span;
 use tracing::error;
 use tracing::field;
@@ -854,8 +855,11 @@ impl RequestIdExt for Request<Body> {
   }
 }
 
+/// The SPDX license list. Decoding it takes ~100ms of CPU, and only
+/// publishing needs it, so it is decoded once per process, on first use: the
+/// worker, which builds the app for every request, never pays for it.
 #[derive(Clone)]
-pub struct LicenseStore(pub Arc<askalono::Store>);
+pub struct LicenseStore(pub &'static LazyLock<askalono::Store>);
 
 impl LicenseStore {
   /// Check if a license identifier is recognized, either as a primary key
@@ -877,8 +881,9 @@ impl LicenseStore {
 pub fn license_store() -> LicenseStore {
   static CACHE: &[u8] =
     include_bytes!(concat!(env!("OUT_DIR"), "/license-store.cache"));
-  let store = askalono::Store::from_cache(CACHE).unwrap();
-  LicenseStore(Arc::new(store))
+  static STORE: LazyLock<askalono::Store> =
+    LazyLock::new(|| askalono::Store::from_cache(CACHE).unwrap());
+  LicenseStore(&STORE)
 }
 
 #[cfg(test)]

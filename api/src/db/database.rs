@@ -149,7 +149,6 @@ impl Database {
         .create_timeout(Some(acquire_timeout))
         .build()?
     };
-    println!("Database ready");
     Ok(Database { pool })
   }
 
