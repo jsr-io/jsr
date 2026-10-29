@@ -10,7 +10,6 @@ export RUSTFLAGS="${RUSTFLAGS:-} --cfg=tokio_unstable --cfg=wasm_bindgen_unstabl
 export CARGO_PROFILE_RELEASE_OPT_LEVEL=s
 export CARGO_PROFILE_RELEASE_LTO=true
 export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1
-export SQLX_OFFLINE=true
 # Stable's LLVM 22 emits exception-handling code wasm-bindgen 0.2.129 can't parse.
 export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-nightly}"
 

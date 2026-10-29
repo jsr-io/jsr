@@ -34,6 +34,7 @@ use crate::analysis::PackageAnalysisOutput;
 use crate::analysis::analyze_package;
 use crate::api::package::MAX_PUBLISH_TARBALL_SIZE;
 use crate::db::Database;
+use crate::db::DbError;
 use crate::db::ExportsMap;
 use crate::db::PublishingTask;
 use crate::db::{DependencyKind, PackageVersionMeta};
@@ -765,7 +766,7 @@ pub enum PublishError {
   InvalidTarball(io::Error),
 
   #[error("database error")]
-  DatabaseError(#[from] sqlx::Error),
+  DatabaseError(#[from] DbError),
 
   #[error(
     "entry at '{path}' is a link, only regular files and directories are allowed"

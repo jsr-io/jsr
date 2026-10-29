@@ -151,21 +151,6 @@ jobs:
         run: cargo fmt --all -- --check
         working-directory: api
 
-      - name: Setup postgres for tests
-        run: docker compose up -d
-
-      - uses: taiki-e/cache-cargo-install-action@9ee83daaa7b96a6fab930949ecf1122bba04a389 # v3.0.8
-        with:
-          tool: sqlx-cli@0.7.1
-
-      - name: Check sqlx metadata is up to date
-        run: |
-          cargo sqlx migrate run
-          cargo sqlx prepare --check -- --all-targets
-        working-directory: api
-        env:
-          DATABASE_URL: postgres://user:password@localhost/registry
-
       - name: Lint
         run: cargo clippy --all-targets --all-features -- -D warnings
         working-directory: api

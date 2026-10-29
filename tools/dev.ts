@@ -609,23 +609,7 @@ async function runSetup(noDockerPostgres: boolean) {
     });
   }
 
-  // 5. Check sqlx-cli
-  steps.push({
-    name: "Check sqlx-cli",
-    fn: async () => {
-      const ver = await checkCommand("sqlx", ["--version"]);
-      if (ver) {
-        console.log(`  ${ver}`);
-        return "ok";
-      }
-      console.log(
-        "  sqlx not found. Install with: cargo install sqlx-cli",
-      );
-      return "fail";
-    },
-  });
-
-  // 6. /etc/hosts entries
+  // 5. /etc/hosts entries
   const wsl = await isWSL();
   steps.push({
     name: `Check hosts entries${wsl ? " (WSL + Windows)" : ""}`,
@@ -644,7 +628,7 @@ async function runSetup(noDockerPostgres: boolean) {
     },
   });
 
-  // 7. Install frontend dependencies
+  // 6. Install frontend dependencies
   steps.push({
     name: "Install frontend dependencies",
     fn: async () => {
@@ -665,7 +649,7 @@ async function runSetup(noDockerPostgres: boolean) {
     },
   });
 
-  // 8. Check api/.env
+  // 7. Check api/.env
   steps.push({
     name: "Check api/.env",
     fn: async () => {
@@ -692,7 +676,7 @@ async function runSetup(noDockerPostgres: boolean) {
     },
   });
 
-  // 9. Create Postgres database
+  // 8. Create Postgres database
   steps.push({
     name: "Create PostgreSQL database",
     fn: async () => {
@@ -730,56 +714,6 @@ async function runSetup(noDockerPostgres: boolean) {
       }
       console.log(`  failed to create database: ${err}`);
       console.log("  run manually: createdb registry");
-      return "warn";
-    },
-  });
-
-  // 10. Run database migrations
-  steps.push({
-    name: "Run database migrations",
-    fn: async () => {
-      const sqlxVer = await checkCommand("sqlx", ["--version"]);
-      if (!sqlxVer) {
-        console.log("  sqlx not installed, skipping migrations");
-        console.log("  install with: cargo install sqlx-cli");
-        console.log("  then run: deno task db:migrate");
-        return "warn";
-      }
-
-      // Check if DATABASE_URL is available
-      let hasDbUrl = false;
-      try {
-        const envContent = await Deno.readTextFile(`${rootDir}/api/.env`);
-        hasDbUrl = envContent.includes("DATABASE_URL=") &&
-          !envContent.includes("DATABASE_URL=postgres://<");
-      } catch {
-        // no .env file
-      }
-
-      if (!hasDbUrl) {
-        console.log(
-          "  DATABASE_URL not configured in api/.env, skipping migrations",
-        );
-        console.log("  after configuring, run: cd api && sqlx migrate run");
-        return "warn";
-      }
-
-      const cmd = new Deno.Command(Deno.execPath(), {
-        args: ["task", "db:migrate"],
-        cwd: rootDir,
-        stdout: "piped",
-        stderr: "piped",
-      });
-      const out = await cmd.output();
-      if (out.success) {
-        console.log("  migrations applied");
-        return "ok";
-      }
-      const err = new TextDecoder().decode(out.stderr).trim();
-      console.log(`  migration failed: ${err}`);
-      if (err.includes("role") && err.includes("does not exist")) {
-        console.log("  hint: run 'createuser -s postgres' and try again");
-      }
       return "warn";
     },
   });
