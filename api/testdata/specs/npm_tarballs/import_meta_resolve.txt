@@ -1,0 +1,73 @@
+# mod.ts
+export const worker: string = import.meta.resolve("./worker.ts");
+export const encoding: string = import.meta.resolve("jsr:@std/encoding@1/base64");
+export const chalk: string = import.meta.resolve("npm:chalk@5");
+export const remote: string = import.meta.resolve("https://example.com/mod.js");
+
+# worker.ts
+self.onmessage = () => {};
+
+# jsr.json
+{
+  "name": "@scope/foo",
+  "version": "0.0.1",
+  "exports": {
+    ".": "./mod.ts"
+  }
+}
+
+# output
+== /_dist/mod.d.ts ==
+export declare const worker: string;
+export declare const encoding: string;
+export declare const chalk: string;
+export declare const remote: string;
+//# sourceMappingURL=mod.d.ts.map
+
+== /_dist/mod.d.ts.map ==
+{"version":3,"file":"mod.d.ts","sources":["../mod.ts"],"names":[],"mappings":"AAAA,OAAO,cAAM,QAAQ,MAAM,CAAsC;AACjE,OAAO,cAAM,UAAU,MAAM,CAAqD;AAClF,OAAO,cAAM,OAAO,MAAM,CAAsC;AAChE,OAAO,cAAM,QAAQ,MAAM,CAAqD"}
+
+== /jsr.json ==
+{
+  "name": "@scope/foo",
+  "version": "0.0.1",
+  "exports": {
+    ".": "./mod.ts"
+  }
+}
+
+== /mod.js ==
+export const worker = import.meta.resolve("./worker.ts");
+export const encoding = import.meta.resolve("@jsr/std__encoding/base64");
+export const chalk = import.meta.resolve("chalk");
+export const remote = import.meta.resolve("https://example.com/mod.js");
+//# sourceMappingURL=mod.js.map
+
+== /mod.js.map ==
+{"version":3,"file":"mod.js","sources":["./mod.ts"],"names":[],"mappings":"AAAA,OAAO,MAAM,SAAiB,YAAY,OAAO,CAAC,eAAe;AACjE,OAAO,MAAM,WAAmB,YAAY,OAAO,CAAC,6BAA8B;AAClF,OAAO,MAAM,QAAgB,YAAY,OAAO,CAAC,SAAe;AAChE,OAAO,MAAM,SAAiB,YAAY,OAAO,CAAC,8BAA8B"}
+
+== /mod.ts ==
+export const worker: string = import.meta.resolve("./worker.ts");
+export const encoding: string = import.meta.resolve("@jsr/std__encoding/base64");
+export const chalk: string = import.meta.resolve("chalk");
+export const remote: string = import.meta.resolve("https://example.com/mod.js");
+
+== /package.json ==
+{
+  "name": "@jsr/scope__foo",
+  "version": "0.0.1",
+  "homepage": "http://jsr.test/@scope/foo",
+  "type": "module",
+  "dependencies": {},
+  "exports": {
+    ".": {
+      "types": "./_dist/mod.d.ts",
+      "default": "./mod.js"
+    }
+  },
+  "_jsr_revision": 0
+}
+
+== /worker.ts ==
+self.onmessage = () => {};
+
