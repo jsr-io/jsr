@@ -7,6 +7,7 @@
 
 use crate::api::ApiError;
 use crate::util::ApiResult;
+use crate::util::Fetch;
 use crate::util::shared_http_client;
 use anyhow::Context;
 use jsonwebtoken::jwk::JwkSet;
@@ -61,7 +62,7 @@ pub async fn verify_token<Claims: DeserializeOwned>(
   let res = shared_http_client()
     .get(&provider.jwks_url)
     .header("Accept", "application/json")
-    .send()
+    .fetch()
     .await
     .context("failed to download oidc jwks")?;
   let status = res.status();

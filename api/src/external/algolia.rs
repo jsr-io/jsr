@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
+use crate::util::Fetch;
 use std::sync::Arc;
 
 use crate::api::ApiPackageScore;
@@ -106,7 +107,7 @@ impl AlgoliaClient {
         let res = client
           .request(Method::PUT, &path)
           .json(&body)
-          .send()
+          .fetch()
           .await
           .and_then(|res| res.error_for_status());
         if let Err(err) = res {
@@ -132,7 +133,7 @@ impl AlgoliaClient {
         );
         let res = client
           .request(Method::DELETE, &path)
-          .send()
+          .fetch()
           .await
           .and_then(|res| res.error_for_status());
         if let Err(err) = res {
@@ -164,7 +165,7 @@ impl AlgoliaClient {
         let res = client
           .request(Method::POST, &path)
           .json(&serde_json::json!({ "filters": filters }))
-          .send()
+          .fetch()
           .await
           .and_then(|res| res.error_for_status());
         if let Err(err) = res {
@@ -210,7 +211,7 @@ impl AlgoliaClient {
             let res = client
               .request(Method::POST, &path)
               .json(&serde_json::json!({ "requests": requests }))
-              .send()
+              .fetch()
               .await
               .and_then(|res| res.error_for_status());
             if let Err(err) = res {

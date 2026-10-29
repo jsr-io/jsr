@@ -61,6 +61,10 @@ pub struct Config {
   /// The strategy to use to retrieve metadata from the GCP environment.
   pub metadata_strategy: MetadataStrategy,
 
+  #[clap(long = "gcp_service_account_key", env = "GCP_SERVICE_ACCOUNT_KEY")]
+  /// Service account key JSON for the `service_account_key` metadata strategy.
+  pub gcp_service_account_key: Option<String>,
+
   #[clap(
     long = "database_url",
     env = "DATABASE_URL",
@@ -260,6 +264,36 @@ pub struct Config {
   #[clap(long = "db_client_key", env = "DB_CLIENT_KEY")]
   /// PEM private key matching `db_client_cert`.
   pub db_client_key: Option<String>,
+
+  #[clap(long = "setup", default_value_t = true, action = ArgAction::Set)]
+  /// Migrate the database and upsert the service account token on startup.
+  /// Off on the worker, which builds the app for every request, and on the
+  /// deployed Cloud Run services: deploys run `registry_api setup` once
+  /// instead.
+  pub setup: bool,
+}
+
+/// The configuration of `registry_api setup`, which migrates the database
+/// and upserts the service account token, then exits. Takes the same
+/// database settings as [`Config`], and nothing else, so it can run without
+/// the service's other configuration.
+#[derive(Parser)]
+pub struct SetupConfig {
+  #[clap(
+    long = "database_url",
+    env = "DATABASE_URL",
+    default_value = "postgres://user:password@localhost/registry"
+  )]
+  pub database_url: String,
+
+  #[clap(long = "service_account_token", env = "SERVICE_ACCOUNT_TOKEN")]
+  pub service_account_token: Option<String>,
+
+  #[clap(long = "db_client_cert", env = "DB_CLIENT_CERT")]
+  pub db_client_cert: Option<String>,
+
+  #[clap(long = "db_client_key", env = "DB_CLIENT_KEY")]
+  pub db_client_key: Option<String>,
 }
 
 impl std::fmt::Debug for Config {
@@ -269,6 +303,10 @@ impl std::fmt::Debug for Config {
       .field("publishing_bucket", &self.publishing_bucket)
       .field("modules_bucket", &self.modules_bucket)
       .field("metadata_strategy", &self.metadata_strategy)
+      .field(
+        "gcp_service_account_key",
+        &self.gcp_service_account_key.as_ref().map(|_| "***"),
+      )
       .field("database_url", &"***")
       .field("github_client_id", &self.github_client_id)
       .field("github_client_secret", &"***")
@@ -310,6 +348,7 @@ impl std::fmt::Debug for Config {
         &self.db_client_cert.as_ref().map(|_| "***"),
       )
       .field("db_client_key", &self.db_client_key.as_ref().map(|_| "***"))
+      .field("setup", &self.setup)
       .finish()
   }
 }

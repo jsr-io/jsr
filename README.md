@@ -81,7 +81,6 @@ making changes to the API.
 - Install Rust (https://rustup.rs/)
 - On Linux: install `docker` & `docker-compose`
 - On macOS: install PostgreSQL (`brew install postgresql`)
-- Install `sqlx` by running `cargo install sqlx-cli`
 
 - Set up `api/.env` file:
   - For **@denoland employees**: Download the `.env` file from 1Password (it's
@@ -100,8 +99,8 @@ making changes to the API.
 
 ### Setup
 
-Run the setup command to verify prerequisites, configure `/etc/hosts`, create
-the database, and run migrations:
+Run the setup command to verify prerequisites, configure `/etc/hosts`, and
+create the database:
 
 ```sh
 deno task dev setup
@@ -109,13 +108,12 @@ deno task dev setup
 
 This will:
 
-- Check that all required tools are installed (Deno, Cargo, sqlx,
-  Docker/Postgres)
+- Check that all required tools are installed (Deno, Cargo, Docker/Postgres)
 - Add `jsr.test`, `api.jsr.test`, and `npm.jsr.test` to `/etc/hosts` (and the
   Windows hosts file if running under WSL)
 - Install frontend dependencies
 - Copy `api/.env.example` to `api/.env` if it doesn't exist
-- Create the `registry` database and run migrations
+- Create the `registry` database
 
 ### Running jsr
 
@@ -182,12 +180,8 @@ done via the following steps:
 
 ### Migrating the database
 
-When the database schema has been changed, you can migrate the local database by
-running this command:
-
-```sh
-deno task db:migrate
-```
+The API applies any pending migrations from `api/migrations` when it starts, so
+restarting it after the database schema has changed migrates the local database.
 
 ### Loading bad words
 
