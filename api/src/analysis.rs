@@ -25,7 +25,6 @@ use deno_graph::analysis::ModuleInfo;
 use deno_graph::ast::CapturingModuleAnalyzer;
 use deno_graph::ast::DefaultEsParser;
 use deno_graph::ast::ParsedSourceStore;
-use deno_graph::source::JsrUrlProvider;
 use deno_graph::source::LoadError;
 use deno_graph::source::LoadOptions;
 use deno_graph::source::NullFileSystem;
@@ -33,7 +32,6 @@ use deno_graph::source::load_data_url;
 use deno_semver::StackString;
 use deno_semver::jsr::JsrPackageReqReference;
 use deno_semver::npm::NpmPackageReqReference;
-use deno_semver::package::PackageNv;
 use deno_semver::package::PackageReqReference;
 use futures::FutureExt;
 use once_cell::sync::Lazy;
@@ -57,6 +55,9 @@ use crate::npm::create_npm_tarball;
 use crate::s3::BucketWithQueue;
 use crate::s3_paths;
 use crate::tarball::PublishError;
+
+pub use jsr_npm_tarball::JsrResolver;
+pub use jsr_npm_tarball::PassthroughJsrUrlProvider;
 
 pub struct PackageAnalysisData {
   pub exports: ExportsMap,
@@ -505,66 +506,6 @@ fn percentage_of_symbols_with_docs(documents_by_url: &ParseOutput) -> f32 {
   }
 
   (documented_symbols as f32) / (total_symbols as f32)
-}
-
-pub struct PassthroughJsrUrlProvider;
-
-impl JsrUrlProvider for PassthroughJsrUrlProvider {
-  fn url(&self) -> &Url {
-    unreachable!(
-      "BuildOptions::passthrough_jsr_specifiers should be set to true"
-    )
-  }
-
-  fn package_url(&self, _nv: &PackageNv) -> Url {
-    unreachable!(
-      "BuildOptions::passthrough_jsr_specifiers should be set to true"
-    )
-  }
-
-  fn package_url_to_nv(&self, _url: &Url) -> Option<PackageNv> {
-    None
-  }
-}
-
-#[derive(Debug)]
-pub struct JsrResolver {
-  pub member: WorkspaceMember,
-}
-
-impl deno_graph::source::Resolver for JsrResolver {
-  fn resolve(
-    &self,
-    specifier_text: &str,
-    referrer_range: &deno_graph::Range,
-    _kind: deno_graph::source::ResolutionKind,
-  ) -> Result<ModuleSpecifier, deno_graph::source::ResolveError> {
-    if let Ok(package_ref) = JsrPackageReqReference::from_str(specifier_text)
-      && self.member.name == package_ref.req().name
-      && self
-        .member
-        .version
-        .as_ref()
-        .map(|v| package_ref.req().version_req.matches(v))
-        .unwrap_or(true)
-    {
-      let export_name = package_ref.sub_path().unwrap_or(".");
-      let Some(export) = self.member.exports.get(export_name) else {
-        return Err(deno_graph::source::ResolveError::Other(
-          JsErrorBox::generic(format!(
-            "export '{}' not found in jsr:{}",
-            export_name, self.member.name
-          )),
-        ));
-      };
-      return Ok(self.member.base.join(export).unwrap());
-    }
-
-    Ok(deno_graph::resolve_import(
-      specifier_text,
-      &referrer_range.specifier,
-    )?)
-  }
 }
 
 struct SyncLoader<'a> {

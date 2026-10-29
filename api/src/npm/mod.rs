@@ -1,7 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-mod emit;
-mod import_transform;
-mod specifiers;
 mod tarball;
 #[cfg(test)]
 mod tests;
@@ -22,7 +19,7 @@ use crate::db::PackageVersionDependency;
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
 use crate::ids::Version;
-use crate::npm::tarball::create_npm_dependencies;
+use crate::npm::tarball::npm_dependency_kind;
 use crate::npm::types::NpmDistInfo;
 use crate::npm::types::NpmPackageInfo;
 use crate::npm::types::NpmRepositoryInfo;
@@ -119,9 +116,13 @@ pub async fn generate_npm_version_manifest<'a>(
         name: StackString::from_string(dep.dependency_name),
         version_req,
       };
-      Cow::Owned((dep.dependency_kind, PackageReqReference { req, sub_path }))
+      Cow::Owned((
+        npm_dependency_kind(dep.dependency_kind),
+        PackageReqReference { req, sub_path },
+      ))
     });
-    let npm_dependencies = create_npm_dependencies(dependencies)?;
+    let npm_dependencies =
+      jsr_npm_tarball::create_npm_dependencies(dependencies)?;
 
     let tarball = Url::options()
       .base_url(Some(npm_url))

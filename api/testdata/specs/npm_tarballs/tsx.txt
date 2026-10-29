@@ -1,0 +1,87 @@
+# mod.tsx
+import { helper } from "./helper.ts";
+
+export function App(props: { name: string }): unknown {
+  return <div>{helper(props.name)}</div>;
+}
+
+# helper.ts
+export function helper(name: string): string {
+  return `Hello ${name}`;
+}
+
+# jsr.json
+{
+  "name": "@scope/foo",
+  "version": "0.0.1",
+  "exports": {
+    ".": "./mod.tsx"
+  }
+}
+
+# output
+== /_dist/mod.d.ts ==
+export declare function App(props: {
+  name: string;
+}): unknown;
+//# sourceMappingURL=mod.d.ts.map
+
+== /_dist/mod.d.ts.map ==
+{"version":3,"file":"mod.d.ts","sources":["../mod.tsx"],"names":[],"mappings":"AAEA,OAAO,iBAAS,IAAI;EAAS,MAAM,MAAM;CAAE,GAAG,OAAO"}
+
+== /helper.js ==
+export function helper(name) {
+  return `Hello ${name}`;
+}
+//# sourceMappingURL=helper.js.map
+
+== /helper.js.map ==
+{"version":3,"file":"helper.js","sources":["./helper.ts"],"names":[],"mappings":"AAAA,OAAO,SAAS,OAAO,IAAY;EACjC,OAAO,CAAC,MAAM,EAAE,MAAM;AACxB"}
+
+== /helper.ts ==
+export function helper(name: string): string {
+  return `Hello ${name}`;
+}
+
+== /jsr.json ==
+{
+  "name": "@scope/foo",
+  "version": "0.0.1",
+  "exports": {
+    ".": "./mod.tsx"
+  }
+}
+
+== /mod.js ==
+import { helper } from "./helper.js";
+export function App(props) {
+  return /*#__PURE__*/ React.createElement("div", null, helper(props.name));
+}
+//# sourceMappingURL=mod.js.map
+
+== /mod.js.map ==
+{"version":3,"file":"mod.js","sources":["./mod.tsx"],"names":[],"mappings":"AAAA,SAAS,MAAM,sBAAsB;AAErC,OAAO,SAAS,IAAI,KAAuB;EACzC,qBAAO,oBAAC,aAAK,OAAO,MAAM,IAAI;AAChC"}
+
+== /mod.tsx ==
+import { helper } from "./helper.js";
+
+export function App(props: { name: string }): unknown {
+  return <div>{helper(props.name)}</div>;
+}
+
+== /package.json ==
+{
+  "name": "@jsr/scope__foo",
+  "version": "0.0.1",
+  "homepage": "http://jsr.test/@scope/foo",
+  "type": "module",
+  "dependencies": {},
+  "exports": {
+    ".": {
+      "types": "./_dist/mod.d.ts",
+      "default": "./mod.js"
+    }
+  },
+  "_jsr_revision": 0
+}
+

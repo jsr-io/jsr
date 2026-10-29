@@ -1,0 +1,27 @@
+# Copyright 2024 the JSR authors. All rights reserved. MIT license.
+[package]
+name = "jsr_npm_tarball"
+version = "0.1.0"
+edition = "2024"
+description = "Creates the npm tarball of a JSR package"
+license = "MIT"
+repository = "https://github.com/jsr-io/jsr"
+
+[dependencies]
+anyhow = "1"
+base64 = "0.21"
+deno_ast = { version = "0.53.0", features = ["transpiling"] }
+deno_error = "0.7.0"
+deno_graph = { version = "0.111.1", default-features = false, features = [
+    "fast_check",
+] }
+deno_semver = "0.10.1"
+flate2 = "1"
+futures = "0.3"
+indexmap = { version = "2.13.0", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha1 = "0.10.6"
+sha2 = "0.10.7"
+tar = "0.4"
+url = "2.5.4"

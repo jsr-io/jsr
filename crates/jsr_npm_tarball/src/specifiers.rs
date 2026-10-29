@@ -9,9 +9,7 @@ use deno_semver::jsr::JsrPackageReqReference;
 use deno_semver::npm::NpmPackageReqReference;
 use indexmap::IndexMap;
 
-use crate::ids::ScopedPackageName;
-
-use super::NpmMappedJsrPackageName;
+use crate::NPM_SCOPE;
 
 #[derive(Clone, Copy)]
 pub enum RewriteKind {
@@ -103,6 +101,29 @@ impl SpecifierRewriter<'_> {
 
     Some(new_specifier)
   }
+
+  /// Rewrites a specifier that isn't a dependency in the module graph, like
+  /// the argument of `import.meta.resolve()`.
+  pub fn rewrite_unanalyzed(&self, specifier: &str) -> Option<String> {
+    if let Some(rewritten) = rewrite_npm_and_jsr_specifier(specifier) {
+      return Some(rewritten);
+    }
+    if !specifier.starts_with("./") && !specifier.starts_with("../") {
+      return None;
+    }
+    let resolved = self.module_specifier.join(specifier).ok()?;
+    let resolved = follow_specifier(&resolved, self.source_rewrites)?;
+    let new_specifier =
+      relative_import_specifier(self.base_specifier, resolved);
+    (new_specifier != specifier).then_some(new_specifier)
+  }
+}
+
+/// Converts a JSR package name to the name of the package on the JSR npm
+/// registry: `@std/fs` becomes `@jsr/std__fs`.
+pub fn jsr_to_npm_package_name(jsr_name: &str) -> Option<String> {
+  let (scope, name) = jsr_name.strip_prefix('@')?.split_once('/')?;
+  Some(format!("@{NPM_SCOPE}/{scope}__{name}"))
 }
 
 pub fn relative_import_specifier(
@@ -146,11 +167,7 @@ pub fn follow_specifier<'a>(
 pub fn rewrite_npm_and_jsr_specifier(specifier: &str) -> Option<String> {
   if let Ok(jsr) = JsrPackageReqReference::from_str(specifier) {
     let req = jsr.into_inner();
-    let jsr_name = ScopedPackageName::new(req.req.name.to_string()).ok()?;
-    let npm_name = NpmMappedJsrPackageName {
-      scope: &jsr_name.scope,
-      package: &jsr_name.package,
-    };
+    let npm_name = jsr_to_npm_package_name(&req.req.name)?;
     // TODO: also check package version - there may be duplicate requests for
     // the same package
     let rewritten = format!(

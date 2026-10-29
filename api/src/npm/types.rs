@@ -1,13 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use indexmap::IndexMap;
+use jsr_npm_tarball::NPM_SCOPE;
 use serde::Serialize;
 
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
 use crate::ids::Version;
-
-// TODO: We don't have the @jsr scope on npm
-pub const NPM_SCOPE: &str = "jsr";
 
 pub struct NpmMappedJsrPackageName<'a> {
   pub scope: &'a ScopeName,
@@ -73,27 +71,4 @@ pub struct NpmPackageInfo<'a> {
   pub versions: IndexMap<Version, NpmVersionInfo<'a>>,
   // Used by `npm show <package>`
   pub time: IndexMap<String, String>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct NpmExportConditions {
-  #[serde(skip_serializing_if = "Option::is_none")]
-  pub types: Option<String>,
-  #[serde(skip_serializing_if = "Option::is_none")]
-  pub default: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct NpmPackageJson<'a> {
-  pub name: NpmMappedJsrPackageName<'a>,
-  pub version: Version,
-  pub homepage: String,
-
-  #[serde(rename = "type")]
-  pub module_type: String,
-  pub dependencies: IndexMap<String, String>,
-  pub exports: IndexMap<String, NpmExportConditions>,
-
-  #[serde(rename = "_jsr_revision")]
-  pub revision: u32,
 }

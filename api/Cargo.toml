@@ -95,7 +95,7 @@ rusty-s3 = "0.10.2"
 deno_semver = "0.10.1"
 flate2 = "1"
 thiserror = "2"
-deno_graph = "=0.111.0"
+deno_graph = "=0.111.1"
 deno_ast = { version = "0.53.0", features = ["view"] }
 # sync with frontend/deno.json
 deno_doc = { version = "=0.210.0", features = ["comrak"] }
@@ -135,6 +135,7 @@ lazy_static = "1.5.0"
 tikv-jemallocator = { version = "0.6", features = ["profiling"] }
 tikv-jemalloc-ctl = { version = "0.6", features = ["stats"] }
 registry_api_macros = { path = "macros" }
+jsr_npm_tarball = { path = "../crates/jsr_npm_tarball" }
 jsr_types = { path = "../crates/jsr_types", features = ["sqlx"] }
 
 [build-dependencies]
