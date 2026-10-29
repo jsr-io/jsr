@@ -10,6 +10,11 @@ terraform {
       source  = "hashicorp/google"
       version = ">= 6.0.0, < 7.0.0"
     }
+    # For `run_execution_token` on the setup job, see cloud_run_api.tf.
+    google-beta = {
+      source  = "hashicorp/google-beta"
+      version = ">= 6.0.0, < 7.0.0"
+    }
     cloudflare = {
       source  = "cloudflare/cloudflare"
       version = ">= 5.19.1, < 6.0.0"
@@ -26,6 +31,10 @@ terraform {
 }
 
 provider "google" {
+  project = var.gcp_project
+}
+
+provider "google-beta" {
   project = var.gcp_project
 }
 

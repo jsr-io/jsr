@@ -7,11 +7,9 @@ resolver = "2"
 
 [features]
 default = []
-# Enables the sqlx `FromRow`/`Type`/`Encode`/`Decode` impls on the model and id
-# types. Off by default so the crate builds for `wasm32-unknown-unknown` (sqlx
-# does not compile for wasm). The Cloud Run API server enables this; the
-# upcoming workers-rs front does not.
-sqlx = ["dep:sqlx"]
+# Enables the `postgres-types` `FromSql`/`ToSql` impls on the model and id
+# types. The API server enables this.
+postgres = ["dep:postgres-types", "dep:bytes"]
 # Exposes test-only constructors (e.g. `ExportsMap::mock()`) to downstream
 # crates' test builds.
 testing = []
@@ -26,13 +24,10 @@ uuid = { version = "1", features = ["serde"] }
 deno_semver = "0.10.1"
 thiserror = "2"
 indexmap = { version = "2.13.0", features = ["serde"] }
-sqlx = { version = "0.8.6", default-features = false, optional = true, features = [
-    "runtime-tokio",
-    "tls-rustls",
-    "postgres",
-    "macros",
-    "uuid",
-    "chrono",
-    "json",
-    "ipnetwork",
+postgres-types = { version = "0.2.14", optional = true, features = [
+    "derive",
+    "with-chrono-0_4",
+    "with-uuid-1",
+    "with-serde_json-1",
 ] }
+bytes = { version = "1", optional = true }

@@ -4,6 +4,7 @@ use hyper::Response;
 use std::borrow::Cow;
 
 use super::ApiPublishingTask;
+use crate::db::DbError;
 use crate::errors;
 use crate::s3::S3Error;
 
@@ -327,15 +328,9 @@ errors!(
   },
 );
 
-pub fn map_unique_violation(err: sqlx::Error, new_err: ApiError) -> ApiError {
-  if let Some(db_err) = err.as_database_error()
-    && let Some(code) = db_err.code()
-  {
-    // Code 23505 is unique_violation.
-    // See https://www.postgresql.org/docs/13/errcodes-appendix.html
-    if code == "23505" {
-      return new_err;
-    }
+pub fn map_unique_violation(err: DbError, new_err: ApiError) -> ApiError {
+  if err.is_unique_violation() {
+    return new_err;
   }
   err.into()
 }
@@ -347,8 +342,8 @@ impl From<anyhow::Error> for ApiError {
   }
 }
 
-impl From<sqlx::Error> for ApiError {
-  fn from(error: sqlx::Error) -> ApiError {
+impl From<DbError> for ApiError {
+  fn from(error: DbError) -> ApiError {
     anyhow::Error::from(error).into()
   }
 }
