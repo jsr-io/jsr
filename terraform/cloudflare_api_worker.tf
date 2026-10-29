@@ -51,6 +51,13 @@ resource "cloudflare_worker_version" "jsr_api" {
   compatibility_date  = "2026-09-02"
   compatibility_flags = ["nodejs_compat"]
 
+  # Run next to the database rather than next to the user: a request makes
+  # several sequential queries, each a round trip to Cloud SQL through
+  # Hyperdrive, so one long hop to here beats one per query.
+  placement = {
+    region = "gcp:us-central1"
+  }
+
   modules = [
     {
       name         = "index.js"
