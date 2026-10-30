@@ -7,22 +7,22 @@
   "licenseId": "Imlib2",
   "crossRef": [
     {
-      "match": "N/A",
-      "url": "http://trac.enlightenment.org/e/browser/trunk/imlib2/COPYING",
-      "isValid": true,
-      "isLive": false,
-      "timestamp": "2026-08-27T17:08:21Z",
-      "isWayBackLink": false,
-      "order": 0
-    },
-    {
       "match": "false",
       "url": "https://git.enlightenment.org/legacy/imlib2.git/tree/COPYING",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T17:08:21Z",
+      "timestamp": "2026-09-16T17:01:44Z",
       "isWayBackLink": false,
       "order": 1
+    },
+    {
+      "match": "N/A",
+      "url": "http://trac.enlightenment.org/e/browser/trunk/imlib2/COPYING",
+      "isValid": true,
+      "isLive": false,
+      "timestamp": "2026-09-16T17:01:44Z",
+      "isWayBackLink": false,
+      "order": 0
     }
   ],
   "seeAlso": [

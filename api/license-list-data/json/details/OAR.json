@@ -6,11 +6,11 @@
   "licenseId": "OAR",
   "crossRef": [
     {
-      "match": "N/A",
+      "match": "false",
       "url": "https://sourceware.org/git/?p\u003dnewlib-cygwin.git;a\u003dblob;f\u003dnewlib/libc/string/strsignal.c;hb\u003dHEAD#l35",
       "isValid": true,
-      "isLive": false,
-      "timestamp": "2026-08-27T17:08:22Z",
+      "isLive": true,
+      "timestamp": "2026-09-16T17:07:36Z",
       "isWayBackLink": false,
       "order": 0
     }

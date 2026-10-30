@@ -7,21 +7,21 @@
   "crossRef": [
     {
       "match": "N/A",
-      "url": "https://web.archive.org/web/20150926120323/http://fairlicense.org/",
-      "isValid": false,
-      "isLive": false,
-      "timestamp": "2026-08-27T17:07:28Z",
-      "isWayBackLink": false,
-      "order": 0
-    },
-    {
-      "match": "N/A",
       "url": "https://opensource.org/license/Fair",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T17:07:28Z",
+      "timestamp": "2026-09-16T16:59:32Z",
       "isWayBackLink": false,
       "order": 1
+    },
+    {
+      "match": "N/A",
+      "url": "https://web.archive.org/web/20150926120323/http://fairlicense.org/",
+      "isValid": false,
+      "isLive": false,
+      "timestamp": "2026-09-16T16:59:32Z",
+      "isWayBackLink": false,
+      "order": 0
     }
   ],
   "seeAlso": [
