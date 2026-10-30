@@ -17,9 +17,9 @@ import { TicketTitle } from "../components/TicketTitle.tsx";
 import type {
   ApiTicketActor,
   ApiTicketAttachment,
+  ApiTicketEvent,
   ApiTicketOverview,
   TicketKind,
-  TicketStatus,
 } from "../utils/api_types.ts";
 
 export default define.page<typeof handler>(function Ticket({
@@ -136,14 +136,7 @@ export default define.page<typeof handler>(function Ticket({
               </div>
             );
           } else {
-            return (
-              <StatusChange
-                key={event.auditLog.createdAt}
-                actorName={event.user.name}
-                meta={event.auditLog.meta}
-                createdAt={event.auditLog.createdAt}
-              />
-            );
+            return <TicketEvent key={event.event.id} event={event.event} />;
           }
         })}
       </div>
@@ -204,34 +197,27 @@ function AuthorRole(
   );
 }
 
-/// A status change, rendered as a timeline marker rather than a stray line of
-/// prose: same left gutter as the message cards, muted, and carrying the colour
-/// of the status it moved to.
-function StatusChange(
-  { actorName, meta, createdAt }: {
-    actorName: string;
-    meta: Record<string, unknown>;
-    createdAt: string;
-  },
-) {
-  // Audit log entries written before the status enum recorded a `closed`
-  // boolean instead, and those rows are still in the log.
-  const status = (meta.status as TicketStatus | undefined) ??
-    (typeof meta.closed === "boolean"
-      ? (meta.closed ? "closed" : "open")
-      : undefined);
-
+/// A status change or claim, rendered as a timeline marker rather than a stray
+/// line of prose: same left gutter as the message cards, muted, and for a status
+/// change carrying the colour of the status it moved to.
+function TicketEvent({ event }: { event: ApiTicketEvent }) {
   return (
     <div class="flex items-center gap-2 pl-4 text-sm text-gray-600 dark:text-gray-300">
-      {status
-        ? <TicketStatusDot status={status} />
+      {event.status
+        ? <TicketStatusDot status={event.status} />
         : <div class="rounded-full bg-jsr-gray-400 p-1 shrink-0" />}
       <p>
-        <span class="font-semibold">{actorName}</span> set the status to{" "}
-        <span class="font-semibold">
-          {status ? ticketStatusLabel(status) : "a new value"}
-        </span>{" "}
-        · {twas(new Date(createdAt).getTime())}
+        <a class="font-semibold link" href={`/user/${event.actor.id}`}>
+          {event.actor.name}
+        </a>{" "}
+        {event.kind === "claimed" ? "claimed this ticket" : (
+          <>
+            set the status to{" "}
+            <span class="font-semibold">
+              {event.status ? ticketStatusLabel(event.status) : "a new value"}
+            </span>
+          </>
+        )} · {twas(new Date(event.createdAt).getTime())}
       </p>
     </div>
   );

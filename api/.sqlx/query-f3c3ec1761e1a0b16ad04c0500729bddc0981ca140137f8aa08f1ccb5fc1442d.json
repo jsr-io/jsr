@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO ticket_events (ticket_id, actor, kind, status) VALUES ($1, $2, $3, $4)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        {
+          "Custom": {
+            "name": "ticket_event_kind",
+            "kind": {
+              "Enum": [
+                "status_change",
+                "claimed"
+              ]
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "ticket_status",
+            "kind": {
+              "Enum": [
+                "open",
+                "waiting_on_user",
+                "waiting_on_support",
+                "closed",
+                "spam"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f3c3ec1761e1a0b16ad04c0500729bddc0981ca140137f8aa08f1ccb5fc1442d"
+}

@@ -413,23 +413,25 @@ export interface ApiTicketMessage {
   createdAt: string;
 }
 
-export interface ApiAuditLog {
+export type TicketEventKind = "status_change" | "claimed";
+
+export interface ApiTicketEvent {
+  id: string;
+  kind: TicketEventKind;
+  /// The status moved to, for a status change.
+  status: TicketStatus | null;
   actor: User;
-  action: string;
-  isSudo: boolean;
-  meta: Record<string, unknown>;
   createdAt: string;
 }
 
-export type ApiTicketMessageOrAuditLog =
+export type ApiTicketMessageOrEvent =
   | {
     kind: "message";
     message: ApiTicketMessage;
   }
   | {
-    kind: "auditLog";
-    auditLog: ApiAuditLog;
-    user: User;
+    kind: "event";
+    event: ApiTicketEvent;
   };
 
 export interface ApiTicketOverview {
@@ -442,7 +444,7 @@ export interface ApiTicketOverview {
   subject: string | null;
   meta: Record<string, string>;
   status: TicketStatus;
-  events: ApiTicketMessageOrAuditLog[];
+  events: ApiTicketMessageOrEvent[];
   updatedAt: string;
   createdAt: string;
 }
