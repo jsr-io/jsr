@@ -10,21 +10,21 @@
   "crossRef": [
     {
       "match": "N/A",
-      "url": "https://opensource.org/license/GPL-2.0",
-      "isValid": true,
-      "isLive": false,
-      "timestamp": "2026-08-27T16:57:43Z",
-      "isWayBackLink": false,
-      "order": 1
-    },
-    {
-      "match": "N/A",
       "url": "https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html",
       "isValid": true,
       "isLive": false,
-      "timestamp": "2026-08-27T16:58:13Z",
+      "timestamp": "2026-10-28T19:49:23Z",
       "isWayBackLink": false,
       "order": 0
+    },
+    {
+      "match": "N/A",
+      "url": "https://opensource.org/license/GPL-2.0",
+      "isValid": true,
+      "isLive": false,
+      "timestamp": "2026-10-28T19:49:23Z",
+      "isWayBackLink": false,
+      "order": 1
     }
   ],
   "seeAlso": [

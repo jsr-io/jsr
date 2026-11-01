@@ -6,11 +6,11 @@
   "licenseId": "OGL-Canada-2.0",
   "crossRef": [
     {
-      "match": "true",
+      "match": "false",
       "url": "https://open.canada.ca/en/open-government-licence-canada",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T16:56:07Z",
+      "timestamp": "2026-10-28T19:50:13Z",
       "isWayBackLink": false,
       "order": 0
     }
