@@ -6,11 +6,11 @@
   "licenseId": "BSD-1-Clause",
   "crossRef": [
     {
-      "match": "false",
+      "match": "N/A",
       "url": "https://svnweb.freebsd.org/base/head/include/ifaddrs.h?revision\u003d326823",
       "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-08-27T16:55:21Z",
+      "isLive": false,
+      "timestamp": "2026-10-28T19:42:55Z",
       "isWayBackLink": false,
       "order": 0
     }

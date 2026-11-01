@@ -8,21 +8,21 @@
   "crossRef": [
     {
       "match": "N/A",
-      "url": "https://opensource.org/license/LPL-1.02",
-      "isValid": true,
-      "isLive": false,
-      "timestamp": "2026-08-27T17:07:42Z",
-      "isWayBackLink": false,
-      "order": 1
-    },
-    {
-      "match": "N/A",
       "url": "http://plan9.bell-labs.com/plan9/license.html",
       "isValid": true,
       "isLive": false,
-      "timestamp": "2026-08-27T17:07:42Z",
+      "timestamp": "2026-10-28T19:39:17Z",
       "isWayBackLink": false,
       "order": 0
+    },
+    {
+      "match": "N/A",
+      "url": "https://opensource.org/license/LPL-1.02",
+      "isValid": true,
+      "isLive": false,
+      "timestamp": "2026-10-28T19:39:17Z",
+      "isWayBackLink": false,
+      "order": 1
     }
   ],
   "seeAlso": [

@@ -6,11 +6,11 @@
   "licenseId": "GL2PS",
   "crossRef": [
     {
-      "match": "true",
+      "match": "N/A",
       "url": "http://www.geuz.org/gl2ps/COPYING.GL2PS",
       "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-08-27T17:08:22Z",
+      "isLive": false,
+      "timestamp": "2026-10-28T19:38:07Z",
       "isWayBackLink": false,
       "order": 0
     }

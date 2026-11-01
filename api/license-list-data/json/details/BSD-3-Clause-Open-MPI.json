@@ -9,21 +9,21 @@
   "crossRef": [
     {
       "match": "true",
-      "url": "https://www.open-mpi.org/community/license.php",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-08-27T16:56:07Z",
-      "isWayBackLink": false,
-      "order": 0
-    },
-    {
-      "match": "true",
       "url": "http://www.netlib.org/lapack/LICENSE.txt",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T16:56:07Z",
+      "timestamp": "2026-10-28T19:49:25Z",
       "isWayBackLink": false,
       "order": 1
+    },
+    {
+      "match": "true",
+      "url": "https://www.open-mpi.org/community/license.php",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-10-28T19:49:26Z",
+      "isWayBackLink": false,
+      "order": 0
     }
   ],
   "seeAlso": [
