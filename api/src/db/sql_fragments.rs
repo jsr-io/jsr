@@ -137,7 +137,6 @@ macro_rules! from_row {
   (@column $field:ident) => { stringify!($field) };
 }
 
-// USER_SELECT_FULL, USER_SELECT_FULL_JOINED
 from_row!(User {
   id,
   name,
@@ -156,7 +155,6 @@ from_row!(User {
   newer_ticket_messages_count,
 });
 
-// USER_PUBLIC_SELECT_JOINED, and any query selecting these users columns
 from_row!(UserPublic {
   id,
   name,
@@ -167,7 +165,6 @@ from_row!(UserPublic {
   created_at,
 });
 
-// SCOPE_SELECT, SCOPE_SELECT_JOINED
 from_row!(Scope {
   scope,
   description,
@@ -181,7 +178,6 @@ from_row!(Scope {
   created_at,
 });
 
-// SCOPE_USAGE_SELECT, with the `usage_` prefix
 impl FromRow for ScopeUsage {
   fn from_columns(c: Columns<'_>) -> Result<Self> {
     let count = |column| -> Result<i32> {
@@ -195,9 +191,6 @@ impl FromRow for ScopeUsage {
   }
 }
 
-// PACKAGE_SELECT plus `version_count` and `latest_version`,
-// PACKAGE_SELECT_JOINED, PACKAGE_BASE_SELECT_JOINED with
-// PACKAGE_VERSION_AGG_SELECT
 from_row!(Package {
   scope,
   name,
@@ -213,7 +206,6 @@ from_row!(Package {
   readme_source,
 });
 
-// GITHUB_REPOSITORY_SELECT_JOINED
 from_row!(GithubRepository {
   id,
   owner,
@@ -222,7 +214,6 @@ from_row!(GithubRepository {
   created_at,
 });
 
-// PACKAGE_VERSION_SELECT, PACKAGE_VERSION_SELECT_JOINED
 from_row!(PackageVersion {
   scope,
   name,
@@ -239,7 +230,6 @@ from_row!(PackageVersion {
   created_at,
 });
 
-// PACKAGE_VERSION_SELECT plus NEWER_VERSIONS_COUNT_SUBQUERY
 from_row!(PackageVersionWithNewerVersionsCount {
   scope,
   name,
@@ -257,7 +247,6 @@ from_row!(PackageVersionWithNewerVersionsCount {
   created_at,
 });
 
-// SCOPE_MEMBER_SELECT, SCOPE_MEMBER_SELECT_JOINED
 from_row!(ScopeMember {
   scope,
   user_id,
@@ -266,7 +255,6 @@ from_row!(ScopeMember {
   created_at,
 });
 
-// SCOPE_INVITE_SELECT, SCOPE_INVITE_SELECT_JOINED
 from_row!(ScopeInvite {
   scope,
   target_user_id,
@@ -275,7 +263,6 @@ from_row!(ScopeInvite {
   created_at,
 });
 
-// TOKEN_SELECT
 from_row!(Token {
   id,
   hash,
@@ -288,7 +275,6 @@ from_row!(Token {
   created_at,
 });
 
-// PUBLISHING_TASK_SELECT, PUBLISHING_TASK_SELECT_JOINED
 from_row!(PublishingTask {
   id,
   status,
@@ -302,7 +288,6 @@ from_row!(PublishingTask {
   updated_at,
 });
 
-// OAUTH_STATE_SELECT
 from_row!(OauthState {
   csrf_token,
   pkce_code_verifier,
@@ -312,7 +297,6 @@ from_row!(OauthState {
   created_at,
 });
 
-// AUTHORIZATION_SELECT
 from_row!(Authorization {
   exchange_token,
   code,
@@ -325,7 +309,6 @@ from_row!(Authorization {
   created_at,
 });
 
-// GITHUB_IDENTITY_SELECT
 from_row!(GithubIdentity {
   github_id,
   access_token,
@@ -336,7 +319,6 @@ from_row!(GithubIdentity {
   created_at,
 });
 
-// PACKAGE_FILE_SELECT
 from_row!(PackageFile {
   scope,
   name,
@@ -348,7 +330,6 @@ from_row!(PackageFile {
   created_at,
 });
 
-// NPM_TARBALL_SELECT
 from_row!(NpmTarball {
   scope,
   name,
@@ -361,7 +342,6 @@ from_row!(NpmTarball {
   created_at,
 });
 
-// PACKAGE_VERSION_DEPENDENCY_SELECT
 from_row!(PackageVersionDependency {
   package_scope,
   package_name,
@@ -375,7 +355,6 @@ from_row!(PackageVersionDependency {
   created_at,
 });
 
-// TICKET_SELECT_JOINED
 from_row!(Ticket {
   id,
   ticket_number,
@@ -392,7 +371,6 @@ from_row!(Ticket {
   created_at,
 });
 
-// TICKET_MESSAGE_SELECT_JOINED
 from_row!(TicketMessage {
   id,
   ticket_id,
@@ -408,7 +386,6 @@ from_row!(TicketMessage {
   created_at,
 });
 
-// AUDIT_LOG_SELECT_JOINED
 from_row!(AuditLog {
   actor_id,
   is_sudo,
@@ -416,9 +393,6 @@ from_row!(AuditLog {
   meta,
   created_at,
 });
-
-// Models selected by a single query, under the column names that query
-// aliases them to.
 
 from_row!(GitlabIdentity {
   gitlab_id,

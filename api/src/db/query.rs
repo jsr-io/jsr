@@ -117,7 +117,6 @@ pub trait PgArrayElement {
   const ARRAY_TYPE: Type;
 }
 
-/// A query parameter.
 pub trait Param: ToSql + Sync {
   fn param_type(&self) -> ParamType;
 }
@@ -221,7 +220,6 @@ fn typed<'a>(params: Params<'a>) -> Vec<(&'a (dyn ToSql + Sync), Type)> {
     .collect()
 }
 
-/// Something a query can run against.
 pub trait Executor: Sync {
   fn query_rows(
     &self,
@@ -335,8 +333,6 @@ impl<'a> Query<'a> {
     executor.query_rows(self.sql, self.params).await
   }
 
-  /// The first row, ignoring the rest. Fails with [`Error::RowNotFound`] if
-  /// there is none.
   pub async fn fetch_one(self, executor: &impl Executor) -> Result<Row> {
     self
       .fetch_optional(executor)
@@ -344,7 +340,6 @@ impl<'a> Query<'a> {
       .ok_or(Error::RowNotFound)
   }
 
-  /// The first row, if any, ignoring the rest.
   pub async fn fetch_optional(
     self,
     executor: &impl Executor,
@@ -377,7 +372,6 @@ impl<T, F: Fn(&Row) -> Result<T>> Map<'_, F> {
   }
 }
 
-/// Maps a row to a model.
 pub trait FromRow: Sized {
   /// Reads the model from the columns named `{prefix}{column}`.
   fn from_columns(columns: Columns<'_>) -> Result<Self>;

@@ -96,13 +96,11 @@ impl Database {
     tls: Option<DbTls>,
   ) -> anyhow::Result<Self> {
     let mut pg_config = tokio_postgres::Config::from_str(database_url)?;
-    // Check a connection is still alive before handing it out, like sqlx's
-    // pool did, so one dropped while idle doesn't fail the next query.
+    // A connection dropped while idle must not fail the next query.
     let manager_config = deadpool_postgres::ManagerConfig {
       recycling_method: deadpool_postgres::RecyclingMethod::Verified,
     };
     let manager = if let Some(tls) = tls {
-      // See `make_tls_connect` for why the server certificate isn't verified.
       pg_config.ssl_mode(tokio_postgres::config::SslMode::Require);
       deadpool_postgres::Manager::from_config(
         pg_config,
@@ -122,7 +120,7 @@ impl Database {
       .wait_timeout(Some(acquire_timeout))
       .create_timeout(Some(acquire_timeout))
       .build()?;
-    // Fail at startup if the database is unreachable, like the pool used to.
+    // Fail at startup if the database is unreachable.
     drop(pool.get().await?);
     if std::env::var("DATABASE_DISABLE_MIGRATIONS").is_err() {
       super::migrate::run(&pool)
@@ -4796,8 +4794,6 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", user
   }
 }
 
-/// Maps the columns of PACKAGE_SELECT_JOINED and, from a LEFT JOIN,
-/// GITHUB_REPOSITORY_SELECT_JOINED.
 fn package_with_github_repository_and_meta(
   r: &tokio_postgres::Row,
 ) -> Result<PackageWithGitHubRepoAndMeta> {
