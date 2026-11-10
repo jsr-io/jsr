@@ -50,9 +50,17 @@ pub enum Error {
   #[error("failed to get a database connection: {0}")]
   Pool(#[from] deadpool_postgres::PoolError),
   // `tokio_postgres::Error`'s own message is only its kind ("db error",
-  // "error serializing parameter 0"), the details are in its source.
+  // "error serializing parameter 0"), the details are in its source. The
+  // message includes the chain, so the inner error is not exposed as the
+  // source as well, which would print it twice.
   #[error("{}", ErrorChain(.0))]
-  Postgres(#[from] tokio_postgres::Error),
+  Postgres(tokio_postgres::Error),
+}
+
+impl From<tokio_postgres::Error> for Error {
+  fn from(err: tokio_postgres::Error) -> Self {
+    Error::Postgres(err)
+  }
 }
 
 impl Error {
@@ -256,14 +264,23 @@ macro_rules! impl_executor {
         sql: &str,
         params: Params<'_>,
       ) -> Result<Vec<Row>> {
-        let rows = self.query_typed(sql, &typed(params)).await?;
+        let params = typed(params);
         #[cfg(test)]
-        assert_builtin_columns(sql, &rows);
-        Ok(rows)
+        assert_builtin_columns(
+          sql,
+          &self.prepare_typed(sql, &types(&params)).await?,
+        );
+        Ok(self.query_typed(sql, &params).await?)
       }
 
       async fn execute(&self, sql: &str, params: Params<'_>) -> Result<u64> {
-        Ok(self.execute_typed(sql, &typed(params)).await?)
+        let params = typed(params);
+        #[cfg(test)]
+        assert_builtin_columns(
+          sql,
+          &self.prepare_typed(sql, &types(&params)).await?,
+        );
+        Ok(self.execute_typed(sql, &params).await?)
       }
     }
   };
@@ -271,19 +288,23 @@ macro_rules! impl_executor {
 
 /// Columns of a custom type (an enum) make tokio-postgres look the type up
 /// with named prepared statements, which is what `query_typed` is avoiding.
-/// Select them as `::text` instead.
+/// Select them as `::text` instead. The statement is prepared so that the
+/// columns are checked even when the query returns no rows.
 #[cfg(test)]
-fn assert_builtin_columns(sql: &str, rows: &[Row]) {
-  if let Some(row) = rows.first() {
-    for column in row.columns() {
-      assert!(
-        Type::from_oid(column.type_().oid()).is_some(),
-        "column {} is of type {}, select it as ::text: {sql}",
-        column.name(),
-        column.type_(),
-      );
-    }
+fn assert_builtin_columns(sql: &str, statement: &tokio_postgres::Statement) {
+  for column in statement.columns() {
+    assert!(
+      Type::from_oid(column.type_().oid()).is_some(),
+      "column {} is of type {}, select it as ::text: {sql}",
+      column.name(),
+      column.type_(),
+    );
   }
+}
+
+#[cfg(test)]
+fn types(params: &[(&(dyn ToSql + Sync), Type)]) -> Vec<Type> {
+  params.iter().map(|(_, ty)| ty.clone()).collect()
 }
 
 impl_executor!(deadpool_postgres::Client);

@@ -14,6 +14,7 @@ use sha2::Sha384;
 
 use super::query::Error;
 use super::query::query;
+use super::query::query_scalar;
 
 pub struct Migration {
   pub version: i64,
@@ -54,21 +55,27 @@ pub async fn run(pool: &deadpool_postgres::Pool) -> Result<(), MigrateError> {
 
   // Same lock id as sqlx, so a sqlx-based instance starting up during a
   // deploy can't migrate at the same time.
-  let database_name: String = conn
-    .query_one("SELECT current_database()", &[])
-    .await?
-    .get(0);
+  let database_name = query_scalar::<String>("SELECT current_database()", &[])
+    .fetch_one(&conn)
+    .await?;
   let lock_id = 0x3d32ad9e * (crc32fast::hash(database_name.as_bytes()) as i64);
-  conn
-    .execute("SELECT pg_advisory_lock($1)", &[&lock_id])
+  query("SELECT pg_advisory_lock($1)", &[&lock_id])
+    .execute(&conn)
     .await?;
 
   let result = run_locked(&mut conn).await;
 
-  conn
-    .execute("SELECT pg_advisory_unlock($1)", &[&lock_id])
-    .await?;
-  result
+  let unlocked = query("SELECT pg_advisory_unlock($1)", &[&lock_id])
+    .execute(&conn)
+    .await;
+  if unlocked.is_err() {
+    // The session still holds the lock, so the connection must not go back
+    // to the pool.
+    drop(deadpool_postgres::Object::take(conn));
+  }
+  result?;
+  unlocked?;
+  Ok(())
 }
 
 async fn run_locked(
@@ -87,12 +94,12 @@ async fn run_locked(
     )
     .await?;
 
-  let applied = conn
-    .query(
-      "SELECT version, success, checksum FROM _sqlx_migrations ORDER BY version",
-      &[],
-    )
-    .await?;
+  let applied = query(
+    "SELECT version, success, checksum FROM _sqlx_migrations ORDER BY version",
+    &[],
+  )
+  .fetch_all(&*conn)
+  .await?;
 
   let mut applied_versions = Vec::with_capacity(applied.len());
   for row in &applied {

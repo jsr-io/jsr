@@ -114,12 +114,35 @@ impl Database {
         manager_config,
       )
     };
+    const MAX_LIFETIME: std::time::Duration =
+      std::time::Duration::from_secs(30 * 60);
+    const IDLE_TIMEOUT: std::time::Duration =
+      std::time::Duration::from_secs(10 * 60);
     let pool = deadpool_postgres::Pool::builder(manager)
       .max_size(pool_size as usize)
       .runtime(deadpool_postgres::Runtime::Tokio1)
       .wait_timeout(Some(acquire_timeout))
       .create_timeout(Some(acquire_timeout))
+      .recycle_timeout(Some(acquire_timeout))
+      .pre_recycle(deadpool_postgres::Hook::sync_fn(|_, metrics| {
+        if metrics.age() > MAX_LIFETIME || metrics.last_used() > IDLE_TIMEOUT {
+          Err(deadpool_postgres::HookError::message("connection expired"))
+        } else {
+          Ok(())
+        }
+      }))
       .build()?;
+    tokio::spawn({
+      let pool = pool.clone();
+      async move {
+        loop {
+          tokio::time::sleep(IDLE_TIMEOUT / 10).await;
+          pool.retain(|_, metrics| {
+            metrics.age() <= MAX_LIFETIME && metrics.last_used() <= IDLE_TIMEOUT
+          });
+        }
+      }
+    });
     // Fail at startup if the database is unreachable.
     drop(pool.get().await?);
     if std::env::var("DATABASE_DISABLE_MIGRATIONS").is_err() {
@@ -929,8 +952,8 @@ impl Database {
       SET github_repository_id = NULL
       WHERE scope = $1 AND name = $2
       RETURNING ", PACKAGE_SELECT, r#",
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count",
-        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#), &[&scope, &name])
+        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "version_count",
+        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name ORDER BY version DESC LIMIT 1) as "latest_version""#), &[&scope, &name])
       .fetch_one(&tx)
       .await?;
 
@@ -972,8 +995,8 @@ impl Database {
       SET runtime_compat = $3
       WHERE scope = $1 AND name = $2
       RETURNING ", PACKAGE_SELECT, r#",
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count",
-        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#), &[&scope, &name, &runtime_compat])
+        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "version_count",
+        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name ORDER BY version DESC LIMIT 1) as "latest_version""#), &[&scope, &name, &runtime_compat])
       .fetch_one(&tx)
       .await?;
 
@@ -1012,8 +1035,8 @@ impl Database {
       SET when_featured = $3
       WHERE scope = $1 AND name = $2
       RETURNING ", PACKAGE_SELECT, r#",
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count",
-        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#), &[&scope, &name, &when_featured])
+        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "version_count",
+        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name ORDER BY version DESC LIMIT 1) as "latest_version""#), &[&scope, &name, &when_featured])
       .fetch_one(&tx)
       .await?;
 
@@ -1051,8 +1074,8 @@ impl Database {
       SET is_archived = $3
       WHERE scope = $1 AND name = $2
       RETURNING ", PACKAGE_SELECT, r#",
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count",
-        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#), &[&scope, &name, &is_archived])
+        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "version_count",
+        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name ORDER BY version DESC LIMIT 1) as "latest_version""#), &[&scope, &name, &is_archived])
       .fetch_one(&tx)
       .await?;
 
@@ -1090,8 +1113,8 @@ impl Database {
       SET readme_source = $3
       WHERE scope = $1 AND name = $2
       RETURNING ", PACKAGE_SELECT, r#",
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count",
-        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#), &[&scope, &name, &source])
+        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "version_count",
+        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name ORDER BY version DESC LIMIT 1) as "latest_version""#), &[&scope, &name, &source])
       .fetch_one(&tx)
       .await?;
 
@@ -1601,7 +1624,7 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", user
     .fetch_all(&tx)
     .await?;
 
-    let total_packages = query_scalar::<i64>(r#"SELECT COUNT(created_at) FROM packages WHERE (packages.scope ILIKE $1 OR packages.name ILIKE $2) AND (packages.github_repository_id = $3 OR $3 IS NULL);"#, &[&scope_ilike_query, &package_ilike_query, &maybe_github_repo_id])
+    let total_packages = query_scalar::<i64>(r#"SELECT COUNT(created_at) FROM packages WHERE (packages.scope ILIKE $1 OR packages.name ILIKE $2) AND (packages.github_repository_id = $3 OR $3 IS NULL) AND NOT packages.is_archived;"#, &[&scope_ilike_query, &package_ilike_query, &maybe_github_repo_id])
       .fetch_one(&tx)
       .await?;
 
@@ -3750,7 +3773,7 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", user
         SELECT
           scope,
           updated_at,
-          (SELECT updated_at FROM packages WHERE scope = scope ORDER BY updated_At DESC LIMIT 1) as "latest_package_created_at"
+          (SELECT updated_at FROM packages WHERE scope = scopes.scope ORDER BY updated_at DESC LIMIT 1) as "latest_package_created_at"
         FROM scopes
         ORDER BY scope ASC
         LIMIT 50000
@@ -3771,9 +3794,9 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", user
   ) -> Result<Vec<(ScopeName, PackageName, DateTime<Utc>, DateTime<Utc>)>> {
     query(r#"SELECT
         scope, name, updated_at,
-        (SELECT created_at FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version_updated_at"
+        (SELECT created_at FROM package_versions WHERE scope = packages.scope AND name = packages.name ORDER BY version DESC LIMIT 1) as "latest_version_updated_at"
       FROM packages
-      WHERE (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) IS NOT NULL
+      WHERE (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name ORDER BY version DESC LIMIT 1) IS NOT NULL
       ORDER BY scope ASC, name ASC
       LIMIT 50000"#, &[])
       .map(|r| {
@@ -4723,16 +4746,17 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", user
     let tx = conn.transaction().await?;
 
     let search = format!("%{}%", maybe_search_query.unwrap_or(""));
-    let sql = sort_by!(
-      maybe_sort,
-      concatcp!("SELECT
-      ", AUDIT_LOG_SELECT_JOINED, ", ", USER_PUBLIC_SELECT_JOINED, "
-      FROM audit_logs
+    const FILTER: &str = "FROM audit_logs
       LEFT JOIN users ON audit_logs.actor_id = users.id
       WHERE (audit_logs.action ILIKE $1
          OR users.name ILIKE $1
          OR audit_logs.meta::text ILIKE $1)
-         AND ($2 IS NOT TRUE OR audit_logs.is_sudo = TRUE)
+         AND ($2 IS NOT TRUE OR audit_logs.is_sudo = TRUE)";
+    let sql = sort_by!(
+      maybe_sort,
+      concatcp!("SELECT
+      ", AUDIT_LOG_SELECT_JOINED, ", ", USER_PUBLIC_SELECT_JOINED, "
+      ", FILTER, "
       ORDER BY "),
       " OFFSET $3 LIMIT $4
       "
@@ -4753,9 +4777,12 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", user
       .fetch_all(&tx)
       .await?;
 
-    let total_scopes = query_scalar::<i64>(r#"SELECT COUNT(audit_logs.created_at) FROM audit_logs LEFT JOIN users ON audit_logs.actor_id = users.id WHERE audit_logs.action ILIKE $1 OR users.name ILIKE $2 AND ($3 IS NOT TRUE OR audit_logs.is_sudo = TRUE);"#, &[&search, &search, &sudo_only])
-      .fetch_one(&tx)
-      .await?;
+    let total_scopes = query_scalar::<i64>(
+      concatcp!("SELECT COUNT(audit_logs.created_at) ", FILTER),
+      &[&search, &sudo_only],
+    )
+    .fetch_one(&tx)
+    .await?;
 
     tx.commit().await?;
 

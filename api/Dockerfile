@@ -14,12 +14,12 @@ COPY ./Cargo.toml ./Cargo.lock ./
 COPY ./api/Cargo.toml ./api/Cargo.toml
 COPY ./api/build.rs ./api/build.rs
 COPY ./api/license-list-data ./api/license-list-data
-# build.rs embeds the migrations, so they have to be in place for its first run.
-COPY ./api/migrations ./api/migrations
 COPY ./crates/jsr_types/Cargo.toml ./crates/jsr_types/Cargo.toml
 
 # Stub sources so the dependency graph compiles and the dep build is cached.
-RUN mkdir -p api/src crates/jsr_types/src \
+# build.rs embeds api/migrations; an empty directory keeps this layer's cache
+# key independent of them.
+RUN mkdir -p api/src api/migrations crates/jsr_types/src \
   && echo 'fn main() {}' > api/src/main.rs \
   && touch crates/jsr_types/src/lib.rs
 
@@ -34,11 +34,15 @@ RUN rm -rf api/src crates/jsr_types/src
 
 # copy your source tree
 COPY ./api/src ./api/src
+COPY ./api/migrations ./api/migrations
 COPY ./crates/jsr_types/src ./crates/jsr_types/src
 
 # build for release
-RUN rm -f ./target/release/deps/registry_api* ./target/release/deps/libregistry_api* \
-          ./target/release/deps/jsr_types* ./target/release/deps/libjsr_types*
+# COPY keeps the context's mtimes, so cargo would not notice the sources and
+# migrations changed; the build script output has to go too.
+RUN rm -rf ./target/release/deps/registry_api* ./target/release/deps/libregistry_api* \
+          ./target/release/deps/jsr_types* ./target/release/deps/libjsr_types* \
+          ./target/release/build/registry_api-*
 RUN cargo build --release -p registry_api
 
 # our final base

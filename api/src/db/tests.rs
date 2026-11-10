@@ -1121,66 +1121,7 @@ async fn seed() -> Seed {
   else {
     unreachable!()
   };
-
-  let config_file = PackagePath::try_from("/jsr.json").unwrap();
-  let CreatePublishingTaskResult::Created((task, _)) = db
-    .create_publishing_task(NewPublishingTask {
-      user_id: Some(bob.id),
-      package_scope: &scope,
-      package_name: &name,
-      package_version: &version,
-      config_file: &config_file,
-    })
-    .await
-    .unwrap()
-  else {
-    unreachable!()
-  };
-  db.update_publishing_task_status(
-    None,
-    task.id,
-    PublishingTaskStatus::Pending,
-    PublishingTaskStatus::Processing,
-    None,
-  )
-  .await
-  .unwrap();
-  db.create_package_version_and_npm_tarball_and_finalize_publishing_task(
-    task.id,
-    NewPackageVersion {
-      scope: &scope,
-      name: &name,
-      version: &version,
-      user_id: Some(&bob.id),
-      readme_path: None,
-      uses_npm: true,
-      exports: &ExportsMap::mock(),
-      meta: Default::default(),
-      license: "MIT".to_string(),
-    },
-    &[],
-    &[],
-    NewNpmTarball {
-      scope: &scope,
-      name: &name,
-      version: &version,
-      revision: NPM_TARBALL_REVISION as i32,
-      sha1: "sha1",
-      sha512: "sha512",
-      size: 1,
-    },
-  )
-  .await
-  .unwrap();
-  db.update_publishing_task_status(
-    None,
-    task.id,
-    PublishingTaskStatus::Processed,
-    PublishingTaskStatus::Success,
-    None,
-  )
-  .await
-  .unwrap();
+  publish(&db, &bob, &scope, &name, &version).await;
 
   db.add_scope_invite(
     &bob.id,
@@ -1288,6 +1229,74 @@ async fn user_and_identity_queries() {
   );
 }
 
+async fn publish(
+  db: &Database,
+  user: &User,
+  scope: &ScopeName,
+  name: &PackageName,
+  version: &Version,
+) {
+  let config_file = PackagePath::try_from("/jsr.json").unwrap();
+  let CreatePublishingTaskResult::Created((task, _)) = db
+    .create_publishing_task(NewPublishingTask {
+      user_id: Some(user.id),
+      package_scope: scope,
+      package_name: name,
+      package_version: version,
+      config_file: &config_file,
+    })
+    .await
+    .unwrap()
+  else {
+    unreachable!()
+  };
+  db.update_publishing_task_status(
+    None,
+    task.id,
+    PublishingTaskStatus::Pending,
+    PublishingTaskStatus::Processing,
+    None,
+  )
+  .await
+  .unwrap();
+  db.create_package_version_and_npm_tarball_and_finalize_publishing_task(
+    task.id,
+    NewPackageVersion {
+      scope,
+      name,
+      version,
+      user_id: Some(&user.id),
+      readme_path: None,
+      uses_npm: true,
+      exports: &ExportsMap::mock(),
+      meta: Default::default(),
+      license: "MIT".to_string(),
+    },
+    &[],
+    &[],
+    NewNpmTarball {
+      scope,
+      name,
+      version,
+      revision: NPM_TARBALL_REVISION as i32,
+      sha1: "sha1",
+      sha512: "sha512",
+      size: 1,
+    },
+  )
+  .await
+  .unwrap();
+  db.update_publishing_task_status(
+    None,
+    task.id,
+    PublishingTaskStatus::Processed,
+    PublishingTaskStatus::Success,
+    None,
+  )
+  .await
+  .unwrap();
+}
+
 #[tokio::test]
 async fn package_and_version_queries() {
   let Seed {
@@ -1375,6 +1384,28 @@ async fn package_and_version_queries() {
   assert_eq!(scopes.len(), 1);
   let packages = db.list_all_packages_for_sitemap().await.unwrap();
   assert_eq!(packages.len(), 1);
+
+  let other_name = PackageName::try_from("bar").unwrap();
+  let CreatePackageResult::Ok(_) =
+    db.create_package(&scope, &other_name).await.unwrap()
+  else {
+    unreachable!()
+  };
+  let packages = db.list_all_packages_for_sitemap().await.unwrap();
+  assert_eq!(packages.len(), 1);
+  let other_version = Version::try_from("2.0.0").unwrap();
+  publish(&db, &bob, &scope, &other_name, &other_version).await;
+  let package = db
+    .update_package_is_archived(&bob.id, false, &scope, &name, true)
+    .await
+    .unwrap();
+  assert_eq!(package.version_count, 1);
+  assert_eq!(package.latest_version.as_deref(), Some("1.2.3"));
+  let (total, packages) =
+    db.list_packages(0, 10, None, None, None).await.unwrap();
+  assert_eq!(packages.len(), 1);
+  assert_eq!(total, 1);
+  assert_eq!(packages[0].0.name, other_name);
 }
 
 #[tokio::test]
@@ -1536,7 +1567,13 @@ async fn download_queries() {
 
 #[tokio::test]
 async fn ticket_and_audit_log_queries() {
-  let Seed { db, bob, alice, .. } = seed().await;
+  let Seed {
+    db,
+    bob,
+    alice,
+    scope,
+    ..
+  } = seed().await;
 
   let (ticket, user, _) = db
     .create_staff_outreach_ticket(
@@ -1575,13 +1612,18 @@ async fn ticket_and_audit_log_queries() {
     Some("reporter@example.com")
   );
 
+  db.update_scope_limits(&bob.id, &scope, Some(10), None, None)
+    .await
+    .unwrap();
   let (total, audit_logs) =
     db.list_audit_logs(0, 10, None, None, false).await.unwrap();
   assert_eq!(total, audit_logs.len());
-  assert!(total > 0);
-  let (total, _) = db
+  assert!(total > 1);
+  let (total, audit_logs) = db
     .list_audit_logs(0, 10, Some("scope"), Some("user"), true)
     .await
     .unwrap();
-  assert!(total > 0);
+  assert_eq!(total, audit_logs.len());
+  assert_eq!(total, 1);
+  assert_eq!(audit_logs[0].0.action, "scope_set_package_limit");
 }
