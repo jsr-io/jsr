@@ -7,6 +7,7 @@ use crate::NpmUrl;
 use crate::RegistryUrl;
 use crate::api::ApiError;
 use crate::db::Database;
+use crate::db::DbError;
 use crate::db::DependencyKind;
 use crate::db::ExportsMap;
 use crate::db::NewNpmTarball;
@@ -265,7 +266,7 @@ async fn process_publishing_task(
     .await
   {
     Ok(task) => task,
-    Err(sqlx::Error::RowNotFound) => {
+    Err(DbError::RowNotFound) => {
       let (task, _) = db
         .get_publishing_task(publishing_task.id)
         .await?

@@ -2,16 +2,6 @@ use std::borrow::Cow;
 
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use deno_semver::VersionParseError;
-#[cfg(feature = "sqlx")]
-use sqlx::Database;
-#[cfg(feature = "sqlx")]
-use sqlx::Postgres;
-#[cfg(feature = "sqlx")]
-use sqlx::encode::IsNull;
-#[cfg(feature = "sqlx")]
-use sqlx::error::BoxDynError;
-#[cfg(feature = "sqlx")]
-use sqlx::postgres::PgValueRef;
 use thiserror::Error;
 
 /// A scope name, like `user` or `admin`. The name is not prefixed with an @.
@@ -93,40 +83,6 @@ impl serde::Serialize for ScopeName {
     S: serde::Serializer,
   {
     self.0.serialize(serializer)
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl sqlx::Decode<'_, Postgres> for ScopeName {
-  fn decode(
-    value: PgValueRef<'_>,
-  ) -> Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
-    let s: String = sqlx::Decode::<'_, Postgres>::decode(value)?;
-    Self::new(s).map_err(|e| Box::new(e) as _)
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl<'q> sqlx::Encode<'q, Postgres> for ScopeName {
-  fn encode_by_ref(
-    &self,
-    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
-  ) -> Result<IsNull, BoxDynError> {
-    <String as sqlx::Encode<'_, Postgres>>::encode_by_ref(&self.0, buf)
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl sqlx::Type<Postgres> for ScopeName {
-  fn type_info() -> <Postgres as sqlx::Database>::TypeInfo {
-    <String as sqlx::Type<Postgres>>::type_info()
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl sqlx::postgres::PgHasArrayType for ScopeName {
-  fn array_type_info() -> sqlx::postgres::PgTypeInfo {
-    <String as sqlx::postgres::PgHasArrayType>::array_type_info()
   }
 }
 
@@ -233,42 +189,6 @@ impl serde::Serialize for ScopeDescription {
   }
 }
 
-#[cfg(feature = "sqlx")]
-impl sqlx::Decode<'_, Postgres> for ScopeDescription {
-  fn decode(
-    value: PgValueRef<'_>,
-  ) -> Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
-    let s: String = sqlx::Decode::<'_, Postgres>::decode(value)?;
-    Self::new(s).map_err(|e| Box::new(e) as _)
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl<'q> sqlx::Encode<'q, Postgres> for ScopeDescription {
-  fn encode_by_ref(
-    &self,
-    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
-  ) -> Result<IsNull, BoxDynError> {
-    <std::string::String as sqlx::Encode<'_, Postgres>>::encode_by_ref(
-      &self.0, buf,
-    )
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl sqlx::Type<Postgres> for ScopeDescription {
-  fn type_info() -> <Postgres as sqlx::Database>::TypeInfo {
-    <String as sqlx::Type<Postgres>>::type_info()
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl sqlx::postgres::PgHasArrayType for ScopeDescription {
-  fn array_type_info() -> sqlx::postgres::PgTypeInfo {
-    <String as sqlx::postgres::PgHasArrayType>::array_type_info()
-  }
-}
-
 impl std::ops::Deref for ScopeDescription {
   type Target = String;
 
@@ -366,42 +286,6 @@ impl serde::Serialize for PackageName {
     S: serde::Serializer,
   {
     self.0.serialize(serializer)
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl sqlx::Decode<'_, Postgres> for PackageName {
-  fn decode(
-    value: PgValueRef<'_>,
-  ) -> Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
-    let s: String = sqlx::Decode::<'_, Postgres>::decode(value)?;
-    Self::new(s).map_err(|e| Box::new(e) as _)
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl<'q> sqlx::Encode<'q, Postgres> for PackageName {
-  fn encode_by_ref(
-    &self,
-    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
-  ) -> Result<IsNull, BoxDynError> {
-    <std::string::String as sqlx::Encode<'_, Postgres>>::encode_by_ref(
-      &self.0, buf,
-    )
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl sqlx::Type<Postgres> for PackageName {
-  fn type_info() -> <Postgres as sqlx::Database>::TypeInfo {
-    <String as sqlx::Type<Postgres>>::type_info()
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl sqlx::postgres::PgHasArrayType for PackageName {
-  fn array_type_info() -> sqlx::postgres::PgTypeInfo {
-    <String as sqlx::postgres::PgHasArrayType>::array_type_info()
   }
 }
 
@@ -569,44 +453,6 @@ impl serde::Serialize for Version {
     S: serde::Serializer,
   {
     self.0.to_string().serialize(serializer)
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl sqlx::Decode<'_, Postgres> for Version {
-  fn decode(
-    value: PgValueRef<'_>,
-  ) -> Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
-    let s: String = sqlx::Decode::<'_, Postgres>::decode(value)?;
-    Self::new(&s).map_err(|e| Box::new(e) as _)
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl<'q> sqlx::Encode<'q, Postgres> for Version {
-  fn encode_by_ref(
-    &self,
-    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
-  ) -> Result<IsNull, BoxDynError> {
-    let serialized = self.0.to_string();
-    <std::string::String as sqlx::Encode<'_, Postgres>>::encode_by_ref(
-      &serialized,
-      buf,
-    )
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl sqlx::Type<Postgres> for Version {
-  fn type_info() -> <Postgres as sqlx::Database>::TypeInfo {
-    <String as sqlx::Type<Postgres>>::type_info()
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl sqlx::postgres::PgHasArrayType for Version {
-  fn array_type_info() -> sqlx::postgres::PgTypeInfo {
-    <String as sqlx::postgres::PgHasArrayType>::array_type_info()
   }
 }
 
@@ -798,35 +644,6 @@ impl serde::Serialize for PackagePath {
     S: serde::Serializer,
   {
     self.0.serialize(serializer)
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl sqlx::Decode<'_, Postgres> for PackagePath {
-  fn decode(
-    value: PgValueRef<'_>,
-  ) -> Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
-    let s: String = sqlx::Decode::<'_, Postgres>::decode(value)?;
-    Self::new(s).map_err(|e| Box::new(e) as _)
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl<'q> sqlx::Encode<'q, Postgres> for PackagePath {
-  fn encode_by_ref(
-    &self,
-    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
-  ) -> Result<IsNull, BoxDynError> {
-    <std::string::String as sqlx::Encode<'_, Postgres>>::encode_by_ref(
-      &self.0, buf,
-    )
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl sqlx::Type<Postgres> for PackagePath {
-  fn type_info() -> <Postgres as sqlx::Database>::TypeInfo {
-    <String as sqlx::Type<Postgres>>::type_info()
   }
 }
 
