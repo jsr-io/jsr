@@ -105,7 +105,7 @@ jobs:
     permissions:
       contents: read
     env:
-      RUSTUP_TOOLCHAIN: nightly-2026-08-06
+      RUSTUP_TOOLCHAIN: nightly-2026-11-20
     steps:
       - name: Clone repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -120,7 +120,7 @@ jobs:
 
       - uses: taiki-e/cache-cargo-install-action@9ee83daaa7b96a6fab930949ecf1122bba04a389 # v3.0.8
         with:
-          tool: worker-build@0.8.7
+          tool: worker-build@0.9.0
 
       - name: Build API Cloudflare Worker
         run: ./build-worker.sh

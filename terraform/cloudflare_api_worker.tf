@@ -41,6 +41,12 @@ resource "cloudflare_worker" "jsr_api" {
       head_sampling_rate = 1
       persist            = true
     }
+    # Same ratio as the Cloud Run services' `SAMPLE_RATIO`.
+    traces = {
+      enabled            = true
+      head_sampling_rate = 0.05
+      persist            = true
+    }
   }
 }
 

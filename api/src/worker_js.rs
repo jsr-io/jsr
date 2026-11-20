@@ -1,7 +1,8 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 //! Workers can't open TCP sockets to Cloudflare's IP ranges (R2, the
 //! Cloudflare API, Turnstile), so on the worker outbound HTTP goes through
-//! `fetch` and R2 through bucket bindings.
+//! `fetch` and R2 through bucket bindings. Those calls are made with the
+//! current span active, so the runtime's spans for them nest under it.
 
 use std::cell::RefCell;
 use std::future::Future;
@@ -21,6 +22,8 @@ use tokio::io::ReadBuf;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::JsFuture;
+
+use crate::worker_spans::in_current;
 
 thread_local! {
   static ENV: RefCell<Option<JsValue>> = const { RefCell::new(None) };
@@ -46,7 +49,7 @@ pub fn hyperdrive_database_url() -> Option<String> {
 /// SAFETY: the worker is single-threaded (linked without `-pthread`), so
 /// nothing wrapped here can reach another thread.
 #[derive(Clone)]
-struct AssertSend<T>(T);
+pub struct AssertSend<T>(pub T);
 unsafe impl<T> Send for AssertSend<T> {}
 unsafe impl<T> Sync for AssertSend<T> {}
 
@@ -124,9 +127,9 @@ async fn fetch_inner(
     init.set_body(&Uint8Array::from(body));
   }
   let global: web_sys::WorkerGlobalScope = js_sys::global().unchecked_into();
-  let response: web_sys::Response = resolve(Ok(
-    global.fetch_with_str_and_init(request.url().as_str(), &init),
-  ))
+  let response: web_sys::Response = resolve(Ok(in_current(|| {
+    global.fetch_with_str_and_init(request.url().as_str(), &init)
+  })))
   .await?
   .unchecked_into();
   let body = resolve(response.array_buffer()).await?;
@@ -176,7 +179,8 @@ impl R2Bucket {
         }
         None => JsValue::UNDEFINED,
       };
-      let body = resolve(self.0.0.get(key.into(), options)).await?;
+      let body =
+        resolve(in_current(|| self.0.0.get(key.into(), options))).await?;
       if body.is_null() {
         return Ok(None);
       }
@@ -205,7 +209,7 @@ impl R2Bucket {
       }
       let options = object(&[("httpMetadata", object(&metadata)?)])?;
       let value = Uint8Array::from(data).into();
-      resolve(self.0.0.put(key.into(), value, options)).await?;
+      resolve(in_current(|| self.0.0.put(key.into(), value, options))).await?;
       Ok(())
     })
     .await
@@ -213,7 +217,7 @@ impl R2Bucket {
 
   pub async fn delete(&self, key: &str) -> Result<(), String> {
     AssertSend(async {
-      resolve(self.0.0.delete(key.into())).await?;
+      resolve(in_current(|| self.0.0.delete(key.into()))).await?;
       Ok(())
     })
     .await
@@ -228,8 +232,9 @@ impl R2Bucket {
         if let Some(cursor) = &cursor {
           options.push(("cursor", cursor.as_str().into()));
         }
+        let options = object(&options)?;
         let page: worker_sys::R2Objects =
-          resolve(self.0.0.list(object(&options)?))
+          resolve(in_current(|| self.0.0.list(options)))
             .await?
             .unchecked_into();
         for object in page.objects().map_err(js_error)? {
@@ -411,7 +416,8 @@ impl HyperdriveSocket {
       let env = env.as_ref().ok_or("no worker env")?;
       let binding =
         Reflect::get(env, &"HYPERDRIVE".into()).map_err(js_error)?;
-      let socket = call(&binding, "connect").map_err(js_error)?;
+      let socket =
+        in_current(|| call(&binding, "connect")).map_err(js_error)?;
       let readable =
         Reflect::get(&socket, &"readable".into()).map_err(js_error)?;
       let writable =

@@ -120,7 +120,6 @@ pub async fn setup_tracing(
   export_target: TracingExportTarget,
   deployment_environment: Option<String>,
 ) -> (LogFilterHandle, String) {
-  #[allow(unused_mut)]
   let mut export_layers: Vec<Box<dyn Layer<Registry> + Send + Sync>> =
     Vec::new();
 
@@ -215,9 +214,12 @@ pub async fn setup_tracing(
       TracingExportTarget::None => {}
     };
   }
+  // The worker's spans go to Workers Observability, which is configured on
+  // the worker itself.
   #[cfg(target_arch = "wasm32")]
   {
     let _ = (name, export_target, deployment_environment);
+    export_layers.push(crate::worker_spans::WorkerSpanLayer.boxed());
   }
 
   let base_filter = EnvFilter::builder()

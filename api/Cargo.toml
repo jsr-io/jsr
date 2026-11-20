@@ -126,8 +126,8 @@ lazy_static = "1.5.0"
 jsr_types = { path = "../crates/jsr_types", features = ["postgres"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-# worker-build refuses to run without the SDK in the graph; nothing uses it.
-worker = { version = "0.8.7", features = ["experimental_tokio"] }
+# For `worker::observability`, see `worker_spans.rs`.
+worker = { version = "0.9.0", features = ["experimental_tokio"] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
@@ -140,7 +140,7 @@ web-sys = { version = "0.3", features = [
     "ResponseInit",
     "WorkerGlobalScope",
 ] }
-worker-sys = "0.8.7"
+worker-sys = "0.9.0"
 # aws-lc doesn't build for emscripten.
 jsonwebtoken = { version = "11", features = ["rust_crypto"] }
 

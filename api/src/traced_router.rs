@@ -4,7 +4,8 @@
 //! tracing. It starts a span for each request, and records successes and
 //! failure.
 
-// OpenTelemetry isn't compiled into the worker.
+// OpenTelemetry isn't compiled into the worker, whose spans go to Workers
+// Observability instead (see `worker_spans.rs`).
 #[cfg(not(target_arch = "wasm32"))]
 use std::collections::HashMap;
 use std::convert::Infallible;
@@ -16,7 +17,6 @@ use futures::FutureExt;
 use futures::future::BoxFuture;
 use hyper::Request;
 use hyper::Response;
-#[cfg(not(target_arch = "wasm32"))]
 use hyper::header::HeaderValue;
 #[cfg(not(target_arch = "wasm32"))]
 use opentelemetry::global;
@@ -96,7 +96,6 @@ impl Service<Request<Body>> for TracedRouterService {
     let fut = self.app.call(req).map(|res| {
       let Ok(resp) = res;
       let span = Span::current();
-      #[cfg(not(target_arch = "wasm32"))]
       let resp = with_ray_header(resp, &span);
       span.record("http.status_code", resp.status().as_u16());
       Ok(resp)
@@ -106,11 +105,16 @@ impl Service<Request<Body>> for TracedRouterService {
   }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 fn with_ray_header(mut resp: Response<Body>, span: &Span) -> Response<Body> {
-  let trace_id = span.context().span().span_context().trace_id().to_string();
-  resp
-    .headers_mut()
-    .insert("x-deno-ray", HeaderValue::from_str(&trace_id).unwrap());
+  #[cfg(not(target_arch = "wasm32"))]
+  let trace_id =
+    Some(span.context().span().span_context().trace_id().to_string());
+  #[cfg(target_arch = "wasm32")]
+  let trace_id = span.in_scope(crate::worker_spans::current_trace_id);
+  if let Some(trace_id) = trace_id {
+    resp
+      .headers_mut()
+      .insert("x-deno-ray", HeaderValue::from_str(&trace_id).unwrap());
+  }
   resp
 }

@@ -38,6 +38,8 @@ mod tree_sitter;
 mod util;
 #[cfg(target_arch = "wasm32")]
 mod worker_js;
+#[cfg(target_arch = "wasm32")]
+mod worker_spans;
 
 use crate::api::InboundTrustedAuthservId;
 use crate::api::PostmarkWebhookPassword;
@@ -563,10 +565,15 @@ mod worker {
       "--setup=false",
     ])
     .map_err(|e| JsValue::from_str(&format!("config: {e}")))?;
-    let app = build_router(config).await;
-    let hyper_req = to_hyper_request(request).await?;
-    let Ok(hyper_resp) =
-      TracedRouterService::new(app, true).oneshot(hyper_req).await;
-    to_web_response(hyper_resp).await
+    // Keeps the invocation's span active on every poll: the spans the request
+    // starts are parented under whichever span is active.
+    ::worker::observability::in_current_span(async {
+      let app = build_router(config).await;
+      let hyper_req = to_hyper_request(request).await?;
+      let Ok(hyper_resp) =
+        TracedRouterService::new(app, true).oneshot(hyper_req).await;
+      to_web_response(hyper_resp).await
+    })
+    .await
   }
 }
