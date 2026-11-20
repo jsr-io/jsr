@@ -10,16 +10,16 @@
       "url": "https://github.com/Slicer/Slicer/blob/main/License.txt",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T17:01:20Z",
+      "timestamp": "2026-10-28T19:43:58Z",
       "isWayBackLink": false,
       "order": 1
     },
     {
-      "match": "false",
+      "match": "N/A",
       "url": "https://slicer.org/LICENSE",
       "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-08-27T17:01:21Z",
+      "isLive": false,
+      "timestamp": "2026-10-28T19:44:28Z",
       "isWayBackLink": false,
       "order": 0
     }

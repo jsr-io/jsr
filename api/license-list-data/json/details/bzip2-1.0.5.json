@@ -9,21 +9,21 @@
   "crossRef": [
     {
       "match": "false",
-      "url": "http://bzip.org/1.0.5/bzip2-manual-1.0.5.html",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-08-27T17:03:01Z",
-      "isWayBackLink": false,
-      "order": 1
-    },
-    {
-      "match": "false",
       "url": "https://sourceware.org/bzip2/1.0.5/bzip2-manual-1.0.5.html",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T17:03:02Z",
+      "timestamp": "2026-10-28T19:43:58Z",
       "isWayBackLink": false,
       "order": 0
+    },
+    {
+      "match": "false",
+      "url": "http://bzip.org/1.0.5/bzip2-manual-1.0.5.html",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-10-28T19:43:59Z",
+      "isWayBackLink": false,
+      "order": 1
     }
   ],
   "seeAlso": [

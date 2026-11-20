@@ -8,22 +8,22 @@
   "licenseId": "Elastic-2.0",
   "crossRef": [
     {
-      "match": "false",
-      "url": "https://github.com/elastic/elasticsearch/blob/master/licenses/ELASTIC-LICENSE-2.0.txt",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-08-27T17:02:32Z",
-      "isWayBackLink": false,
-      "order": 1
-    },
-    {
       "match": "true",
       "url": "https://www.elastic.co/licensing/elastic-license",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-08-27T17:02:34Z",
+      "timestamp": "2026-10-28T19:40:18Z",
       "isWayBackLink": false,
       "order": 0
+    },
+    {
+      "match": "false",
+      "url": "https://github.com/elastic/elasticsearch/blob/master/licenses/ELASTIC-LICENSE-2.0.txt",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-10-28T19:40:18Z",
+      "isWayBackLink": false,
+      "order": 1
     }
   ],
   "seeAlso": [
