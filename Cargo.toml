@@ -6,10 +6,8 @@ resolver = "2"
 
 [patch.crates-io]
 # The hosted event loop that wasm-bindgen's `experimental_tokio` runs on, and
-# `net` on emscripten, which released tokio refuses to compile. Open upstream:
-# https://github.com/tokio-rs/tokio/pull/8479
-# https://github.com/tokio-rs/tokio/pull/8438
-# The fork itself was closed: https://github.com/tokio-rs/tokio/pull/8484
+# `net` on emscripten. Closed upstream, so this stays a fork:
+# https://github.com/tokio-rs/tokio/pull/8484
 tokio = { git = "https://github.com/guybedford/tokio", tag = "1.53.1-cf.emscripten" }
 tokio-macros = { git = "https://github.com/guybedford/tokio", tag = "1.53.1-cf.emscripten" }
 # https://github.com/briansmith/ring/pull/2877
