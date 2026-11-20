@@ -7,10 +7,11 @@
 //! has no dependency on any native-only/heavy crate, so it builds for
 //! `wasm32-unknown-unknown`.
 //!
-//! The sqlx `FromRow`/`Type`/`Encode`/`Decode` impls on these types live here
-//! too, but are gated behind the default-off `sqlx` feature so wasm builds
-//! never compile them.
+//! The `postgres-types` `FromSql`/`ToSql` impls on these types live here too,
+//! gated behind the default-off `postgres` feature.
 
 pub mod api;
 pub mod ids;
 pub mod models;
+#[cfg(feature = "postgres")]
+pub mod postgres;

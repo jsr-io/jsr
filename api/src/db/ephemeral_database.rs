@@ -2,8 +2,6 @@
 #![allow(dead_code)]
 use super::Database;
 use once_cell::sync::Lazy;
-use sqlx::Connection;
-use sqlx::Executor;
 use std::fmt::Write;
 use std::time::Duration;
 use tokio::sync::RwLock;
@@ -106,10 +104,12 @@ fn pg_execute(query: String) {
       .unwrap()
       .block_on(async move {
         let database_url = &*DEFAULT_DATABASE_URL;
-        let mut conn = sqlx::postgres::PgConnection::connect(database_url)
-          .await
-          .unwrap();
-        conn.execute(sqlx::query(&query)).await.unwrap();
+        let (client, connection) =
+          tokio_postgres::connect(database_url, tokio_postgres::NoTls)
+            .await
+            .unwrap();
+        tokio::spawn(connection);
+        client.batch_execute(&query).await.unwrap();
       })
   })
   .join()

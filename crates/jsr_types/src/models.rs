@@ -7,20 +7,6 @@ use chrono::Utc;
 use indexmap::IndexMap;
 use serde::Deserialize;
 use serde::Serialize;
-#[cfg(feature = "sqlx")]
-use sqlx::Database;
-#[cfg(feature = "sqlx")]
-use sqlx::FromRow;
-#[cfg(feature = "sqlx")]
-use sqlx::Row;
-#[cfg(feature = "sqlx")]
-use sqlx::ValueRef;
-#[cfg(feature = "sqlx")]
-use sqlx::encode::IsNull;
-#[cfg(feature = "sqlx")]
-use sqlx::error::BoxDynError;
-#[cfg(feature = "sqlx")]
-use sqlx::types::Json;
 use uuid::Uuid;
 
 use crate::ids::PackageName;
@@ -46,37 +32,6 @@ pub struct User {
   pub scope_limit: Option<i32>,
   pub invite_count: i64,
   pub newer_ticket_messages_count: i64,
-}
-
-#[cfg(feature = "sqlx")]
-impl FromRow<'_, sqlx::postgres::PgRow> for User {
-  fn from_row(row: &sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
-    Ok(Self {
-      id: try_get_row_or(row, "id", "user_id")?,
-      name: try_get_row_or(row, "name", "user_name")?,
-      email: try_get_row_or(row, "email", "user_email")?,
-      avatar_url: try_get_row_or(row, "avatar_url", "user_avatar_url")?,
-      github_id: try_get_row_or(row, "github_id", "user_github_id")?,
-      gitlab_id: try_get_row_or(row, "gitlab_id", "user_gitlab_id")?,
-      is_blocked: try_get_row_or(row, "is_blocked", "user_is_blocked")?,
-      is_staff: try_get_row_or(row, "is_staff", "user_is_staff")?,
-      deletion_hold: try_get_row_or(
-        row,
-        "deletion_hold",
-        "user_deletion_hold",
-      )?,
-      scope_usage: try_get_row_or(row, "scope_usage", "user_scope_usage")?,
-      scope_limit: try_get_row_or(row, "scope_limit", "user_scope_limit")?,
-      invite_count: try_get_row_or(row, "invite_count", "user_invite_count")?,
-      updated_at: try_get_row_or(row, "updated_at", "user_updated_at")?,
-      created_at: try_get_row_or(row, "created_at", "user_created_at")?,
-      newer_ticket_messages_count: try_get_row_or(
-        row,
-        "newer_ticket_messages_count",
-        "user_newer_ticket_messages_count",
-      )?,
-    })
-  }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -105,21 +60,6 @@ impl From<User> for UserPublic {
   }
 }
 
-#[cfg(feature = "sqlx")]
-impl FromRow<'_, sqlx::postgres::PgRow> for UserPublic {
-  fn from_row(row: &sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
-    Ok(Self {
-      id: try_get_row_or(row, "id", "user_id")?,
-      name: try_get_row_or(row, "name", "user_name")?,
-      avatar_url: try_get_row_or(row, "avatar_url", "user_avatar_url")?,
-      github_id: try_get_row_or(row, "github_id", "user_github_id")?,
-      gitlab_id: try_get_row_or(row, "gitlab_id", "user_gitlab_id")?,
-      updated_at: try_get_row_or(row, "updated_at", "user_updated_at")?,
-      created_at: try_get_row_or(row, "created_at", "user_created_at")?,
-    })
-  }
-}
-
 #[derive(Debug, Default)]
 pub struct NewUser<'s> {
   pub name: &'s str,
@@ -132,11 +72,6 @@ pub struct NewUser<'s> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
-#[cfg_attr(
-  feature = "sqlx",
-  sqlx(type_name = "task_status", rename_all = "lowercase")
-)]
 pub enum PublishingTaskStatus {
   /// The task is scheduled to start processing.
   Pending,
@@ -168,67 +103,10 @@ pub struct PublishingTask {
   pub updated_at: DateTime<Utc>,
 }
 
-#[cfg(feature = "sqlx")]
-impl FromRow<'_, sqlx::postgres::PgRow> for PublishingTask {
-  fn from_row(row: &sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
-    Ok(Self {
-      id: try_get_row_or(row, "id", "task_id")?,
-      status: try_get_row_or(row, "status", "task_status")?,
-      error: try_get_row_or(row, "error", "task_error")?,
-      package_scope: try_get_row_or(
-        row,
-        "package_scope",
-        "task_package_scope",
-      )?,
-      package_name: try_get_row_or(row, "package_name", "task_package_name")?,
-      package_version: try_get_row_or(
-        row,
-        "package_version",
-        "task_package_version",
-      )?,
-      config_file: try_get_row_or(row, "config_file", "task_config_file")?,
-      updated_at: try_get_row_or(row, "updated_at", "task_updated_at")?,
-      created_at: try_get_row_or(row, "created_at", "task_created_at")?,
-      user_id: try_get_row_or(row, "user_id", "task_user_id")?,
-    })
-  }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PublishingTaskError {
   pub code: String,
   pub message: String,
-}
-
-#[cfg(feature = "sqlx")]
-impl sqlx::Decode<'_, sqlx::Postgres> for PublishingTaskError {
-  fn decode(
-    value: sqlx::postgres::PgValueRef<'_>,
-  ) -> Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
-    let s: sqlx::types::Json<PublishingTaskError> =
-      sqlx::Decode::<'_, sqlx::Postgres>::decode(value)?;
-    Ok(s.0)
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl<'q> sqlx::Encode<'q, sqlx::Postgres> for PublishingTaskError {
-  fn encode_by_ref(
-    &self,
-    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
-  ) -> Result<IsNull, BoxDynError> {
-    <sqlx::types::Json<&PublishingTaskError> as sqlx::Encode<
-      '_,
-      sqlx::Postgres,
-    >>::encode_by_ref(&sqlx::types::Json(self), buf)
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl sqlx::Type<sqlx::Postgres> for PublishingTaskError {
-  fn type_info() -> <sqlx::Postgres as sqlx::Database>::TypeInfo {
-    <sqlx::types::Json<PublishingTaskError> as sqlx::Type<sqlx::Postgres>>::type_info()
-  }
 }
 
 pub struct NewPublishingTask<'s> {
@@ -253,90 +131,11 @@ pub struct Scope {
   pub require_publishing_from_ci: bool,
 }
 
-#[cfg(feature = "sqlx")]
-fn try_get_row_or<
-  'r,
-  T: sqlx::Decode<'r, <sqlx::postgres::PgRow as sqlx::Row>::Database>
-    + sqlx::Type<<sqlx::postgres::PgRow as sqlx::Row>::Database>,
->(
-  row: &'r sqlx::postgres::PgRow,
-  a: &str,
-  b: &str,
-) -> Result<T, sqlx::Error> {
-  match row.try_get(a) {
-    Err(sqlx::Error::ColumnNotFound(_)) => row.try_get(b),
-    row => row,
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl FromRow<'_, sqlx::postgres::PgRow> for Scope {
-  fn from_row(row: &sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
-    Ok(Self {
-      scope: try_get_row_or(row, "scope", "scope_scope")?,
-      description: try_get_row_or(row, "description", "scope_description")?,
-      creator: try_get_row_or(row, "creator", "scope_creator")?,
-      updated_at: try_get_row_or(row, "updated_at", "scope_updated_at")?,
-      created_at: try_get_row_or(row, "created_at", "scope_created_at")?,
-      package_limit: try_get_row_or::<i32>(
-        row,
-        "package_limit",
-        "scope_package_limit",
-      )?,
-      new_package_per_week_limit: try_get_row_or::<i32>(
-        row,
-        "new_package_per_week_limit",
-        "scope_new_package_per_week_limit",
-      )?,
-      publish_attempts_per_week_limit: try_get_row_or::<i32>(
-        row,
-        "publish_attempts_per_week_limit",
-        "scope_publish_attempts_per_week_limit",
-      )?,
-      verify_oidc_actor: try_get_row_or(
-        row,
-        "verify_oidc_actor",
-        "scope_verify_oidc_actor",
-      )?,
-      require_publishing_from_ci: try_get_row_or(
-        row,
-        "require_publishing_from_ci",
-        "scope_require_publishing_from_ci",
-      )?,
-    })
-  }
-}
-
 #[derive(Debug)]
 pub struct ScopeUsage {
   pub package: i32,
   pub new_package_per_week: i32,
   pub publish_attempts_per_week: i32,
-}
-
-#[cfg(feature = "sqlx")]
-impl FromRow<'_, sqlx::postgres::PgRow> for ScopeUsage {
-  fn from_row(row: &sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
-    Ok(Self {
-      package: try_get_row_or::<i64>(row, "package", "usage_package")?
-        .try_into()
-        .unwrap(),
-      new_package_per_week: try_get_row_or::<i64>(
-        row,
-        "new_package_per_week",
-        "usage_new_package_per_week",
-      )?
-      .try_into()
-      .unwrap(),
-      publish_attempts_per_week: try_get_row_or::<i64>(
-        row,
-        "publish_attempts_per_week",
-        "usage_publish_attempts_per_week",
-      )?
-      .try_into()
-      .unwrap(),
-    })
-  }
 }
 
 #[derive(Debug)]
@@ -388,59 +187,10 @@ pub struct Package {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
-#[cfg_attr(
-  feature = "sqlx",
-  sqlx(type_name = "package_readme_source", rename_all = "lowercase")
-)]
 #[serde(rename_all = "lowercase")]
 pub enum ReadmeSource {
   Readme,
   JSDoc,
-}
-
-#[cfg(feature = "sqlx")]
-impl FromRow<'_, sqlx::postgres::PgRow> for Package {
-  fn from_row(row: &sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
-    Ok(Self {
-      scope: try_get_row_or(row, "scope", "package_scope")?,
-      name: try_get_row_or(row, "name", "package_name")?,
-      description: try_get_row_or(row, "description", "package_description")?,
-      github_repository_id: try_get_row_or(
-        row,
-        "github_repository_id",
-        "package_repository_id",
-      )?,
-      runtime_compat: try_get_row_or(
-        row,
-        "runtime_compat",
-        "package_runtime_compat",
-      )?,
-      updated_at: try_get_row_or(row, "updated_at", "package_updated_at")?,
-      created_at: try_get_row_or(row, "created_at", "package_created_at")?,
-      version_count: try_get_row_or(
-        row,
-        "version_count",
-        "package_version_count",
-      )?,
-      latest_version: try_get_row_or(
-        row,
-        "latest_version",
-        "package_latest_version",
-      )?,
-      when_featured: try_get_row_or(
-        row,
-        "when_featured",
-        "package_when_featured",
-      )?,
-      is_archived: try_get_row_or(row, "is_archived", "package_is_archived")?,
-      readme_source: try_get_row_or(
-        row,
-        "readme_source",
-        "package_readme_source",
-      )?,
-    })
-  }
 }
 
 #[derive(Debug)]
@@ -531,41 +281,6 @@ pub struct PackageVersionMeta {
   pub symbol_count: Option<u32>,
 }
 
-#[cfg(feature = "sqlx")]
-impl sqlx::Decode<'_, sqlx::Postgres> for PackageVersionMeta {
-  fn decode(
-    value: sqlx::postgres::PgValueRef<'_>,
-  ) -> Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
-    if !value.is_null() {
-      let s: sqlx::types::Json<PackageVersionMeta> =
-        sqlx::Decode::<'_, sqlx::Postgres>::decode(value)?;
-      Ok(s.0)
-    } else {
-      Ok(Default::default())
-    }
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl<'q> sqlx::Encode<'q, sqlx::Postgres> for PackageVersionMeta {
-  fn encode_by_ref(
-    &self,
-    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
-  ) -> Result<IsNull, BoxDynError> {
-    <sqlx::types::Json<&PackageVersionMeta> as sqlx::Encode<
-      '_,
-      sqlx::Postgres,
-    >>::encode_by_ref(&Json(self), buf)
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl sqlx::Type<sqlx::Postgres> for PackageVersionMeta {
-  fn type_info() -> <sqlx::Postgres as sqlx::Database>::TypeInfo {
-    <sqlx::types::Json<PackageVersionMeta> as sqlx::Type<sqlx::Postgres>>::type_info()
-  }
-}
-
 #[derive(Debug)]
 pub struct PackageFile {
   pub scope: ScopeName,
@@ -589,11 +304,6 @@ pub struct NewPackageFile<'s> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
-#[cfg_attr(
-  feature = "sqlx",
-  sqlx(type_name = "token_type", rename_all = "lowercase")
-)]
 pub enum TokenType {
   /// Token obtained when signing in with GitHub, used in the web UI.
   Web,
@@ -756,37 +466,6 @@ pub enum PackagePublishPermission {
   Scope { scope: ScopeName },
 }
 
-#[cfg(feature = "sqlx")]
-impl sqlx::Decode<'_, sqlx::Postgres> for Permissions {
-  fn decode(
-    value: sqlx::postgres::PgValueRef<'_>,
-  ) -> Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
-    let s: sqlx::types::Json<Permissions> =
-      sqlx::Decode::<'_, sqlx::Postgres>::decode(value)?;
-    Ok(s.0)
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl<'q> sqlx::Encode<'q, sqlx::Postgres> for Permissions {
-  fn encode_by_ref(
-    &self,
-    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
-  ) -> Result<IsNull, BoxDynError> {
-    <sqlx::types::Json<&Permissions> as sqlx::Encode<'_, sqlx::Postgres>>::encode_by_ref(
-            &sqlx::types::Json(self),
-            buf,
-        )
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl sqlx::Type<sqlx::Postgres> for Permissions {
-  fn type_info() -> <sqlx::Postgres as sqlx::Database>::TypeInfo {
-    <sqlx::types::Json<Permissions> as sqlx::Type<sqlx::Postgres>>::type_info()
-  }
-}
-
 #[derive(Debug)]
 pub struct GithubRepository {
   pub id: i64,
@@ -794,27 +473,6 @@ pub struct GithubRepository {
   pub name: String,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
-}
-
-#[cfg(feature = "sqlx")]
-impl FromRow<'_, sqlx::postgres::PgRow> for GithubRepository {
-  fn from_row(row: &sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
-    Ok(Self {
-      id: try_get_row_or(row, "id", "github_repository_id")?,
-      owner: try_get_row_or(row, "owner", "github_repository_owner")?,
-      name: try_get_row_or(row, "name", "github_repository_name")?,
-      updated_at: try_get_row_or(
-        row,
-        "updated_at",
-        "github_repository_updated_at",
-      )?,
-      created_at: try_get_row_or(
-        row,
-        "created_at",
-        "github_repository_created_at",
-      )?,
-    })
-  }
 }
 
 pub struct NewGithubRepository<'s> {
@@ -872,6 +530,10 @@ impl ExportsMap {
     self.0.is_empty()
   }
 
+  pub fn as_inner(&self) -> &IndexMap<String, String> {
+    &self.0
+  }
+
   pub fn into_inner(self) -> IndexMap<String, String> {
     self.0
   }
@@ -881,45 +543,7 @@ impl ExportsMap {
   }
 }
 
-#[cfg(feature = "sqlx")]
-impl sqlx::Decode<'_, sqlx::Postgres> for ExportsMap {
-  fn decode(
-    value: sqlx::postgres::PgValueRef<'_>,
-  ) -> Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
-    let s: sqlx::types::Json<IndexMap<String, String>> =
-      sqlx::Decode::<'_, sqlx::Postgres>::decode(value)?;
-    Ok(ExportsMap(s.0))
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl<'q> sqlx::Encode<'q, sqlx::Postgres> for ExportsMap {
-  fn encode_by_ref(
-    &self,
-    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
-  ) -> Result<IsNull, BoxDynError> {
-    <sqlx::types::Json<&IndexMap<String, String>> as sqlx::Encode<
-      '_,
-      sqlx::Postgres,
-    >>::encode_by_ref(&sqlx::types::Json(&self.0), buf)
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl sqlx::Type<sqlx::Postgres> for ExportsMap {
-  fn type_info() -> <sqlx::Postgres as sqlx::Database>::TypeInfo {
-    <sqlx::types::Json<IndexMap<String, String>> as sqlx::Type<
-      sqlx::Postgres,
-    >>::type_info()
-  }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
-#[cfg_attr(
-  feature = "sqlx",
-  sqlx(type_name = "dependency_kind", rename_all = "lowercase")
-)]
 pub enum DependencyKind {
   Jsr,
   Npm,
@@ -1027,38 +651,6 @@ pub struct RuntimeCompat {
   pub bun: Option<bool>,
 }
 
-#[cfg(feature = "sqlx")]
-impl sqlx::Decode<'_, sqlx::Postgres> for RuntimeCompat {
-  fn decode(
-    value: sqlx::postgres::PgValueRef<'_>,
-  ) -> Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
-    let s: sqlx::types::Json<RuntimeCompat> =
-      sqlx::Decode::<'_, sqlx::Postgres>::decode(value)?;
-    Ok(s.0)
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl<'q> sqlx::Encode<'q, sqlx::Postgres> for RuntimeCompat {
-  fn encode_by_ref(
-    &self,
-    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
-  ) -> Result<IsNull, BoxDynError> {
-    <sqlx::types::Json<&RuntimeCompat> as sqlx::Encode<'_, sqlx::Postgres>>::encode_by_ref(
-            &Json(self),
-            buf,
-        )
-  }
-}
-
-#[cfg(feature = "sqlx")]
-impl sqlx::Type<sqlx::Postgres> for RuntimeCompat {
-  fn type_info() -> <sqlx::Postgres as sqlx::Database>::TypeInfo {
-    <sqlx::types::Json<RuntimeCompat> as sqlx::Type<sqlx::Postgres>>::type_info(
-    )
-  }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VersionDownloadCount {
@@ -1086,11 +678,6 @@ pub struct VersionDownloadDataPoint {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
-#[cfg_attr(
-  feature = "sqlx",
-  sqlx(type_name = "download_kind", rename_all = "snake_case")
-)]
 #[serde(rename_all = "snake_case")]
 pub enum DownloadKind {
   /// A download of the version's JSR $version_meta.json file.
@@ -1100,12 +687,7 @@ pub enum DownloadKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(
-  feature = "sqlx",
-  sqlx(type_name = "ticket_kind", rename_all = "snake_case")
-)]
 pub enum TicketKind {
   UserScopeQuotaIncrease,
   ScopeQuotaIncrease,
@@ -1118,12 +700,7 @@ pub enum TicketKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(
-  feature = "sqlx",
-  sqlx(type_name = "ticket_status", rename_all = "snake_case")
-)]
 pub enum TicketStatus {
   Open,
   WaitingOnUser,
@@ -1159,12 +736,7 @@ impl TicketStatus {
 /// ticket, `outbound` is from JSR — a staff reply or the automatic
 /// acknowledgement.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(
-  feature = "sqlx",
-  sqlx(type_name = "ticket_message_direction", rename_all = "snake_case")
-)]
 pub enum TicketMessageDirection {
   Inbound,
   Outbound,
@@ -1202,39 +774,6 @@ pub struct Ticket {
   pub closed_at: Option<DateTime<Utc>>,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
-}
-
-#[cfg(feature = "sqlx")]
-impl FromRow<'_, sqlx::postgres::PgRow> for Ticket {
-  fn from_row(row: &sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
-    Ok(Self {
-      id: try_get_row_or(row, "id", "ticket_id")?,
-      ticket_number: try_get_row_or(
-        row,
-        "ticket_number",
-        "ticket_ticket_number",
-      )?,
-      kind: try_get_row_or(row, "kind", "ticket_kind")?,
-      creator: try_get_row_or(row, "creator", "ticket_creator")?,
-      reporter_email: try_get_row_or(
-        row,
-        "reporter_email",
-        "ticket_reporter_email",
-      )?,
-      reporter_name: try_get_row_or(
-        row,
-        "reporter_name",
-        "ticket_reporter_name",
-      )?,
-      subject: try_get_row_or(row, "subject", "ticket_subject")?,
-      claim_token: try_get_row_or(row, "claim_token", "ticket_claim_token")?,
-      meta: try_get_row_or(row, "meta", "ticket_meta")?,
-      status: try_get_row_or(row, "status", "ticket_status")?,
-      closed_at: try_get_row_or(row, "closed_at", "ticket_closed_at")?,
-      updated_at: try_get_row_or(row, "updated_at", "ticket_updated_at")?,
-      created_at: try_get_row_or(row, "created_at", "ticket_created_at")?,
-    })
-  }
 }
 
 #[derive(Debug, Deserialize)]
@@ -1382,17 +921,4 @@ pub struct AuditLog {
   pub action: String,
   pub meta: serde_json::Value,
   pub created_at: DateTime<Utc>,
-}
-
-#[cfg(feature = "sqlx")]
-impl FromRow<'_, sqlx::postgres::PgRow> for AuditLog {
-  fn from_row(row: &sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
-    Ok(Self {
-      actor_id: try_get_row_or(row, "actor_id", "audit_log_actor_id")?,
-      is_sudo: try_get_row_or(row, "is_sudo", "audit_log_is_sudo")?,
-      action: try_get_row_or(row, "action", "audit_log_action")?,
-      meta: try_get_row_or(row, "meta", "audit_log_meta")?,
-      created_at: try_get_row_or(row, "created_at", "audit_log_created_at")?,
-    })
-  }
 }

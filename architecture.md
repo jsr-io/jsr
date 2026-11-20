@@ -56,8 +56,8 @@ via the Cloudflare Analytics Engine.
 
 ## API (`api/`)
 
-The API is a Rust HTTP server built with Hyper and axum. It is the single
-source of truth for all write operations and business logic.
+The API is a Rust HTTP server built with Hyper and axum. It is the single source
+of truth for all write operations and business logic.
 
 ### Directory Structure
 
@@ -75,7 +75,7 @@ api/
 │   │   ├── types.rs         # Request/response types
 │   │   └── errors.rs        # Error definitions
 │   ├── auth/                # OAuth handlers (GitHub, GitLab)
-│   ├── db/                  # Database models and queries (sqlx)
+│   ├── db/                  # Database models and queries (tokio-postgres)
 │   ├── publish.rs           # Publishing pipeline
 │   ├── tarball.rs           # Tarball processing
 │   ├── npm/                 # NPM compatibility tarball generation
@@ -90,8 +90,7 @@ api/
 │   ├── task_queue.rs        # Rate-limited background job queue
 │   ├── tasks.rs             # Background task handlers
 │   └── tracing.rs           # OpenTelemetry setup
-├── macros/                  # Procedural macros
-├── migrations/              # SQL migration files (sqlx)
+├── migrations/              # SQL migration files
 └── Cargo.toml
 ```
 
@@ -112,7 +111,7 @@ api/
 
 ### Key Dependencies
 
-- **sqlx** — compile-time verified SQL queries against PostgreSQL
+- **tokio-postgres / deadpool-postgres** — PostgreSQL client and connection pool
 - **hyper + axum** — HTTP server and routing
 - **deno_doc / deno_ast / deno_graph** — documentation generation and dependency
   analysis
@@ -228,8 +227,9 @@ database — they live in R2.
 | `ticket_messages`              | Messages on a ticket, in either direction           |
 | `ticket_attachments`           | Files that arrived attached to an inbound email     |
 
-Migrations are in `api/migrations/` and managed by sqlx. Version columns use
-natural collation so `1.10.0` sorts after `1.9.0`.
+Migrations are in `api/migrations/` and applied by the API at startup
+(`api/src/db/migrate.rs`). Version columns use natural collation so `1.10.0`
+sorts after `1.9.0`.
 
 ## Support tickets
 

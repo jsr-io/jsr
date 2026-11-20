@@ -29,8 +29,6 @@ Make sure that:
 3. Tests pass: `deno task test` (in `frontend/`) and `cargo test`
 4. New `.ts`, `.tsx`, `.rs`, and `.tf` files have a license header - run
    `deno task lint:license:fix` to add missing ones
-5. If you changed SQL queries, run `deno task sqlx:prepare` and commit the
-   changes in `api/.sqlx`
 
 ## Submitting a pull request
 
