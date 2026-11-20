@@ -1,5 +1,5 @@
 [workspace]
-members = ["api", "api/macros", "crates/jsr_types"]
+members = ["api", "crates/jsr_types"]
 resolver = "2"
 
 # For wasm32-unknown-emscripten, each pending an upstream release.
