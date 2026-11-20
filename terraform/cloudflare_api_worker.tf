@@ -119,20 +119,31 @@ resource "google_service_account_key" "registry_api_worker" {
 
 # Named after their fingerprints, so a certificate left behind in the account
 # doesn't block creating these: names must be unique, and Cloudflare refuses to
-# delete a certificate it still counts as in use.
+# delete a certificate it still counts as in use. A certificate imported under
+# an older name, whose private key Cloudflare never returns, is kept as is; a
+# change to the certificate itself still replaces it under the new name.
+# Cloudflare stores each certificate with a trailing newline, hence the added one.
 resource "cloudflare_mtls_certificate" "db_client" {
   account_id   = var.cloudflare_account_id
   name         = "${var.gcp_project}-db-client-${substr(google_sql_ssl_cert.api.sha1_fingerprint, 0, 8)}"
   ca           = false
-  certificates = google_sql_ssl_cert.api.cert
+  certificates = "${trimspace(google_sql_ssl_cert.api.cert)}\n"
   private_key  = google_sql_ssl_cert.api.private_key
+
+  lifecycle {
+    ignore_changes = [name, private_key]
+  }
 }
 
 resource "cloudflare_mtls_certificate" "db_ca" {
   account_id   = var.cloudflare_account_id
   name         = "${var.gcp_project}-db-ca-${substr(google_sql_database_instance.main_pg15.server_ca_cert[0].sha1_fingerprint, 0, 8)}"
   ca           = true
-  certificates = google_sql_database_instance.main_pg15.server_ca_cert[0].cert
+  certificates = "${trimspace(google_sql_database_instance.main_pg15.server_ca_cert[0].cert)}\n"
+
+  lifecycle {
+    ignore_changes = [name]
+  }
 }
 
 resource "cloudflare_hyperdrive_config" "api" {
