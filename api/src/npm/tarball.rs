@@ -137,7 +137,7 @@ pub async fn create_npm_tarball<'a>(
       deno_ast::MediaType::Jsx => {
         let source_specifier =
           rewrite_file_specifier(module.specifier(), "", Extension::Js);
-        if let Some(source_specifier) = source_specifier {
+        if let Some(source_specifier) = source_specifier.clone() {
           source_rewrites.insert(module.specifier(), source_specifier);
         }
 
@@ -146,19 +146,25 @@ pub async fn create_npm_tarball<'a>(
         {
           declaration_rewrites
             .insert(module.specifier(), resolved.specifier.clone());
+        } else if let Some(source_specifier) = source_specifier {
+          declaration_rewrites.insert(module.specifier(), source_specifier);
         }
       }
       deno_ast::MediaType::Dts | deno_ast::MediaType::Dmts => {
         // no extra work needed for these, as they can not have type dependencies
       }
-      deno_ast::MediaType::TypeScript | deno_ast::MediaType::Mts => {
+      deno_ast::MediaType::TypeScript
+      | deno_ast::MediaType::Mts
+      | deno_ast::MediaType::Tsx => {
         let source_specifier =
           rewrite_file_specifier(module.specifier(), "", Extension::Js);
         if let Some(source_specifier) = source_specifier.clone() {
           source_rewrites.insert(module.specifier(), source_specifier);
         }
 
-        if js.fast_check_module().is_some() {
+        if let Some(fast_check_module) = js.fast_check_module()
+          && fast_check_module.dts.is_some()
+        {
           let declaration_specifier = rewrite_file_specifier(
             module.specifier(),
             "/_dist",
@@ -241,7 +247,9 @@ pub async fn create_npm_tarball<'a>(
         package_files
           .insert(format!("{}.map", source_target.path()), source_map);
       }
-      deno_ast::MediaType::TypeScript | deno_ast::MediaType::Mts => {
+      deno_ast::MediaType::TypeScript
+      | deno_ast::MediaType::Mts
+      | deno_ast::MediaType::Tsx => {
         let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
         let module_info = sources
           .analyze(&js.specifier, js.source.text.clone(), js.media_type)
@@ -279,7 +287,9 @@ pub async fn create_npm_tarball<'a>(
         package_files
           .insert(format!("{}.map", source_target.path()), source_map);
 
-        if let Some(fast_check_module) = js.fast_check_module() {
+        if let Some(fast_check_module) = js.fast_check_module()
+          && fast_check_module.dts.is_some()
+        {
           let declaration_target =
             declaration_rewrites.get(&js.specifier).unwrap();
           let specifier_rewriter = SpecifierRewriter {

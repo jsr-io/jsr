@@ -1,0 +1,51 @@
+# index.tsx
+/** @jsxRuntime classic *//** @jsxFactory h *//** @jsxFragmentFactory Fragment */
+export function Hello() {
+  return <div>hello</div>;
+}
+
+# jsr.json
+{
+  "name": "@scope/foo",
+  "version": "1.0.0",
+  "exports": "./index.tsx"
+}
+
+# output
+== /index.js ==
+/** @jsxRuntime classic */ /** @jsxFactory h */ /** @jsxFragmentFactory Fragment */ export function Hello() {
+  return /*#__PURE__*/ h("div", null, "hello");
+}
+//# sourceMappingURL=index.js.map
+
+== /index.js.map ==
+{"version":3,"file":"index.js","sources":["./index.tsx"],"names":[],"mappings":"AAAA,wBAAwB,GAAE,kBAAkB,GAAE,iCAAiC,GAC/E,OAAO,SAAS;EACd,qBAAO,EAAC,aAAI;AACd"}
+
+== /index.tsx ==
+/** @jsxRuntime classic *//** @jsxFactory h *//** @jsxFragmentFactory Fragment */
+export function Hello() {
+  return <div>hello</div>;
+}
+
+== /jsr.json ==
+{
+  "name": "@scope/foo",
+  "version": "1.0.0",
+  "exports": "./index.tsx"
+}
+
+== /package.json ==
+{
+  "name": "@jsr/scope__foo",
+  "version": "1.0.0",
+  "homepage": "http://jsr.test/@scope/foo",
+  "type": "module",
+  "dependencies": {},
+  "exports": {
+    ".": {
+      "default": "./index.js"
+    }
+  },
+  "_jsr_revision": 0
+}
+
