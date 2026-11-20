@@ -9,8 +9,6 @@ export RUSTFLAGS="${RUSTFLAGS:-} -Clink-arg=-Oz"
 export CARGO_PROFILE_RELEASE_OPT_LEVEL=s
 export CARGO_PROFILE_RELEASE_LTO=true
 export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1
-# Newer than the repository's toolchain.
-export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-stable}"
 
 worker-build --emscripten --release "$@"
 

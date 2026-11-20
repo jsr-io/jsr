@@ -104,14 +104,15 @@ jobs:
     runs-on: ubuntu-22.04
     permissions:
       contents: read
-    env:
-      RUSTUP_TOOLCHAIN: 1.99.1
     steps:
       - name: Clone repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Install Rust
-        run: rustup toolchain install $RUSTUP_TOOLCHAIN --profile minimal --target wasm32-unknown-emscripten
+        uses: dsherret/rust-toolchain-file@3551321aa44dd44a0393eb3b6bdfbc5d25ecf621 # v1
+
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-emscripten
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:

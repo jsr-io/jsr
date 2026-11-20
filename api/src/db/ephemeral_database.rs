@@ -91,7 +91,7 @@ impl Drop for EphemeralDatabase {
     // Drop the ephemeral database.
     pg_execute(format!(
       r#"DROP DATABASE "{}" WITH (FORCE)"#,
-      &self.database_name
+      self.database_name
     ));
   }
 }

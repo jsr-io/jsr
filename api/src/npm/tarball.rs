@@ -326,7 +326,7 @@ pub async fn create_npm_tarball<'a>(
         }
       }
 
-      let downloads = futures::stream::iter(paths_to_download.into_iter())
+      let downloads = futures::stream::iter(paths_to_download)
         .map(|path| {
           let s3_path =
             crate::s3_paths::file_path(scope, package, version, path).into();

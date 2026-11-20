@@ -3451,6 +3451,7 @@ pub async fn get_dependencies_graph_handler(
   let fallback_registry_url =
     req.data::<FallbackRegistryUrl>().unwrap().0.clone();
 
+  #[allow(clippy::result_large_err)]
   let deps = tokio::task::spawn_blocking(|| {
     analyze_deps_tree(
       DepTreeRegistry {
