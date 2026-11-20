@@ -481,30 +481,6 @@ mod worker {
     }
   }
 
-  fn host_of(url: &str) -> Option<String> {
-    let after_scheme = url.split_once("://").map(|(_, r)| r).unwrap_or(url);
-    let authority = after_scheme.split(['/', '?', '#']).next().unwrap_or("");
-    let host = authority
-      .rsplit_once('@')
-      .map(|(_, h)| h)
-      .unwrap_or(authority);
-    let host = if host.starts_with('[') {
-      host
-    } else {
-      host.split(':').next().unwrap_or(host)
-    };
-    (!host.is_empty()).then(|| host.to_string())
-  }
-
-  /// sqlx resolves with a blocking `getaddrinfo`, which on emscripten only
-  /// answers from the cache this async lookup fills.
-  async fn dns_prewarm(host: &str) -> Result<(), String> {
-    tokio::net::lookup_host((host, 0))
-      .await
-      .map(|_| ())
-      .map_err(|e| format!("dns prewarm for {host:?}: {e}"))
-  }
-
   async fn to_hyper_request(
     req: web_sys::Request,
   ) -> Result<hyper::Request<Body>, JsValue> {
@@ -587,11 +563,6 @@ mod worker {
       "--setup=false",
     ])
     .map_err(|e| JsValue::from_str(&format!("config: {e}")))?;
-    if let Some(host) = host_of(&config.database_url) {
-      dns_prewarm(&host)
-        .await
-        .map_err(|e| JsValue::from_str(&e))?;
-    }
     let app = build_router(config).await;
     let hyper_req = to_hyper_request(request).await?;
     let Ok(hyper_resp) =

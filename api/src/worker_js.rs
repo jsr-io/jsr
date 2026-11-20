@@ -5,13 +5,19 @@
 
 use std::cell::RefCell;
 use std::future::Future;
+use std::io;
 use std::pin::Pin;
 use std::task::Context;
 use std::task::Poll;
+use std::task::ready;
 
 use bytes::Bytes;
+use js_sys::Function;
 use js_sys::Reflect;
 use js_sys::Uint8Array;
+use tokio::io::AsyncRead;
+use tokio::io::AsyncWrite;
+use tokio::io::ReadBuf;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::JsFuture;
@@ -24,26 +30,16 @@ pub fn set_env(env: JsValue) {
   ENV.with(|cell| *cell.borrow_mut() = Some(env));
 }
 
-/// The Hyperdrive binding's connection string. The host is swapped for the
-/// binding's synthetic IP where the runtime has one, so nothing has to resolve
-/// the `.hyperdrive.local` name.
+/// The Hyperdrive binding's connection string. Only its credentials and
+/// database name are used: connections go through the binding's `connect()`
+/// (see [`WorkerConnect`]), never to the host in it.
 pub fn hyperdrive_database_url() -> Option<String> {
   ENV.with(|env| {
     let binding =
       Reflect::get(env.borrow().as_ref()?, &"HYPERDRIVE".into()).ok()?;
-    let mut url: url::Url = Reflect::get(&binding, &"connectionString".into())
+    Reflect::get(&binding, &"connectionString".into())
       .ok()?
-      .as_string()?
-      .parse()
-      .ok()?;
-    if let Some(ip) = Reflect::get(&binding, &"ip".into())
-      .ok()
-      .and_then(|ip| ip.as_string())
-      .and_then(|ip| ip.parse().ok())
-    {
-      url.set_ip_host(ip).ok()?;
-    }
-    Some(url.into())
+      .as_string()
   })
 }
 
@@ -246,5 +242,288 @@ impl R2Bucket {
       }
     })
     .await
+  }
+}
+
+/// Opens database connections through the Hyperdrive binding's `connect()`,
+/// and runs the Postgres protocol over that socket: deployed bindings have no
+/// address the worker could reach with a plain socket. Hyperdrive terminates
+/// TLS to the database, so this hop is plaintext.
+///
+/// Without a binding (`wrangler dev` against a local Postgres), connects over
+/// TCP to the host in `DATABASE_URL`, which has to be an IP address.
+pub struct WorkerConnect;
+
+impl deadpool_postgres::Connect for WorkerConnect {
+  fn connect(
+    &self,
+    pg_config: &tokio_postgres::Config,
+  ) -> Pin<
+    Box<
+      dyn Future<
+          Output = Result<
+            (tokio_postgres::Client, tokio::task::JoinHandle<()>),
+            tokio_postgres::Error,
+          >,
+        > + Send
+        + '_,
+    >,
+  > {
+    let pg_config = pg_config.clone();
+    Box::pin(AssertSend(async move {
+      let has_binding = ENV.with(|env| {
+        env.borrow().as_ref().is_some_and(|env| {
+          Reflect::get(env, &"HYPERDRIVE".into())
+            .is_ok_and(|binding| !binding.is_undefined())
+        })
+      });
+      if has_binding {
+        let (client, connection) = pg_config
+          .connect_raw(HyperdriveSocket::open(), tokio_postgres::NoTls)
+          .await?;
+        Ok((client, spawn_connection(connection)))
+      } else {
+        // A failure to connect is returned by the socket's first read, so it
+        // surfaces as the connection's error.
+        match local_socket(&pg_config).await {
+          Ok(stream) => {
+            let (client, connection) =
+              pg_config.connect_raw(stream, tokio_postgres::NoTls).await?;
+            Ok((client, spawn_connection(connection)))
+          }
+          Err(err) => {
+            let (client, connection) = pg_config
+              .connect_raw(FailedSocket(err), tokio_postgres::NoTls)
+              .await?;
+            Ok((client, spawn_connection(connection)))
+          }
+        }
+      }
+    }))
+  }
+}
+
+fn spawn_connection(
+  connection: impl Future<Output = Result<(), tokio_postgres::Error>> + 'static,
+) -> tokio::task::JoinHandle<()> {
+  tokio::spawn(AssertSend(async move {
+    if let Err(err) = connection.await {
+      tracing::error!("database connection failed: {err}");
+    }
+  }))
+}
+
+/// A TCP socket to the first host in the config.
+async fn local_socket(
+  pg_config: &tokio_postgres::Config,
+) -> Result<tokio::net::TcpStream, String> {
+  let Some(tokio_postgres::config::Host::Tcp(host)) =
+    pg_config.get_hosts().first()
+  else {
+    return Err("DATABASE_URL has no TCP host".to_string());
+  };
+  let port = pg_config.get_ports().first().copied().unwrap_or(5432);
+  tokio::net::TcpStream::connect((host.as_str(), port))
+    .await
+    .map_err(|err| format!("connecting to {host}:{port}: {err}"))
+}
+
+/// Fails every read and write with the reason the socket couldn't be opened.
+struct FailedSocket(String);
+
+impl AsyncRead for FailedSocket {
+  fn poll_read(
+    self: Pin<&mut Self>,
+    _: &mut Context<'_>,
+    _: &mut ReadBuf<'_>,
+  ) -> Poll<io::Result<()>> {
+    Poll::Ready(Err(io_error(self.0.clone())))
+  }
+}
+
+impl AsyncWrite for FailedSocket {
+  fn poll_write(
+    self: Pin<&mut Self>,
+    _: &mut Context<'_>,
+    _: &[u8],
+  ) -> Poll<io::Result<usize>> {
+    Poll::Ready(Err(io_error(self.0.clone())))
+  }
+
+  fn poll_flush(
+    self: Pin<&mut Self>,
+    _: &mut Context<'_>,
+  ) -> Poll<io::Result<()>> {
+    Poll::Ready(Err(io_error(self.0.clone())))
+  }
+
+  fn poll_shutdown(
+    self: Pin<&mut Self>,
+    _: &mut Context<'_>,
+  ) -> Poll<io::Result<()>> {
+    Poll::Ready(Ok(()))
+  }
+}
+
+/// A socket from the Hyperdrive binding's `connect()`, read and written
+/// through its `readable` and `writable` streams.
+struct HyperdriveSocket {
+  /// Set when the socket could not be opened; returned from the first read or
+  /// write, so the failure surfaces as the connection's error.
+  error: Option<String>,
+  reader: JsValue,
+  writer: JsValue,
+  read: Option<JsFuture>,
+  /// Bytes of the last chunk read that didn't fit the caller's buffer.
+  unread: Vec<u8>,
+  write: Option<JsFuture>,
+}
+
+fn call(target: &JsValue, method: &str) -> Result<JsValue, JsValue> {
+  Reflect::get(target, &method.into())?
+    .dyn_into::<Function>()?
+    .call0(target)
+}
+
+fn call1(
+  target: &JsValue,
+  method: &str,
+  arg: &JsValue,
+) -> Result<JsValue, JsValue> {
+  Reflect::get(target, &method.into())?
+    .dyn_into::<Function>()?
+    .call1(target, arg)
+}
+
+fn io_error(err: impl Into<String>) -> io::Error {
+  io::Error::other(err.into())
+}
+
+fn promise(value: Result<JsValue, JsValue>) -> io::Result<JsFuture> {
+  let promise = value.map_err(|err| io_error(js_error(err)))?;
+  Ok(JsFuture::from(js_sys::Promise::from(promise)))
+}
+
+impl HyperdriveSocket {
+  fn open() -> Self {
+    let socket = ENV.with(|env| -> Result<(JsValue, JsValue), String> {
+      let env = env.borrow();
+      let env = env.as_ref().ok_or("no worker env")?;
+      let binding =
+        Reflect::get(env, &"HYPERDRIVE".into()).map_err(js_error)?;
+      let socket = call(&binding, "connect").map_err(js_error)?;
+      let readable =
+        Reflect::get(&socket, &"readable".into()).map_err(js_error)?;
+      let writable =
+        Reflect::get(&socket, &"writable".into()).map_err(js_error)?;
+      Ok((
+        call(&readable, "getReader").map_err(js_error)?,
+        call(&writable, "getWriter").map_err(js_error)?,
+      ))
+    });
+    let (error, reader, writer) = match socket {
+      Ok((reader, writer)) => (None, reader, writer),
+      Err(err) => (
+        Some(format!("Hyperdrive connect: {err}")),
+        JsValue::UNDEFINED,
+        JsValue::UNDEFINED,
+      ),
+    };
+    Self {
+      error,
+      reader,
+      writer,
+      read: None,
+      unread: Vec::new(),
+      write: None,
+    }
+  }
+
+  fn check(&self) -> io::Result<()> {
+    match &self.error {
+      Some(err) => Err(io_error(err.clone())),
+      None => Ok(()),
+    }
+  }
+
+  /// Waits for the last write to be accepted by the stream.
+  fn poll_write_done(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    if let Some(write) = &mut self.write {
+      let result = ready!(Pin::new(write).poll(cx));
+      self.write = None;
+      result.map_err(|err| io_error(js_error(err)))?;
+    }
+    Poll::Ready(Ok(()))
+  }
+}
+
+impl AsyncRead for HyperdriveSocket {
+  fn poll_read(
+    mut self: Pin<&mut Self>,
+    cx: &mut Context<'_>,
+    buf: &mut ReadBuf<'_>,
+  ) -> Poll<io::Result<()>> {
+    self.check()?;
+    loop {
+      if !self.unread.is_empty() {
+        let n = self.unread.len().min(buf.remaining());
+        buf.put_slice(&self.unread[..n]);
+        self.unread.drain(..n);
+        return Poll::Ready(Ok(()));
+      }
+
+      if self.read.is_none() {
+        self.read = Some(promise(call(&self.reader, "read"))?);
+      }
+      let result = ready!(Pin::new(self.read.as_mut().unwrap()).poll(cx));
+      self.read = None;
+      let chunk = result.map_err(|err| io_error(js_error(err)))?;
+
+      let done = Reflect::get(&chunk, &"done".into())
+        .map_err(|err| io_error(js_error(err)))?;
+      if done.is_truthy() {
+        // End of stream: returning without filling `buf` signals EOF.
+        return Poll::Ready(Ok(()));
+      }
+      let value = Reflect::get(&chunk, &"value".into())
+        .map_err(|err| io_error(js_error(err)))?;
+      self.unread = Uint8Array::new(&value).to_vec();
+    }
+  }
+}
+
+impl AsyncWrite for HyperdriveSocket {
+  fn poll_write(
+    mut self: Pin<&mut Self>,
+    cx: &mut Context<'_>,
+    buf: &[u8],
+  ) -> Poll<io::Result<usize>> {
+    self.check()?;
+    ready!(self.poll_write_done(cx))?;
+    // `Uint8Array::from` copies `buf`, so the stream never holds a view into
+    // wasm memory. Writes queue in order; the next write, flush or shutdown
+    // waits for this one.
+    let chunk = Uint8Array::from(buf);
+    self.write = Some(promise(call1(&self.writer, "write", &chunk))?);
+    Poll::Ready(Ok(buf.len()))
+  }
+
+  fn poll_flush(
+    mut self: Pin<&mut Self>,
+    cx: &mut Context<'_>,
+  ) -> Poll<io::Result<()>> {
+    self.check()?;
+    self.poll_write_done(cx)
+  }
+
+  fn poll_shutdown(
+    mut self: Pin<&mut Self>,
+    cx: &mut Context<'_>,
+  ) -> Poll<io::Result<()>> {
+    self.check()?;
+    ready!(self.poll_write_done(cx))?;
+    // Closing is best-effort: the connection is done either way.
+    let _ = call(&self.writer, "close");
+    Poll::Ready(Ok(()))
   }
 }
