@@ -9,8 +9,8 @@ export RUSTFLAGS="${RUSTFLAGS:-} -Clink-arg=-Oz"
 export CARGO_PROFILE_RELEASE_OPT_LEVEL=s
 export CARGO_PROFILE_RELEASE_LTO=true
 export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1
-# Stable's LLVM 22 emits exception-handling code wasm-bindgen 0.2.129 can't parse.
-export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-nightly}"
+# Newer than the repository's toolchain.
+export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-stable}"
 
 worker-build --emscripten --release "$@"
 
