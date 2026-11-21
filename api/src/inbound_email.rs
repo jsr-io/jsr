@@ -255,48 +255,43 @@ impl InboundEmail {
 
 fn strip_quoted_history(body: &str) -> &str {
   let lines: Vec<&str> = body.lines().collect();
+  let is_blank = |line: &str| line.trim().is_empty();
+  let is_quoted = |line: &str| line.trim_start().starts_with('>');
 
-  let quote_start = (0..lines.len()).find(|&i| {
-    let line = lines[i].trim();
-
-    if line.starts_with("On ") {
-      let ends = |l: &&str| l.trim_end().ends_with("wrote:");
-      if ends(&line) || lines.get(i + 1).is_some_and(ends) {
-        return true;
-      }
-    }
-
-    if line
-      .trim_matches('-')
-      .trim()
-      .eq_ignore_ascii_case("Original Message")
-      && line.starts_with("--")
-    {
-      return true;
-    }
-
-    if line.starts_with("From:")
-      && lines[i + 1..]
-        .iter()
-        .take(3)
-        .any(|l| l.trim_start().starts_with("Sent:"))
-    {
-      return true;
-    }
-
-    line.starts_with('>')
+  let Some(quote_start) = (0..lines.len()).find(|&i| {
+    is_quoted(lines[i])
       && lines[i..]
         .iter()
-        .all(|l| l.trim().is_empty() || l.trim_start().starts_with('>'))
-  });
+        .all(|line| is_blank(line) || is_quoted(line))
+  }) else {
+    return body;
+  };
 
-  match quote_start {
-    Some(i) => {
-      let offset = lines[i].as_ptr() as usize - body.as_ptr() as usize;
-      body[..offset].trim_end()
-    }
-    None => body,
+  let mut attribution_end = quote_start;
+  while attribution_end > 0 && is_blank(lines[attribution_end - 1]) {
+    attribution_end -= 1;
   }
+  let mut attribution_start = attribution_end;
+  while attribution_start > 0 && !is_blank(lines[attribution_start - 1]) {
+    attribution_start -= 1;
+  }
+  let attribution = &lines[attribution_start..attribution_end];
+  let names_a_date_or_address = attribution
+    .iter()
+    .any(|line| line.contains('@') || line.chars().any(char::is_numeric));
+  let is_attribution = (1..=3).contains(&attribution.len())
+    && attribution
+      .last()
+      .is_some_and(|line| line.trim_end().ends_with([':', '：']))
+    && names_a_date_or_address;
+
+  let cut = if is_attribution {
+    attribution_start
+  } else {
+    quote_start
+  };
+  let offset = lines[cut].as_ptr() as usize - body.as_ptr() as usize;
+  body[..offset].trim_end()
 }
 
 /// Removes RFC 5322 comments — parenthesised, possibly nested — from a header
@@ -803,32 +798,32 @@ mod test {
   fn quoted_history_is_cut_from_a_reply() {
     let cases = [
       "new text\n\nOn Mon, 1 Jan 2026 at 10:00, JSR <help@jsr.io> wrote:\n> old text",
-      "new text\n\nOn Mon, 1 Jan 2026 at 10:00, JSR\n<help@jsr.io> wrote:\n> old text",
-      "new text\n\n-----Original Message-----\nFrom: JSR\nold text",
-      "new text\n\nFrom: JSR <help@jsr.io>\nSent: Monday, 1 January 2026 10:00\nTo: Someone\n\nold text",
+      "new text\n\nOn Mon, 1 Jan 2026 at 10:00, JSR\n<help@jsr.io> wrote:\n\n> old text",
       "new text\n\nAm 1. Januar 2026 schrieb JSR:\n> old text\n>\n> more old text",
+      "new text\n\nLe lun. 1 janv. 2026 à 10:00, JSR <help@jsr.io> a écrit :\n> old text",
+      "new text\n\n2026年1月1日(月) 10:00 JSR <help@jsr.io>：\n> old text",
+      "new text\n\n> old text\n",
     ];
     for case in cases {
-      assert!(
-        strip_quoted_history(case).starts_with("new text"),
-        "{case:?}"
-      );
-      assert!(!strip_quoted_history(case).contains("old text"), "{case:?}");
+      assert_eq!(strip_quoted_history(case), "new text", "{case:?}");
     }
   }
 
   #[test]
-  fn text_that_only_resembles_a_quote_is_kept() {
+  fn text_that_is_not_trailing_history_is_kept() {
     let inline = "> did you try again?\nyes, same error";
     assert_eq!(strip_quoted_history(inline), inline);
 
-    let prose = "On Monday it worked.\nFrom: what I can tell it broke later.";
-    assert_eq!(strip_quoted_history(prose), prose);
+    let unquoted = "new text\n\nFrom: JSR\nSent: Monday\n\nold text";
+    assert_eq!(strip_quoted_history(unquoted), unquoted);
+
+    let own_words = "this is what I ran:\n\n> old text";
+    assert_eq!(strip_quoted_history(own_words), "this is what I ran:");
   }
 
   #[test]
   fn history_is_only_cut_from_replies() {
-    let text = "new text\n\nOn Monday, JSR wrote:\n> old text";
+    let text = "new text\n\nOn 1 Jan 2026, JSR wrote:\n> old text";
 
     let mut reply = email(&[("In-Reply-To", "<a@jsr.io>")], "hi");
     reply.text_body = Some(text.to_owned());
@@ -838,7 +833,7 @@ mod test {
     first.text_body = Some(text.to_owned());
     assert_eq!(first.body(), text);
 
-    let below = "On Monday, JSR wrote:\n> old text\n\nnew text";
+    let below = "On 1 Jan 2026, JSR wrote:\n> old text\n\nnew text";
     reply.text_body = Some(below.to_owned());
     assert_eq!(reply.body(), below);
   }
