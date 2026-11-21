@@ -1,6 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use postmark::Query;
-use postmark::reqwest::PostmarkClient;
 use tracing::instrument;
 
 pub trait Email {
@@ -18,9 +16,11 @@ pub struct EmailContent {
 /// 5322 `Message-ID`s, angle brackets included.
 #[derive(Debug)]
 pub struct EmailThread<'a> {
-  /// The `Message-ID` to send under. Callers generate this before sending and
-  /// record it, so that a reply pointing back at it can be matched to the
-  /// conversation it belongs to.
+  /// What the message is known by until it is sent. Callers generate this and
+  /// record it against the ticket message the email announces. Email Sending
+  /// picks the real `Message-ID` itself, and that replaces this one everywhere
+  /// once the send succeeds (see [`deliver`]), so that a reply pointing back
+  /// at the email can be matched to the conversation it belongs to.
   pub message_id: &'a str,
   /// The message being replied to, if any.
   pub in_reply_to: Option<String>,
@@ -29,86 +29,133 @@ pub struct EmailThread<'a> {
   pub references: Vec<String>,
 }
 
-fn header(name: &str, value: &str) -> postmark::api::email::Header {
-  postmark::api::email::Header {
-    name: name.to_owned(),
-    value: value.to_owned(),
+#[cfg(target_arch = "wasm32")]
+use crate::worker_js::SendEmail;
+#[cfg(target_arch = "wasm32")]
+use crate::worker_js::SendEmailError;
+
+/// Never constructed natively: mail is sent through a Worker binding, so there
+/// is no sender in local development or tests.
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Clone)]
+struct SendEmail(std::convert::Infallible);
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Debug)]
+struct SendEmailError {
+  code: Option<String>,
+  message: String,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl SendEmail {
+  fn new(_binding: &str) -> Option<Self> {
+    None
+  }
+
+  async fn send(
+    &self,
+    _from: (&str, &str),
+    _to: &str,
+    _subject: &str,
+    _text: &str,
+    _html: &str,
+    _headers: &[(&str, String)],
+  ) -> Result<String, SendEmailError> {
+    match self.0 {}
   }
 }
 
+/// Why a send failed.
 #[derive(Debug)]
+pub struct SendError {
+  /// The same message would be refused again, so it is not worth retrying.
+  pub permanent: bool,
+  pub message: String,
+}
+
+impl From<SendEmailError> for SendError {
+  fn from(err: SendEmailError) -> Self {
+    let permanent = matches!(
+      err.code.as_deref(),
+      Some(
+        // The recipient bounced or complained before; Email Sending will not
+        // send to them until that is lifted.
+        "E_RECIPIENT_SUPPRESSED" | "E_VALIDATION_ERROR" | "E_CONTENT_TOO_LARGE"
+      )
+    );
+    SendError {
+      permanent,
+      message: match err.code {
+        Some(code) => format!("{code}: {}", err.message),
+        None => err.message,
+      },
+    }
+  }
+}
+
 pub struct EmailSender {
-  postmark: PostmarkClient,
+  binding: SendEmail,
   pub from: String,
   pub from_name: String,
 }
 
 impl EmailSender {
-  pub fn new(
-    postmark: PostmarkClient,
+  /// A sender that delivers through the Worker's `send_email` binding of that
+  /// name. `None` if the Worker has no such binding.
+  pub fn from_binding(
+    binding: &str,
     from: String,
     from_name: String,
-  ) -> Self {
-    Self {
-      postmark,
+  ) -> Option<Self> {
+    Some(Self {
+      binding: SendEmail::new(binding)?,
       from,
       from_name,
-    }
+    })
   }
 
-  /// Builds a sender that delivers through Postmark's HTTP API with the given
-  /// server token.
-  pub fn from_postmark_token(
-    token: String,
-    from: String,
-    from_name: String,
-  ) -> Self {
-    Self::new(
-      PostmarkClient::builder().server_token(token).build(),
-      from,
-      from_name,
-    )
-  }
-
-  /// Sends an already-rendered email. Callers reach this through
-  /// [`enqueue`] rather than directly, so that a Postmark failure retries out
-  /// of band instead of failing the request that triggered the mail.
+  /// Sends an already-rendered email and returns the `Message-ID` it was sent
+  /// under, angle brackets included. Callers reach this through [`enqueue`]
+  /// rather than directly, so that a failure to send retries out of band
+  /// instead of failing the request that triggered the mail.
   pub async fn send_rendered(
     &self,
-    to: String,
-    subject: String,
-    text: String,
-    html: String,
-    thread: Option<EmailThread<'_>>,
-  ) -> Result<(), anyhow::Error> {
-    let mut request = postmark::api::email::SendEmailRequest::builder()
-      .from(format!("{} <{}>", self.from_name, self.from))
-      .to(to)
-      .subject(subject)
-      .body(postmark::api::Body::HtmlAndText { html, text })
-      .build();
-
+    to: &str,
+    subject: &str,
+    text: &str,
+    html: &str,
+    thread: Option<&EmailThread<'_>>,
+  ) -> Result<String, SendError> {
+    // Email Sending sets `Message-ID` itself and refuses a send that tries to.
+    let mut headers = Vec::new();
     if let Some(thread) = thread {
-      let mut headers = vec![header("Message-ID", thread.message_id)];
       if let Some(in_reply_to) = &thread.in_reply_to {
-        headers.push(header("In-Reply-To", in_reply_to));
+        headers.push(("In-Reply-To", in_reply_to.clone()));
       }
       if !thread.references.is_empty() {
-        headers.push(header("References", &thread.references.join(" ")));
+        headers.push(("References", thread.references.join(" ")));
       }
-      request.headers = Some(headers);
     }
 
-    let resp = request.execute(&self.postmark).await?;
-    if resp.error_code != 0 {
-      Err(anyhow::anyhow!(
-        "Postmark error {}: {}",
-        resp.error_code,
-        resp.message
-      ))
+    let message_id = self
+      .binding
+      .send(
+        (&self.from_name, &self.from),
+        to,
+        subject,
+        text,
+        html,
+        &headers,
+      )
+      .await?;
+
+    let message_id = message_id.trim();
+    Ok(if message_id.starts_with('<') {
+      message_id.to_owned()
     } else {
-      Ok(())
-    }
+      format!("<{message_id}>")
+    })
   }
 }
 
@@ -214,8 +261,8 @@ pub async fn deliver(
     return Ok(true);
   };
 
-  // A delivery can reach a deployment that has no Postmark credential — most
-  // easily by the queue dispatching to a service that was never given one.
+  // A delivery can reach a deployment that has no sender — most easily by the
+  // queue dispatching to a worker that was never given the binding.
   // Recorded as an ordinary failure rather than swallowed, so it retries if the
   // configuration is fixed, and is eventually abandoned with a readable reason
   // instead of disappearing.
@@ -247,36 +294,36 @@ pub async fn deliver(
 
   match email_sender
     .send_rendered(
-      delivery.to_address.clone(),
-      delivery.subject.clone(),
-      delivery.body_text.clone(),
-      delivery.body_html.clone(),
-      thread,
+      &delivery.to_address,
+      &delivery.subject,
+      &delivery.body_text,
+      &delivery.body_html,
+      thread.as_ref(),
     )
     .await
   {
-    Ok(()) => {
-      db.mark_email_delivery_sent(id).await?;
+    Ok(sent_message_id) => {
+      db.mark_email_delivery_sent(id, &sent_message_id).await?;
       Ok(true)
     }
     Err(err) => {
       let abandoned = db
         .record_email_delivery_failure(
           id,
-          &format!("{err:?}"),
-          MAX_EMAIL_ATTEMPTS,
+          &err.message,
+          // A send that would be refused again is given up on straight away.
+          if err.permanent { 0 } else { MAX_EMAIL_ATTEMPTS },
         )
         .await?;
       if abandoned {
         tracing::error!(
           delivery_id = %id,
           to = %delivery.to_address,
-          "giving up on email delivery after {} attempts: {:?}",
-          MAX_EMAIL_ATTEMPTS,
-          err
+          "giving up on email delivery: {}",
+          err.message
         );
       } else {
-        tracing::warn!(delivery_id = %id, "email delivery failed, will retry: {:?}", err);
+        tracing::warn!(delivery_id = %id, "email delivery failed, will retry: {}", err.message);
       }
       Ok(abandoned)
     }

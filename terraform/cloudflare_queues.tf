@@ -18,8 +18,8 @@ locals {
     }
 
     // Delivers outgoing email. Rows in `email_deliveries` are the durable
-    // record; this queue is what actually hands each one to Postmark, so a
-    // transient Postmark failure retries here instead of failing the request
+    // record; this queue is what actually sends each one, so a
+    // transient failure to send retries here instead of failing the request
     // that queued it.
     email = {
       binding = "EMAIL_QUEUE"

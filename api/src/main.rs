@@ -11,6 +11,8 @@ mod docs;
 mod emails;
 mod external;
 mod iam;
+#[cfg(any(target_arch = "wasm32", test))]
+mod inbound_email;
 #[cfg(not(target_arch = "wasm32"))]
 mod jemalloc_profiling;
 mod object_cache;
@@ -23,8 +25,6 @@ mod task_dispatch;
 mod token;
 mod tree_sitter;
 mod util;
-#[cfg(any(target_arch = "wasm32", test))]
-mod inbound_email;
 
 use crate::api::api_router;
 use crate::config::Config;
@@ -314,15 +314,13 @@ async fn build_options(config: Config) -> MainRouterOptions {
     None
   };
 
-  let email_sender = config.postmark_token.map(|token| {
-    EmailSender::from_postmark_token(
-      token,
-      config
-        .email_from
-        .expect("email_from must be set when postmark_token is set"),
+  let email_sender = config.email_from.and_then(|from| {
+    EmailSender::from_binding(
+      "EMAIL",
+      from,
       config
         .email_from_name
-        .expect("email_from_name must be set when postmark_token is set"),
+        .expect("email_from_name must be set when email_from is set"),
     )
   });
 

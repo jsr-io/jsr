@@ -215,15 +215,13 @@ async fn build_options(config: Config) -> MainRouterOptions {
     None
   };
 
-  let email_sender = config.postmark_token.map(|token| {
-    EmailSender::from_postmark_token(
-      token,
-      config
-        .email_from
-        .expect("email_from must be set when postmark_token is set"),
+  let email_sender = config.email_from.and_then(|from| {
+    EmailSender::from_binding(
+      "EMAIL",
+      from,
       config
         .email_from_name
-        .expect("email_from_name must be set when postmark_token is set"),
+        .expect("email_from_name must be set when email_from is set"),
     )
   });
 

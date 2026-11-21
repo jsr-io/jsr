@@ -163,10 +163,6 @@ pub struct Config {
   /// `TURNSTILE_SITE_KEY`. Captcha verification is disabled if unset.
   pub turnstile_secret_key: Option<String>,
 
-  #[clap(long = "postmark_token", env = "POSTMARK_TOKEN")]
-  /// The Postmark token to use to send emails.
-  pub postmark_token: Option<String>,
-
   #[clap(
     long = "inbound_trusted_authserv_id",
     env = "INBOUND_TRUSTED_AUTHSERV_ID"
@@ -178,7 +174,8 @@ pub struct Config {
   pub inbound_trusted_authserv_id: Option<String>,
 
   #[clap(long = "email_from", env = "EMAIL_FROM")]
-  /// The email address to send emails from.
+  /// The email address to send emails from. Email is sent through the Worker's
+  /// `EMAIL` binding, so there is no sender without one.
   pub email_from: Option<String>,
 
   #[clap(long = "email_from_name", env = "EMAIL_FROM_NAME")]
@@ -257,10 +254,6 @@ impl std::fmt::Debug for Config {
       .field(
         "turnstile_secret_key",
         &self.turnstile_secret_key.as_ref().map(|_| "***"),
-      )
-      .field(
-        "postmark_token",
-        &self.postmark_token.as_ref().map(|_| "***"),
       )
       .field(
         "inbound_trusted_authserv_id",

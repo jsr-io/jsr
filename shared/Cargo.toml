@@ -60,7 +60,6 @@ postgres-types = { version = "0.2.14", features = [
 deadpool-postgres = "0.14.2"
 const_format = { version = "0.2", features = ["const_generics"] }
 pin-project = "1.1.3"
-postmark = { version = "2", features = ["reqwest-rustls-tls"] }
 rusty-s3 = "0.10.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 

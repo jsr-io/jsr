@@ -136,12 +136,9 @@ pub struct Config {
   /// The Cloudflare Analytics Engine dataset name for download tracking.
   pub cloudflare_analytics_dataset: Option<String>,
 
-  #[clap(long = "postmark_token", env = "POSTMARK_TOKEN")]
-  /// The Postmark token to use to send emails.
-  pub postmark_token: Option<String>,
-
   #[clap(long = "email_from", env = "EMAIL_FROM")]
-  /// The email address to send emails from.
+  /// The email address to send emails from. Email is sent through the Worker's
+  /// `EMAIL` binding, so there is no sender without one.
   pub email_from: Option<String>,
 
   #[clap(long = "email_from_name", env = "EMAIL_FROM_NAME")]
@@ -180,10 +177,6 @@ impl std::fmt::Debug for Config {
       .field("otlp_headers", &self.otlp_headers.as_ref().map(|_| "***"))
       .field("deployment_environment", &self.deployment_environment)
       .field("registry_url", &self.registry_url)
-      .field(
-        "postmark_token",
-        &self.postmark_token.as_ref().map(|_| "***"),
-      )
       .field("email_from", &self.email_from)
       .field("email_from_name", &self.email_from_name)
       .field(

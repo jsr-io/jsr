@@ -4099,7 +4099,7 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", user
   }
 
   /// Queues an email for delivery. The row is the durable record; actually
-  /// handing it to Postmark happens in `/tasks/send_email`.
+  /// sending it happens in `/tasks/send_email`.
   #[instrument(name = "Database::enqueue_email", skip(self, delivery), err)]
   pub async fn enqueue_email(
     &self,
@@ -4127,11 +4127,68 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", user
     .await
   }
 
+  /// Records a delivery as sent under `sent_message_id`, the `Message-ID` the
+  /// mail provider gave it.
+  ///
+  /// A delivery is queued under a `Message-ID` of our own making, which the
+  /// ticket message it announces and any later delivery in the same thread
+  /// refer to. The provider's replaces it in all of those, so that a reply to
+  /// the email — which names the provider's — finds its ticket, and so that
+  /// emails sent after this one reference a message that exists.
   #[instrument(name = "Database::mark_email_delivery_sent", skip(self), err)]
-  pub async fn mark_email_delivery_sent(&self, id: Uuid) -> Result<()> {
-    query(r#"UPDATE email_deliveries SET sent_at = now(), attempts = attempts + 1 WHERE id = $1"#, &[&id])
-    .execute(&self.pool)
+  pub async fn mark_email_delivery_sent(
+    &self,
+    id: Uuid,
+    sent_message_id: &str,
+  ) -> Result<()> {
+    let mut conn = self.pool.get().await?;
+    let tx = conn.transaction().await?;
+
+    let queued_message_id: Option<Option<String>> = query_scalar(
+      r#"SELECT message_id FROM email_deliveries WHERE id = $1 FOR UPDATE"#,
+      &[&id],
+    )
+    .fetch_optional(&tx)
     .await?;
+
+    query(
+      r#"UPDATE email_deliveries
+        SET sent_at = now(), attempts = attempts + 1
+        WHERE id = $1"#,
+      &[&id],
+    )
+    .execute(&tx)
+    .await?;
+
+    if let Some(Some(queued_message_id)) = queued_message_id {
+      query(
+        r#"UPDATE email_deliveries SET message_id = $2 WHERE id = $1"#,
+        &[&id, &sent_message_id],
+      )
+      .execute(&tx)
+      .await?;
+
+      query(
+        r#"UPDATE ticket_messages SET email_message_id = $2
+          WHERE email_message_id = $1"#,
+        &[&queued_message_id, &sent_message_id],
+      )
+      .execute(&tx)
+      .await?;
+
+      query(
+        r#"UPDATE email_deliveries
+          SET in_reply_to = CASE WHEN in_reply_to = $1 THEN $2 ELSE in_reply_to END,
+              reference_ids = array_replace(reference_ids, $1, $2)
+          WHERE sent_at IS NULL AND abandoned_at IS NULL
+            AND (in_reply_to = $1 OR $1 = ANY(reference_ids))"#,
+        &[&queued_message_id, &sent_message_id],
+      )
+      .execute(&tx)
+      .await?;
+    }
+
+    tx.commit().await?;
     Ok(())
   }
 
@@ -4913,8 +4970,8 @@ async fn finalize_package_creation(
 
 /// Writes an inbound email and its attachments onto a ticket.
 ///
-/// Returns `false` if this exact email is already on file. Postmark retries a
-/// webhook until it gets a 2xx, so the same message can arrive more than once;
+/// Returns `false` if this exact email is already on file. A sending server
+/// retries until the message is accepted, so the same one can arrive more than once;
 /// the unique index on `email_message_id` is what makes that harmless, and the
 /// duplicate-key violation is the signal rather than an error worth reporting.
 async fn insert_inbound_email_message(

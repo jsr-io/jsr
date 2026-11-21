@@ -10,7 +10,6 @@ locals {
     "GITHUB_CLIENT_SECRET"      = var.github_client_secret
     "GITLAB_CLIENT_SECRET"      = var.gitlab_client_secret
     "TURNSTILE_SECRET_KEY"      = cloudflare_turnstile_widget.login.secret
-    "POSTMARK_TOKEN"            = var.postmark_token
     "ALGOLIA_WRITE_API_KEY"     = algolia_api_key.write.key
     "CLOUDFLARE_API_TOKEN"      = var.cloudflare_api_token
   }
@@ -99,6 +98,12 @@ locals {
       type       = "queue"
       name       = queue.binding
       queue_name = cloudflare_queue.api[name].queue_name
+    }],
+    // Outgoing mail. The domain is onboarded to Email Sending in the
+    // dashboard, not here.
+    [{
+      type = "send_email"
+      name = "EMAIL"
     }],
   )
 }

@@ -1275,7 +1275,9 @@ mod integration {
       vec![id]
     );
 
-    db.mark_email_delivery_sent(id).await.unwrap();
+    db.mark_email_delivery_sent(id, "<sent@example.net>")
+      .await
+      .unwrap();
 
     // Once sent it is invisible to both the delivery path and the sweeper, so a
     // task the queue redelivers cannot produce a second email.
@@ -1285,6 +1287,79 @@ mod integration {
         .await
         .unwrap()
         .is_empty()
+    );
+  }
+
+  #[tokio::test]
+  async fn the_sent_message_id_replaces_the_queued_one() {
+    let mut t = TestSetup::new().await;
+    deliver(&t, inbound("<a@example.com>", "Help", &[])).await;
+    let ticket = all_tickets(&mut t).await.remove(0);
+    let db = t.db();
+
+    // The auto-reply is on the ticket under the Message-ID it was queued with.
+    let queued_id = ticket_messages(&t, ticket.id)
+      .await
+      .pop()
+      .unwrap()
+      .email_message_id
+      .unwrap();
+
+    let delivery = |message_id: &str, references: Vec<String>| {
+      shared::models::NewEmailDelivery {
+        to_address: "someone@example.com".to_owned(),
+        subject: "subject".to_owned(),
+        body_text: "text".to_owned(),
+        body_html: "<p>html</p>".to_owned(),
+        message_id: Some(message_id.to_owned()),
+        in_reply_to: references.last().cloned(),
+        reference_ids: references,
+      }
+    };
+    let first = db
+      .enqueue_email(delivery(&queued_id, vec![]))
+      .await
+      .unwrap();
+    // A later email in the thread, queued before the first one went out.
+    let second = db
+      .enqueue_email(delivery(
+        "<later@jsr.io>",
+        vec!["<a@example.com>".to_owned(), queued_id.clone()],
+      ))
+      .await
+      .unwrap();
+
+    db.mark_email_delivery_sent(first, "<sent@example.net>")
+      .await
+      .unwrap();
+
+    // A reply to the email names the ID it was actually sent under.
+    let on_ticket = ticket_messages(&t, ticket.id).await.pop().unwrap();
+    assert_eq!(
+      on_ticket.email_message_id.as_deref(),
+      Some("<sent@example.net>")
+    );
+    deliver(
+      &t,
+      inbound(
+        "<b@example.com>",
+        "Re: Help",
+        &[("In-Reply-To", "<sent@example.net>")],
+      ),
+    )
+    .await;
+    assert_eq!(all_tickets(&mut t).await.len(), 1);
+
+    // And the email still waiting refers to it too.
+    let later = db
+      .get_pending_email_delivery(second)
+      .await
+      .unwrap()
+      .unwrap();
+    assert_eq!(later.in_reply_to.as_deref(), Some("<sent@example.net>"));
+    assert_eq!(
+      later.reference_ids,
+      vec!["<a@example.com>", "<sent@example.net>"]
     );
   }
 
@@ -1306,7 +1381,7 @@ mod integration {
       .await
       .unwrap();
 
-    // The queue dispatches to a service that has no Postmark credential. This
+    // The queue dispatches to a service that has no sender. This
     // used to be swallowed with a 200, which marked the delivery done without
     // ever sending it. It must be recorded as a failure instead, so the mail is
     // still there to send once the configuration is fixed.

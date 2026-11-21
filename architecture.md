@@ -33,7 +33,6 @@ graph LR
     API --> R2
     API -- "Hyperdrive" --> Postgres["PostgreSQL"]
     API --> Algolia
-    API --> Postmark["Postmark"]
     API -- "enqueue" --> Queues["Cloudflare Queues"]
     Queues --> Tasks["Tasks Worker<br/>(Rust, wasm)"]
     Cron["Cron Triggers"] --> Tasks
@@ -41,7 +40,7 @@ graph LR
     Tasks --> R2
     Tasks -- "Hyperdrive" --> Postgres
     Tasks --> Algolia
-    Tasks --> Postmark
+    Tasks --> Email["Cloudflare Email Sending"]
 ```
 
 ## Request Routing
@@ -127,7 +126,7 @@ shared/
 │   ├── ids.rs               # Type-safe identifiers
 │   ├── docs.rs              # Documentation generation (deno_doc)
 │   ├── external/            # External service clients (Cloudflare, Algolia)
-│   ├── emails.rs            # Email delivery (Postmark)
+│   ├── emails.rs            # Email delivery
 │   ├── s3.rs                # R2/S3 storage operations
 │   ├── task_queue.rs        # Rate-limited background job queue
 │   ├── tracing.rs           # Logging and OpenTelemetry setup
@@ -308,21 +307,24 @@ before the message is stored.
 
 Email is never sent inline in a request. Sending is rendered at the point of the
 action and written to `email_deliveries`, then handed to a queue whose messages
-run `/tasks/send_email`; that handler is what talks to Postmark. A transient
-Postmark failure therefore retries out of band instead of failing the request
-that caused the mail — an admin ticket reply is saved once and delivered
+run `/tasks/send_email`; that handler sends through the worker's `EMAIL`
+binding to Cloudflare Email Sending. A transient failure therefore retries out
+of band instead of failing the request that caused the mail — an admin ticket reply is saved once and delivered
 independently, rather than returning 500 with the reply already committed.
 
 The delivery row is committed before the queue is told about it, so a failed
 hand-off leaves a row nothing would pick up. `/tasks/sweep_pending_emails`, run
 every five minutes by a cron trigger, re-drives those. Re-driving is safe: a row
-that has already been sent is skipped, and a redelivered task reuses the same
-`Message-ID`, so even a genuine double-send is collapsed by the recipient's mail
-client. A delivery that keeps failing is abandoned after eight attempts and kept
-with its last error rather than deleted.
+that has already been sent is skipped. A delivery that keeps failing is
+abandoned after eight attempts and kept with its last error rather than deleted;
+one Email Sending refuses outright, such as a suppressed recipient, is abandoned
+at once.
 
-With no queue configured — local development and tests — deliveries are sent
-inline instead.
+Email Sending chooses each email's `Message-ID`. A ticket email is queued under
+one of our own, recorded on the message it announces; when the send succeeds the
+real one replaces it there and in any delivery still waiting that refers to it.
+
+There is no sender natively, so local development and tests send nothing.
 
 ## Storage (Cloudflare R2)
 
@@ -396,7 +398,7 @@ Infrastructure is managed with Terraform across two configurations:
 - **Job queues**: Cloudflare Queues (publishing, npm tarball builds, emails)
 - **Analytics**: BigQuery (download metrics)
 - **Tracing**: Workers Observability
-- **Email**: Postmark
+- **Email**: Cloudflare Email Service
 - **CDN/Edge**: Cloudflare (Worker + R2 + Cache)
 
 ## Local Development
