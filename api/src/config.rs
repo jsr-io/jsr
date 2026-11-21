@@ -294,6 +294,11 @@ pub struct SetupConfig {
 
   #[clap(long = "db_client_key", env = "DB_CLIENT_KEY")]
   pub db_client_key: Option<String>,
+
+  #[clap(long = "db_server_ca", env = "DB_SERVER_CA")]
+  /// PEM certificate authority of the database server. Set when connecting
+  /// over a network that isn't trusted, as deploys do.
+  pub db_server_ca: Option<String>,
 }
 
 impl std::fmt::Debug for Config {
