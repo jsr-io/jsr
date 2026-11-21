@@ -119,7 +119,7 @@ resource "cloudflare_worker_version" "jsr_frontend" {
       }, {
       # The Turnstile site key is public by design — the widget on the login
       # page ships it to the browser. Its counterpart, TURNSTILE_SECRET_KEY,
-      # is a Secrets Manager secret on the API (see cloud_run_api.tf).
+      # is a secret of the API workers (see cloudflare_api_worker.tf).
       type = "plain_text"
       name = "TURNSTILE_SITE_KEY"
       text = cloudflare_turnstile_widget.login.sitekey

@@ -1,8 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-locals {
-  postgres_url = "postgres://${google_sql_user.api.name}:${google_sql_user.api.password}@${google_sql_database_instance.main_pg15.private_ip_address}/${google_sql_database.database.name}"
-}
-
 resource "google_sql_database_instance" "main_pg15" {
   name             = "main-pg15"
   database_version = "POSTGRES_15"
@@ -26,9 +22,8 @@ resource "google_sql_database_instance" "main_pg15" {
       # the public IP — Hyperdrive's egress isn't a pinnable range, so it can't
       # be an allowlist entry. The public IP is left open and a required client
       # certificate (mTLS) is the access boundary instead of a network ACL: the
-      # client key is secret, so only cert holders connect. Cloud Run still
-      # reaches the DB over the private VPC and presents the same cert (see
-      # google_sql_ssl_cert.api + cloud_run_api.tf).
+      # client key is secret, so only cert holders connect. Database setup
+      # connects the same way (see google_sql_ssl_cert.api + api_setup.tf).
       ssl_mode = "TRUSTED_CLIENT_CERTIFICATE_REQUIRED"
 
       authorized_networks {
@@ -61,11 +56,9 @@ resource "google_sql_database" "database" {
   instance = google_sql_database_instance.main_pg15.name
 }
 
-# Client certificate the API presents when connecting to Cloud SQL over TLS.
-# Delivered to both Cloud Run services as env (see cloud_run_api.tf) and, later,
-# to the Hyperdrive config that fronts the `api` Worker. It is presented now
-# (harmless under the current ssl_mode) so it is already in place before the DB
-# is flipped to TRUSTED_CLIENT_CERTIFICATE_REQUIRED in a follow-up.
+# Client certificate presented when connecting to Cloud SQL, which requires
+# one. Used by the Hyperdrive config that fronts the workers (see
+# cloudflare_api_worker.tf) and by database setup (see api_setup.tf).
 resource "google_sql_ssl_cert" "api" {
   common_name = "api-client"
   instance    = google_sql_database_instance.main_pg15.name

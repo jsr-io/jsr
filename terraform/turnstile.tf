@@ -3,8 +3,8 @@
 # The captcha guarding the login page. Terraform mints the widget, so the two
 # keys it yields always come as a matched pair: `sitekey` is public and is
 # handed to the frontend worker (see cloudflare_frontend.tf), while `secret` is
-# what the API uses to verify the response token, and so goes to Secrets Manager
-# (see secrets.tf).
+# what the API uses to verify the response token, and so is a secret of its
+# workers (see cloudflare_api_worker.tf).
 #
 # `domains` is the frontend origin, where the widget is embedded — not the api
 # subdomain it submits to. Turnstile checks the token against the hostname that

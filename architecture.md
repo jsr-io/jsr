@@ -9,7 +9,7 @@ codebase and users curious about how the system works.
 jsr.io is composed of four main components:
 
 1. **API** — a Rust backend that handles all business logic, deployed as a
-   Cloudflare Worker, with background tasks on Cloud Run
+   Cloudflare Worker, with background tasks on a second one
 2. **Frontend** — a Fresh (Deno + Preact) server-rendered web application,
    bundled and deployed as a Cloudflare Worker
 3. **Load Balancer** — a Cloudflare Worker that routes requests
@@ -385,7 +385,7 @@ those settings through the atomic index swap.
 Infrastructure is managed with Terraform across two configurations:
 
 - `terraform/` — main infrastructure (the Workers, Hyperdrive, Queues, Cloud
-  Run, Cloud SQL, R2 buckets, secrets)
+  SQL, R2 buckets)
 - `terraform_infra/` — CI/CD setup (GitHub Actions OIDC, Artifact Registry,
   service accounts)
 
@@ -393,8 +393,7 @@ Infrastructure is managed with Terraform across two configurations:
 
 - **API**: Cloudflare Worker (wasm), reaching Cloud SQL through Hyperdrive
 - **API background tasks**: the Tasks Worker, from Cloudflare Queues and Cron
-  Triggers. The Cloud Run services (`registry-api`, `registry-api-tasks`) and
-  the Cloud Tasks queues are still deployed, but the worker no longer uses them.
+  Triggers.
 - **Frontend**: Cloudflare Worker (Fresh build, Workers Assets binding)
 - **Database**: Google Cloud SQL (PostgreSQL, high availability)
 - **Job queues**: Cloudflare Queues (publishing, npm tarball builds, emails)
