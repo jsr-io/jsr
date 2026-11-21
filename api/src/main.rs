@@ -395,12 +395,9 @@ mod worker {
   use tower::ServiceExt;
   use wasm_bindgen::prelude::*;
 
-  /// Applies the Worker's bindings to the process and reads the config from
-  /// them.
-  ///
-  /// Each invocation runs on its own tokio runtime, so nothing (the DB
-  /// connection included) can be reused across invocations.
   fn config(env: JsValue) -> Result<Config, JsValue> {
+    // Each invocation runs on its own tokio runtime, so nothing (the DB
+    // connection included) can be reused across invocations.
     worker_js::env_into_process(&env);
     worker_js::set_env(env);
     if let Some(url) = worker_js::hyperdrive_database_url() {
@@ -432,12 +429,6 @@ mod worker {
     .await
   }
 
-  /// Receives the mail Cloudflare Email Routing accepts for the domain.
-  ///
-  /// A message that can never be ingested is rejected, which tells the sending
-  /// server not to try again. Any other failure is returned as an error, so
-  /// the message is not accepted and the sending server delivers it again
-  /// later.
   #[wasm_bindgen(experimental_tokio = "isolated")]
   pub async fn email(
     message: ::worker::ForwardableEmailMessage,

@@ -4127,14 +4127,6 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", user
     .await
   }
 
-  /// Records a delivery as sent under `sent_message_id`, the `Message-ID` the
-  /// mail provider gave it.
-  ///
-  /// A delivery is queued under a `Message-ID` of our own making, which the
-  /// ticket message it announces and any later delivery in the same thread
-  /// refer to. The provider's replaces it in all of those, so that a reply to
-  /// the email — which names the provider's — finds its ticket, and so that
-  /// emails sent after this one reference a message that exists.
   #[instrument(name = "Database::mark_email_delivery_sent", skip(self), err)]
   pub async fn mark_email_delivery_sent(
     &self,

@@ -314,12 +314,9 @@ where
   op().await
 }
 
-/// The `send_email` binding of Cloudflare Email Sending.
 #[derive(Clone)]
 pub struct SendEmail(AssertSend<JsValue>);
 
-/// A send the binding refused. `code` is one of Email Sending's `E_*` codes,
-/// when it gave one.
 #[derive(Debug)]
 pub struct SendEmailError {
   pub code: Option<String>,
@@ -334,7 +331,6 @@ impl SendEmail {
     })
   }
 
-  /// Sends one message and returns the ID Email Sending gave it.
   pub async fn send(
     &self,
     from: (&str, &str),

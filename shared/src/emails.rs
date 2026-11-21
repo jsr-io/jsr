@@ -16,11 +16,8 @@ pub struct EmailContent {
 /// 5322 `Message-ID`s, angle brackets included.
 #[derive(Debug)]
 pub struct EmailThread<'a> {
-  /// What the message is known by until it is sent. Callers generate this and
-  /// record it against the ticket message the email announces. Email Sending
-  /// picks the real `Message-ID` itself, and that replaces this one everywhere
-  /// once the send succeeds (see [`deliver`]), so that a reply pointing back
-  /// at the email can be matched to the conversation it belongs to.
+  /// The `Message-ID` the email is queued under. Callers generate this and
+  /// record it; the one it is actually sent under replaces it afterwards.
   pub message_id: &'a str,
   /// The message being replied to, if any.
   pub in_reply_to: Option<String>,
@@ -34,8 +31,6 @@ use crate::worker_js::SendEmail;
 #[cfg(target_arch = "wasm32")]
 use crate::worker_js::SendEmailError;
 
-/// Never constructed natively: mail is sent through a Worker binding, so there
-/// is no sender in local development or tests.
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone)]
 struct SendEmail(std::convert::Infallible);
@@ -66,10 +61,8 @@ impl SendEmail {
   }
 }
 
-/// Why a send failed.
 #[derive(Debug)]
 pub struct SendError {
-  /// The same message would be refused again, so it is not worth retrying.
   pub permanent: bool,
   pub message: String,
 }
@@ -79,8 +72,6 @@ impl From<SendEmailError> for SendError {
     let permanent = matches!(
       err.code.as_deref(),
       Some(
-        // The recipient bounced or complained before; Email Sending will not
-        // send to them until that is lifted.
         "E_RECIPIENT_SUPPRESSED" | "E_VALIDATION_ERROR" | "E_CONTENT_TOO_LARGE"
       )
     );
@@ -101,8 +92,6 @@ pub struct EmailSender {
 }
 
 impl EmailSender {
-  /// A sender that delivers through the Worker's `send_email` binding of that
-  /// name. `None` if the Worker has no such binding.
   pub fn from_binding(
     binding: &str,
     from: String,
@@ -115,10 +104,9 @@ impl EmailSender {
     })
   }
 
-  /// Sends an already-rendered email and returns the `Message-ID` it was sent
-  /// under, angle brackets included. Callers reach this through [`enqueue`]
-  /// rather than directly, so that a failure to send retries out of band
-  /// instead of failing the request that triggered the mail.
+  /// Sends an already-rendered email. Callers reach this through
+  /// [`enqueue`] rather than directly, so that a failure to send retries out
+  /// of band instead of failing the request that triggered the mail.
   pub async fn send_rendered(
     &self,
     to: &str,
@@ -127,7 +115,6 @@ impl EmailSender {
     html: &str,
     thread: Option<&EmailThread<'_>>,
   ) -> Result<String, SendError> {
-    // Email Sending sets `Message-ID` itself and refuses a send that tries to.
     let mut headers = Vec::new();
     if let Some(thread) = thread {
       if let Some(in_reply_to) = &thread.in_reply_to {
@@ -311,7 +298,6 @@ pub async fn deliver(
         .record_email_delivery_failure(
           id,
           &err.message,
-          // A send that would be refused again is given up on straight away.
           if err.permanent { 0 } else { MAX_EMAIL_ATTEMPTS },
         )
         .await?;

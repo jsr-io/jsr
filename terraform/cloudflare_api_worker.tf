@@ -99,8 +99,6 @@ locals {
       name       = queue.binding
       queue_name = cloudflare_queue.api[name].queue_name
     }],
-    // Outgoing mail. The domain is onboarded to Email Sending in the
-    // dashboard, not here.
     [{
       type = "send_email"
       name = "EMAIL"

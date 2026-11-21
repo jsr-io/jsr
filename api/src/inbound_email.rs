@@ -42,37 +42,19 @@ const MAX_ATTACHMENTS_PER_MESSAGE: usize = 20;
 /// without bound. Anything longer is truncated with a marker.
 const MAX_BODY_BYTES: usize = 256 * 1024;
 
-/// What [`ingest`] needs from the running service.
 pub struct InboundContext<'a> {
   pub db: &'a Database,
   pub buckets: &'a Buckets,
   pub registry_url: &'a Url,
   pub email_sender: Option<&'a EmailSender>,
   pub email_queue: &'a EmailQueue,
-  /// The `authserv-id` of the mail server that hands us inbound mail —
-  /// `mx.cloudflare.net` for Email Routing.
-  ///
-  /// That server checks SPF and DKIM against the real sender and records the
-  /// outcome in an `Authentication-Results` header, which is what decides
-  /// whether a sender's address counts as proven. Only the header written by
-  /// the server named here is believed, since anyone can write one claiming
-  /// whatever they like.
-  ///
-  /// `None` means no server is trusted, and every sender is recorded as
-  /// unverified.
   pub trusted_authserv_id: Option<&'a str>,
 }
 
-/// Why an inbound email was not ingested.
 #[derive(Debug)]
-// Only the Worker's handler reads the reasons.
 #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 pub enum InboundError {
-  /// The message itself is unacceptable and would be on every retry, so the
-  /// sending server is told not to try again.
   Rejected(&'static str),
-  /// Something failed on our side. The message is fine, and the sending server
-  /// should deliver it again later.
   Failed(ApiError),
 }
 
@@ -82,8 +64,6 @@ struct InboundEmail {
   from: InboundAddress,
   subject: Option<String>,
   text_body: Option<String>,
-  /// In the order they appear in the message, so the ones added by the servers
-  /// that handled it come before the ones the sender wrote.
   headers: Vec<InboundHeader>,
   attachments: Vec<InboundAttachment>,
 }
@@ -108,11 +88,6 @@ struct InboundAttachment {
 }
 
 impl InboundEmail {
-  /// Reads a raw RFC 5322 message. `None` if it is not one, or names no sender.
-  ///
-  /// Attachments that are too large or too numerous are left out with a
-  /// warning rather than failing the delivery — losing an attachment is better
-  /// than losing the support request it came with.
   fn parse(raw: &[u8]) -> Option<Self> {
     let message = mail_parser::MessageParser::default().parse(raw)?;
 
@@ -127,8 +102,6 @@ impl InboundEmail {
       .iter()
       .map(|header| InboundHeader {
         name: header.raw_name().to_owned(),
-        // A long header is folded across lines; the breaks are not part of
-        // its value.
         value: String::from_utf8_lossy(header.raw_value())
           .split_whitespace()
           .collect::<Vec<_>>()
@@ -147,8 +120,6 @@ impl InboundEmail {
     let mut attachments = Vec::new();
     for part in parts.take(MAX_ATTACHMENTS_PER_MESSAGE) {
       let name = part.attachment_name().unwrap_or("attachment").to_owned();
-      // Measured before decoding, so an oversized file is never held in
-      // memory a second time.
       let size = part.decoded_len();
       if size > MAX_ATTACHMENT_BYTES {
         tracing::warn!(
@@ -175,7 +146,6 @@ impl InboundEmail {
     Some(InboundEmail {
       from,
       subject: message.subject().map(str::to_owned),
-      // An HTML-only message is converted to text.
       text_body: message.body_text(0).map(Cow::into_owned),
       headers,
       attachments,
@@ -260,11 +230,6 @@ impl InboundEmail {
     ids
   }
 
-  /// The text to store for this message.
-  ///
-  /// A reply usually quotes the conversation so far below what was written. The
-  /// quoted history is cut off, so a long thread is not re-stored in full on
-  /// every round trip.
   fn body(&self) -> String {
     let full = self.text_body.as_deref().unwrap_or_default().trim();
 
@@ -272,8 +237,6 @@ impl InboundEmail {
     let body = Some(full)
       .filter(|_| is_reply)
       .map(strip_quoted_history)
-      // Nothing left means the reply was written inside or below the quote;
-      // keep all of it rather than store an empty message.
       .filter(|stripped| !stripped.is_empty())
       .unwrap_or(full);
 
@@ -290,20 +253,12 @@ impl InboundEmail {
   }
 }
 
-/// Returns the part of a reply above the history its mail client quoted.
-///
-/// There is no standard for how a client marks quoted history, so this
-/// recognises the common shapes: an "On … wrote:" attribution, Outlook's
-/// "Original Message" divider and its `From:` / `Sent:` block, and a trailing
-/// run of `>` lines. Anything it does not recognise is kept.
 fn strip_quoted_history(body: &str) -> &str {
   let lines: Vec<&str> = body.lines().collect();
 
   let quote_start = (0..lines.len()).find(|&i| {
     let line = lines[i].trim();
 
-    // "On Mon, 1 Jan 2026 at 10:00, Someone <a@example.com> wrote:", which
-    // clients wrap onto a second line when the address is long.
     if line.starts_with("On ") {
       let ends = |l: &&str| l.trim_end().ends_with("wrote:");
       if ends(&line) || lines.get(i + 1).is_some_and(ends) {
@@ -329,7 +284,6 @@ fn strip_quoted_history(body: &str) -> &str {
       return true;
     }
 
-    // A quote with no attribution we recognise, running to the end.
     line.starts_with('>')
       && lines[i..]
         .iter()
@@ -385,7 +339,6 @@ fn method_result(value: &str, method: &str) -> Option<String> {
 static TICKET_NUMBER_RE: LazyLock<regex::Regex> =
   LazyLock::new(|| regex::Regex::new(r"TICKET-\d{8}-\d{5}").unwrap());
 
-/// Files one inbound email, given as the raw RFC 5322 message.
 #[instrument(name = "inbound_email::ingest", skip_all, fields(ticket_id))]
 pub async fn ingest(
   ctx: InboundContext<'_>,
@@ -666,7 +619,6 @@ mod test {
       Some("I cannot publish.")
     );
 
-    // Folded headers are read as one value.
     assert_eq!(
       email.referenced_message_ids(),
       vec!["<x@jsr.io>", "<y@jsr.io>"]
@@ -851,11 +803,9 @@ mod test {
   fn quoted_history_is_cut_from_a_reply() {
     let cases = [
       "new text\n\nOn Mon, 1 Jan 2026 at 10:00, JSR <help@jsr.io> wrote:\n> old text",
-      // The attribution wrapped onto a second line.
       "new text\n\nOn Mon, 1 Jan 2026 at 10:00, JSR\n<help@jsr.io> wrote:\n> old text",
       "new text\n\n-----Original Message-----\nFrom: JSR\nold text",
       "new text\n\nFrom: JSR <help@jsr.io>\nSent: Monday, 1 January 2026 10:00\nTo: Someone\n\nold text",
-      // No attribution this recognises, only the quote itself.
       "new text\n\nAm 1. Januar 2026 schrieb JSR:\n> old text\n>\n> more old text",
     ];
     for case in cases {
@@ -869,7 +819,6 @@ mod test {
 
   #[test]
   fn text_that_only_resembles_a_quote_is_kept() {
-    // A quoted line with the answer written underneath it is not history.
     let inline = "> did you try again?\nyes, same error";
     assert_eq!(strip_quoted_history(inline), inline);
 
@@ -885,13 +834,10 @@ mod test {
     reply.text_body = Some(text.to_owned());
     assert_eq!(reply.body(), "new text");
 
-    // A first message has no history, so whatever it contains is its own.
     let mut first = email(&[], "hi");
     first.text_body = Some(text.to_owned());
     assert_eq!(first.body(), text);
 
-    // A reply written entirely below the quote would be left empty; all of it
-    // is kept instead.
     let below = "On Monday, JSR wrote:\n> old text\n\nnew text";
     reply.text_body = Some(below.to_owned());
     assert_eq!(reply.body(), below);
@@ -922,7 +868,6 @@ mod integration {
   use serde_json::json;
   use shared::models::TicketStatus;
 
-  /// A raw inbound message from someone@example.com.
   fn inbound(
     message_id: &str,
     subject: &str,
@@ -944,7 +889,6 @@ mod integration {
         db: &t.db(),
         buckets: &t.buckets(),
         registry_url: &t.registry_url(),
-        // No sender is configured under test, so nothing is sent.
         email_sender: None,
         email_queue: &EmailQueue(None),
         trusted_authserv_id: Some(TEST_TRUSTED_AUTHSERV_ID),
@@ -1297,7 +1241,6 @@ mod integration {
     let ticket = all_tickets(&mut t).await.remove(0);
     let db = t.db();
 
-    // The auto-reply is on the ticket under the Message-ID it was queued with.
     let queued_id = ticket_messages(&t, ticket.id)
       .await
       .pop()
@@ -1320,7 +1263,6 @@ mod integration {
       .enqueue_email(delivery(&queued_id, vec![]))
       .await
       .unwrap();
-    // A later email in the thread, queued before the first one went out.
     let second = db
       .enqueue_email(delivery(
         "<later@jsr.io>",
@@ -1333,7 +1275,6 @@ mod integration {
       .await
       .unwrap();
 
-    // A reply to the email names the ID it was actually sent under.
     let on_ticket = ticket_messages(&t, ticket.id).await.pop().unwrap();
     assert_eq!(
       on_ticket.email_message_id.as_deref(),
@@ -1350,7 +1291,6 @@ mod integration {
     .await;
     assert_eq!(all_tickets(&mut t).await.len(), 1);
 
-    // And the email still waiting refers to it too.
     let later = db
       .get_pending_email_delivery(second)
       .await
@@ -1720,7 +1660,6 @@ mod integration {
 
     let raw =
       "From: Someone <someone@example.com>\r\nSubject: Help\r\n\r\nhi\r\n";
-    // Refused for good rather than failed: delivering it again would not help.
     assert!(matches!(
       try_deliver(&t, raw).await,
       Err(InboundError::Rejected(_))
@@ -1735,7 +1674,6 @@ mod integration {
 
     let results =
       format!("{TEST_TRUSTED_AUTHSERV_ID}; spf=pass; dkim=pass; dmarc=pass");
-    // The receiving server's header sits above everything the sender wrote.
     let verified = format!(
       "Authentication-Results: {results}\r\n{}",
       inbound("<a@example.com>", "Help", &[])

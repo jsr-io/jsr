@@ -137,8 +137,7 @@ pub struct Config {
   pub cloudflare_analytics_dataset: Option<String>,
 
   #[clap(long = "email_from", env = "EMAIL_FROM")]
-  /// The email address to send emails from. Email is sent through the Worker's
-  /// `EMAIL` binding, so there is no sender without one.
+  /// The email address to send emails from.
   pub email_from: Option<String>,
 
   #[clap(long = "email_from_name", env = "EMAIL_FROM_NAME")]
