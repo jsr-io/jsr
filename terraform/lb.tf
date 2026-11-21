@@ -15,15 +15,13 @@ resource "cloudflare_workers_script" "jsr_lb" {
     logs = {
       enabled            = true
       invocation_logs    = false
-      head_sampling_rate = 0.01
-      persist            = false
-      destinations       = [var.cloudflare_otlp_logs_destination]
+      head_sampling_rate = 1
+      persist            = true
     }
     traces = {
       enabled            = true
-      head_sampling_rate = 0.01
-      persist            = false
-      destinations       = [var.cloudflare_otlp_traces_destination]
+      head_sampling_rate = 1
+      persist            = true
     }
   }
 
