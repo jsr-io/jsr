@@ -77,9 +77,57 @@ locals {
   })
 }
 
+### Setup
+
+# Migrates the database and upserts the service account token, once per
+# deploy (`registry_api setup`). `run_execution_token` starts an execution
+# whenever the image changes and waits for it to succeed, and everything
+# serving the API depends on this job, so a new version only starts serving
+# once the schema is migrated. The services and the worker don't set up
+# themselves (`--setup=false`).
+resource "google_cloud_run_v2_job" "registry_api_setup" {
+  provider = google-beta
+
+  name                = "registry-api-setup"
+  location            = "us-central1"
+  deletion_protection = false
+  run_execution_token = substr(sha1(var.api_image_id), 0, 16)
+
+  template {
+    template {
+      service_account = google_service_account.registry_api.email
+      max_retries     = 0
+      timeout         = "600s"
+
+      containers {
+        image = var.api_image_id
+        args  = ["setup"]
+
+        dynamic "env" {
+          for_each = {
+            for name in ["DATABASE_URL", "DB_CLIENT_CERT", "DB_CLIENT_KEY"] :
+            name => local.api_envs[name]
+          }
+          content {
+            name  = env.key
+            value = env.value
+          }
+        }
+      }
+
+      vpc_access {
+        connector = google_vpc_access_connector.default.id
+        egress    = "PRIVATE_RANGES_ONLY"
+      }
+    }
+  }
+}
+
 ### API service
 
 resource "google_cloud_run_v2_service" "registry_api" {
+  depends_on = [google_cloud_run_v2_job.registry_api_setup]
+
   name     = "registry-api"
   location = "us-central1"
   ingress  = "INGRESS_TRAFFIC_ALL"
@@ -97,7 +145,7 @@ resource "google_cloud_run_v2_service" "registry_api" {
     containers {
       image = var.api_image_id
       args = [
-        "--api", "--tasks=false", "--database_pool_size=4"
+        "--api", "--tasks=false", "--database_pool_size=4", "--setup=false"
       ]
 
       resources {
@@ -253,6 +301,8 @@ resource "google_cloud_run_service_iam_member" "api_public_policy" {
 ### Background processing
 
 resource "google_cloud_run_v2_service" "registry_api_tasks" {
+  depends_on = [google_cloud_run_v2_job.registry_api_setup]
+
   name     = "registry-api-tasks"
   location = "us-central1"
   ingress  = "INGRESS_TRAFFIC_INTERNAL_ONLY" # only accessed by Cloud Tasks
@@ -277,7 +327,7 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
     containers {
       image = var.api_image_id
       args = [
-        "--tasks", "--api=false", "--database_pool_size=1"
+        "--tasks", "--api=false", "--database_pool_size=1", "--setup=false"
       ]
 
       # Analyzing a package with ~20k modules peaks near 512Mi (the default

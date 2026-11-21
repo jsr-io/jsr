@@ -132,7 +132,7 @@ pub async fn generate_npm_version_manifest<'a>(
           scope,
           package: name,
         },
-        &version.version,
+        version.version,
       ))
       .unwrap();
 

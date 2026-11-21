@@ -13,8 +13,8 @@ interface Fetcher {
 }
 
 export default {
-  fetch(request: Request, env: { ASSETS: Fetcher; LB: Fetcher }) {
-    setWorkerEnv({ assets: env.ASSETS, lb: env.LB });
+  fetch(request: Request, env: { ASSETS: Fetcher; API: Fetcher }) {
+    setWorkerEnv({ assets: env.ASSETS, api: env.API });
     return server.fetch(request);
   },
 };

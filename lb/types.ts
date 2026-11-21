@@ -13,7 +13,7 @@ declare global {
 export type PartialBucket = Pick<R2Bucket, "get" | "head">;
 
 export interface WorkerEnv {
-  REGISTRY_API_URL: string;
+  API: Fetcher;
 
   // The frontend is a sibling Cloudflare Worker, wired up via a service
   // binding rather than an HTTP URL so traffic stays inside Cloudflare.

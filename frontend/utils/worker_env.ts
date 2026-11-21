@@ -17,7 +17,7 @@ const KEY = "__jsr_worker_env";
 
 interface WorkerEnv {
   assets?: Fetcher;
-  lb?: Fetcher;
+  api?: Fetcher;
 }
 
 function slot(): { [k: string]: WorkerEnv | undefined } {
@@ -32,6 +32,6 @@ export function workerAssets(): Fetcher | undefined {
   return slot()[KEY]?.assets;
 }
 
-export function workerLb(): Fetcher | undefined {
-  return slot()[KEY]?.lb;
+export function workerApi(): Fetcher | undefined {
+  return slot()[KEY]?.api;
 }

@@ -183,30 +183,29 @@ class R2BucketShim implements PartialBucket {
   }
 }
 
-// Local-dev shim for the frontend service binding: forwards requests to the
-// frontend's HTTP URL on localhost (where `deno task dev` is running).
-const frontendShim: Fetcher = {
-  fetch(req: Request | string | URL, init?: RequestInit) {
-    if (typeof req === "string" || req instanceof URL) {
-      return fetch(
-        new URL(
-          new URL(req).pathname + new URL(req).search,
-          REGISTRY_FRONTEND_URL,
-        ),
-        init,
-      );
-    }
-    const url = new URL(req.url);
-    const target = new URL(url.pathname + url.search, REGISTRY_FRONTEND_URL);
-    return fetch(new Request(target, req));
-  },
-  // deno-lint-ignore no-explicit-any
-} as any;
+// Local-dev shim for a service binding: forwards requests to the service's
+// HTTP URL on localhost.
+function localShim(baseUrl: string): Fetcher {
+  return {
+    fetch(req: Request | string | URL, init?: RequestInit) {
+      if (typeof req === "string" || req instanceof URL) {
+        return fetch(
+          new URL(new URL(req).pathname + new URL(req).search, baseUrl),
+          init,
+        );
+      }
+      const url = new URL(req.url);
+      const target = new URL(url.pathname + url.search, baseUrl);
+      return fetch(new Request(target, req));
+    },
+    // deno-lint-ignore no-explicit-any
+  } as any;
+}
 
 function handler(req: Request): Promise<Response> {
   return main.fetch(req, {
-    REGISTRY_API_URL,
-    FRONTEND: frontendShim,
+    API: localShim(REGISTRY_API_URL),
+    FRONTEND: localShim(REGISTRY_FRONTEND_URL),
     MODULES_BUCKET: new R2BucketShim(MODULES_BUCKET),
     NPM_BUCKET: new R2BucketShim(NPM_BUCKET),
     ROOT_DOMAIN,

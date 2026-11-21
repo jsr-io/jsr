@@ -30,15 +30,13 @@ resource "cloudflare_worker" "jsr_frontend" {
     logs = {
       enabled            = true
       invocation_logs    = false
-      head_sampling_rate = 0.01
-      persist            = false
-      destinations       = [var.cloudflare_otlp_logs_destination]
+      head_sampling_rate = 1
+      persist            = true
     }
     traces = {
       enabled            = true
-      head_sampling_rate = 0.01
-      persist            = false
-      destinations       = [var.cloudflare_otlp_traces_destination]
+      head_sampling_rate = 1
+      persist            = true
     }
   }
 }
@@ -81,14 +79,9 @@ resource "cloudflare_worker_version" "jsr_frontend" {
       type = "assets"
       name = "ASSETS"
       }, {
-      # Service binding to the LB worker. The frontend's API requests
-      # are routed through this binding (see utils/api.ts) instead of
-      # `fetch("https://api.<zone>/…")`, which Cloudflare bypasses for
-      # same-zone subrequests from a Worker — that path skips the LB
-      # entirely and 525s on direct TLS to origin.
       type    = "service"
-      name    = "LB"
-      service = "${var.gcp_project}-jsr-lb"
+      name    = "API"
+      service = cloudflare_worker.jsr_api.name
       }, {
       type = "plain_text"
       name = "FRONTEND_ROOT"
@@ -132,6 +125,8 @@ resource "cloudflare_worker_version" "jsr_frontend" {
       text = cloudflare_turnstile_widget.login.sitekey
     }
   ]
+
+  depends_on = [cloudflare_workers_deployment.jsr_api]
 }
 
 resource "cloudflare_workers_deployment" "jsr_frontend" {

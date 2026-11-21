@@ -1,0 +1,4 @@
+# For plain `cargo check --target wasm32-unknown-emscripten`; build-worker.sh
+# passes these itself.
+[target.wasm32-unknown-emscripten]
+rustflags = ["--cfg=tokio_unstable", "--cfg=wasm_bindgen_unstable_tokio"]

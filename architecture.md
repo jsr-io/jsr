@@ -8,7 +8,8 @@ codebase and users curious about how the system works.
 
 jsr.io is composed of four main components:
 
-1. **API** — a Rust backend that handles all business logic
+1. **API** — a Rust backend that handles all business logic, deployed as a
+   Cloudflare Worker, with background tasks on Cloud Run
 2. **Frontend** — a Fresh (Deno + Preact) server-rendered web application,
    bundled and deployed as a Cloudflare Worker
 3. **Load Balancer** — a Cloudflare Worker that routes requests
@@ -23,18 +24,23 @@ graph LR
     Worker["Cloudflare Worker<br/>(Load Balancer)"]
 
     Worker --> Frontend["Frontend Worker<br/>(Fresh / Preact)"]
-    Worker --> API["API (Rust, Cloud Run)"]
+    Worker --> API["API Worker<br/>(Rust, wasm)"]
     Worker --> R2["Cloudflare R2<br/>(modules, docs, npm)"]
 
     Frontend --> API
     Frontend -. "search" .-> Algolia["Algolia Search"]
 
     API --> R2
-    API --> Postgres["PostgreSQL"]
+    API -- "Hyperdrive" --> Postgres["PostgreSQL"]
     API --> Algolia
-    API <-- "callbacks" --> CloudTasks["Cloud Tasks"]
     API --> Postmark["Postmark"]
-    API --> Trace["Cloud Trace"]
+    API -- "enqueue" --> CloudTasks["Cloud Tasks"]
+    CloudTasks --> Tasks["API tasks service<br/>(Rust, Cloud Run)"]
+
+    Tasks --> R2
+    Tasks --> Postgres
+    Tasks --> Algolia
+    Tasks --> Postmark
 ```
 
 ## Request Routing
@@ -44,8 +50,8 @@ the hostname and path to route each request:
 
 | Request                                                      | Routed to         |
 | ------------------------------------------------------------ | ----------------- |
-| `api.jsr.io/*`                                               | Cloud Run API     |
-| `jsr.io/api/*`                                               | Cloud Run API     |
+| `api.jsr.io/*`                                               | API Worker        |
+| `jsr.io/api/*`                                               | API Worker        |
 | `npm.jsr.io/*`                                               | R2 npm bucket     |
 | `jsr.io/@scope/pkg/meta.json`, `jsr.io/@scope/pkg/version/*` | R2 modules bucket |
 | Everything else on `jsr.io`                                  | Frontend Worker   |
@@ -58,6 +64,19 @@ via the Cloudflare Analytics Engine.
 
 The API is a Rust HTTP server built with Hyper and axum. It is the single source
 of truth for all write operations and business logic.
+
+The same crate is built twice:
+
+- **API Worker** — built for `wasm32-unknown-emscripten` by
+  `api/build-worker.sh` and deployed as a Cloudflare Worker, which serves all
+  API traffic. The load balancer and the frontend reach it through `API` service
+  bindings. Each request runs on its own tokio runtime. It reaches PostgreSQL
+  through a Hyperdrive binding, R2 through bucket bindings, and other services
+  through the runtime's `fetch` (`worker_js.rs`).
+- **Tasks service** — the native binary on Cloud Run, which runs the background
+  tasks that Cloud Tasks delivers (publishing, npm tarball builds, emails).
+  `cargo run` starts the same binary serving both the API and the tasks, for
+  local development.
 
 ### Directory Structure
 
@@ -89,7 +108,11 @@ api/
 │   ├── s3.rs                # R2/S3 storage operations
 │   ├── task_queue.rs        # Rate-limited background job queue
 │   ├── tasks.rs             # Background task handlers
-│   └── tracing.rs           # OpenTelemetry setup
+│   ├── tracing.rs           # Logging and OpenTelemetry setup
+│   ├── worker_js.rs         # Worker only: fetch, R2 and Hyperdrive bindings
+│   └── worker_spans.rs      # Worker only: tracing spans as Workers trace spans
+├── build-worker.sh          # Builds the Worker (worker-build, emscripten)
+├── wrangler.toml            # Local `wrangler dev` configuration for the Worker
 ├── migrations/              # SQL migration files
 └── Cargo.toml
 ```
@@ -115,10 +138,12 @@ api/
 - **hyper + axum** — HTTP server and routing
 - **deno_doc / deno_ast / deno_graph** — documentation generation and dependency
   analysis
-- **rust-s3** — Cloudflare R2 / S3 integration
+- **rusty-s3** — Cloudflare R2 / S3 integration (native; the Worker uses R2
+  bindings)
+- **workers-rs / wasm-bindgen** — the Worker's bindings to the Workers runtime
 - **tree-sitter** — syntax highlighting for source code
-- **opentelemetry** — distributed tracing
-- **jemalloc** — memory allocator (with profiling support)
+- **opentelemetry** — distributed tracing (native only)
+- **jemalloc** — memory allocator (native only, with profiling support)
 
 ## Frontend (`frontend/`)
 
@@ -194,8 +219,8 @@ A Cloudflare Worker that acts as the edge router. See
 Key files:
 
 - `main.ts` — request routing logic
-- `proxy.ts` — proxy to backends (Cloud Run for API, service binding for the
-  frontend Worker) and R2
+- `proxy.ts` — proxy to backends (service bindings for the API and frontend
+  Workers) and R2
 - `headers.ts` — security headers, CORS, CSP
 - `bots.ts` — bot/crawler detection
 - `analytics.ts` — download tracking
@@ -227,9 +252,10 @@ database — they live in R2.
 | `ticket_messages`              | Messages on a ticket, in either direction           |
 | `ticket_attachments`           | Files that arrived attached to an inbound email     |
 
-Migrations are in `api/migrations/` and applied by the API at startup
-(`api/src/db/migrate.rs`). Version columns use natural collation so `1.10.0`
-sorts after `1.9.0`.
+Migrations are in `api/migrations/` and applied by `registry_api setup`
+(`api/src/db/migrate.rs`), which a Cloud Run job runs once per deploy before the
+new version serves. `cargo run` applies them at startup. Version columns use
+natural collation so `1.10.0` sorts after `1.9.0`.
 
 ## Support tickets
 
@@ -338,19 +364,23 @@ those settings through the atomic index swap.
 
 Infrastructure is managed with Terraform across two configurations:
 
-- `terraform/` — main infrastructure (Cloud Run, Cloud SQL, R2 buckets, Cloud
-  Tasks, load balancer, secrets)
+- `terraform/` — main infrastructure (the Workers, Hyperdrive, Cloud Run, Cloud
+  SQL, R2 buckets, Cloud Tasks, secrets)
 - `terraform_infra/` — CI/CD setup (GitHub Actions OIDC, Artifact Registry,
   service accounts)
 
 ### Production Deployment
 
-- **API**: Google Cloud Run, `us-central1`
+- **API**: Cloudflare Worker (wasm), reaching Cloud SQL through Hyperdrive
+- **API background tasks**: Google Cloud Run, `us-central1`. The Cloud Run API
+  service (`registry-api`) is still deployed, but the load balancer and the
+  frontend no longer send it traffic.
 - **Frontend**: Cloudflare Worker (Fresh build, Workers Assets binding)
 - **Database**: Google Cloud SQL (PostgreSQL, high availability)
 - **Job queues**: Google Cloud Tasks (publishing, npm tarball builds)
 - **Analytics**: BigQuery (download metrics)
-- **Tracing**: Google Cloud Trace (OpenTelemetry)
+- **Tracing**: Workers Observability for the API Worker; OpenTelemetry (OTLP)
+  export from the tasks service
 - **Email**: Postmark
 - **CDN/Edge**: Cloudflare (Worker + R2 + Cache)
 

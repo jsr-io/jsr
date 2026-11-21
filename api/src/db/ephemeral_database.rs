@@ -56,6 +56,7 @@ impl EphemeralDatabase {
       Database::connect(&database_url, 1, Duration::from_secs(5), None)
         .await
         .unwrap();
+    database.migrate().await.unwrap();
 
     Self {
       database: Some(database),
@@ -90,7 +91,7 @@ impl Drop for EphemeralDatabase {
     // Drop the ephemeral database.
     pg_execute(format!(
       r#"DROP DATABASE "{}" WITH (FORCE)"#,
-      &self.database_name
+      self.database_name
     ));
   }
 }

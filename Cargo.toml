@@ -1,3 +1,14 @@
 [workspace]
 members = ["api", "crates/jsr_types"]
 resolver = "2"
+
+# For wasm32-unknown-emscripten.
+
+[patch.crates-io]
+# The hosted event loop that wasm-bindgen's `experimental_tokio` runs on, and
+# `net` on emscripten. Closed upstream, so this stays a fork:
+# https://github.com/tokio-rs/tokio/pull/8484
+tokio = { git = "https://github.com/guybedford/tokio", tag = "1.53.1-cf.emscripten" }
+tokio-macros = { git = "https://github.com/guybedford/tokio", tag = "1.53.1-cf.emscripten" }
+# https://github.com/briansmith/ring/pull/2877
+ring = { git = "https://github.com/guybedford/ring", branch = "emscripten" }

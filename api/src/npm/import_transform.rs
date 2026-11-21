@@ -27,7 +27,7 @@ impl VisitMut for ImportRewriteTransformer<'_> {
     if let Some(value) = node.src.value.as_str()
       && let Some(remapped) = self.specifier_rewriter.rewrite(value, self.kind)
     {
-      node.src = Box::new(remapped.into());
+      *node.src = remapped.into();
     }
   }
 
@@ -48,7 +48,7 @@ impl VisitMut for ImportRewriteTransformer<'_> {
     if let Some(value) = node.src.value.as_str()
       && let Some(remapped) = self.specifier_rewriter.rewrite(value, self.kind)
     {
-      node.src = Box::new(remapped.into());
+      *node.src = remapped.into();
     }
   }
 

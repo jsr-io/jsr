@@ -39,7 +39,7 @@ use crate::util;
 use crate::util::CacheDuration;
 
 pub fn api_router() -> Router {
-  Router::new()
+  let router = Router::new()
     .route(
       "/metrics",
       get(util::cache(
@@ -76,7 +76,10 @@ pub fn api_router() -> Router {
     )
     .nest("/tickets", tickets_router())
     .nest("/hooks", hooks_router())
-    .route("/.well-known/openapi", get(openapi_handler))
+    .route("/.well-known/openapi", get(openapi_handler));
+
+  #[cfg(not(target_arch = "wasm32"))]
+  let router = router
     .route(
       "/debug/mem_stats",
       get(util::auth(crate::jemalloc_profiling::mem_stats_handler)),
@@ -84,8 +87,9 @@ pub fn api_router() -> Router {
     .route(
       "/debug/mem_dump",
       get(util::auth(crate::jemalloc_profiling::heap_profile_handler)),
-    )
-    .route_layer(middleware::from_fn(util::auth_layer))
+    );
+
+  router.route_layer(middleware::from_fn(util::auth_layer))
 }
 
 async fn openapi_handler(
