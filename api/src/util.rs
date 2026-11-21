@@ -783,11 +783,8 @@ pub mod test {
   use shared::s3::UploadTaskBody;
   use shared::s3_paths::bucket_tarball_path;
 
-  /// The password the inbound email webhook accepts under test.
-  pub const TEST_POSTMARK_WEBHOOK_PASSWORD: &str = "test-webhook-password";
-
-  /// The upstream whose `Authentication-Results` the inbound webhook trusts
-  /// under test.
+  /// The mail server whose `Authentication-Results` inbound email trusts under
+  /// test.
   pub const TEST_TRUSTED_AUTHSERV_ID: &str = "mx.test.example";
 
   use crate::util::sanitize_redirect_url;
@@ -1026,12 +1023,6 @@ pub mod test {
         cache_purge_client: None, // no Cloudflare purge locally
         // No secret key, so the login captcha is not verified in tests.
         turnstile: shared::external::cloudflare::Turnstile(None),
-        postmark_webhook_password: crate::api::PostmarkWebhookPassword(Some(
-          TEST_POSTMARK_WEBHOOK_PASSWORD.to_owned(),
-        )),
-        inbound_trusted_authserv_id: crate::api::InboundTrustedAuthservId(
-          Some(TEST_TRUSTED_AUTHSERV_ID.to_owned()),
-        ),
         task_dispatch: task_dispatch.clone(),
       });
 

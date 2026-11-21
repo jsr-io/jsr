@@ -1,27 +1,19 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
-//! Inbound email. Postmark POSTs a webhook here for every message sent to the
-//! support address; each one either opens a support ticket or is appended to the
+//! Inbound email. Cloudflare Email Routing hands every message sent to the
+//! domain to the API worker's `email` handler, which passes the raw message to
+//! [`ingest`]; each one either opens a support ticket or is appended to the
 //! ticket it is replying to.
 
-use crate::router::RequestExt;
-use axum::Router;
-use axum::body::Body;
-use axum::routing::post;
-use base64::Engine;
 use bytes::Bytes;
-use hyper::Request;
-use hyper::Response;
-use hyper::StatusCode;
-use serde::Deserialize;
 use std::borrow::Cow;
 use std::sync::LazyLock;
 use tracing::Span;
 use tracing::field;
 use tracing::instrument;
+use url::Url;
 use uuid::Uuid;
 
-use crate::RegistryUrl;
 use crate::emails;
 use crate::emails::EmailArgs;
 use crate::emails::EmailQueue;
@@ -30,36 +22,17 @@ use crate::emails::EmailThread;
 use crate::s3::Buckets;
 use crate::s3::S3UploadOptions;
 use crate::s3::UploadTaskBody;
-use crate::util;
-use crate::util::ApiResult;
 use shared::db::Database;
-use shared::errors::SharedError;
 use shared::models::NewEmailTicket;
 use shared::models::NewTicketAttachment;
 use shared::models::NewTicketEmailMessage;
 use shared::models::NewTicketSystemMessage;
 
-use super::ApiError;
+use super::api::ApiError;
 
-/// The password Postmark authenticates with. `None` disables inbound handling.
-pub struct PostmarkWebhookPassword(pub Option<String>);
-
-/// The `authserv-id` of the mail server that receives support mail before it
-/// reaches Postmark — `mx.google.com` for a Google Workspace inbox.
-///
-/// Mail forwarded from that inbox arrives at Postmark from the forwarder's own
-/// servers, so the SPF check Postmark performs is against the wrong sender and
-/// fails for almost everything. The forwarder recorded the real result when it
-/// first received the message, and that record survives the hop, so it is what
-/// we read instead — but only for the server named here, since anyone can write
-/// an `Authentication-Results` header claiming whatever they like.
-///
-/// `None` means no upstream is trusted and only Postmark's own check is used.
-pub struct InboundTrustedAuthservId(pub Option<String>);
-
-/// Files above this are dropped rather than stored. Postmark caps an inbound
-/// message at 35 MB in total; this is well under that, and comfortably above
-/// anything a support conversation legitimately needs.
+/// Files above this are dropped rather than stored. Email Routing caps an
+/// inbound message at 25 MiB in total; this is well under that, and comfortably
+/// above anything a support conversation legitimately needs.
 const MAX_ATTACHMENT_BYTES: usize = 10 * 1024 * 1024;
 
 /// Guards against one message filling the bucket with many small files.
@@ -69,54 +42,146 @@ const MAX_ATTACHMENTS_PER_MESSAGE: usize = 20;
 /// without bound. Anything longer is truncated with a marker.
 const MAX_BODY_BYTES: usize = 256 * 1024;
 
-pub fn hooks_router() -> Router {
-  Router::new().route("/postmark", post(postmark_inbound_handler))
+/// What [`ingest`] needs from the running service.
+pub struct InboundContext<'a> {
+  pub db: &'a Database,
+  pub buckets: &'a Buckets,
+  pub registry_url: &'a Url,
+  pub email_sender: Option<&'a EmailSender>,
+  pub email_queue: &'a EmailQueue,
+  /// The `authserv-id` of the mail server that hands us inbound mail —
+  /// `mx.cloudflare.net` for Email Routing.
+  ///
+  /// That server checks SPF and DKIM against the real sender and records the
+  /// outcome in an `Authentication-Results` header, which is what decides
+  /// whether a sender's address counts as proven. Only the header written by
+  /// the server named here is believed, since anyone can write one claiming
+  /// whatever they like.
+  ///
+  /// `None` means no server is trusted, and every sender is recorded as
+  /// unverified.
+  pub trusted_authserv_id: Option<&'a str>,
 }
 
-/// The subset of Postmark's inbound webhook payload we act on.
-///
-/// Deserialised loosely on purpose: Postmark adds fields over time, and an
-/// unknown one must not turn a real support email into a rejected delivery.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+/// Why an inbound email was not ingested.
+#[derive(Debug)]
+// Only the Worker's handler reads the reasons.
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+pub enum InboundError {
+  /// The message itself is unacceptable and would be on every retry, so the
+  /// sending server is told not to try again.
+  Rejected(&'static str),
+  /// Something failed on our side. The message is fine, and the sending server
+  /// should deliver it again later.
+  Failed(ApiError),
+}
+
+/// The parts of an inbound email we act on.
+#[derive(Debug)]
 struct InboundEmail {
-  from_full: InboundAddress,
+  from: InboundAddress,
   subject: Option<String>,
   text_body: Option<String>,
-  /// The message with the quoted history below it removed. Present on replies
-  /// only, and preferred over `text_body` so a long thread is not re-stored in
-  /// full on every round trip.
-  stripped_text_reply: Option<String>,
-  #[serde(default)]
+  /// In the order they appear in the message, so the ones added by the servers
+  /// that handled it come before the ones the sender wrote.
   headers: Vec<InboundHeader>,
-  #[serde(default)]
   attachments: Vec<InboundAttachment>,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[derive(Debug)]
 struct InboundAddress {
   email: String,
   name: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[derive(Debug)]
 struct InboundHeader {
   name: String,
   value: String,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[derive(Debug)]
 struct InboundAttachment {
   name: String,
-  /// Base64, as Postmark delivers it.
-  content: String,
+  content: Bytes,
   content_type: String,
 }
 
 impl InboundEmail {
+  /// Reads a raw RFC 5322 message. `None` if it is not one, or names no sender.
+  ///
+  /// Attachments that are too large or too numerous are left out with a
+  /// warning rather than failing the delivery — losing an attachment is better
+  /// than losing the support request it came with.
+  fn parse(raw: &[u8]) -> Option<Self> {
+    let message = mail_parser::MessageParser::default().parse(raw)?;
+
+    let sender = message.from()?.first()?;
+    let from = InboundAddress {
+      email: sender.address()?.to_owned(),
+      name: sender.name().map(str::to_owned),
+    };
+
+    let headers = message
+      .headers()
+      .iter()
+      .map(|header| InboundHeader {
+        name: header.raw_name().to_owned(),
+        // A long header is folded across lines; the breaks are not part of
+        // its value.
+        value: String::from_utf8_lossy(header.raw_value())
+          .split_whitespace()
+          .collect::<Vec<_>>()
+          .join(" "),
+      })
+      .collect();
+
+    let parts = message.attachments();
+    if parts.len() > MAX_ATTACHMENTS_PER_MESSAGE {
+      tracing::warn!(
+        total = parts.len(),
+        kept = MAX_ATTACHMENTS_PER_MESSAGE,
+        "inbound email had more attachments than we store"
+      );
+    }
+    let mut attachments = Vec::new();
+    for part in parts.take(MAX_ATTACHMENTS_PER_MESSAGE) {
+      let name = part.attachment_name().unwrap_or("attachment").to_owned();
+      // Measured before decoding, so an oversized file is never held in
+      // memory a second time.
+      let size = part.decoded_len();
+      if size > MAX_ATTACHMENT_BYTES {
+        tracing::warn!(
+          filename = %name,
+          size,
+          "skipping oversized inbound attachment"
+        );
+        continue;
+      }
+      let content_type = match part.content_type() {
+        Some(content_type) => match content_type.subtype() {
+          Some(subtype) => format!("{}/{subtype}", content_type.ctype()),
+          None => content_type.ctype().to_owned(),
+        },
+        None => "application/octet-stream".to_owned(),
+      };
+      attachments.push(InboundAttachment {
+        name,
+        content: Bytes::from(part.decoded().into_owned()),
+        content_type,
+      });
+    }
+
+    Some(InboundEmail {
+      from,
+      subject: message.subject().map(str::to_owned),
+      // An HTML-only message is converted to text.
+      text_body: message.body_text(0).map(Cow::into_owned),
+      headers,
+      attachments,
+    })
+  }
+
   fn header(&self, name: &str) -> Option<&str> {
     self
       .headers
@@ -125,36 +190,30 @@ impl InboundEmail {
       .map(|header| header.value.as_str())
   }
 
-  /// The sending domain's own `Message-ID`. Without one there is nothing to
-  /// deduplicate on, so such a message is refused rather than risk being
-  /// ingested twice.
+  /// The sending domain's own `Message-ID`, angle brackets included. Without
+  /// one there is nothing to deduplicate on, so such a message is refused
+  /// rather than risk being ingested twice.
   fn message_id(&self) -> Option<&str> {
-    self.header("Message-ID")
+    self.header("Message-ID").filter(|id| !id.is_empty())
   }
 
-  /// Whether the sending domain passed both SPF and DKIM.
-  ///
-  /// Postmark's own check is only meaningful for mail delivered to it directly.
-  /// When support mail is forwarded from another inbox, Postmark sees the
-  /// forwarder as the sender and SPF fails no matter who actually wrote in, so
-  /// the trusted upstream's own record is preferred where there is one.
+  /// Whether the sending domain passed both SPF and DKIM, according to the
+  /// trusted mail server.
   ///
   /// Unverified mail still opens a ticket — a misconfigured sender with a real
   /// problem should not be silently dropped — but the flag is recorded and
   /// surfaced so nobody treats the address as proven.
   fn is_verified(&self, trusted_authserv_id: Option<&str>) -> bool {
-    if let Some(trusted) = trusted_authserv_id
-      && let Some(results) = self.trusted_auth_results(trusted)
-    {
-      return method_result(&results, "spf").as_deref() == Some("pass")
-        && method_result(&results, "dkim").as_deref() == Some("pass");
-    }
-
-    let spam_test = self.header("X-Spam-Test").unwrap_or_default();
-    spam_test.contains("SPF_PASS") && spam_test.contains("DKIM_VALID")
+    let Some(results) = trusted_authserv_id
+      .and_then(|trusted| self.trusted_auth_results(trusted))
+    else {
+      return false;
+    };
+    method_result(&results, "spf").as_deref() == Some("pass")
+      && method_result(&results, "dkim").as_deref() == Some("pass")
   }
 
-  /// The `Authentication-Results` written by the trusted upstream, if it is
+  /// The `Authentication-Results` written by the trusted server, if it is
   /// present.
   ///
   /// Only the first matching header is considered. Each server that handles a
@@ -201,14 +260,22 @@ impl InboundEmail {
     ids
   }
 
+  /// The text to store for this message.
+  ///
+  /// A reply usually quotes the conversation so far below what was written. The
+  /// quoted history is cut off, so a long thread is not re-stored in full on
+  /// every round trip.
   fn body(&self) -> String {
-    let body = self
-      .stripped_text_reply
-      .as_deref()
-      .filter(|body| !body.trim().is_empty())
-      .or(self.text_body.as_deref())
-      .unwrap_or_default()
-      .trim();
+    let full = self.text_body.as_deref().unwrap_or_default().trim();
+
+    let is_reply = !self.referenced_message_ids().is_empty();
+    let body = Some(full)
+      .filter(|_| is_reply)
+      .map(strip_quoted_history)
+      // Nothing left means the reply was written inside or below the quote;
+      // keep all of it rather than store an empty message.
+      .filter(|stripped| !stripped.is_empty())
+      .unwrap_or(full);
 
     if body.len() <= MAX_BODY_BYTES {
       return body.to_owned();
@@ -220,6 +287,61 @@ impl InboundEmail {
       end -= 1;
     }
     format!("{}\n\n[message truncated]", &body[..end])
+  }
+}
+
+/// Returns the part of a reply above the history its mail client quoted.
+///
+/// There is no standard for how a client marks quoted history, so this
+/// recognises the common shapes: an "On … wrote:" attribution, Outlook's
+/// "Original Message" divider and its `From:` / `Sent:` block, and a trailing
+/// run of `>` lines. Anything it does not recognise is kept.
+fn strip_quoted_history(body: &str) -> &str {
+  let lines: Vec<&str> = body.lines().collect();
+
+  let quote_start = (0..lines.len()).find(|&i| {
+    let line = lines[i].trim();
+
+    // "On Mon, 1 Jan 2026 at 10:00, Someone <a@example.com> wrote:", which
+    // clients wrap onto a second line when the address is long.
+    if line.starts_with("On ") {
+      let ends = |l: &&str| l.trim_end().ends_with("wrote:");
+      if ends(&line) || lines.get(i + 1).is_some_and(ends) {
+        return true;
+      }
+    }
+
+    if line
+      .trim_matches('-')
+      .trim()
+      .eq_ignore_ascii_case("Original Message")
+      && line.starts_with("--")
+    {
+      return true;
+    }
+
+    if line.starts_with("From:")
+      && lines[i + 1..]
+        .iter()
+        .take(3)
+        .any(|l| l.trim_start().starts_with("Sent:"))
+    {
+      return true;
+    }
+
+    // A quote with no attribution we recognise, running to the end.
+    line.starts_with('>')
+      && lines[i..]
+        .iter()
+        .all(|l| l.trim().is_empty() || l.trim_start().starts_with('>'))
+  });
+
+  match quote_start {
+    Some(i) => {
+      let offset = lines[i].as_ptr() as usize - body.as_ptr() as usize;
+      body[..offset].trim_end()
+    }
+    None => body,
   }
 }
 
@@ -263,96 +385,71 @@ fn method_result(value: &str, method: &str) -> Option<String> {
 static TICKET_NUMBER_RE: LazyLock<regex::Regex> =
   LazyLock::new(|| regex::Regex::new(r"TICKET-\d{8}-\d{5}").unwrap());
 
-/// Compares two secrets without leaking which byte differed through timing.
-fn secret_eq(a: &str, b: &str) -> bool {
-  if a.len() != b.len() {
-    return false;
-  }
-  a.bytes()
-    .zip(b.bytes())
-    .fold(0u8, |acc, (x, y)| acc | (x ^ y))
-    == 0
-}
-
-#[instrument(name = "POST /api/hooks/postmark", skip(req), fields(ticket_id))]
-pub async fn postmark_inbound_handler(
-  mut req: Request<Body>,
-) -> ApiResult<Response<Body>> {
-  let password = req.data::<PostmarkWebhookPassword>().unwrap();
-  let Some(password) = &password.0 else {
-    return Err(ApiError::TicketNotFound);
+/// Files one inbound email, given as the raw RFC 5322 message.
+#[instrument(name = "inbound_email::ingest", skip_all, fields(ticket_id))]
+pub async fn ingest(
+  ctx: InboundContext<'_>,
+  raw: &[u8],
+) -> Result<(), InboundError> {
+  let Some(mut email) = InboundEmail::parse(raw) else {
+    tracing::warn!("rejecting inbound email that could not be read");
+    return Err(InboundError::Rejected("message could not be read"));
   };
-
-  let expected = format!(
-    "Basic {}",
-    base64::engine::general_purpose::STANDARD
-      .encode(format!("webhook:{password}"))
-  );
-  let provided = req
-    .headers()
-    .get(hyper::header::AUTHORIZATION)
-    .and_then(|value| value.to_str().ok())
-    .unwrap_or_default();
-  if !secret_eq(provided, &expected) {
-    return Err(ApiError::MissingAuthentication);
-  }
-
-  let email: InboundEmail = util::decode_json(&mut req).await?;
 
   let Some(email_message_id) = email.message_id().map(str::to_owned) else {
     // Nothing to deduplicate on, so ingesting this could duplicate the message
-    // on every Postmark retry. A 400 is honest: the message is malformed, and
-    // Postmark will not keep retrying it.
+    // every time the sending server retries it. Refusing is honest: the
+    // message is malformed, and the sender is told not to keep trying.
     tracing::warn!("rejecting inbound email with no Message-ID header");
-    return Err(
-      SharedError::MalformedRequest {
-        msg: Cow::Borrowed("inbound email is missing its Message-ID header"),
-      }
-      .into(),
-    );
+    return Err(InboundError::Rejected("message has no Message-ID header"));
   };
 
-  let db = req.data::<Database>().unwrap();
-
-  let ticket_id = resolve_ticket(db, &email).await?;
-  if let Some(ticket_id) = ticket_id {
-    Span::current().record("ticket_id", field::display(ticket_id));
-  }
-
-  // Uploads happen before the row is written so the storage key can name the
-  // message it belongs to. A failure later leaves unreferenced objects behind,
-  // which is preferable to rows pointing at files that were never stored.
-  let message_id = Uuid::new_v4();
-  let buckets = req.data::<Buckets>().unwrap();
-  let attachments =
-    store_attachments(buckets, message_id, &email.attachments).await?;
-
-  let message = NewTicketEmailMessage {
-    id: message_id,
-    author_email: email.from_full.email.clone(),
-    author_name: email.from_full.name.clone().filter(|n| !n.is_empty()),
-    author_email_verified: email.is_verified(
-      req.data::<InboundTrustedAuthservId>().unwrap().0.as_deref(),
-    ),
-    email_message_id,
-    message: email.body(),
-    attachments,
-  };
-
-  match ticket_id {
-    Some(ticket_id) => {
-      if db
-        .ticket_add_email_message(ticket_id, message)
-        .await?
-        .is_none()
-      {
-        tracing::info!("ignoring already-ingested inbound email");
-      }
+  async {
+    let ticket_id = resolve_ticket(ctx.db, &email).await?;
+    if let Some(ticket_id) = ticket_id {
+      Span::current().record("ticket_id", field::display(ticket_id));
     }
-    None => open_ticket(&mut req, message, &email).await?,
-  }
 
-  Ok(util::create_response(StatusCode::OK, "text/plain", "OK"))
+    // Uploads happen before the row is written so the storage key can name the
+    // message it belongs to. A failure later leaves unreferenced objects
+    // behind, which is preferable to rows pointing at files that were never
+    // stored.
+    let message_id = Uuid::new_v4();
+    let attachments = store_attachments(
+      ctx.buckets,
+      message_id,
+      std::mem::take(&mut email.attachments),
+    )
+    .await?;
+
+    let message = NewTicketEmailMessage {
+      id: message_id,
+      author_email: email.from.email.clone(),
+      author_name: email.from.name.clone().filter(|n| !n.is_empty()),
+      author_email_verified: email.is_verified(ctx.trusted_authserv_id),
+      email_message_id,
+      message: email.body(),
+      attachments,
+    };
+
+    match ticket_id {
+      Some(ticket_id) => {
+        if ctx
+          .db
+          .ticket_add_email_message(ticket_id, message)
+          .await?
+          .is_none()
+        {
+          tracing::info!("ignoring already-ingested inbound email");
+        }
+      }
+      None => open_ticket(&ctx, message, &email).await?,
+    }
+
+    Ok(())
+  }
+  .await
+  .map_err(InboundError::Failed)
 }
 
 /// Works out which ticket an inbound email belongs to, if any.
@@ -383,14 +480,10 @@ async fn resolve_ticket(
 
 /// Opens a new ticket for an email that matched nothing, and acknowledges it.
 async fn open_ticket(
-  req: &mut Request<Body>,
+  ctx: &InboundContext<'_>,
   message: NewTicketEmailMessage,
   email: &InboundEmail,
 ) -> Result<(), ApiError> {
-  let db = req.data::<Database>().unwrap();
-  let registry_url = req.data::<RegistryUrl>().unwrap();
-  let email_sender = req.data::<Option<EmailSender>>().unwrap();
-
   let subject = email
     .subject
     .clone()
@@ -398,7 +491,7 @@ async fn open_ticket(
     .unwrap_or_else(|| "(no subject)".to_owned());
 
   let claim_token = Uuid::new_v4();
-  let domain = registry_url.0.host_str().unwrap_or("jsr.io");
+  let domain = ctx.registry_url.host_str().unwrap_or("jsr.io");
   let auto_reply_email_message_id = format!("<{}@{}>", Uuid::new_v4(), domain);
 
   let reporter_email = message.author_email.clone();
@@ -422,7 +515,7 @@ async fn open_ticket(
     },
   };
 
-  let Some((ticket, ..)) = db.create_ticket_from_email(new_ticket).await?
+  let Some((ticket, ..)) = ctx.db.create_ticket_from_email(new_ticket).await?
   else {
     tracing::info!("ignoring already-ingested inbound email");
     return Ok(());
@@ -430,32 +523,33 @@ async fn open_ticket(
 
   Span::current().record("ticket_id", field::display(ticket.id));
 
-  let Some(email_sender) = email_sender else {
+  let Some(email_sender) = ctx.email_sender else {
     return Ok(());
   };
 
   let claim_url = format!(
     "{}ticket/{}?claim={}",
-    registry_url.0, ticket.id, claim_token
+    ctx.registry_url, ticket.id, claim_token
   );
   let email_args = EmailArgs::SupportTicketAutoReply {
     name: reporter_name.map(Cow::Owned),
     ticket_number: Cow::Borrowed(&ticket.ticket_number),
     original_subject: Cow::Borrowed(&subject),
     claim_url: Cow::Borrowed(&claim_url),
-    registry_url: Cow::Borrowed(registry_url.0.as_str()),
+    registry_url: Cow::Borrowed(ctx.registry_url.as_str()),
     registry_name: Cow::Borrowed(&email_sender.from_name),
     support_email: Cow::Borrowed(&email_sender.from),
   };
 
-  // Queued rather than sent here: the ticket is already on file, and a Postmark
-  // failure must not turn into a non-2xx. Postmark would redeliver the webhook,
-  // find the message already ingested, and skip past the send entirely — so the
-  // reporter would never be acknowledged. The delivery row is retried instead.
+  // Queued rather than sent here: the ticket is already on file, and a failure
+  // to send must not fail the delivery. The sending server would deliver the
+  // message again, find it already ingested, and skip past the send entirely —
+  // so the reporter would never be acknowledged. The delivery row is retried
+  // instead.
   if let Err(err) = emails::enqueue(
-    db,
+    ctx.db,
     email_sender,
-    req.data::<EmailQueue>().unwrap(),
+    ctx.email_queue,
     reporter_email,
     email_args,
     Some(EmailThread {
@@ -473,46 +567,23 @@ async fn open_ticket(
 }
 
 /// Uploads an email's attachments and returns the rows to record for them.
-///
-/// Files that are too large, too numerous, or not decodable are skipped with a
-/// warning rather than failing the delivery — losing an attachment is better
-/// than losing the support request it came with.
 async fn store_attachments(
   buckets: &Buckets,
   message_id: Uuid,
-  attachments: &[InboundAttachment],
+  attachments: Vec<InboundAttachment>,
 ) -> Result<Vec<NewTicketAttachment>, ApiError> {
   let mut out = Vec::new();
 
-  for attachment in attachments.iter().take(MAX_ATTACHMENTS_PER_MESSAGE) {
-    let Ok(content) =
-      base64::engine::general_purpose::STANDARD.decode(&attachment.content)
-    else {
-      tracing::warn!(
-        filename = %attachment.name,
-        "skipping inbound attachment that is not valid base64"
-      );
-      continue;
-    };
-
-    if content.len() > MAX_ATTACHMENT_BYTES {
-      tracing::warn!(
-        filename = %attachment.name,
-        size = content.len(),
-        "skipping oversized inbound attachment"
-      );
-      continue;
-    }
-
+  for attachment in attachments {
     let attachment_id = Uuid::new_v4();
     let storage_key = format!("tickets/{message_id}/{attachment_id}");
-    let size_bytes = content.len();
+    let size_bytes = attachment.content.len();
 
     buckets
       .ticket_attachments_bucket
       .upload(
         storage_key.clone().into(),
-        UploadTaskBody::Bytes(Bytes::from(content)),
+        UploadTaskBody::Bytes(attachment.content),
         S3UploadOptions {
           // Stored and served as opaque bytes; the sender's claimed type is
           // recorded in the row for display, but never used to serve the file.
@@ -524,19 +595,11 @@ async fn store_attachments(
       .await?;
 
     out.push(NewTicketAttachment {
-      filename: attachment.name.clone(),
-      content_type: attachment.content_type.clone(),
+      filename: attachment.name,
+      content_type: attachment.content_type,
       size_bytes: size_bytes as i32,
       storage_key,
     });
-  }
-
-  if attachments.len() > MAX_ATTACHMENTS_PER_MESSAGE {
-    tracing::warn!(
-      total = attachments.len(),
-      kept = MAX_ATTACHMENTS_PER_MESSAGE,
-      "inbound email had more attachments than we store"
-    );
   }
 
   Ok(out)
@@ -548,13 +611,12 @@ mod test {
 
   fn email(headers: &[(&str, &str)], subject: &str) -> InboundEmail {
     InboundEmail {
-      from_full: InboundAddress {
+      from: InboundAddress {
         email: "someone@example.com".to_owned(),
         name: Some("Someone".to_owned()),
       },
       subject: Some(subject.to_owned()),
       text_body: Some("body".to_owned()),
-      stripped_text_reply: None,
       headers: headers
         .iter()
         .map(|(name, value)| InboundHeader {
@@ -564,6 +626,90 @@ mod test {
         .collect(),
       attachments: vec![],
     }
+  }
+
+  #[test]
+  fn a_raw_message_is_read() {
+    let raw = concat!(
+      "Authentication-Results: mx.cloudflare.net;\r\n",
+      "\tspf=pass smtp.mailfrom=example.com;\r\n",
+      "\tdkim=pass header.d=example.com\r\n",
+      "From: \"Some One\" <someone@example.com>\r\n",
+      "To: help@jsr.io\r\n",
+      "Subject: Help\r\n",
+      "Message-ID: <a@example.com>\r\n",
+      "References: <x@jsr.io>\r\n",
+      " <y@jsr.io>\r\n",
+      "MIME-Version: 1.0\r\n",
+      "Content-Type: multipart/mixed; boundary=\"b\"\r\n",
+      "\r\n",
+      "--b\r\n",
+      "Content-Type: text/plain; charset=utf-8\r\n",
+      "\r\n",
+      "I cannot publish.\r\n",
+      "--b\r\n",
+      "Content-Type: text/plain; name=\"log.txt\"\r\n",
+      "Content-Disposition: attachment; filename=\"log.txt\"\r\n",
+      "Content-Transfer-Encoding: base64\r\n",
+      "\r\n",
+      "aGVsbG8=\r\n",
+      "--b--\r\n",
+    );
+    let email = InboundEmail::parse(raw.as_bytes()).unwrap();
+
+    assert_eq!(email.from.email, "someone@example.com");
+    assert_eq!(email.from.name.as_deref(), Some("Some One"));
+    assert_eq!(email.subject.as_deref(), Some("Help"));
+    assert_eq!(email.message_id(), Some("<a@example.com>"));
+    assert_eq!(
+      email.text_body.as_deref().map(str::trim),
+      Some("I cannot publish.")
+    );
+
+    // Folded headers are read as one value.
+    assert_eq!(
+      email.referenced_message_ids(),
+      vec!["<x@jsr.io>", "<y@jsr.io>"]
+    );
+    assert!(email.is_verified(Some("mx.cloudflare.net")));
+
+    assert_eq!(email.attachments.len(), 1);
+    assert_eq!(email.attachments[0].name, "log.txt");
+    assert_eq!(email.attachments[0].content_type, "text/plain");
+    assert_eq!(email.attachments[0].content.as_ref(), b"hello");
+  }
+
+  #[test]
+  fn a_message_without_a_sender_is_not_read() {
+    let raw = "Subject: Help\r\nMessage-ID: <a@example.com>\r\n\r\nhi\r\n";
+    assert!(InboundEmail::parse(raw.as_bytes()).is_none());
+  }
+
+  #[test]
+  fn an_oversized_attachment_is_left_out() {
+    let raw = format!(
+      concat!(
+        "From: someone@example.com\r\n",
+        "Message-ID: <a@example.com>\r\n",
+        "MIME-Version: 1.0\r\n",
+        "Content-Type: multipart/mixed; boundary=\"b\"\r\n",
+        "\r\n",
+        "--b\r\n",
+        "Content-Type: text/plain\r\n",
+        "\r\n",
+        "see attached\r\n",
+        "--b\r\n",
+        "Content-Type: application/octet-stream\r\n",
+        "Content-Disposition: attachment; filename=\"big.bin\"\r\n",
+        "\r\n",
+        "{}\r\n",
+        "--b--\r\n",
+      ),
+      "x".repeat(MAX_ATTACHMENT_BYTES + 1)
+    );
+    let email = InboundEmail::parse(raw.as_bytes()).unwrap();
+    assert!(email.attachments.is_empty());
+    assert_eq!(email.body(), "see attached");
   }
 
   #[test]
@@ -589,49 +735,30 @@ mod test {
     );
   }
 
-  const TRUSTED: Option<&str> = Some("mx.google.com");
+  const TRUSTED: Option<&str> = Some("mx.cloudflare.net");
 
   #[test]
   fn verification_requires_both_spf_and_dkim() {
-    let both = email(&[("X-Spam-Test", "SPF_PASS,DKIM_VALID")], "hi");
-    assert!(both.is_verified(None));
+    let both = email(
+      &[(
+        "Authentication-Results",
+        "mx.cloudflare.net; spf=pass (sender is permitted) smtp.mailfrom=leo@example.org; dkim=pass header.i=@example.org; dmarc=pass header.from=example.org",
+      )],
+      "hi",
+    );
+    assert!(both.is_verified(TRUSTED));
 
-    let spf_only = email(&[("X-Spam-Test", "SPF_PASS")], "hi");
-    assert!(!spf_only.is_verified(None));
+    let spf_only = email(
+      &[(
+        "Authentication-Results",
+        "mx.cloudflare.net; spf=pass; dkim=fail",
+      )],
+      "hi",
+    );
+    assert!(!spf_only.is_verified(TRUSTED));
 
     let neither = email(&[], "hi");
-    assert!(!neither.is_verified(None));
-  }
-
-  #[test]
-  fn the_trusted_upstream_result_wins_over_postmarks_own() {
-    // What forwarded mail actually looks like: the sender is fine, but Postmark
-    // checked SPF against the forwarder and failed it.
-    let forwarded = email(
-      &[
-        ("X-Spam-Test", "DKIM_VALID"),
-        (
-          "Authentication-Results",
-          "mx.google.com; dkim=pass header.i=@example.org; spf=pass (google.com: domain of leo@example.org designates 1.2.3.4 as permitted sender) smtp.mailfrom=leo@example.org; dmarc=pass header.from=example.org",
-        ),
-      ],
-      "hi",
-    );
-    assert!(forwarded.is_verified(TRUSTED));
-
-    // And a genuine failure upstream is still a failure, even though Postmark
-    // happens to be happy.
-    let failed_upstream = email(
-      &[
-        ("X-Spam-Test", "SPF_PASS,DKIM_VALID"),
-        (
-          "Authentication-Results",
-          "mx.google.com; dkim=fail header.i=@example.org; spf=softfail smtp.mailfrom=leo@example.org",
-        ),
-      ],
-      "hi",
-    );
-    assert!(!failed_upstream.is_verified(TRUSTED));
+    assert!(!neither.is_verified(TRUSTED));
   }
 
   #[test]
@@ -644,11 +771,11 @@ mod test {
       &[
         (
           "Authentication-Results",
-          "mx.google.com; dkim=fail; spf=fail smtp.mailfrom=attacker@example.org",
+          "mx.cloudflare.net; dkim=fail; spf=fail smtp.mailfrom=attacker@example.org",
         ),
         (
           "Authentication-Results",
-          "mx.google.com; dkim=pass; spf=pass smtp.mailfrom=someone@example.org",
+          "mx.cloudflare.net; dkim=pass; spf=pass smtp.mailfrom=someone@example.org",
         ),
       ],
       "hi",
@@ -665,14 +792,13 @@ mod test {
       )],
       "hi",
     );
-    // Falls back to Postmark's own check, which has nothing to say here.
     assert!(!elsewhere.is_verified(TRUSTED));
 
-    // With no upstream trusted at all, the header is never consulted.
+    // With no server trusted at all, the header is never consulted.
     let trusted_header = email(
       &[(
         "Authentication-Results",
-        "mx.google.com; dkim=pass; spf=pass",
+        "mx.cloudflare.net; dkim=pass; spf=pass",
       )],
       "hi",
     );
@@ -683,7 +809,7 @@ mod test {
   fn comments_in_the_header_cannot_fake_a_result() {
     // The parenthesised comment contains both a `;` and the text `spf=pass`,
     // and the real result is a failure.
-    let value = "mx.google.com; spf=fail (google.com: sender is not permitted; tried spf=pass) smtp.mailfrom=a@example.org; dkim=fail";
+    let value = "mx.cloudflare.net; spf=fail (sender is not permitted; tried spf=pass) smtp.mailfrom=a@example.org; dkim=fail";
     let stripped = strip_comments(value);
     assert_eq!(method_result(&stripped, "spf").as_deref(), Some("fail"));
     assert_eq!(method_result(&stripped, "dkim").as_deref(), Some("fail"));
@@ -694,7 +820,7 @@ mod test {
 
   #[test]
   fn method_names_are_matched_whole() {
-    let value = strip_comments("mx.google.com; dkim-atps=pass; dkim=fail");
+    let value = strip_comments("mx.cloudflare.net; dkim-atps=pass; dkim=fail");
     // `dkim-atps` must not be read as `dkim`.
     assert_eq!(method_result(&value, "dkim").as_deref(), Some("fail"));
   }
@@ -704,7 +830,7 @@ mod test {
     let email = email(
       &[(
         "Authentication-Results",
-        "mx.google.com 1; dkim=pass; spf=pass",
+        "mx.cloudflare.net 1; dkim=pass; spf=pass",
       )],
       "hi",
     );
@@ -722,15 +848,53 @@ mod test {
   }
 
   #[test]
-  fn stripped_reply_is_preferred_over_the_quoted_body() {
-    let mut email = email(&[], "hi");
-    email.text_body = Some("new text\n\n> old text".to_owned());
-    email.stripped_text_reply = Some("new text".to_owned());
-    assert_eq!(email.body(), "new text");
+  fn quoted_history_is_cut_from_a_reply() {
+    let cases = [
+      "new text\n\nOn Mon, 1 Jan 2026 at 10:00, JSR <help@jsr.io> wrote:\n> old text",
+      // The attribution wrapped onto a second line.
+      "new text\n\nOn Mon, 1 Jan 2026 at 10:00, JSR\n<help@jsr.io> wrote:\n> old text",
+      "new text\n\n-----Original Message-----\nFrom: JSR\nold text",
+      "new text\n\nFrom: JSR <help@jsr.io>\nSent: Monday, 1 January 2026 10:00\nTo: Someone\n\nold text",
+      // No attribution this recognises, only the quote itself.
+      "new text\n\nAm 1. Januar 2026 schrieb JSR:\n> old text\n>\n> more old text",
+    ];
+    for case in cases {
+      assert!(
+        strip_quoted_history(case).starts_with("new text"),
+        "{case:?}"
+      );
+      assert!(!strip_quoted_history(case).contains("old text"), "{case:?}");
+    }
+  }
 
-    // An empty stripped reply means the client sent nothing usable; fall back.
-    email.stripped_text_reply = Some("   ".to_owned());
-    assert_eq!(email.body(), "new text\n\n> old text");
+  #[test]
+  fn text_that_only_resembles_a_quote_is_kept() {
+    // A quoted line with the answer written underneath it is not history.
+    let inline = "> did you try again?\nyes, same error";
+    assert_eq!(strip_quoted_history(inline), inline);
+
+    let prose = "On Monday it worked.\nFrom: what I can tell it broke later.";
+    assert_eq!(strip_quoted_history(prose), prose);
+  }
+
+  #[test]
+  fn history_is_only_cut_from_replies() {
+    let text = "new text\n\nOn Monday, JSR wrote:\n> old text";
+
+    let mut reply = email(&[("In-Reply-To", "<a@jsr.io>")], "hi");
+    reply.text_body = Some(text.to_owned());
+    assert_eq!(reply.body(), "new text");
+
+    // A first message has no history, so whatever it contains is its own.
+    let mut first = email(&[], "hi");
+    first.text_body = Some(text.to_owned());
+    assert_eq!(first.body(), text);
+
+    // A reply written entirely below the quote would be left empty; all of it
+    // is kept instead.
+    let below = "On Monday, JSR wrote:\n> old text\n\nnew text";
+    reply.text_body = Some(below.to_owned());
+    assert_eq!(reply.body(), below);
   }
 
   #[test]
@@ -742,61 +906,56 @@ mod test {
     assert!(body.ends_with("[message truncated]"));
     assert!(body.len() < MAX_BODY_BYTES + 64);
   }
-
-  #[test]
-  fn secret_comparison_matches_only_identical_secrets() {
-    assert!(secret_eq("hunter2", "hunter2"));
-    assert!(!secret_eq("hunter2", "hunter3"));
-    assert!(!secret_eq("hunter2", "hunter22"));
-    assert!(!secret_eq("", "x"));
-  }
 }
 
 #[cfg(test)]
 mod integration {
+  use super::InboundContext;
+  use super::InboundError;
   use crate::api::ApiTicket;
   use crate::api::ApiTicketActor;
+  use crate::emails::EmailQueue;
   use crate::util::test::ApiResultExt;
-  use crate::util::test::TEST_POSTMARK_WEBHOOK_PASSWORD;
+  use crate::util::test::TEST_TRUSTED_AUTHSERV_ID;
   use crate::util::test::TestSetup;
-  use axum::body::Body;
-  use base64::Engine;
   use hyper::StatusCode;
-  use serde_json::Value;
   use serde_json::json;
   use shared::models::TicketStatus;
 
-  fn basic_auth(password: &str) -> hyper::header::HeaderValue {
-    let encoded = base64::engine::general_purpose::STANDARD
-      .encode(format!("webhook:{password}"));
-    format!("Basic {encoded}").try_into().unwrap()
+  /// A raw inbound message from someone@example.com.
+  fn inbound(
+    message_id: &str,
+    subject: &str,
+    headers: &[(&str, &str)],
+  ) -> String {
+    let mut raw = format!(
+      "From: Someone <someone@example.com>\r\nTo: help@jsr.io\r\nSubject: {subject}\r\nMessage-ID: {message_id}\r\n"
+    );
+    for (name, value) in headers {
+      raw.push_str(&format!("{name}: {value}\r\n"));
+    }
+    raw.push_str("\r\nI cannot publish my package.\r\n");
+    raw
   }
 
-  /// A Postmark inbound payload, with only the fields the handler reads.
-  fn inbound(message_id: &str, subject: &str, headers: Value) -> Value {
-    let mut all = vec![json!({ "Name": "Message-ID", "Value": message_id })];
-    all.extend(headers.as_array().cloned().unwrap_or_default());
-    json!({
-      "FromFull": { "Email": "someone@example.com", "Name": "Someone" },
-      "Subject": subject,
-      "TextBody": "I cannot publish my package.",
-      "Headers": all,
-      "Attachments": [],
-    })
+  async fn try_deliver(t: &TestSetup, raw: &str) -> Result<(), InboundError> {
+    super::ingest(
+      InboundContext {
+        db: &t.db(),
+        buckets: &t.buckets(),
+        registry_url: &t.registry_url(),
+        // No sender is configured under test, so nothing is sent.
+        email_sender: None,
+        email_queue: &EmailQueue(None),
+        trusted_authserv_id: Some(TEST_TRUSTED_AUTHSERV_ID),
+      },
+      raw.as_bytes(),
+    )
+    .await
   }
 
-  async fn deliver(t: &mut TestSetup, payload: Value) -> hyper::Response<Body> {
-    t.http()
-      .post("/api/hooks/postmark")
-      .token(None)
-      .header(
-        hyper::header::AUTHORIZATION,
-        basic_auth(TEST_POSTMARK_WEBHOOK_PASSWORD),
-      )
-      .body_json(payload)
-      .call()
-      .await
-      .unwrap()
+  async fn deliver(t: &TestSetup, raw: String) {
+    try_deliver(t, &raw).await.unwrap();
   }
 
   /// Every ticket in the admin list, which is the only view that shows tickets
@@ -867,9 +1026,7 @@ mod integration {
   async fn inbound_email_opens_a_ticket() {
     let mut t = TestSetup::new().await;
 
-    let resp =
-      deliver(&mut t, inbound("<a@example.com>", "Help", json!([]))).await;
-    assert_eq!(resp.status(), StatusCode::OK);
+    deliver(&t, inbound("<a@example.com>", "Help", &[])).await;
 
     let tickets = all_tickets(&mut t).await;
     assert_eq!(tickets.len(), 1);
@@ -894,11 +1051,11 @@ mod integration {
   async fn redelivered_email_is_ingested_once() {
     let mut t = TestSetup::new().await;
 
-    let payload = inbound("<dup@example.com>", "Help", json!([]));
-    deliver(&mut t, payload.clone()).await;
-    // Postmark retries until it gets a 2xx, so a repeat must not 500 either.
-    let resp = deliver(&mut t, payload).await;
-    assert_eq!(resp.status(), StatusCode::OK);
+    let payload = inbound("<dup@example.com>", "Help", &[]);
+    deliver(&t, payload.clone()).await;
+    // A sending server retries until the message is accepted, so a repeat must
+    // not fail either.
+    deliver(&t, payload).await;
 
     assert_eq!(all_tickets(&mut t).await.len(), 1);
   }
@@ -907,7 +1064,7 @@ mod integration {
   async fn reply_threads_onto_the_ticket_it_answers() {
     let mut t = TestSetup::new().await;
 
-    deliver(&mut t, inbound("<first@example.com>", "Help", json!([]))).await;
+    deliver(&t, inbound("<first@example.com>", "Help", &[])).await;
     let ticket = all_tickets(&mut t).await.remove(0);
     // The Message-ID the acknowledgement went out under is not part of the API
     // surface, so it is read from the row that records it.
@@ -919,11 +1076,11 @@ mod integration {
       .expect("the auto-reply is sent with a Message-ID");
 
     deliver(
-      &mut t,
+      &t,
       inbound(
         "<second@example.com>",
         "Re: Help",
-        json!([{ "Name": "In-Reply-To", "Value": auto_reply_id }]),
+        &[("In-Reply-To", &auto_reply_id)],
       ),
     )
     .await;
@@ -938,17 +1095,17 @@ mod integration {
   async fn reply_threads_by_ticket_number_when_headers_are_lost() {
     let mut t = TestSetup::new().await;
 
-    deliver(&mut t, inbound("<first@example.com>", "Help", json!([]))).await;
+    deliver(&t, inbound("<first@example.com>", "Help", &[])).await;
     let ticket = all_tickets(&mut t).await.remove(0);
 
     // No In-Reply-To or References at all: the ticket number in the subject is
     // the only thing tying this message to the conversation.
     deliver(
-      &mut t,
+      &t,
       inbound(
         "<second@example.com>",
         &format!("Re: [{}] Support request", ticket.ticket_number),
-        json!([]),
+        &[],
       ),
     )
     .await;
@@ -962,7 +1119,7 @@ mod integration {
   async fn reply_reopens_a_closed_ticket() {
     let mut t = TestSetup::new().await;
 
-    deliver(&mut t, inbound("<first@example.com>", "Help", json!([]))).await;
+    deliver(&t, inbound("<first@example.com>", "Help", &[])).await;
     let ticket = all_tickets(&mut t).await.remove(0);
 
     let staff_token = t.staff_user.token.clone();
@@ -978,11 +1135,11 @@ mod integration {
     assert_eq!(closed.status, TicketStatus::Closed);
 
     deliver(
-      &mut t,
+      &t,
       inbound(
         "<second@example.com>",
         &format!("Re: [{}] Support request", ticket.ticket_number),
-        json!([]),
+        &[],
       ),
     )
     .await;
@@ -996,14 +1153,25 @@ mod integration {
     let mut t = TestSetup::new().await;
 
     let content = b"hello from an attachment";
-    let mut payload = inbound("<a@example.com>", "Help", json!([]));
-    payload["Attachments"] = json!([{
-      "Name": "log.txt",
-      "Content": base64::engine::general_purpose::STANDARD.encode(content),
-      "ContentType": "text/plain",
-      "ContentLength": content.len(),
-    }]);
-    deliver(&mut t, payload).await;
+    let raw = concat!(
+      "From: Someone <someone@example.com>\r\n",
+      "Subject: Help\r\n",
+      "Message-ID: <a@example.com>\r\n",
+      "MIME-Version: 1.0\r\n",
+      "Content-Type: multipart/mixed; boundary=\"b\"\r\n",
+      "\r\n",
+      "--b\r\n",
+      "Content-Type: text/plain\r\n",
+      "\r\n",
+      "I cannot publish my package.\r\n",
+      "--b\r\n",
+      "Content-Type: text/plain; name=\"log.txt\"\r\n",
+      "Content-Disposition: attachment; filename=\"log.txt\"\r\n",
+      "\r\n",
+      "hello from an attachment\r\n",
+      "--b--\r\n",
+    );
+    deliver(&t, raw.to_owned()).await;
 
     let ticket = all_tickets(&mut t).await.remove(0);
     let attachment = &ticket.messages[0].attachments[0];
@@ -1064,12 +1232,12 @@ mod integration {
   async fn inbound_email_queues_an_auto_reply() {
     let mut t = TestSetup::new().await;
 
-    deliver(&mut t, inbound("<a@example.com>", "Help", json!([]))).await;
+    deliver(&t, inbound("<a@example.com>", "Help", &[])).await;
     let ticket = all_tickets(&mut t).await.remove(0);
 
-    // No Postmark client is configured under test, so nothing is queued and
-    // the ticket still lands. What matters is that the webhook succeeded and
-    // the auto-reply is recorded on the ticket either way.
+    // No sender is configured under test, so nothing is queued and the ticket
+    // still lands. What matters is that the delivery succeeded and the
+    // auto-reply is recorded on the ticket either way.
     let db = t.ephemeral_database.database.as_ref().unwrap();
     assert!(
       db.list_stale_email_deliveries(0, 10)
@@ -1210,7 +1378,7 @@ mod integration {
   async fn staff_can_reply_to_a_ticket_nobody_has_claimed() {
     let mut t = TestSetup::new().await;
 
-    deliver(&mut t, inbound("<a@example.com>", "Help", json!([]))).await;
+    deliver(&t, inbound("<a@example.com>", "Help", &[])).await;
     let ticket = all_tickets(&mut t).await.remove(0);
     assert_eq!(ticket.status, TicketStatus::Open);
 
@@ -1242,7 +1410,7 @@ mod integration {
   async fn a_staff_note_is_never_shown_to_the_reporter() {
     let mut t = TestSetup::new().await;
 
-    deliver(&mut t, inbound("<a@example.com>", "Help", json!([]))).await;
+    deliver(&t, inbound("<a@example.com>", "Help", &[])).await;
     let ticket = all_tickets(&mut t).await.remove(0);
 
     let staff_token = t.staff_user.token.clone();
@@ -1297,7 +1465,7 @@ mod integration {
   async fn a_staff_note_does_not_survive_claiming_the_ticket() {
     let mut t = TestSetup::new().await;
 
-    deliver(&mut t, inbound("<a@example.com>", "Help", json!([]))).await;
+    deliver(&t, inbound("<a@example.com>", "Help", &[])).await;
     let ticket = all_tickets(&mut t).await.remove(0);
     let claim_token = claim_token_of(&t, ticket.id).await;
 
@@ -1397,7 +1565,7 @@ mod integration {
   async fn a_note_cannot_be_written_by_anyone_but_staff() {
     let mut t = TestSetup::new().await;
 
-    deliver(&mut t, inbound("<a@example.com>", "Help", json!([]))).await;
+    deliver(&t, inbound("<a@example.com>", "Help", &[])).await;
     let ticket = all_tickets(&mut t).await.remove(0);
     let claim_token = claim_token_of(&t, ticket.id).await;
 
@@ -1443,7 +1611,7 @@ mod integration {
   async fn a_staff_note_sends_no_email_and_does_not_move_the_status() {
     let mut t = TestSetup::new().await;
 
-    deliver(&mut t, inbound("<a@example.com>", "Help", json!([]))).await;
+    deliver(&t, inbound("<a@example.com>", "Help", &[])).await;
     let ticket = all_tickets(&mut t).await.remove(0);
     assert_eq!(ticket.status, TicketStatus::Open);
 
@@ -1472,41 +1640,47 @@ mod integration {
   }
 
   #[tokio::test]
-  async fn wrong_webhook_password_is_rejected() {
+  async fn email_without_a_message_id_is_refused() {
     let mut t = TestSetup::new().await;
 
-    let mut resp = t
-      .http()
-      .post("/api/hooks/postmark")
-      .token(None)
-      .header(hyper::header::AUTHORIZATION, basic_auth("wrong"))
-      .body_json(inbound("<a@example.com>", "Help", json!([])))
-      .call()
-      .await
-      .unwrap();
-    resp.expect_err(StatusCode::UNAUTHORIZED).await;
+    let raw =
+      "From: Someone <someone@example.com>\r\nSubject: Help\r\n\r\nhi\r\n";
+    // Refused for good rather than failed: delivering it again would not help.
+    assert!(matches!(
+      try_deliver(&t, raw).await,
+      Err(InboundError::Rejected(_))
+    ));
 
     assert!(all_tickets(&mut t).await.is_empty());
   }
 
   #[tokio::test]
-  async fn email_without_a_message_id_is_refused() {
+  async fn sender_verification_is_recorded_on_the_message() {
     let mut t = TestSetup::new().await;
 
-    let mut payload = inbound("<a@example.com>", "Help", json!([]));
-    payload["Headers"] = json!([]);
+    let results =
+      format!("{TEST_TRUSTED_AUTHSERV_ID}; spf=pass; dkim=pass; dmarc=pass");
+    // The receiving server's header sits above everything the sender wrote.
+    let verified = format!(
+      "Authentication-Results: {results}\r\n{}",
+      inbound("<a@example.com>", "Help", &[])
+    );
+    deliver(&t, verified).await;
+    deliver(&t, inbound("<b@example.com>", "Other", &[])).await;
 
-    let mut resp = deliver(&mut t, payload).await;
-    resp.expect_err(StatusCode::BAD_REQUEST).await;
-
-    assert!(all_tickets(&mut t).await.is_empty());
+    let mut tickets = all_tickets(&mut t).await;
+    tickets.sort_by(|a, b| a.subject.cmp(&b.subject));
+    let first = ticket_messages(&t, tickets[0].id).await.remove(0);
+    assert_eq!(first.author_email_verified, Some(true));
+    let second = ticket_messages(&t, tickets[1].id).await.remove(0);
+    assert_eq!(second.author_email_verified, Some(false));
   }
 
   #[tokio::test]
   async fn claim_token_grants_access_and_binds_the_ticket() {
     let mut t = TestSetup::new().await;
 
-    deliver(&mut t, inbound("<a@example.com>", "Help", json!([]))).await;
+    deliver(&t, inbound("<a@example.com>", "Help", &[])).await;
     let ticket = all_tickets(&mut t).await.remove(0);
 
     // The claim token is not handed out over the API — it only reaches the

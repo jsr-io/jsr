@@ -128,7 +128,7 @@ impl Email for EmailArgs<'_> {
       }
       // The ticket number goes in the subject of every ticket email so that a
       // reply which arrives with no usable threading headers can still be
-      // matched back to its ticket. See `api/src/api/hooks.rs`.
+      // matched back to its ticket. See `api/src/inbound_email.rs`.
       EmailArgs::SupportTicketCreated { ticket_number, .. }
       | EmailArgs::SupportTicketMessage { ticket_number, .. } => {
         format!("[{ticket_number}] Support request")

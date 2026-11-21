@@ -30,11 +30,6 @@ variable "postmark_token" {
   sensitive = true
 }
 
-variable "postmark_webhook_password" {
-  type      = string
-  sensitive = true
-}
-
 variable "email_from_name" {
   type = string
 }

@@ -104,7 +104,7 @@ api/
 │   │   └── errors.rs        # Error definitions
 │   ├── auth/                # OAuth handlers (GitHub, GitLab)
 │   ├── docs.rs              # Documentation rendering (deno_doc)
-│   ├── emails/              # Email templates (Postmark)
+│   ├── emails/              # Email templates
 │   ├── iam.rs               # Permissions and access control
 │   ├── provenance.rs        # Package provenance verification
 │   └── task_dispatch.rs     # Client for the tasks service
@@ -280,9 +280,9 @@ collation so `1.10.0` sorts after `1.9.0`.
 ## Support tickets
 
 A ticket is opened either through the web UI by a signed-in user, or by anyone
-emailing the support address. Postmark delivers inbound mail to
-`POST /api/hooks/postmark` (`api/src/api/hooks.rs`), authenticated with basic
-auth against `POSTMARK_WEBHOOK_PASSWORD`.
+emailing the support address. Cloudflare Email Routing hands inbound mail to the
+API worker's `email` handler (`api/src/main.rs`), which files it through
+`api/src/inbound_email.rs`.
 
 An email-opened ticket has no `creator` — it belongs to `reporter_email` until
 somebody claims it with the token from the auto-reply, which binds it to their
@@ -291,21 +291,18 @@ message it announces, so a reply's `In-Reply-To` / `References` headers identify
 the ticket it belongs to; the `TICKET-YYYYMMDD-XXXXX` number in the subject is
 the fallback for clients that drop those headers.
 `ticket_messages.email_message_id` is unique, which is what makes a redelivered
-webhook a no-op rather than a duplicate.
+message a no-op rather than a duplicate.
 
 Whether a sender's address is proven is recorded per message and shown in the
-UI. Postmark's own SPF check only means something for mail delivered to it
-directly: support mail is forwarded from the Google Workspace inbox, so Postmark
-sees the forwarder as the sender and SPF fails regardless of who wrote in. The
-result Workspace recorded before forwarding survives the hop, so that is read
-instead — but only from the server named by `INBOUND_TRUSTED_AUTHSERV_ID`, and
-only the first such header, because each hop prepends its own and anyone can put
-a forged `Authentication-Results` in the mail they send. Unset the variable and
-only Postmark's own check is used.
+UI. Email Routing checks SPF and DKIM when it receives a message and records
+the results in an `Authentication-Results` header. That header is read only from
+the server named by `INBOUND_TRUSTED_AUTHSERV_ID`, and only the first such
+header, because each hop prepends its own and anyone can put a forged
+`Authentication-Results` in the mail they send. Unset the variable and every
+sender is recorded as unverified.
 
-The Postmark inbound stream's webhook URL is configured in the Postmark
-dashboard, not in terraform:
-`https://webhook:<POSTMARK_WEBHOOK_PASSWORD>@api.jsr.io/hooks/postmark`.
+A reply usually quotes the conversation so far; the quoted history is cut off
+before the message is stored.
 
 ## Outgoing email
 

@@ -23,9 +23,9 @@ mod task_dispatch;
 mod token;
 mod tree_sitter;
 mod util;
+#[cfg(any(target_arch = "wasm32", test))]
+mod inbound_email;
 
-use crate::api::InboundTrustedAuthservId;
-use crate::api::PostmarkWebhookPassword;
 use crate::api::api_router;
 use crate::config::Config;
 use crate::emails::EmailQueue;
@@ -83,8 +83,6 @@ pub struct MainRouterOptions {
   email_queue: Option<Queue>,
   cache_purge_client: Option<shared::external::cloudflare::CachePurgeClient>,
   turnstile: Turnstile,
-  postmark_webhook_password: PostmarkWebhookPassword,
-  inbound_trusted_authserv_id: InboundTrustedAuthservId,
   task_dispatch: TaskDispatch,
 }
 
@@ -107,8 +105,6 @@ pub(crate) fn main_router(
     email_queue,
     cache_purge_client,
     turnstile,
-    postmark_webhook_password,
-    inbound_trusted_authserv_id,
     task_dispatch,
   }: MainRouterOptions,
 ) -> App {
@@ -130,8 +126,6 @@ pub(crate) fn main_router(
     .with(EmailQueue(email_queue))
     .with(CachePurge(cache_purge_client))
     .with(turnstile)
-    .with(postmark_webhook_password)
-    .with(inbound_trusted_authserv_id)
     .with(task_dispatch)
     .with(shared::db::DependentCountCache::new());
 
@@ -358,12 +352,6 @@ async fn build_options(config: Config) -> MainRouterOptions {
     email_queue,
     cache_purge_client,
     turnstile,
-    postmark_webhook_password: PostmarkWebhookPassword(
-      config.postmark_webhook_password,
-    ),
-    inbound_trusted_authserv_id: InboundTrustedAuthservId(
-      config.inbound_trusted_authserv_id,
-    ),
     task_dispatch,
   }
 }
@@ -403,9 +391,27 @@ fn main() {}
 #[cfg(target_arch = "wasm32")]
 mod worker {
   use super::*;
+  use inbound_email::InboundContext;
+  use inbound_email::InboundError;
   use shared::worker_js;
   use tower::ServiceExt;
   use wasm_bindgen::prelude::*;
+
+  /// Applies the Worker's bindings to the process and reads the config from
+  /// them.
+  ///
+  /// Each invocation runs on its own tokio runtime, so nothing (the DB
+  /// connection included) can be reused across invocations.
+  fn config(env: JsValue) -> Result<Config, JsValue> {
+    worker_js::env_into_process(&env);
+    worker_js::set_env(env);
+    if let Some(url) = worker_js::hyperdrive_database_url() {
+      // SAFETY: single-threaded emscripten worker; no other threads race here.
+      unsafe { std::env::set_var("DATABASE_URL", url) };
+    }
+    Config::try_parse_from(["registry_api", "--setup=false"])
+      .map_err(|e| JsValue::from_str(&format!("config: {e}")))
+  }
 
   #[wasm_bindgen(experimental_tokio = "isolated")]
   pub async fn fetch(
@@ -413,16 +419,7 @@ mod worker {
     env: JsValue,
     _ctx: JsValue,
   ) -> Result<web_sys::Response, JsValue> {
-    // Each invocation runs on its own tokio runtime, so nothing (the DB
-    // connection included) can be reused across invocations.
-    worker_js::env_into_process(&env);
-    worker_js::set_env(env);
-    if let Some(url) = worker_js::hyperdrive_database_url() {
-      // SAFETY: single-threaded emscripten worker; no other threads race here.
-      unsafe { std::env::set_var("DATABASE_URL", url) };
-    }
-    let config = Config::try_parse_from(["registry_api", "--setup=false"])
-      .map_err(|e| JsValue::from_str(&format!("config: {e}")))?;
+    let config = config(env)?;
     // Keeps the invocation's span active on every poll: the spans the request
     // starts are parented under whichever span is active.
     ::worker::observability::in_current_span(worker_js::with_background(
@@ -434,6 +431,54 @@ mod worker {
         worker_js::to_web_response(hyper_resp).await
       },
     ))
+    .await
+  }
+
+  /// Receives the mail Cloudflare Email Routing accepts for the domain.
+  ///
+  /// A message that can never be ingested is rejected, which tells the sending
+  /// server not to try again. Any other failure is returned as an error, so
+  /// the message is not accepted and the sending server delivers it again
+  /// later.
+  #[wasm_bindgen(experimental_tokio = "isolated")]
+  pub async fn email(
+    message: ::worker::ForwardableEmailMessage,
+    env: JsValue,
+    _ctx: JsValue,
+  ) -> Result<(), JsValue> {
+    let config = config(env)?;
+    let trusted_authserv_id = config.inbound_trusted_authserv_id.clone();
+    ::worker::observability::in_current_span(async {
+      let options = build_options(config).await;
+      let raw = message
+        .raw_bytes()
+        .await
+        .map_err(|e| JsValue::from_str(&format!("reading message: {e}")))?;
+
+      let result = inbound_email::ingest(
+        InboundContext {
+          db: &options.database,
+          buckets: &options.buckets,
+          registry_url: &options.registry_url,
+          email_sender: options.email_sender.as_ref(),
+          email_queue: &EmailQueue(options.email_queue),
+          trusted_authserv_id: trusted_authserv_id.as_deref(),
+        },
+        &raw,
+      )
+      .await;
+
+      match result {
+        Ok(()) => Ok(()),
+        Err(InboundError::Rejected(reason)) => {
+          message.set_reject(reason);
+          Ok(())
+        }
+        Err(InboundError::Failed(err)) => {
+          Err(JsValue::from_str(&format!("ingesting message: {err:?}")))
+        }
+      }
+    })
     .await
   }
 }
