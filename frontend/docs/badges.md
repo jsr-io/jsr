@@ -159,5 +159,5 @@ Here's how it looks:
 The supported style-related query parameters can be found in the
 [Shields.io documentation](https://shields.io/badges/endpoint-badge#:~:text=Query%20Parameters).
 
-> Note: `logoSize`, `logo`, `url`, `message` and `cacheSeconds` are not
-> supported and if provided, they will be ignored.
+> Note: `logoSize`, `logo`, `url` and `cacheSeconds` are not supported and if
+> provided, they will be ignored.
