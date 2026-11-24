@@ -480,7 +480,7 @@ pub async fn process_tarball(
     npm_tarball,
     readme_path,
     meta,
-  } = tokio::task::spawn_blocking(|| {
+  } = crate::util::spawn_blocking(|| {
     analyze_package(
       span,
       registry_url,

@@ -480,7 +480,7 @@ pub async fn recompute_package_version_meta(
     exports: package_version.exports.clone(),
     files,
   };
-  let output = tokio::task::spawn_blocking(move || {
+  let output = crate::util::spawn_blocking(move || {
     analyze_package(
       span,
       registry_url,
@@ -602,7 +602,7 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
       cache_purge,
     )
     .instrument(span);
-    tokio::spawn(fut);
+    crate::util::spawn_background(fut);
   }
 
   Ok(())

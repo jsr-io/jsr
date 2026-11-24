@@ -46,10 +46,37 @@ pub trait Fetch {
 impl Fetch for reqwest::RequestBuilder {
   async fn fetch(self) -> reqwest::Result<reqwest::Response> {
     #[cfg(target_arch = "wasm32")]
-    return Ok(crate::worker_js::fetch(self.build()?, true).await);
+    return Ok(crate::worker_js::fetch(self.build()?, true, true).await);
     #[cfg(not(target_arch = "wasm32"))]
     self.send().await
   }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn spawn_blocking<T: Send + 'static>(
+  f: impl FnOnce() -> T + Send + 'static,
+) -> Result<T, tokio::task::JoinError> {
+  tokio::task::spawn_blocking(f).await
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn spawn_blocking<Fut: Future>(
+  f: impl FnOnce() -> Fut,
+) -> Result<Fut::Output, tokio::task::JoinError> {
+  Ok(crate::worker_js::AssertSend(f()).await)
+}
+
+pub fn spawn_background<F>(fut: F)
+where
+  F: Future + Send + 'static,
+  F::Output: Send + 'static,
+{
+  #[cfg(target_arch = "wasm32")]
+  crate::worker_js::spawn_background(async move {
+    fut.await;
+  });
+  #[cfg(not(target_arch = "wasm32"))]
+  tokio::spawn(fut);
 }
 
 /// A shared `reqwest::Client` for all outbound HTTP requests. Reusing a single
@@ -88,7 +115,7 @@ pub async fn oauth2_http_request(
   #[cfg(target_arch = "wasm32")]
   let mut response = {
     let _ = client;
-    crate::worker_js::fetch(request.try_into()?, false).await
+    crate::worker_js::fetch(request.try_into()?, false, true).await
   };
   #[cfg(not(target_arch = "wasm32"))]
   let mut response = client.execute(request.try_into()?).await?;

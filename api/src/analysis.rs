@@ -76,7 +76,7 @@ pub struct PackageAnalysisOutput {
 
 // We have to spawn another tokio runtime, because
 // `deno_graph::ModuleGraph::build` is not thread-safe.
-#[tokio::main(flavor = "current_thread")]
+#[cfg_attr(not(target_arch = "wasm32"), tokio::main(flavor = "current_thread"))]
 pub async fn analyze_package(
   span: tracing::Span,
   registry_url: Url,

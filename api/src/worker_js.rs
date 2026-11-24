@@ -8,6 +8,8 @@ use std::cell::RefCell;
 use std::future::Future;
 use std::io;
 use std::pin::Pin;
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::task::Context;
 use std::task::Poll;
 use std::task::ready;
@@ -27,6 +29,40 @@ use crate::worker_spans::in_current;
 
 thread_local! {
   static ENV: RefCell<Option<JsValue>> = const { RefCell::new(None) };
+}
+
+tokio::task_local! {
+  static BACKGROUND: Arc<Mutex<Vec<tokio::task::JoinHandle<()>>>>;
+}
+
+pub fn spawn_background(fut: impl Future<Output = ()> + Send + 'static) {
+  match BACKGROUND.try_with(Arc::clone) {
+    Ok(tasks) => {
+      let handle = tokio::spawn(BACKGROUND.scope(tasks.clone(), fut));
+      tasks.lock().unwrap().push(handle);
+    }
+    Err(_) => {
+      tokio::spawn(fut);
+    }
+  }
+}
+
+pub async fn with_background<T>(fut: impl Future<Output = T>) -> T {
+  let tasks = Arc::<Mutex<Vec<_>>>::default();
+  BACKGROUND
+    .scope(tasks.clone(), async {
+      let output = fut.await;
+      loop {
+        let handles = std::mem::take(&mut *tasks.lock().unwrap());
+        if handles.is_empty() {
+          break output;
+        }
+        for handle in handles {
+          let _ = handle.await;
+        }
+      }
+    })
+    .await
 }
 
 pub fn set_env(env: JsValue) {
@@ -83,13 +119,37 @@ fn object(entries: &[(&str, JsValue)]) -> Result<JsValue, String> {
   Ok(object.into())
 }
 
+pub fn body_stream(
+  stream: web_sys::ReadableStream,
+) -> impl futures::Stream<Item = io::Result<Bytes>> + Send + 'static {
+  let reader: web_sys::ReadableStreamDefaultReader =
+    stream.get_reader().unchecked_into();
+  futures::stream::try_unfold(AssertSend(reader), |reader| {
+    AssertSend(async move {
+      let chunk = resolve(Ok(reader.0.read()))
+        .await
+        .map_err(io::Error::other)?;
+      let field = |name: &str| {
+        Reflect::get(&chunk, &name.into())
+          .map_err(|err| io::Error::other(js_error(err)))
+      };
+      if field("done")?.is_truthy() {
+        return Ok(None);
+      }
+      let bytes = field("value")?.unchecked_into::<Uint8Array>().to_vec();
+      Ok(Some((Bytes::from(bytes), reader)))
+    })
+  })
+}
+
 /// Sends `request` with the runtime's `fetch`. A failure to get any response is
 /// returned as a `502 Bad Gateway`, so callers treat it like an upstream error.
 pub async fn fetch(
   request: reqwest::Request,
   follow_redirects: bool,
+  decode_body: bool,
 ) -> reqwest::Response {
-  match AssertSend(fetch_inner(request, follow_redirects)).await {
+  match AssertSend(fetch_inner(request, follow_redirects, decode_body)).await {
     Ok(response) => response,
     Err(err) => {
       tracing::error!("fetch failed: {err}");
@@ -105,6 +165,7 @@ pub async fn fetch(
 async fn fetch_inner(
   request: reqwest::Request,
   follow_redirects: bool,
+  decode_body: bool,
 ) -> Result<reqwest::Response, String> {
   let headers = web_sys::Headers::new().map_err(js_error)?;
   for (name, value) in request.headers() {
@@ -123,8 +184,21 @@ async fn fetch_inner(
   if !follow_redirects {
     init.set_redirect(web_sys::RequestRedirect::Manual);
   }
-  if let Some(body) = request.body().and_then(|body| body.as_bytes()) {
+  if let Some(body) = request.body() {
+    let body = body
+      .as_bytes()
+      .ok_or_else(|| "request body is not buffered".to_string())?;
     init.set_body(&Uint8Array::from(body));
+  }
+  if let Some(timeout) = request.timeout() {
+    let signal = web_sys::AbortSignal::timeout_with_u32(
+      timeout.as_millis().try_into().unwrap_or(u32::MAX),
+    );
+    init.set_signal(Some(&signal));
+  }
+  if !decode_body {
+    Reflect::set(&init, &"encodeResponseBody".into(), &"manual".into())
+      .map_err(js_error)?;
   }
   let global: web_sys::WorkerGlobalScope = js_sys::global().unchecked_into();
   let response: web_sys::Response = resolve(Ok(in_current(|| {
@@ -145,7 +219,9 @@ async fn fetch_inner(
       (pair.get(0).as_string(), pair.get(1).as_string())
     {
       // `fetch` has already decoded the body.
-      if name != "content-encoding" && name != "content-length" {
+      if !decode_body
+        || (name != "content-encoding" && name != "content-length")
+      {
         builder = builder.header(name, value);
       }
     }
@@ -153,6 +229,9 @@ async fn fetch_inner(
   let body = Bytes::from(Uint8Array::new(&body).to_vec());
   Ok(builder.body(body).map_err(|err| err.to_string())?.into())
 }
+
+#[derive(Clone)]
+pub struct ResponseStream(pub AssertSend<web_sys::ReadableStream>);
 
 /// The R2 binding for a bucket, named `R2_<bucket name with - as _>`.
 #[derive(Clone)]
@@ -187,6 +266,24 @@ impl R2Bucket {
       let body: worker_sys::R2ObjectBody = body.unchecked_into();
       let bytes = resolve(body.array_buffer()).await?;
       Ok(Some(Bytes::from(Uint8Array::new(&bytes).to_vec())))
+    })
+    .await
+  }
+
+  pub async fn get_stream(
+    &self,
+    key: &str,
+  ) -> Result<Option<ResponseStream>, String> {
+    AssertSend(async {
+      let body =
+        resolve(in_current(|| self.0.0.get(key.into(), JsValue::UNDEFINED)))
+          .await?;
+      if body.is_null() {
+        return Ok(None);
+      }
+      let body: worker_sys::R2ObjectBody = body.unchecked_into();
+      let stream = body.body().map_err(js_error)?;
+      Ok(Some(ResponseStream(AssertSend(stream))))
     })
     .await
   }

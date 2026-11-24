@@ -506,12 +506,9 @@ mod worker {
       }
     }
 
-    let buf = wasm_bindgen_futures::JsFuture::from(req.array_buffer()?).await?;
-    let bytes = js_sys::Uint8Array::new(&buf).to_vec();
-    let body = if bytes.is_empty() {
-      Body::empty()
-    } else {
-      Body::from(bytes)
+    let body = match req.body() {
+      Some(stream) => Body::from_stream(crate::worker_js::body_stream(stream)),
+      None => Body::empty(),
     };
     builder
       .body(body)
@@ -521,10 +518,7 @@ mod worker {
   async fn to_web_response(
     resp: hyper::Response<Body>,
   ) -> Result<web_sys::Response, JsValue> {
-    let (parts, body) = resp.into_parts();
-    let bytes = axum::body::to_bytes(body, usize::MAX)
-      .await
-      .map_err(|e| JsValue::from_str(&format!("read response body: {e}")))?;
+    let (mut parts, body) = resp.into_parts();
 
     let headers = web_sys::Headers::new()?;
     for (k, v) in parts.headers.iter() {
@@ -536,6 +530,20 @@ mod worker {
     let init = web_sys::ResponseInit::new();
     init.set_status(parts.status.as_u16());
     init.set_headers(&headers);
+
+    if let Some(stream) = parts
+      .extensions
+      .remove::<crate::worker_js::ResponseStream>()
+    {
+      return web_sys::Response::new_with_opt_readable_stream_and_init(
+        Some(&stream.0.0),
+        &init,
+      );
+    }
+
+    let bytes = axum::body::to_bytes(body, usize::MAX)
+      .await
+      .map_err(|e| JsValue::from_str(&format!("read response body: {e}")))?;
 
     // Copy the body into JS memory: a `&mut [u8]` is passed as a view into
     // wasm memory, which the runtime reads only after this function has
@@ -567,13 +575,15 @@ mod worker {
     .map_err(|e| JsValue::from_str(&format!("config: {e}")))?;
     // Keeps the invocation's span active on every poll: the spans the request
     // starts are parented under whichever span is active.
-    ::worker::observability::in_current_span(async {
-      let app = build_router(config).await;
-      let hyper_req = to_hyper_request(request).await?;
-      let Ok(hyper_resp) =
-        TracedRouterService::new(app, true).oneshot(hyper_req).await;
-      to_web_response(hyper_resp).await
-    })
+    ::worker::observability::in_current_span(crate::worker_js::with_background(
+      async {
+        let app = build_router(config).await;
+        let hyper_req = to_hyper_request(request).await?;
+        let Ok(hyper_resp) =
+          TracedRouterService::new(app, true).oneshot(hyper_req).await;
+        to_web_response(hyper_resp).await
+      },
+    ))
     .await
   }
 }

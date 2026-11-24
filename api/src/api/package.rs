@@ -1101,6 +1101,11 @@ pub async fn version_publish_handler(
   let res = async {
     let s3_path = bucket_tarball_path(publishing_task.id);
 
+    let size_hint = req
+      .headers()
+      .get(hyper::header::CONTENT_LENGTH)
+      .and_then(|value| value.to_str().ok()?.parse::<u64>().ok())
+      .map_or(0, |len| len.min(MAX_PUBLISH_TARBALL_SIZE) as usize);
     let body = req.into_body().into_data_stream();
     let total_size = Arc::new(AtomicU64::new(0));
     let total_size_ = total_size.clone();
@@ -1125,7 +1130,7 @@ pub async fn version_publish_handler(
       .publishing_bucket
       .upload(
         s3_path.into(),
-        crate::s3::UploadTaskBody::Stream(Box::new(stream)),
+        crate::s3::UploadTaskBody::Stream(Box::new(stream), size_hint),
         S3UploadOptions {
           content_type: Some("application/x-tar".into()),
           cache_control: None,
@@ -1176,7 +1181,7 @@ pub async fn version_publish_handler(
         cache_purge,
       )
       .instrument(span);
-      tokio::spawn(fut);
+      crate::util::spawn_background(fut);
     }
 
     Ok::<_, ApiError>(())
@@ -1545,24 +1550,18 @@ pub async fn version_tarball_handler(
     .await?;
 
   let path = bucket_tarball_path(task.id);
-  let body = buckets
+  let mut resp = buckets
     .publishing_bucket
     .bucket
-    .download_stream(&path, None)
+    .download_response(&path)
     .await?
     .unwrap();
+  resp.headers_mut().insert(
+    hyper::header::CONTENT_TYPE,
+    hyper::header::HeaderValue::from_static("application/gzip"),
+  );
 
-  Ok(
-    Response::builder()
-      .status(StatusCode::OK)
-      .header(hyper::header::CONTENT_TYPE, "application/gzip")
-      .body(Body::from_stream(body.map(|r| {
-        r.map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
-          Box::new(e)
-        })
-      })))
-      .unwrap(),
-  )
+  Ok(resp)
 }
 
 #[instrument(
@@ -3028,7 +3027,7 @@ struct DepTreeRegistry {
 }
 
 #[allow(clippy::result_large_err)]
-#[tokio::main(flavor = "current_thread")]
+#[cfg_attr(not(target_arch = "wasm32"), tokio::main(flavor = "current_thread"))]
 async fn analyze_deps_tree(
   registry: DepTreeRegistry,
   scope: ScopeName,
@@ -3452,7 +3451,7 @@ pub async fn get_dependencies_graph_handler(
     req.data::<FallbackRegistryUrl>().unwrap().0.clone();
 
   #[allow(clippy::result_large_err)]
-  let deps = tokio::task::spawn_blocking(|| {
+  let deps = crate::util::spawn_blocking(|| {
     analyze_deps_tree(
       DepTreeRegistry {
         url: registry_url,

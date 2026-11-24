@@ -96,7 +96,7 @@ impl AlgoliaClient {
 
     let span = Span::current();
     let client = self.clone();
-    tokio::spawn(
+    crate::util::spawn_background(
       async move {
         let _permit = client.semaphore.acquire().await;
         let path = format!(
@@ -123,7 +123,7 @@ impl AlgoliaClient {
     let object_id = format!("@{scope}/{package}");
     let span = Span::current();
     let client = self.clone();
-    tokio::spawn(
+    crate::util::spawn_background(
       async move {
         let _permit = client.semaphore.acquire().await;
         let path = format!(
@@ -158,7 +158,7 @@ impl AlgoliaClient {
       format!("scope:\"{scope_name}\" AND package:\"{package_name}\"");
     let span = Span::current();
     let client = self.clone();
-    tokio::spawn(
+    crate::util::spawn_background(
       async move {
         let _permit = client.semaphore.acquire().await;
         let path = format!("/1/indexes/{}/deleteByQuery", client.symbols_index);
@@ -204,7 +204,7 @@ impl AlgoliaClient {
           .collect::<Vec<_>>();
         let client = self.clone();
 
-        tokio::spawn(
+        crate::util::spawn_background(
           async move {
             let _permit = client.semaphore.acquire().await;
             let path = format!("/1/indexes/{}/batch", client.symbols_index);

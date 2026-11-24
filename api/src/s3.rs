@@ -142,6 +142,15 @@ impl S3Client {
   }
 }
 
+async fn send(
+  req: reqwest::RequestBuilder,
+) -> Result<reqwest::Response, reqwest::Error> {
+  #[cfg(target_arch = "wasm32")]
+  return Ok(crate::worker_js::fetch(req.build()?, true, false).await);
+  #[cfg(not(target_arch = "wasm32"))]
+  req.send().await
+}
+
 #[derive(Clone)]
 pub struct Bucket {
   client: S3Client,
@@ -230,7 +239,7 @@ impl Bucket {
     if let Some(range) = range {
       req = req.header(reqwest::header::RANGE, range);
     }
-    let resp = req.send().await?;
+    let resp = send(req).await?;
 
     let status = resp.status().as_u16();
     if status == 404 || status == 416 {
@@ -273,6 +282,29 @@ impl Bucket {
     }
     let resp = self.get(path, offset).await?;
     Ok(resp.map(|resp| resp.bytes_stream().map_err(S3Error::from).boxed()))
+  }
+
+  #[instrument(name = "s3::Bucket::download_response", skip(self), err, fields(bucket = %self.name))]
+  pub async fn download_response(
+    &self,
+    path: &str,
+  ) -> Result<Option<hyper::Response<axum::body::Body>>, S3Error> {
+    #[cfg(target_arch = "wasm32")]
+    if let Some(r2) = &self.r2 {
+      let stream = r2
+        .get_stream(path)
+        .await
+        .map_err(|err| S3Error::R2(err.to_string()))?;
+      return Ok(stream.map(|stream| {
+        let mut resp = hyper::Response::new(axum::body::Body::empty());
+        resp.extensions_mut().insert(stream);
+        resp
+      }));
+    }
+    let stream = self.download_stream(path, None).await?;
+    Ok(stream.map(|stream| {
+      hyper::Response::new(axum::body::Body::from_stream(stream))
+    }))
   }
 
   #[instrument(name = "s3::Bucket::upload", skip(self, data), err, fields(bucket = %self.name, size = %data.len()))]
@@ -322,11 +354,8 @@ impl Bucket {
     // hyper leaves out `Content-Length` when the body is empty, and GCS
     // rejects a PUT without it (411 Length Required), so zero-byte files
     // could not be published. Always send it explicitly.
-    let resp = req
-      .header(header::CONTENT_LENGTH, data.len())
-      .body(data)
-      .send()
-      .await?;
+    let resp =
+      send(req.header(header::CONTENT_LENGTH, data.len()).body(data)).await?;
     Bucket::check_status(resp.status().as_u16())?;
 
     Ok(())
@@ -351,12 +380,8 @@ impl Bucket {
       if let Some(token) = &continuation_token {
         action.with_continuation_token(token);
       }
-      let resp = self
-        .client
-        .http
-        .get(action.sign(SIGNATURE_EXPIRY))
-        .send()
-        .await?;
+      let resp =
+        send(self.client.http.get(action.sign(SIGNATURE_EXPIRY))).await?;
       Bucket::check_status(resp.status().as_u16())?;
 
       let body = resp.text().await?;
@@ -372,25 +397,24 @@ impl Bucket {
   }
 
   #[instrument(name = "s3::Bucket::delete", skip(self), err, fields(bucket = %self.name))]
-  pub async fn delete_file(&self, path: &str) -> Result<bool, S3Error> {
+  pub async fn delete_file(&self, path: &str) -> Result<(), S3Error> {
     #[cfg(target_arch = "wasm32")]
     if let Some(r2) = &self.r2 {
-      r2.delete(path)
+      return r2
+        .delete(path)
         .await
-        .map_err(|err| S3Error::R2(err.to_string()))?;
-      return Ok(false);
+        .map_err(|err| S3Error::R2(err.to_string()));
     }
     let url = self
       .bucket
       .delete_object(self.credentials(), path)
       .sign(SIGNATURE_EXPIRY);
-    let resp = self.client.http.delete(url).send().await?;
+    let resp = send(self.client.http.delete(url)).await?;
 
     if resp.status() == 404 {
-      return Ok(true);
+      return Ok(());
     }
-    Bucket::check_status(resp.status().as_u16())?;
-    Ok(false)
+    Bucket::check_status(resp.status().as_u16())
   }
 }
 
@@ -454,7 +478,7 @@ impl BucketWithQueue {
 
   #[allow(dead_code)]
   #[instrument(name = "BucketWithQueue::delete_file", skip(self), err)]
-  pub async fn delete_file(&self, path: Arc<str>) -> Result<bool, S3Error> {
+  pub async fn delete_file(&self, path: Arc<str>) -> Result<(), S3Error> {
     self
       .delete_queue
       .run(DeleteFileTask {
@@ -500,6 +524,7 @@ pub enum UploadTaskBody {
     Box<
       dyn Stream<Item = Result<Bytes, std::io::Error>> + Unpin + Send + 'static,
     >,
+    usize,
   ),
 }
 
@@ -528,8 +553,8 @@ impl RestartableTask for UploadTask {
             Err(e) => RestartableTaskResult::Error(e),
           }
         }
-        UploadTaskBody::Stream(mut stream) => {
-          let mut buffer = Vec::new();
+        UploadTaskBody::Stream(mut stream, size_hint) => {
+          let mut buffer = Vec::with_capacity(size_hint);
           while let Some(res) = stream.next().await {
             match res {
               Ok(chunk) => buffer.extend_from_slice(&chunk),
@@ -588,7 +613,7 @@ struct DeleteFileTask {
 }
 
 impl RestartableTask for DeleteFileTask {
-  type Ok = bool;
+  type Ok = ();
   type Err = S3Error;
   type Fut =
     Pin<Box<dyn Future<Output = RestartableTaskResult<Self>> + Send + 'static>>;
