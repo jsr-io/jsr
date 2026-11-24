@@ -56,6 +56,10 @@ resource "cloudflare_worker_version" "jsr_api" {
   compatibility_date  = "2026-09-02"
   compatibility_flags = ["nodejs_compat"]
 
+  placement = {
+    region = "gcp:us-central1"
+  }
+
   modules = [
     {
       name         = "index.js"
