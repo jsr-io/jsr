@@ -22,6 +22,7 @@ use tracing::instrument;
 #[allow(dead_code)] // used by the currently-disabled symbol indexing
 const MAX_ALGOLIA_BATCH_SIZE: f64 = 3f64 * 1024f64 * 1024f64;
 const MAX_CONCURRENT_ALGOLIA_TASKS: usize = 32;
+const REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
 /// A minimal Algolia indexing client built on top of the REST API. It only
 /// implements the operations JSR needs (upserting and deleting documents); all
@@ -59,6 +60,7 @@ impl AlgoliaClient {
     self
       .http
       .request(method, url)
+      .timeout(REQUEST_TIMEOUT)
       .header("X-Algolia-Application-Id", &*self.app_id)
       .header("X-Algolia-API-Key", &*self.api_key)
   }

@@ -87,7 +87,6 @@ impl Client {
       .unwrap();
     Self(Arc::new(ClientInner {
       http_without_compression,
-      access_token: Mutex::new(None),
       metadata_strategy,
       service_account_key,
     }))
@@ -107,8 +106,9 @@ pub struct ClientInner {
   http_without_compression: reqwest::Client,
   metadata_strategy: MetadataStrategy,
   service_account_key: Option<ServiceAccountKey>,
-  access_token: Mutex<Option<(String, Instant)>>,
 }
+
+static ACCESS_TOKEN: Mutex<Option<(String, Instant)>> = Mutex::new(None);
 
 #[allow(dead_code)]
 impl ClientInner {
@@ -125,7 +125,7 @@ impl ClientInner {
       return Ok("testing.access.token".to_owned());
     }
     {
-      let mut guard = self.access_token.lock().unwrap();
+      let mut guard = ACCESS_TOKEN.lock().unwrap();
       if let Some((token, expires_at)) = guard.clone() {
         // If the is still valid (doesnt expire within next 5 seconds, or is
         // already expired).
@@ -146,7 +146,7 @@ impl ClientInner {
       }
       MetadataStrategy::Testing => unreachable!(),
     };
-    let mut guard = self.access_token.lock().unwrap();
+    let mut guard = ACCESS_TOKEN.lock().unwrap();
     let expires_at = Instant::now() + Duration::from_secs(token.expires_in);
     *guard = Some((token.access_token.clone(), expires_at));
     Ok(token.access_token)

@@ -79,10 +79,6 @@ impl S3Error {
   /// 408, 429, and 5xx errors are retryable.
   /// https://cloud.google.com/storage/docs/retry-strategy
   pub fn is_retryable(&self) -> bool {
-    #[cfg(target_arch = "wasm32")]
-    if matches!(self, Self::R2(_)) {
-      return true;
-    }
     matches!(
       self,
       Self::RequestTimeout | Self::TooManyRequests | Self::Server(_)

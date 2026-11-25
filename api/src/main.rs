@@ -531,6 +531,10 @@ mod worker {
     init.set_status(parts.status.as_u16());
     init.set_headers(&headers);
 
+    if matches!(parts.status.as_u16(), 101 | 204 | 205 | 304) {
+      return web_sys::Response::new_with_opt_str_and_init(None, &init);
+    }
+
     if let Some(stream) = parts
       .extensions
       .remove::<crate::worker_js::ResponseStream>()

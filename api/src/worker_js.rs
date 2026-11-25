@@ -119,14 +119,21 @@ fn object(entries: &[(&str, JsValue)]) -> Result<JsValue, String> {
   Ok(object.into())
 }
 
+struct BodyReader(web_sys::ReadableStreamDefaultReader);
+
+impl Drop for BodyReader {
+  fn drop(&mut self) {
+    self.0.release_lock();
+  }
+}
+
 pub fn body_stream(
   stream: web_sys::ReadableStream,
 ) -> impl futures::Stream<Item = io::Result<Bytes>> + Send + 'static {
-  let reader: web_sys::ReadableStreamDefaultReader =
-    stream.get_reader().unchecked_into();
+  let reader = BodyReader(stream.get_reader().unchecked_into());
   futures::stream::try_unfold(AssertSend(reader), |reader| {
     AssertSend(async move {
-      let chunk = resolve(Ok(reader.0.read()))
+      let chunk = resolve(Ok(reader.0.0.read()))
         .await
         .map_err(io::Error::other)?;
       let field = |name: &str| {
