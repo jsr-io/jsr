@@ -8,7 +8,7 @@ resolver = "2"
 # The hosted event loop that wasm-bindgen's `experimental_tokio` runs on, and
 # `net` on emscripten. Closed upstream, so this stays a fork:
 # https://github.com/tokio-rs/tokio/pull/8484
-tokio = { git = "https://github.com/guybedford/tokio", tag = "1.53.1-cf.emscripten" }
-tokio-macros = { git = "https://github.com/guybedford/tokio", tag = "1.53.1-cf.emscripten" }
+tokio = { git = "https://github.com/guybedford/tokio", rev = "7227f2d72739c3bc9821074cc704e7582be92907" }
+tokio-macros = { git = "https://github.com/guybedford/tokio", rev = "7227f2d72739c3bc9821074cc704e7582be92907" }
 # https://github.com/briansmith/ring/pull/2877
-ring = { git = "https://github.com/guybedford/ring", branch = "emscripten" }
+ring = { git = "https://github.com/guybedford/ring", rev = "a1930ce8d9b8006e5060eda14cacf7cf6f7401c1" }

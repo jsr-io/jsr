@@ -3699,7 +3699,7 @@ dependencies = [
 [[package]]
 name = "ring"
 version = "0.17.16000"
-source = "git+https://github.com/guybedford/ring?branch=emscripten#a1930ce8d9b8006e5060eda14cacf7cf6f7401c1"
+source = "git+https://github.com/guybedford/ring?rev=a1930ce8d9b8006e5060eda14cacf7cf6f7401c1#a1930ce8d9b8006e5060eda14cacf7cf6f7401c1"
 dependencies = [
  "cc",
  "cfg-if",
@@ -5013,7 +5013,7 @@ dependencies = [
 [[package]]
 name = "tokio"
 version = "1.53.1"
-source = "git+https://github.com/guybedford/tokio?tag=1.53.1-cf.emscripten#7227f2d72739c3bc9821074cc704e7582be92907"
+source = "git+https://github.com/guybedford/tokio?rev=7227f2d72739c3bc9821074cc704e7582be92907#7227f2d72739c3bc9821074cc704e7582be92907"
 dependencies = [
  "bytes",
  "libc",
@@ -5029,7 +5029,7 @@ dependencies = [
 [[package]]
 name = "tokio-macros"
 version = "2.7.2"
-source = "git+https://github.com/guybedford/tokio?tag=1.53.1-cf.emscripten#7227f2d72739c3bc9821074cc704e7582be92907"
+source = "git+https://github.com/guybedford/tokio?rev=7227f2d72739c3bc9821074cc704e7582be92907#7227f2d72739c3bc9821074cc704e7582be92907"
 dependencies = [
  "proc-macro2",
  "quote",
