@@ -116,8 +116,38 @@ resource "cloudflare_workers_deployment" "jsr_api" {
   }]
 }
 
+resource "google_service_account" "registry_api_worker" {
+  account_id   = "registry-api-worker"
+  display_name = "service account for the registry_api cloudflare worker"
+  project      = var.gcp_project
+}
+
+resource "google_cloud_tasks_queue_iam_member" "worker_publishing_tasks" {
+  name   = google_cloud_tasks_queue.publishing_tasks.id
+  role   = "roles/cloudtasks.enqueuer"
+  member = "serviceAccount:${google_service_account.registry_api_worker.email}"
+}
+
+resource "google_cloud_tasks_queue_iam_member" "worker_npm_tarball_build_tasks" {
+  name   = google_cloud_tasks_queue.npm_tarball_build_tasks.id
+  role   = "roles/cloudtasks.enqueuer"
+  member = "serviceAccount:${google_service_account.registry_api_worker.email}"
+}
+
+resource "google_cloud_tasks_queue_iam_member" "worker_email_delivery" {
+  name   = google_cloud_tasks_queue.email_delivery.id
+  role   = "roles/cloudtasks.enqueuer"
+  member = "serviceAccount:${google_service_account.registry_api_worker.email}"
+}
+
+resource "google_service_account_iam_member" "worker_act_as_task_dispatcher" {
+  service_account_id = google_service_account.task_dispatcher.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.registry_api_worker.email}"
+}
+
 resource "google_service_account_key" "registry_api_worker" {
-  service_account_id = google_service_account.registry_api.name
+  service_account_id = google_service_account.registry_api_worker.name
 }
 
 # Named after their fingerprints, so a certificate left behind in the account
