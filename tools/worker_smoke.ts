@@ -101,8 +101,30 @@ async function startWorker(persistTo: string): Promise<Deno.ChildProcess> {
     }
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
-  child.kill("SIGINT");
+  await stopWorker(child);
   throw new Error("the worker did not start");
+}
+
+async function descendants(pid: number): Promise<number[]> {
+  const { stdout } = await new Deno.Command("pgrep", {
+    args: ["-P", String(pid)],
+  }).output();
+  const children = new TextDecoder().decode(stdout).split("\n")
+    .filter((line) => line !== "").map(Number);
+  const nested = await Promise.all(children.map(descendants));
+  return [...nested.flat(), ...children];
+}
+
+// npx does not pass signals on to wrangler and workerd.
+async function stopWorker(worker: Deno.ChildProcess) {
+  for (const pid of [...await descendants(worker.pid), worker.pid]) {
+    try {
+      Deno.kill(pid, "SIGTERM");
+    } catch {
+      // already gone
+    }
+  }
+  await worker.status;
 }
 
 async function api(
@@ -203,7 +225,6 @@ try {
   await run();
   console.log("worker smoke test passed");
 } finally {
-  worker.kill("SIGINT");
-  await worker.status;
+  await stopWorker(worker);
   await Deno.remove(persistTo, { recursive: true });
 }
