@@ -127,6 +127,23 @@ jobs:
         run: ./build-worker.sh
         working-directory: api
 
+      - name: Lint
+        run: |
+          cache=~/.cache/worker-build
+          export PATH="$(echo $cache/emsdk-*/upstream/emscripten):$PATH"
+          export EM_CONFIG="$(echo $cache/emscripten-*.config)"
+          cargo clippy --target wasm32-unknown-emscripten -- -D warnings
+        working-directory: api
+
+      - name: Install Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+
+      - name: Setup postgres for the smoke test
+        run: docker compose up -d postgres
+
+      - name: Smoke test
+        run: deno task smoke:worker
+
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: api-wasm
