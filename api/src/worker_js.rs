@@ -480,6 +480,7 @@ struct HyperdriveSocket {
   /// Set when the socket could not be opened; returned from the first read or
   /// write, so the failure surfaces as the connection's error.
   error: Option<String>,
+  socket: JsValue,
   reader: JsValue,
   writer: JsValue,
   read: Option<JsFuture>,
@@ -515,7 +516,7 @@ fn promise(value: Result<JsValue, JsValue>) -> io::Result<JsFuture> {
 
 impl HyperdriveSocket {
   fn open() -> Self {
-    let socket = ENV.with(|env| -> Result<(JsValue, JsValue), String> {
+    let socket = ENV.with(|env| -> Result<[JsValue; 3], String> {
       let env = env.borrow();
       let env = env.as_ref().ok_or("no worker env")?;
       let binding =
@@ -526,21 +527,20 @@ impl HyperdriveSocket {
         Reflect::get(&socket, &"readable".into()).map_err(js_error)?;
       let writable =
         Reflect::get(&socket, &"writable".into()).map_err(js_error)?;
-      Ok((
-        call(&readable, "getReader").map_err(js_error)?,
-        call(&writable, "getWriter").map_err(js_error)?,
-      ))
+      let reader = call(&readable, "getReader").map_err(js_error)?;
+      let writer = call(&writable, "getWriter").map_err(js_error)?;
+      Ok([socket, reader, writer])
     });
-    let (error, reader, writer) = match socket {
-      Ok((reader, writer)) => (None, reader, writer),
+    let (error, [socket, reader, writer]) = match socket {
+      Ok(socket) => (None, socket),
       Err(err) => (
         Some(format!("Hyperdrive connect: {err}")),
-        JsValue::UNDEFINED,
-        JsValue::UNDEFINED,
+        [JsValue::UNDEFINED, JsValue::UNDEFINED, JsValue::UNDEFINED],
       ),
     };
     Self {
       error,
+      socket,
       reader,
       writer,
       read: None,
@@ -564,6 +564,14 @@ impl HyperdriveSocket {
       result.map_err(|err| io_error(js_error(err)))?;
     }
     Poll::Ready(Ok(()))
+  }
+}
+
+// A read left pending holds the waker of the task that polled it, and through
+// it the request's runtime, so the socket is closed to settle it.
+impl Drop for HyperdriveSocket {
+  fn drop(&mut self) {
+    let _ = call(&self.socket, "close");
   }
 }
 

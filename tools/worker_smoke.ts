@@ -216,6 +216,18 @@ async function run() {
     "/scopes/scope/packages/foo/versions/1.2.3/dependencies/graph",
   );
   await json("GET", "/scopes/scope/packages/foo/versions/1.2.3/docs");
+
+  // A request that leaks its runtime leaks three of the isolate's 4096 file
+  // descriptors, which this many requests would use up.
+  for (let i = 0; i < 1500; i += 20) {
+    const responses = await Promise.all(
+      Array.from({ length: 20 }, () => api("GET", "/scopes/scope")),
+    );
+    for (const resp of responses) {
+      await resp.body?.cancel();
+      assertEquals(resp.status, 200, `GET /scopes/scope (request ${i})`);
+    }
+  }
 }
 
 await setupDatabase();
