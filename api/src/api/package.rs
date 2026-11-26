@@ -3466,8 +3466,14 @@ pub async fn get_dependencies_graph_handler(
     )
   })
   .await
-  .unwrap()
-  .unwrap();
+  .map_err(|err| {
+    tracing::error!("dependency graph task panicked: {err:?}");
+    ApiError::InternalServerError
+  })?
+  .map_err(|err| {
+    tracing::error!("failed to build dependency graph: {err}");
+    ApiError::InternalServerError
+  })?;
 
   let api_deps = deps
     .into_iter()

@@ -240,6 +240,22 @@ async fn fetch_inner(
 #[derive(Clone)]
 pub struct ResponseStream(pub AssertSend<web_sys::ReadableStream>);
 
+async fn retry<T, Fut>(mut op: impl FnMut() -> Fut) -> Result<T, String>
+where
+  Fut: Future<Output = Result<T, String>>,
+{
+  let mut delay = std::time::Duration::from_millis(100);
+  for _ in 0..2 {
+    match op().await {
+      Ok(value) => return Ok(value),
+      Err(err) => tracing::warn!("R2 binding failed, retrying: {err}"),
+    }
+    tokio::time::sleep(delay).await;
+    delay *= 4;
+  }
+  op().await
+}
+
 /// The R2 binding for a bucket, named `R2_<bucket name with - as _>`.
 #[derive(Clone)]
 pub struct R2Bucket(AssertSend<worker_sys::R2Bucket>);
@@ -258,21 +274,24 @@ impl R2Bucket {
     key: &str,
     offset: Option<usize>,
   ) -> Result<Option<Bytes>, String> {
-    AssertSend(async {
-      let options = match offset {
-        Some(offset) => {
-          object(&[("range", object(&[("offset", (offset as f64).into())])?)])?
+    retry(move || {
+      AssertSend(async move {
+        let options = match offset {
+          Some(offset) => object(&[(
+            "range",
+            object(&[("offset", (offset as f64).into())])?,
+          )])?,
+          None => JsValue::UNDEFINED,
+        };
+        let body =
+          resolve(in_current(|| self.0.0.get(key.into(), options))).await?;
+        if body.is_null() {
+          return Ok(None);
         }
-        None => JsValue::UNDEFINED,
-      };
-      let body =
-        resolve(in_current(|| self.0.0.get(key.into(), options))).await?;
-      if body.is_null() {
-        return Ok(None);
-      }
-      let body: worker_sys::R2ObjectBody = body.unchecked_into();
-      let bytes = resolve(body.array_buffer()).await?;
-      Ok(Some(Bytes::from(Uint8Array::new(&bytes).to_vec())))
+        let body: worker_sys::R2ObjectBody = body.unchecked_into();
+        let bytes = resolve(body.array_buffer()).await?;
+        Ok(Some(Bytes::from(Uint8Array::new(&bytes).to_vec())))
+      })
     })
     .await
   }
@@ -281,16 +300,18 @@ impl R2Bucket {
     &self,
     key: &str,
   ) -> Result<Option<ResponseStream>, String> {
-    AssertSend(async {
-      let body =
-        resolve(in_current(|| self.0.0.get(key.into(), JsValue::UNDEFINED)))
-          .await?;
-      if body.is_null() {
-        return Ok(None);
-      }
-      let body: worker_sys::R2ObjectBody = body.unchecked_into();
-      let stream = body.body().map_err(js_error)?;
-      Ok(Some(ResponseStream(AssertSend(stream))))
+    retry(move || {
+      AssertSend(async move {
+        let body =
+          resolve(in_current(|| self.0.0.get(key.into(), JsValue::UNDEFINED)))
+            .await?;
+        if body.is_null() {
+          return Ok(None);
+        }
+        let body: worker_sys::R2ObjectBody = body.unchecked_into();
+        let stream = body.body().map_err(js_error)?;
+        Ok(Some(ResponseStream(AssertSend(stream))))
+      })
     })
     .await
   }
@@ -303,52 +324,59 @@ impl R2Bucket {
     cache_control: Option<&str>,
     content_encoding: &str,
   ) -> Result<(), String> {
-    AssertSend(async {
-      let mut metadata = vec![("contentEncoding", content_encoding.into())];
-      if let Some(content_type) = content_type {
-        metadata.push(("contentType", content_type.into()));
-      }
-      if let Some(cache_control) = cache_control {
-        metadata.push(("cacheControl", cache_control.into()));
-      }
-      let options = object(&[("httpMetadata", object(&metadata)?)])?;
-      let value = Uint8Array::from(data).into();
-      resolve(in_current(|| self.0.0.put(key.into(), value, options))).await?;
-      Ok(())
+    retry(move || {
+      AssertSend(async move {
+        let mut metadata = vec![("contentEncoding", content_encoding.into())];
+        if let Some(content_type) = content_type {
+          metadata.push(("contentType", content_type.into()));
+        }
+        if let Some(cache_control) = cache_control {
+          metadata.push(("cacheControl", cache_control.into()));
+        }
+        let options = object(&[("httpMetadata", object(&metadata)?)])?;
+        let value = Uint8Array::from(data).into();
+        resolve(in_current(|| self.0.0.put(key.into(), value, options)))
+          .await?;
+        Ok(())
+      })
     })
     .await
   }
 
   pub async fn delete(&self, key: &str) -> Result<(), String> {
-    AssertSend(async {
-      resolve(in_current(|| self.0.0.delete(key.into()))).await?;
-      Ok(())
+    retry(move || {
+      AssertSend(async move {
+        resolve(in_current(|| self.0.0.delete(key.into()))).await?;
+        Ok(())
+      })
     })
     .await
   }
 
   pub async fn list(&self, prefix: &str) -> Result<Vec<String>, String> {
-    AssertSend(async {
-      let mut keys = Vec::new();
-      let mut cursor: Option<String> = None;
-      loop {
-        let mut options = vec![("prefix", prefix.into())];
-        if let Some(cursor) = &cursor {
-          options.push(("cursor", cursor.as_str().into()));
+    retry(move || {
+      AssertSend(async move {
+        let mut keys = Vec::new();
+        let mut cursor: Option<String> = None;
+        loop {
+          let mut options = vec![("prefix", prefix.into())];
+          if let Some(cursor) = &cursor {
+            options.push(("cursor", cursor.as_str().into()));
+          }
+          let options = object(&options)?;
+          let page: worker_sys::R2Objects =
+            resolve(in_current(|| self.0.0.list(options)))
+              .await?
+              .unchecked_into();
+          for object in page.objects().map_err(js_error)? {
+            keys.push(object.key().map_err(js_error)?);
+          }
+          if !page.truncated().map_err(js_error)? {
+            return Ok(keys);
+          }
+          cursor = page.cursor().map_err(js_error)?;
         }
-        let options = object(&options)?;
-        let page: worker_sys::R2Objects =
-          resolve(in_current(|| self.0.0.list(options)))
-            .await?
-            .unchecked_into();
-        for object in page.objects().map_err(js_error)? {
-          keys.push(object.key().map_err(js_error)?);
-        }
-        if !page.truncated().map_err(js_error)? {
-          return Ok(keys);
-        }
-        cursor = page.cursor().map_err(js_error)?;
-      }
+      })
     })
     .await
   }
