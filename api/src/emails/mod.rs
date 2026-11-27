@@ -62,6 +62,7 @@ pub enum EmailArgs<'a> {
   },
   /// Sent back to whoever emailed support, acknowledging that their mail opened
   /// a ticket and handing them the link that binds it to an account.
+  #[cfg_attr(not(any(target_arch = "wasm32", test)), allow(dead_code))]
   SupportTicketAutoReply {
     /// The display name from the sender's `From` header, if it had one.
     name: Option<Cow<'a, str>>,

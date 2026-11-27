@@ -234,8 +234,8 @@ impl InboundEmail {
     let full = self.text_body.as_deref().unwrap_or_default().trim();
 
     let is_reply = !self.referenced_message_ids().is_empty();
-    let body = Some(full)
-      .filter(|_| is_reply)
+    let body = is_reply
+      .then_some(full)
       .map(strip_quoted_history)
       .filter(|stripped| !stripped.is_empty())
       .unwrap_or(full);
