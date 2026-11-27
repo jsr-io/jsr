@@ -49,10 +49,9 @@ locals {
 }
 
 resource "cloudflare_bot_management" "zone" {
-  zone_id                     = var.cloudflare_zone_id
-  enable_js                   = true
-  auto_update_model           = true
-  bot_preference_sync_enabled = true
+  zone_id           = var.cloudflare_zone_id
+  enable_js         = true
+  auto_update_model = true
 }
 
 resource "cloudflare_ruleset" "custom_firewall" {
