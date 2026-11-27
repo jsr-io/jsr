@@ -69,6 +69,9 @@ resource "cloudflare_workers_script" "jsr_lb" {
   depends_on = [
     cloudflare_workers_deployment.jsr_frontend,
     cloudflare_workers_deployment.jsr_api,
+    cloudflare_bot_management.zone,
+    cloudflare_ruleset.custom_firewall,
+    cloudflare_ruleset.ratelimit,
   ]
 
   lifecycle {

@@ -67,6 +67,13 @@
   src: url("/fonts/DMMono/DMMono-Italic.woff2") format("woff2");
   font-display: swap;
 }
+@font-face {
+  font-family: "DM Mono";
+  font-style: normal;
+  font-weight: 500;
+  src: url("/fonts/DMMono/DMMono-Medium.woff2") format("woff2");
+  font-display: swap;
+}
 
 @layer base {
   *,

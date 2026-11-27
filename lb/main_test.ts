@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import { assertEquals } from "@std/assert";
-import { route } from "./main.ts";
+import { isModuleFilePath, route } from "./main.ts";
 import type { PartialBucket, WorkerEnv } from "./types.ts";
 
 // The lb keys its bucket cache entries under a reserved path prefix on the
@@ -46,4 +46,32 @@ Deno.test("route rejects the reserved bucket-cache namespace", async () => {
     env,
   );
   assertEquals(res.status, 502);
+});
+
+Deno.test("the WAF website rules exempt the same module paths as the lb", async () => {
+  const tf = await Deno.readTextFile(
+    new URL("../terraform/bots.tf", import.meta.url),
+  );
+  const waf = new RegExp(tf.match(/module_file_path\s*=\s*"([^"]+)"/)![1]);
+  for (
+    const path of [
+      "/@std/assert/meta.json",
+      "/@std/assert/1.0.0_meta.json",
+      "/@std/assert/1.0.0-beta.1_meta.json",
+      "/@std/assert/1.0.0/mod.ts",
+      "/@std/assert/1.0.0/src/equal.ts",
+      "/@std/assert/1.0.0",
+      "/@std/assert",
+      "/@std/assert/doc",
+      "/@std/assert/doc/~/assertEquals",
+      "/@std/assert@1.0.0/doc",
+      "/@std/assert/versions",
+      "/@std/assert/og",
+      "/@std/assert/diff/1.0.0...1.0.1",
+      "/@std",
+      "/packages",
+    ]
+  ) {
+    assertEquals(waf.test(path), isModuleFilePath(path), path);
+  }
 });
