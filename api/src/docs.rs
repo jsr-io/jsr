@@ -609,22 +609,22 @@ fn match_node_value<'a>(
         }
       }
     }
-    NodeValue::Link(link) => {
-      if link.url.ends_with(".mov") || link.url.ends_with(".mp4") {
-        let start_col = node.data.borrow().sourcepos.start;
+    NodeValue::Link(link)
+      if (link.url.ends_with(".mov") || link.url.ends_with(".mp4")) =>
+    {
+      let start_col = node.data.borrow().sourcepos.start;
 
-        let html = format!(r#"<video src="{}" controls></video>"#, link.url);
+      let html = format!(r#"<video src="{}" controls></video>"#, link.url);
 
-        let alert_node = arena.alloc(AstNode::new(RefCell::new(Ast::new(
-          NodeValue::HtmlBlock(comrak::nodes::NodeHtmlBlock {
-            block_type: 6,
-            literal: html,
-          }),
-          start_col,
-        ))));
-        node.insert_before(alert_node);
-        node.detach();
-      }
+      let alert_node = arena.alloc(AstNode::new(RefCell::new(Ast::new(
+        NodeValue::HtmlBlock(comrak::nodes::NodeHtmlBlock {
+          block_type: 6,
+          literal: html,
+        }),
+        start_col,
+      ))));
+      node.insert_before(alert_node);
+      node.detach();
     }
     _ => {}
   }
@@ -1411,12 +1411,13 @@ fn generate_symbol_page(
       break nodes;
     }
 
-    if let Some(namespace_node) = nodes.iter().find(|node| {
-      node
-        .declarations
-        .iter()
-        .any(|decl| matches!(decl.def, DeclarationDef::Namespace(..)))
-    }) {
+    {
+      let namespace_node = nodes.iter().find(|node| {
+        node
+          .declarations
+          .iter()
+          .any(|decl| matches!(decl.def, DeclarationDef::Namespace(..)))
+      })?;
       namespace_paths.push(next_part.to_string());
       doc_nodes = namespace_node
         .namespace_children
@@ -1438,8 +1439,6 @@ fn generate_symbol_page(
           }
         })
         .collect();
-    } else {
-      return None;
     }
   };
 

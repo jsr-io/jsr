@@ -20,6 +20,13 @@ fn main() {
   store.to_cache(file).unwrap();
 
   embed_migrations(Path::new(&out_dir));
+
+  // regex-automata overflows worker-build's 1MB stack. Set here rather than
+  // in RUSTFLAGS, which worker-build appends its own `-sSTACK_SIZE` to: the
+  // last one on the link wins, and a build script's arguments come last.
+  if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("emscripten") {
+    println!("cargo::rustc-link-arg=-sSTACK_SIZE=8MB");
+  }
 }
 
 /// Writes `migrations.rs`, the list of migrations `db::migrate` applies. A

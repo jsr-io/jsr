@@ -77,7 +77,7 @@ Deno.test("route rejects the reserved bucket-cache namespace", async () => {
     head: unreachable("bucket"),
   } as unknown as PartialBucket;
   const env: WorkerEnv = {
-    REGISTRY_API_URL: "https://api.invalid/",
+    API: { fetch: unreachable("api") } as unknown as Fetcher,
     FRONTEND: { fetch: unreachable("frontend") } as unknown as Fetcher,
     ROOT_DOMAIN: "jsr.io",
     API_DOMAIN: "api.jsr.io",

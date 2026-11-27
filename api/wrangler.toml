@@ -1,0 +1,49 @@
+# Local development only; staging deploys through terraform.
+name = "jsr-api"
+main = "build/index.js"
+compatibility_date = "2026-09-02"
+compatibility_flags = ["nodejs_compat"]
+
+[observability.traces]
+enabled = true
+
+[build]
+command = "./build-worker.sh"
+
+# `deno task smoke:worker`: every binding is local.
+[env.smoke.vars]
+GITHUB_CLIENT_ID = "xxx"
+GITHUB_CLIENT_SECRET = "xxx"
+GITLAB_CLIENT_ID = "xxx"
+GITLAB_CLIENT_SECRET = "xxx"
+S3_REGION = "us-east-1"
+S3_ENDPOINT = "http://127.0.0.1:9000"
+S3_ACCESS_KEY = "minioadmin"
+S3_SECRET_KEY = "minioadmin"
+REGISTRY_URL = "http://jsr.test"
+NPM_URL = "http://npm.jsr.test"
+
+[[env.smoke.hyperdrive]]
+binding = "HYPERDRIVE"
+id = "00000000000000000000000000000000"
+localConnectionString = "postgres://user:password@127.0.0.1:5432/registry_worker_smoke"
+
+[[env.smoke.r2_buckets]]
+binding = "R2_publishing"
+bucket_name = "publishing"
+
+[[env.smoke.r2_buckets]]
+binding = "R2_modules"
+bucket_name = "modules"
+
+[[env.smoke.r2_buckets]]
+binding = "R2_docs"
+bucket_name = "docs"
+
+[[env.smoke.r2_buckets]]
+binding = "R2_npm"
+bucket_name = "npm"
+
+[[env.smoke.r2_buckets]]
+binding = "R2_ticket_attachments"
+bucket_name = "ticket-attachments"

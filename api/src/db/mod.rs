@@ -8,6 +8,7 @@ mod query;
 pub(crate) mod sql_fragments;
 #[cfg(test)]
 mod tests;
+#[cfg(not(target_arch = "wasm32"))]
 mod tls;
 
 pub use database::*;

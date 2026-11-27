@@ -14,6 +14,7 @@ use serde::de::DeserializeOwned;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use tracing::Span;
 use tracing::error;
 use tracing::field;
@@ -33,6 +34,50 @@ use crate::ids::Version;
 use crate::router::RequestExt;
 
 pub const USER_AGENT: &str = "JSR";
+
+/// Sends requests through the runtime's `fetch` on the worker, which can't open
+/// sockets to Cloudflare's IP ranges.
+pub trait Fetch {
+  fn fetch(
+    self,
+  ) -> impl Future<Output = reqwest::Result<reqwest::Response>> + Send;
+}
+
+impl Fetch for reqwest::RequestBuilder {
+  async fn fetch(self) -> reqwest::Result<reqwest::Response> {
+    #[cfg(target_arch = "wasm32")]
+    return Ok(crate::worker_js::fetch(self.build()?, true, true).await);
+    #[cfg(not(target_arch = "wasm32"))]
+    self.send().await
+  }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn spawn_blocking<T: Send + 'static>(
+  f: impl FnOnce() -> T + Send + 'static,
+) -> Result<T, tokio::task::JoinError> {
+  tokio::task::spawn_blocking(f).await
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn spawn_blocking<Fut: Future>(
+  f: impl FnOnce() -> Fut,
+) -> Result<Fut::Output, tokio::task::JoinError> {
+  Ok(crate::worker_js::AssertSend(f()).await)
+}
+
+pub fn spawn_background<F>(fut: F)
+where
+  F: Future + Send + 'static,
+  F::Output: Send + 'static,
+{
+  #[cfg(target_arch = "wasm32")]
+  crate::worker_js::spawn_background(async move {
+    fut.await;
+  });
+  #[cfg(not(target_arch = "wasm32"))]
+  tokio::spawn(fut);
+}
 
 /// A shared `reqwest::Client` for all outbound HTTP requests. Reusing a single
 /// client avoids per-request connection pool and TLS session allocation.
@@ -67,6 +112,12 @@ pub async fn oauth2_http_request(
       .build()
       .expect("failed to build oauth2 reqwest client")
   });
+  #[cfg(target_arch = "wasm32")]
+  let mut response = {
+    let _ = client;
+    crate::worker_js::fetch(request.try_into()?, false, true).await
+  };
+  #[cfg(not(target_arch = "wasm32"))]
   let mut response = client.execute(request.try_into()?).await?;
   let status = response.status();
   let headers = std::mem::take(response.headers_mut());
@@ -831,8 +882,11 @@ impl RequestIdExt for Request<Body> {
   }
 }
 
+/// The SPDX license list. Decoding it takes ~100ms of CPU, and only
+/// publishing needs it, so it is decoded once per process, on first use: the
+/// worker, which builds the app for every request, never pays for it.
 #[derive(Clone)]
-pub struct LicenseStore(pub Arc<askalono::Store>);
+pub struct LicenseStore(pub &'static LazyLock<askalono::Store>);
 
 impl LicenseStore {
   /// Check if a license identifier is recognized, either as a primary key
@@ -854,8 +908,9 @@ impl LicenseStore {
 pub fn license_store() -> LicenseStore {
   static CACHE: &[u8] =
     include_bytes!(concat!(env!("OUT_DIR"), "/license-store.cache"));
-  let store = askalono::Store::from_cache(CACHE).unwrap();
-  LicenseStore(Arc::new(store))
+  static STORE: LazyLock<askalono::Store> =
+    LazyLock::new(|| askalono::Store::from_cache(CACHE).unwrap());
+  LicenseStore(&STORE)
 }
 
 #[cfg(test)]

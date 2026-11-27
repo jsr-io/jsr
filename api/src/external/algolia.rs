@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
+use crate::util::Fetch;
 use std::sync::Arc;
 
 use crate::api::ApiPackageScore;
@@ -21,6 +22,7 @@ use tracing::instrument;
 #[allow(dead_code)] // used by the currently-disabled symbol indexing
 const MAX_ALGOLIA_BATCH_SIZE: f64 = 3f64 * 1024f64 * 1024f64;
 const MAX_CONCURRENT_ALGOLIA_TASKS: usize = 32;
+const REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
 /// A minimal Algolia indexing client built on top of the REST API. It only
 /// implements the operations JSR needs (upserting and deleting documents); all
@@ -58,6 +60,7 @@ impl AlgoliaClient {
     self
       .http
       .request(method, url)
+      .timeout(REQUEST_TIMEOUT)
       .header("X-Algolia-Application-Id", &*self.app_id)
       .header("X-Algolia-API-Key", &*self.api_key)
   }
@@ -95,7 +98,7 @@ impl AlgoliaClient {
 
     let span = Span::current();
     let client = self.clone();
-    tokio::spawn(
+    crate::util::spawn_background(
       async move {
         let _permit = client.semaphore.acquire().await;
         let path = format!(
@@ -106,7 +109,7 @@ impl AlgoliaClient {
         let res = client
           .request(Method::PUT, &path)
           .json(&body)
-          .send()
+          .fetch()
           .await
           .and_then(|res| res.error_for_status());
         if let Err(err) = res {
@@ -122,7 +125,7 @@ impl AlgoliaClient {
     let object_id = format!("@{scope}/{package}");
     let span = Span::current();
     let client = self.clone();
-    tokio::spawn(
+    crate::util::spawn_background(
       async move {
         let _permit = client.semaphore.acquire().await;
         let path = format!(
@@ -132,7 +135,7 @@ impl AlgoliaClient {
         );
         let res = client
           .request(Method::DELETE, &path)
-          .send()
+          .fetch()
           .await
           .and_then(|res| res.error_for_status());
         if let Err(err) = res {
@@ -157,14 +160,14 @@ impl AlgoliaClient {
       format!("scope:\"{scope_name}\" AND package:\"{package_name}\"");
     let span = Span::current();
     let client = self.clone();
-    tokio::spawn(
+    crate::util::spawn_background(
       async move {
         let _permit = client.semaphore.acquire().await;
         let path = format!("/1/indexes/{}/deleteByQuery", client.symbols_index);
         let res = client
           .request(Method::POST, &path)
           .json(&serde_json::json!({ "filters": filters }))
-          .send()
+          .fetch()
           .await
           .and_then(|res| res.error_for_status());
         if let Err(err) = res {
@@ -203,14 +206,14 @@ impl AlgoliaClient {
           .collect::<Vec<_>>();
         let client = self.clone();
 
-        tokio::spawn(
+        crate::util::spawn_background(
           async move {
             let _permit = client.semaphore.acquire().await;
             let path = format!("/1/indexes/{}/batch", client.symbols_index);
             let res = client
               .request(Method::POST, &path)
               .json(&serde_json::json!({ "requests": requests }))
-              .send()
+              .fetch()
               .await
               .and_then(|res| res.error_for_status());
             if let Err(err) = res {
