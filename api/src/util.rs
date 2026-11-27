@@ -1241,6 +1241,8 @@ pub mod test {
         generate_ctx_cache: crate::docs::GenerateCtxCache::new(),
         object_cache: crate::object_cache::ObjectCache::new(),
         registry_metadata_cache: crate::api::RegistryMetadataCache::new(),
+        dependent_count_cache: crate::db::DependentCountCache::new(),
+        package_downloads_cache: crate::api::PackageDownloadsCache::new(),
         github_client: github_oauth2_client.clone(),
         gitlab_client: gitlab_oauth2_client.clone(),
         algolia_client: None,

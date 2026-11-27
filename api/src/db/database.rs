@@ -741,6 +741,20 @@ impl Database {
       .await
   }
 
+  #[instrument(name = "Database::package_exists", skip(self), err)]
+  pub async fn package_exists(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<bool> {
+    query_scalar::<bool>(
+      "SELECT EXISTS(SELECT 1 FROM packages WHERE scope = $1 AND name = $2)",
+      &[&scope, &name],
+    )
+    .fetch_one(&self.pool)
+    .await
+  }
+
   #[instrument(name = "Database::create_package", skip(self), err)]
   pub async fn create_package(
     &self,
@@ -4994,6 +5008,10 @@ pub enum CreatePublishingTaskResult {
 /// for a package only changes when someone publishes a new version of a
 /// depending package, so a 15-minute TTL is safe and drastically reduces
 /// database load on package page views.
+const DEPENDENT_COUNT_CACHE_ENTRIES: u64 = 4096;
+const DEPENDENT_COUNT_CACHE_TTL: std::time::Duration =
+  std::time::Duration::from_secs(900);
+
 #[derive(Clone)]
 pub struct DependentCountCache {
   cache: moka::sync::Cache<String, usize>,
@@ -5001,21 +5019,10 @@ pub struct DependentCountCache {
 
 impl DependentCountCache {
   pub fn new() -> Self {
-    #[cfg(target_arch = "wasm32")]
-    {
-      static SHARED: std::sync::LazyLock<DependentCountCache> =
-        std::sync::LazyLock::new(DependentCountCache::build);
-      SHARED.clone()
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    Self::build()
-  }
-
-  fn build() -> Self {
     Self {
       cache: moka::sync::Cache::builder()
-        .max_capacity(4096)
-        .time_to_live(std::time::Duration::from_secs(900))
+        .max_capacity(DEPENDENT_COUNT_CACHE_ENTRIES)
+        .time_to_live(DEPENDENT_COUNT_CACHE_TTL)
         .build(),
     }
   }

@@ -166,6 +166,7 @@ pub fn package_api_cache_urls(
     format!("{pkg}/versions/latest/docs"),
     format!("{pkg}/versions/latest/source"),
     format!("{pkg}/versions/latest/dependencies"),
+    format!("{pkg}/downloads"),
     // Scope-level aggregates that surface this package and its latest version.
     format!("api/scopes/{scope}"),
     format!("api/scopes/{scope}/packages"),

@@ -82,6 +82,8 @@ pub struct MainRouterOptions {
   generate_ctx_cache: crate::docs::GenerateCtxCache,
   object_cache: crate::object_cache::ObjectCache,
   registry_metadata_cache: crate::api::RegistryMetadataCache,
+  dependent_count_cache: db::DependentCountCache,
+  package_downloads_cache: crate::api::PackageDownloadsCache,
   github_client: auth::github::Oauth2Client,
   gitlab_client: auth::gitlab::Oauth2Client,
   algolia_client: Option<AlgoliaClient>,
@@ -116,6 +118,8 @@ pub(crate) fn main_router(
     generate_ctx_cache,
     object_cache,
     registry_metadata_cache,
+    dependent_count_cache,
+    package_downloads_cache,
     github_client,
     gitlab_client,
     algolia_client,
@@ -158,8 +162,8 @@ pub(crate) fn main_router(
     .with(turnstile)
     .with(postmark_webhook_password)
     .with(inbound_trusted_authserv_id)
-    .with(db::DependentCountCache::new())
-    .with(crate::api::PackageDownloadsCache::new());
+    .with(dependent_count_cache)
+    .with(package_downloads_cache);
 
   let router = Router::new();
 
@@ -236,7 +240,22 @@ async fn setup_command() {
   setup(&database, config.service_account_token.as_deref()).await;
 }
 
-async fn build_router(config: Config) -> App {
+#[derive(Clone)]
+struct SharedCaches {
+  dependent_count: db::DependentCountCache,
+  package_downloads: crate::api::PackageDownloadsCache,
+}
+
+impl SharedCaches {
+  fn new() -> Self {
+    Self {
+      dependent_count: db::DependentCountCache::new(),
+      package_downloads: crate::api::PackageDownloadsCache::new(),
+    }
+  }
+}
+
+async fn build_router(config: Config, caches: SharedCaches) -> App {
   // Treat a present-but-empty OTLP_ENDPOINT as unset: clap parses an empty env
   // var as Some(""), which would otherwise build a schemeless endpoint and
   // panic the exporter at boot. Filtering here means empty == export disabled.
@@ -402,6 +421,8 @@ async fn build_router(config: Config) -> App {
     generate_ctx_cache,
     object_cache,
     registry_metadata_cache,
+    dependent_count_cache: caches.dependent_count,
+    package_downloads_cache: caches.package_downloads,
     github_client,
     gitlab_client,
     algolia_client,
@@ -439,7 +460,7 @@ async fn main() {
   println!("{config:?}");
   let port = config.port;
 
-  let router = build_router(config).await;
+  let router = build_router(config, SharedCaches::new()).await;
 
   // Create a Service from the router above to handle incoming requests.
   let service = TracedRouterService::new(router, true);
@@ -563,8 +584,8 @@ mod worker {
     env: JsValue,
     _ctx: JsValue,
   ) -> Result<web_sys::Response, JsValue> {
-    // Each request runs on its own tokio runtime, so nothing (the DB connection
-    // included) can be reused across requests.
+    // Each request runs on its own tokio runtime, so its I/O (the DB connection
+    // included) can't be reused across requests; only `CACHES` is.
     env_into_process(&env);
     crate::worker_js::set_env(env);
     if let Some(url) = crate::worker_js::hyperdrive_database_url() {
@@ -582,7 +603,9 @@ mod worker {
     // starts are parented under whichever span is active.
     ::worker::observability::in_current_span(crate::worker_js::with_background(
       async {
-        let app = build_router(config).await;
+        static CACHES: std::sync::LazyLock<SharedCaches> =
+          std::sync::LazyLock::new(SharedCaches::new);
+        let app = build_router(config, CACHES.clone()).await;
         let hyper_req = to_hyper_request(request).await?;
         let Ok(hyper_resp) =
           TracedRouterService::new(app, true).oneshot(hyper_req).await;

@@ -184,7 +184,7 @@ pub fn package_router() -> Router {
       // Refreshed by the daily download-count scrape, not by publish; a 1-day
       // TTL matches that cadence.
       "/{package}/downloads",
-      get(util::cache(
+      get(util::cache_shared(
         CacheDuration::ONE_DAY,
         util::json(get_downloads_handler),
       )),
@@ -2385,63 +2385,63 @@ pub async fn list_dependents_handler(
 )]
 pub async fn get_downloads_handler(
   req: Request<Body>,
-) -> ApiResult<ApiPackageDownloads> {
+) -> ApiResult<Arc<ApiPackageDownloads>> {
   let scope = req.param_scope()?;
   let package = req.param_package()?;
   Span::current().record("scope", field::display(&scope));
   Span::current().record("package", field::display(&package));
 
-  let cache = req.data::<PackageDownloadsCache>().unwrap();
+  let db = req.data::<Database>().unwrap();
+  if !db.package_exists(&scope, &package).await? {
+    return Err(ApiError::PackageNotFound);
+  }
+
+  let cache = req.data::<PackageDownloadsCache>().ok_or_else(|| {
+    tracing::error!("PackageDownloadsCache is not registered");
+    ApiError::InternalServerError
+  })?;
   let key = format!("@{scope}/{package}");
   if let Some(downloads) = cache.cache.get(&key) {
     return Ok(downloads);
   }
 
-  let db = req.data::<Database>().unwrap();
-  db.get_package(&scope, &package)
-    .await?
-    .ok_or(ApiError::PackageNotFound)?;
-
-  let downloads = load_package_downloads(db, &scope, &package).await?;
+  let downloads = Arc::new(load_package_downloads(db, &scope, &package).await?);
   cache.cache.insert(key, downloads.clone());
   Ok(downloads)
 }
 
+const PACKAGE_DOWNLOADS_CACHE_BYTES: u64 = 4 * 1024 * 1024;
+const PACKAGE_DOWNLOADS_CACHE_TTL: std::time::Duration =
+  std::time::Duration::from_secs(300);
+const PACKAGE_DOWNLOADS_CACHE_ENTRY_OVERHEAD: usize = 128;
+
 #[derive(Clone)]
 pub struct PackageDownloadsCache {
-  cache: moka::sync::Cache<String, ApiPackageDownloads>,
+  cache: moka::sync::Cache<String, Arc<ApiPackageDownloads>>,
 }
 
 impl PackageDownloadsCache {
   pub fn new() -> Self {
-    #[cfg(target_arch = "wasm32")]
-    {
-      static SHARED: std::sync::LazyLock<PackageDownloadsCache> =
-        std::sync::LazyLock::new(PackageDownloadsCache::build);
-      SHARED.clone()
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    Self::build()
-  }
-
-  fn build() -> Self {
     Self {
       cache: moka::sync::Cache::builder()
-        .max_capacity(4 * 1024 * 1024)
-        .weigher(|key: &String, downloads: &ApiPackageDownloads| {
+        .max_capacity(PACKAGE_DOWNLOADS_CACHE_BYTES)
+        .weigher(|key: &String, downloads: &Arc<ApiPackageDownloads>| {
           let points = downloads.total.len()
             + downloads
               .recent_versions
               .iter()
               .map(|version| version.downloads.len())
               .sum::<usize>();
-          let bytes = key.len()
+          let bytes = PACKAGE_DOWNLOADS_CACHE_ENTRY_OVERHEAD
+            + std::mem::size_of::<String>()
+            + std::mem::size_of::<ApiPackageDownloads>()
+            + key.len()
             + points * std::mem::size_of::<ApiDownloadDataPoint>()
             + downloads.recent_versions.len()
               * std::mem::size_of::<ApiPackageDownloadsRecentVersion>();
           bytes.try_into().unwrap_or(u32::MAX)
         })
-        .time_to_live(std::time::Duration::from_secs(300))
+        .time_to_live(PACKAGE_DOWNLOADS_CACHE_TTL)
         .build(),
     }
   }
@@ -5195,6 +5195,86 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .unwrap();
     resp
       .expect_err_code(StatusCode::NOT_FOUND, "docsOnlyForLatestVersion")
+      .await;
+  }
+
+  #[tokio::test]
+  async fn test_package_downloads_cache() {
+    let mut t = TestSetup::new().await;
+
+    for _ in 0..2 {
+      let mut resp = t
+        .http()
+        .get("/api/scopes/scope/packages/foo/downloads")
+        .call()
+        .await
+        .unwrap();
+      resp
+        .expect_err_code(StatusCode::NOT_FOUND, "packageNotFound")
+        .await;
+    }
+
+    let task = process_tarball_setup(&t, create_mock_tarball("ok")).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/downloads")
+      .call()
+      .await
+      .unwrap();
+    let first: serde_json::Value = resp.expect_ok().await;
+
+    t.db()
+      .insert_download_entries(vec![VersionDownloadCount {
+        scope: ScopeName::new("scope".to_owned()).unwrap(),
+        package: PackageName::new("foo".to_owned()).unwrap(),
+        version: Version::new("1.2.3").unwrap(),
+        time_bucket: Utc::now() - chrono::Duration::hours(48),
+        kind: DownloadKind::JsrMeta,
+        count: 10,
+      }])
+      .await
+      .unwrap();
+
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/downloads")
+      .call()
+      .await
+      .unwrap();
+    let second: serde_json::Value = resp.expect_ok().await;
+    assert_eq!(first, second);
+
+    let empty = PackageName::new("empty".to_owned()).unwrap();
+    t.ephemeral_database
+      .create_package(&t.scope.scope, &empty)
+      .await
+      .unwrap();
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/empty/downloads")
+      .call()
+      .await
+      .unwrap();
+    let _: serde_json::Value = resp.expect_ok().await;
+
+    let resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/empty")
+      .call()
+      .await
+      .unwrap();
+    assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/empty/downloads")
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "packageNotFound")
       .await;
   }
 

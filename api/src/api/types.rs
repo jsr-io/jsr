@@ -944,7 +944,7 @@ impl From<Dependent> for ApiDependent {
   }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiDownloadDataPoint {
   pub time_bucket: DateTime<Utc>,
@@ -972,7 +972,7 @@ impl From<VersionDownloadDataPoint> for ApiDownloadDataPoint {
   }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ApiDownloadKind {
   JsrMeta,
@@ -1063,14 +1063,14 @@ pub struct ApiAssignScopeRequest {
   pub user_id: Uuid,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiPackageDownloads {
   pub total: Vec<ApiDownloadDataPoint>,
   pub recent_versions: Vec<ApiPackageDownloadsRecentVersion>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiPackageDownloadsRecentVersion {
   pub version: Version,
