@@ -98,9 +98,7 @@ resource "google_cloud_run_v2_service" "registry_api" {
 
     containers {
       image = var.api_image_id
-      args = [
-        "--api", "--tasks=false", "--database_pool_size=4", "--setup=false"
-      ]
+      args  = ["--database_pool_size=4", "--setup=false"]
 
       resources {
         limits = {
@@ -280,9 +278,7 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
 
     containers {
       image = var.api_image_id
-      args = [
-        "--tasks", "--api=false", "--database_pool_size=1", "--setup=false"
-      ]
+      args  = ["--database_pool_size=1", "--setup=false"]
 
       # Analyzing a package with ~20k modules peaks near 512Mi (the default
       # limit), which risks the instance being OOM-killed mid-publish and the

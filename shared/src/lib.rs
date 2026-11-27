@@ -8,7 +8,7 @@ pub struct RegistryUrl(pub Url);
 pub struct NpmUrl(pub Url);
 pub struct FallbackRegistryUrl(pub Option<Url>);
 
-pub struct PublishQueue(pub Option<gcp::Queue>);
+pub struct PublishQueue(pub Option<queue::Queue>);
 
 pub mod api;
 pub mod db;
@@ -17,13 +17,13 @@ pub mod emails;
 pub mod errors;
 pub mod errors_internal;
 pub mod external;
-pub mod gcp;
 pub mod graph;
 pub mod ids;
 pub mod metadata;
 pub mod models;
 pub mod npm;
 pub mod postgres;
+pub mod queue;
 pub mod router;
 pub mod s3;
 pub mod s3_paths;

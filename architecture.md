@@ -34,11 +34,12 @@ graph LR
     API -- "Hyperdrive" --> Postgres["PostgreSQL"]
     API --> Algolia
     API --> Postmark["Postmark"]
-    API -- "enqueue" --> CloudTasks["Cloud Tasks"]
-    CloudTasks --> Tasks["API tasks service<br/>(Rust, Cloud Run)"]
+    API -- "enqueue" --> Queues["Cloudflare Queues"]
+    Queues --> Tasks["Tasks Worker<br/>(Rust, wasm)"]
+    Cron["Cron Triggers"] --> Tasks
 
     Tasks --> R2
-    Tasks --> Postgres
+    Tasks -- "Hyperdrive" --> Postgres
     Tasks --> Algolia
     Tasks --> Postmark
 ```
@@ -66,25 +67,25 @@ The API is a Rust HTTP server built with Hyper and axum. It is the single source
 of truth for all write operations and business logic. It is split into three
 crates:
 
-- **`api/`** — the HTTP API, and the binary that is built and deployed. It
-  depends on `tasks/` and serves its `/tasks` routes too.
-- **`tasks/`** — the background tasks (publishing, npm tarball builds, emails)
-  and the periodic ones.
+- **`api/`** — the HTTP API. Built for `wasm32-unknown-emscripten` by
+  `tools/build-worker.sh` and deployed as the API Worker, which serves all API
+  traffic. The load balancer and the frontend reach it through `API` service
+  bindings. Each request runs on its own tokio runtime.
+- **`tasks/`** — the background tasks, built and deployed the same way as the
+  Tasks Worker. Its `queue` handler runs the tasks delivered by Cloudflare
+  Queues (publishing, npm tarball builds, emails) and its `scheduled` handler
+  the periodic ones, on Cron Triggers. Both call the task's function directly.
+  Its `fetch` handler serves the `/tasks` routes to the API Worker, over the
+  `TASKS` service binding, for the work the API needs done right away
+  (`api/src/task_dispatch.rs`).
 - **`shared/`** — what both use: the database, storage, external service
-  clients, models and the Workers runtime bindings.
-
-The `api/` crate is built twice:
-
-- **API Worker** — built for `wasm32-unknown-emscripten` by
-  `api/build-worker.sh` and deployed as a Cloudflare Worker, which serves all
-  API traffic. The load balancer and the frontend reach it through `API` service
-  bindings. Each request runs on its own tokio runtime. It reaches PostgreSQL
+  clients, models and the Workers runtime bindings. The workers reach PostgreSQL
   through a Hyperdrive binding, R2 through bucket bindings, and other services
   through the runtime's `fetch` (`worker_js.rs`).
-- **Tasks service** — the native binary on Cloud Run, which runs the background
-  tasks that Cloud Tasks delivers (publishing, npm tarball builds, emails).
-  `cargo run` starts the same binary serving both the API and the tasks, for
-  local development.
+
+Natively, `cargo run` in `api/` and in `tasks/` starts each as an HTTP server,
+for local development. Without queues, the API asks the tasks server
+(`TASKS_URL`) to run a task where the worker would queue it.
 
 ### Directory Structure
 
@@ -105,17 +106,19 @@ api/
 │   ├── docs.rs              # Documentation rendering (deno_doc)
 │   ├── emails/              # Email templates (Postmark)
 │   ├── iam.rs               # Permissions and access control
-│   └── provenance.rs        # Package provenance verification
-├── build-worker.sh          # Builds the Worker (worker-build, emscripten)
+│   ├── provenance.rs        # Package provenance verification
+│   └── task_dispatch.rs     # Client for the tasks service
 ├── wrangler.toml            # Local `wrangler dev` configuration for the Worker
 └── Cargo.toml
 tasks/
 ├── src/
+│   ├── main.rs              # Entry point: HTTP server, queue and cron handlers
 │   ├── tasks.rs             # Background task handlers
 │   ├── publish.rs           # Publishing pipeline
 │   ├── tarball.rs           # Tarball processing
 │   ├── analysis.rs          # Code analysis
 │   └── npm/                 # NPM compatibility tarball generation
+├── wrangler.toml
 └── Cargo.toml
 shared/
 ├── src/
@@ -125,7 +128,6 @@ shared/
 │   ├── docs.rs              # Documentation generation (deno_doc)
 │   ├── external/            # External service clients (Cloudflare, Algolia)
 │   ├── emails.rs            # Email delivery (Postmark)
-│   ├── gcp.rs               # Cloud Tasks client
 │   ├── s3.rs                # R2/S3 storage operations
 │   ├── task_queue.rs        # Rate-limited background job queue
 │   ├── tracing.rs           # Logging and OpenTelemetry setup
@@ -148,7 +150,7 @@ shared/
 - **Search indexing**: Pushes package metadata, symbols, and documentation to
   Algolia for full-text search.
 - **Background tasks**: Long-running work (publishing, npm tarball generation)
-  is queued via Google Cloud Tasks and processed asynchronously.
+  is queued via Cloudflare Queues and processed asynchronously.
 
 ### Key Dependencies
 
@@ -265,7 +267,7 @@ database — they live in R2.
 | `authorizations`               | OAuth tokens and personal access tokens             |
 | `download_counts`              | JSR and npm download metrics                        |
 | `audit_log`                    | Administrative action history                       |
-| `email_deliveries`             | Outbox for outgoing email, delivered by Cloud Tasks |
+| `email_deliveries`             | Outbox for outgoing email, delivered by a queue     |
 | `tickets`                      | Support tickets, opened on the web or by email      |
 | `ticket_messages`              | Messages on a ticket, in either direction           |
 | `ticket_attachments`           | Files that arrived attached to an inbound email     |
@@ -308,19 +310,19 @@ dashboard, not in terraform:
 ## Outgoing email
 
 Email is never sent inline in a request. Sending is rendered at the point of the
-action and written to `email_deliveries`, then handed to a Cloud Tasks queue
-that POSTs `/tasks/send_email`; that handler is what talks to Postmark. A
-transient Postmark failure therefore retries out of band instead of failing the
-request that caused the mail — an admin ticket reply is saved once and delivered
+action and written to `email_deliveries`, then handed to a queue whose messages
+run `/tasks/send_email`; that handler is what talks to Postmark. A transient
+Postmark failure therefore retries out of band instead of failing the request
+that caused the mail — an admin ticket reply is saved once and delivered
 independently, rather than returning 500 with the reply already committed.
 
-The delivery row is committed before Cloud Tasks is told about it, so a failed
+The delivery row is committed before the queue is told about it, so a failed
 hand-off leaves a row nothing would pick up. `/tasks/sweep_pending_emails`, run
-every five minutes by Cloud Scheduler, re-drives those. Re-driving is safe: a
-row that has already been sent is skipped, and a redelivered task reuses the
-same `Message-ID`, so even a genuine double-send is collapsed by the recipient's
-mail client. A delivery that keeps failing is abandoned after eight attempts and
-kept with its last error rather than deleted.
+every five minutes by a cron trigger, re-drives those. Re-driving is safe: a row
+that has already been sent is skipped, and a redelivered task reuses the same
+`Message-ID`, so even a genuine double-send is collapsed by the recipient's mail
+client. A delivery that keeps failing is abandoned after eight attempts and kept
+with its last error rather than deleted.
 
 With no queue configured — local development and tests — deliveries are sent
 inline instead.
@@ -349,7 +351,7 @@ This is the core workflow of the registry:
 2. The CLI packages the source into a tarball and POSTs it to the API.
 3. The API validates authorization, metadata (`deno.json`), and file contents.
 4. A `publishing_task` record is created with status `pending`.
-5. The task is queued to Google Cloud Tasks.
+5. The task is queued to a Cloudflare Queue.
 6. A background worker picks it up and:
    - Extracts files from the tarball
    - Uploads source files to the `modules` R2 bucket
@@ -382,23 +384,22 @@ those settings through the atomic index swap.
 
 Infrastructure is managed with Terraform across two configurations:
 
-- `terraform/` — main infrastructure (the Workers, Hyperdrive, Cloud Run, Cloud
-  SQL, R2 buckets, Cloud Tasks, secrets)
+- `terraform/` — main infrastructure (the Workers, Hyperdrive, Queues, Cloud
+  Run, Cloud SQL, R2 buckets, secrets)
 - `terraform_infra/` — CI/CD setup (GitHub Actions OIDC, Artifact Registry,
   service accounts)
 
 ### Production Deployment
 
 - **API**: Cloudflare Worker (wasm), reaching Cloud SQL through Hyperdrive
-- **API background tasks**: Google Cloud Run, `us-central1`. The Cloud Run API
-  service (`registry-api`) is still deployed, but the load balancer and the
-  frontend no longer send it traffic.
+- **API background tasks**: the Tasks Worker, from Cloudflare Queues and Cron
+  Triggers. The Cloud Run services (`registry-api`, `registry-api-tasks`) and
+  the Cloud Tasks queues are still deployed, but the worker no longer uses them.
 - **Frontend**: Cloudflare Worker (Fresh build, Workers Assets binding)
 - **Database**: Google Cloud SQL (PostgreSQL, high availability)
-- **Job queues**: Google Cloud Tasks (publishing, npm tarball builds)
+- **Job queues**: Cloudflare Queues (publishing, npm tarball builds, emails)
 - **Analytics**: BigQuery (download metrics)
-- **Tracing**: Workers Observability for the API Worker; OpenTelemetry (OTLP)
-  export from the tasks service
+- **Tracing**: Workers Observability
 - **Email**: Postmark
 - **CDN/Edge**: Cloudflare (Worker + R2 + Cache)
 

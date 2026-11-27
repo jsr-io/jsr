@@ -19,6 +19,7 @@ mod provenance;
 mod router_tests;
 mod sitemap;
 mod source_links;
+mod task_dispatch;
 mod token;
 mod tree_sitter;
 mod util;
@@ -33,9 +34,6 @@ use crate::sitemap::packages_sitemap_handler;
 use crate::sitemap::scopes_sitemap_handler;
 use crate::sitemap::sitemap_index_handler;
 
-use registry_api_tasks::tasks::AnalyticsEngineConfig;
-use registry_api_tasks::tasks::NpmTarballBuildQueue;
-use registry_api_tasks::tasks::tasks_router;
 use shared::FallbackRegistryUrl;
 use shared::NpmUrl;
 use shared::PublishQueue;
@@ -45,8 +43,8 @@ use shared::external::algolia::AlgoliaClient;
 use shared::external::cloudflare::CachePurge;
 use shared::external::cloudflare::Turnstile;
 use shared::external::cloudflare::TurnstileClient;
-use shared::gcp;
-use shared::gcp::Queue;
+use shared::queue;
+use shared::queue::Queue;
 use shared::router;
 use shared::router::App;
 use shared::router::Data;
@@ -55,6 +53,8 @@ use shared::s3::Buckets;
 use shared::traced_router::TracedRouterService;
 use shared::tracing::TracingExportTarget;
 use shared::tracing::setup_tracing;
+
+use crate::task_dispatch::TaskDispatch;
 
 use axum::Router;
 use axum::routing::get;
@@ -80,18 +80,12 @@ pub struct MainRouterOptions {
   npm_url: Url,
   fallback_registry_url: Option<Url>,
   publish_queue: Option<Queue>,
-  npm_tarball_build_queue: Option<Queue>,
   email_queue: Option<Queue>,
-  analytics_engine_config: Option<(
-    shared::external::cloudflare::AnalyticsEngineClient,
-    /* dataset_name */ String,
-  )>,
   cache_purge_client: Option<shared::external::cloudflare::CachePurgeClient>,
   turnstile: Turnstile,
   postmark_webhook_password: PostmarkWebhookPassword,
   inbound_trusted_authserv_id: InboundTrustedAuthservId,
-  expose_api: bool,
-  expose_tasks: bool,
+  task_dispatch: TaskDispatch,
 }
 
 pub(crate) fn main_router(
@@ -110,15 +104,12 @@ pub(crate) fn main_router(
     npm_url,
     fallback_registry_url,
     publish_queue,
-    npm_tarball_build_queue,
     email_queue,
-    analytics_engine_config,
     cache_purge_client,
     turnstile,
     postmark_webhook_password,
     inbound_trusted_authserv_id,
-    expose_api,
-    expose_tasks,
+    task_dispatch,
   }: MainRouterOptions,
 ) -> App {
   let data = Data::default()
@@ -136,54 +127,41 @@ pub(crate) fn main_router(
     .with(NpmUrl(npm_url))
     .with(FallbackRegistryUrl(fallback_registry_url))
     .with(PublishQueue(publish_queue))
-    .with(NpmTarballBuildQueue(npm_tarball_build_queue))
     .with(EmailQueue(email_queue))
-    .with(AnalyticsEngineConfig(analytics_engine_config))
     .with(CachePurge(cache_purge_client))
     .with(turnstile)
     .with(postmark_webhook_password)
     .with(inbound_trusted_authserv_id)
+    .with(task_dispatch)
     .with(shared::db::DependentCountCache::new());
 
-  let router = Router::new();
-
-  let router = if expose_api {
-    router
-      .nest("/api", api_router())
-      .route("/sitemap.xml", get(sitemap_index_handler))
-      .route("/sitemap-scopes.xml", get(scopes_sitemap_handler))
-      .route("/sitemap-packages.xml", get(packages_sitemap_handler))
-      // POST, not GET: the login form carries the Turnstile response token in
-      // its body, which keeps it out of URLs, logs and `Referer` headers. It
-      // also means a bare link to this route can no longer start a login flow,
-      // so the captcha cannot be sidestepped by navigating straight here.
-      .route("/login/{service}", post(auth::login_handler))
-      .route(
-        "/login/callback/{service}",
-        get(auth::login_callback_handler),
-      )
-      .route("/logout", get(auth::logout_handler))
-      .route(
-        "/connect/{service}",
-        get(util::full_auth(auth::connect_handler)),
-      )
-      .route(
-        "/connect/callback/{service}",
-        get(util::full_auth(auth::connect_callback_handler)),
-      )
-      .route(
-        "/disconnect/{service}",
-        get(util::full_auth(auth::disconnect_handler)),
-      )
-  } else {
-    router
-  };
-
-  let router = if expose_tasks {
-    router.nest("/tasks", tasks_router())
-  } else {
-    router
-  };
+  let router = Router::new()
+    .nest("/api", api_router())
+    .route("/sitemap.xml", get(sitemap_index_handler))
+    .route("/sitemap-scopes.xml", get(scopes_sitemap_handler))
+    .route("/sitemap-packages.xml", get(packages_sitemap_handler))
+    // POST, not GET: the login form carries the Turnstile response token in
+    // its body, which keeps it out of URLs, logs and `Referer` headers. It
+    // also means a bare link to this route can no longer start a login flow,
+    // so the captcha cannot be sidestepped by navigating straight here.
+    .route("/login/{service}", post(auth::login_handler))
+    .route(
+      "/login/callback/{service}",
+      get(auth::login_callback_handler),
+    )
+    .route("/logout", get(auth::logout_handler))
+    .route(
+      "/connect/{service}",
+      get(util::full_auth(auth::connect_handler)),
+    )
+    .route(
+      "/connect/callback/{service}",
+      get(util::full_auth(auth::connect_callback_handler)),
+    )
+    .route(
+      "/disconnect/{service}",
+      get(util::full_auth(auth::disconnect_handler)),
+    );
 
   router::app(router, data)
 }
@@ -222,6 +200,11 @@ async fn setup_command() {
 }
 
 async fn build_router(config: Config) -> App {
+  main_router(build_options(config).await)
+}
+
+/// Connects to everything the API and the tasks use.
+async fn build_options(config: Config) -> MainRouterOptions {
   // Treat a present-but-empty OTLP_ENDPOINT as unset: clap parses an empty env
   // var as Some(""), which would otherwise build a schemeless endpoint and
   // panic the exporter at boot. Filtering here means empty == export disabled.
@@ -269,10 +252,6 @@ async fn build_router(config: Config) -> App {
   )
   .unwrap();
 
-  let gcp_client = gcp::Client::new(
-    config.metadata_strategy,
-    config.gcp_service_account_key.as_deref(),
-  );
   let publishing_bucket = s3::BucketWithQueue::new(
     s3::Bucket::new(&s3_client, config.publishing_bucket).unwrap(),
   );
@@ -296,17 +275,8 @@ async fn build_router(config: Config) -> App {
     ticket_attachments_bucket,
   };
 
-  let publish_queue = config
-    .publish_queue_id
-    .map(|id| Queue::new(gcp_client.clone(), id, None));
-
-  let npm_tarball_build_queue = config
-    .npm_tarball_build_queue_id
-    .map(|id: String| Queue::new(gcp_client.clone(), id, None));
-
-  let email_queue = config
-    .email_queue_id
-    .map(|id: String| Queue::new(gcp_client.clone(), id, None));
+  let publish_queue = queue::binding("PUBLISH_QUEUE");
+  let email_queue = queue::binding("EMAIL_QUEUE");
 
   let cache_purge_client = match (
     config.cloudflare_zone_id.clone(),
@@ -315,20 +285,6 @@ async fn build_router(config: Config) -> App {
     (Some(zone_id), Some(api_token)) => Some(
       shared::external::cloudflare::CachePurgeClient::new(zone_id, api_token),
     ),
-    _ => None,
-  };
-
-  let analytics_engine_config = match (
-    config.cloudflare_account_id,
-    config.cloudflare_api_token,
-    config.cloudflare_analytics_dataset,
-  ) {
-    (Some(account_id), Some(api_token), Some(dataset_name)) => Some((
-      shared::external::cloudflare::AnalyticsEngineClient::new(
-        account_id, api_token,
-      ),
-      dataset_name,
-    )),
     _ => None,
   };
 
@@ -382,7 +338,9 @@ async fn build_router(config: Config) -> App {
   let object_cache = crate::object_cache::ObjectCache::new();
   let registry_metadata_cache = crate::api::RegistryMetadataCache::new();
 
-  main_router(MainRouterOptions {
+  let task_dispatch = TaskDispatch::new(config.tasks_url);
+
+  MainRouterOptions {
     database,
     buckets,
     generate_ctx_cache,
@@ -397,9 +355,7 @@ async fn build_router(config: Config) -> App {
     npm_url: config.npm_url,
     fallback_registry_url: config.fallback_registry_url,
     publish_queue,
-    npm_tarball_build_queue,
     email_queue,
-    analytics_engine_config,
     cache_purge_client,
     turnstile,
     postmark_webhook_password: PostmarkWebhookPassword(
@@ -408,9 +364,8 @@ async fn build_router(config: Config) -> App {
     inbound_trusted_authserv_id: InboundTrustedAuthservId(
       config.inbound_trusted_authserv_id,
     ),
-    expose_api: config.api,
-    expose_tasks: config.tasks,
-  })
+    task_dispatch,
+  }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -448,100 +403,9 @@ fn main() {}
 #[cfg(target_arch = "wasm32")]
 mod worker {
   use super::*;
-  use axum::body::Body;
+  use shared::worker_js;
   use tower::ServiceExt;
   use wasm_bindgen::prelude::*;
-
-  fn env_into_process(env: &JsValue) {
-    let Ok(entries) =
-      js_sys::Object::entries(&js_sys::Object::from(env.clone()))
-        .dyn_into::<js_sys::Array>()
-    else {
-      return;
-    };
-    for entry in entries.iter() {
-      let pair = js_sys::Array::from(&entry);
-      if let (Some(k), Some(v)) =
-        (pair.get(0).as_string(), pair.get(1).as_string())
-      {
-        // SAFETY: single-threaded emscripten worker; no other threads race here.
-        unsafe { std::env::set_var(k, v) };
-      }
-    }
-  }
-
-  async fn to_hyper_request(
-    req: web_sys::Request,
-  ) -> Result<hyper::Request<Body>, JsValue> {
-    let method = hyper::Method::from_bytes(req.method().as_bytes())
-      .map_err(|e| JsValue::from_str(&format!("bad method: {e}")))?;
-    let uri: hyper::Uri = req
-      .url()
-      .parse()
-      .map_err(|e| JsValue::from_str(&format!("bad uri: {e}")))?;
-    let mut builder = hyper::Request::builder().method(method).uri(uri);
-
-    let headers = req.headers();
-    if let Some(iter) = js_sys::try_iter(&headers)? {
-      for entry in iter {
-        let pair = js_sys::Array::from(&entry?);
-        if let (Some(k), Some(v)) =
-          (pair.get(0).as_string(), pair.get(1).as_string())
-        {
-          builder = builder.header(k, v);
-        }
-      }
-    }
-
-    let body = match req.body() {
-      Some(stream) => Body::from_stream(shared::worker_js::body_stream(stream)),
-      None => Body::empty(),
-    };
-    builder
-      .body(body)
-      .map_err(|e| JsValue::from_str(&format!("build request: {e}")))
-  }
-
-  async fn to_web_response(
-    resp: hyper::Response<Body>,
-  ) -> Result<web_sys::Response, JsValue> {
-    let (mut parts, body) = resp.into_parts();
-
-    let headers = web_sys::Headers::new()?;
-    for (k, v) in parts.headers.iter() {
-      if let Ok(v) = v.to_str() {
-        headers.append(k.as_str(), v)?;
-      }
-    }
-
-    let init = web_sys::ResponseInit::new();
-    init.set_status(parts.status.as_u16());
-    init.set_headers(&headers);
-
-    if matches!(parts.status.as_u16(), 101 | 204 | 205 | 304) {
-      return web_sys::Response::new_with_opt_str_and_init(None, &init);
-    }
-
-    if let Some(stream) = parts
-      .extensions
-      .remove::<shared::worker_js::ResponseStream>()
-    {
-      return web_sys::Response::new_with_opt_readable_stream_and_init(
-        Some(&stream.0.0),
-        &init,
-      );
-    }
-
-    let bytes = axum::body::to_bytes(body, usize::MAX)
-      .await
-      .map_err(|e| JsValue::from_str(&format!("read response body: {e}")))?;
-
-    // Copy the body into JS memory: a `&mut [u8]` is passed as a view into
-    // wasm memory, which the runtime reads only after this function has
-    // returned and the buffer has been freed and reused.
-    let body = js_sys::Uint8Array::from(bytes.as_ref());
-    web_sys::Response::new_with_opt_buffer_source_and_init(Some(&body), &init)
-  }
 
   #[wasm_bindgen(experimental_tokio = "isolated")]
   pub async fn fetch(
@@ -549,32 +413,27 @@ mod worker {
     env: JsValue,
     _ctx: JsValue,
   ) -> Result<web_sys::Response, JsValue> {
-    // Each request runs on its own tokio runtime, so nothing (the DB connection
-    // included) can be reused across requests.
-    env_into_process(&env);
-    shared::worker_js::set_env(env);
-    if let Some(url) = shared::worker_js::hyperdrive_database_url() {
+    // Each invocation runs on its own tokio runtime, so nothing (the DB
+    // connection included) can be reused across invocations.
+    worker_js::env_into_process(&env);
+    worker_js::set_env(env);
+    if let Some(url) = worker_js::hyperdrive_database_url() {
       // SAFETY: single-threaded emscripten worker; no other threads race here.
       unsafe { std::env::set_var("DATABASE_URL", url) };
     }
-    let config = Config::try_parse_from([
-      "registry_api",
-      "--api",
-      "--tasks=false",
-      "--setup=false",
-    ])
-    .map_err(|e| JsValue::from_str(&format!("config: {e}")))?;
+    let config = Config::try_parse_from(["registry_api", "--setup=false"])
+      .map_err(|e| JsValue::from_str(&format!("config: {e}")))?;
     // Keeps the invocation's span active on every poll: the spans the request
     // starts are parented under whichever span is active.
-    ::worker::observability::in_current_span(
-      shared::worker_js::with_background(async {
+    ::worker::observability::in_current_span(worker_js::with_background(
+      async {
         let app = build_router(config).await;
-        let hyper_req = to_hyper_request(request).await?;
+        let hyper_req = worker_js::to_hyper_request(request).await?;
         let Ok(hyper_resp) =
           TracedRouterService::new(app, true).oneshot(hyper_req).await;
-        to_web_response(hyper_resp).await
-      }),
-    )
+        worker_js::to_web_response(hyper_resp).await
+      },
+    ))
     .await
   }
 }

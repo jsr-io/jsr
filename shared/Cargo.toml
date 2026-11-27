@@ -72,12 +72,9 @@ wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true
 js-sys.workspace = true
 web-sys.workspace = true
-# aws-lc doesn't build for emscripten.
-jsonwebtoken = { version = "11", features = ["rust_crypto"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio = { version = "1", features = ["full"] }
-jsonwebtoken = { version = "11", features = ["aws_lc_rs"] }
 tokio-postgres = { version = "0.7.18", features = ["runtime"] }
 # The worker reaches the database through Hyperdrive, which terminates TLS.
 tokio-postgres-rustls = { version = "0.14.0", features = ["aws-lc-rs"] }

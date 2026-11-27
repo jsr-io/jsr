@@ -1110,7 +1110,7 @@ mod integration {
     db.mark_email_delivery_sent(id).await.unwrap();
 
     // Once sent it is invisible to both the delivery path and the sweeper, so a
-    // task Cloud Tasks redelivers cannot produce a second email.
+    // task the queue redelivers cannot produce a second email.
     assert!(db.get_pending_email_delivery(id).await.unwrap().is_none());
     assert!(
       db.list_stale_email_deliveries(0, 10)

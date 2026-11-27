@@ -1,7 +1,8 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 // The API as an emscripten Worker. The LB and the frontend reach it through
-// service bindings (see lb.tf and cloudflare_frontend.tf).
+// service bindings (see lb.tf and cloudflare_frontend.tf). The background
+// tasks run on a second worker, see cloudflare_api_tasks_worker.tf.
 
 locals {
   api_worker_secrets = {
@@ -13,20 +14,70 @@ locals {
     "POSTMARK_WEBHOOK_PASSWORD" = var.postmark_webhook_password
     "ALGOLIA_WRITE_API_KEY"     = algolia_api_key.write.key
     "CLOUDFLARE_API_TOKEN"      = var.cloudflare_api_token
-    "GCP_SERVICE_ACCOUNT_KEY"   = base64decode(google_service_account_key.registry_api_worker.private_key)
   }
 
-  api_worker_envs = merge({
+  api_worker_envs = {
     for name, value in local.api_envs : name => value
     if !contains(concat(
       keys(local.otlp_envs),
       keys(local.api_worker_secrets),
-      # The database is reached through Hyperdrive, which does the TLS.
-      ["DATABASE_URL", "DB_CLIENT_CERT", "DB_CLIENT_KEY"],
+      # The database is reached through Hyperdrive, which does the TLS, and the
+      # queues through bindings.
+      [
+        "DATABASE_URL", "DB_CLIENT_CERT", "DB_CLIENT_KEY", "METADATA_STRATEGY",
+        "PUBLISH_QUEUE_ID", "NPM_TARBALL_BUILD_QUEUE_ID", "EMAIL_QUEUE_ID",
+      ],
     ), name)
-    }, {
-    "METADATA_STRATEGY" = "service_account_key"
-  })
+  }
+
+  # The API worker (api/) and the tasks worker (tasks/) are separate builds
+  # with the same bindings.
+  api_worker_modules = { for crate in ["api", "tasks"] : crate => [
+    {
+      name         = "index.js"
+      content_file = "${path.module}/../${crate}/build/index.js"
+      content_type = "application/javascript+module"
+    },
+    {
+      name         = "index_bg.wasm"
+      content_file = "${path.module}/../${crate}/build/index_bg.wasm"
+      content_type = "application/wasm"
+    },
+  ] }
+
+  api_worker_bindings = concat(
+    [for name, value in local.api_worker_envs : {
+      type = "plain_text"
+      name = name
+      text = value
+    }],
+    [for name, value in local.api_worker_secrets : {
+      type = "secret_text"
+      name = name
+      text = value
+    }],
+    [{
+      type = "hyperdrive"
+      name = "HYPERDRIVE"
+      id   = cloudflare_hyperdrive_config.api.id
+    }],
+    [for bucket in [
+      cloudflare_r2_bucket.publishing,
+      cloudflare_r2_bucket.modules,
+      cloudflare_r2_bucket.docs,
+      cloudflare_r2_bucket.npm,
+      cloudflare_r2_bucket.ticket_attachments,
+      ] : {
+      type        = "r2_bucket"
+      name        = "R2_${replace(bucket.name, "-", "_")}"
+      bucket_name = bucket.name
+    }],
+    [for name, queue in local.api_queues : {
+      type       = "queue"
+      name       = queue.binding
+      queue_name = cloudflare_queue.api[name].queue_name
+    }],
+  )
 }
 
 resource "cloudflare_worker" "jsr_api" {
@@ -60,47 +111,16 @@ resource "cloudflare_worker_version" "jsr_api" {
     region = "gcp:us-central1"
   }
 
-  modules = [
+  modules = local.api_worker_modules["api"]
+  bindings = concat(local.api_worker_bindings, [
     {
-      name         = "index.js"
-      content_file = "${path.module}/../api/build/index.js"
-      content_type = "application/javascript+module"
+      # For work the API hands to the tasks worker directly, see
+      # api/src/task_dispatch.rs.
+      type    = "service"
+      name    = "TASKS"
+      service = cloudflare_worker.jsr_api_tasks.name
     },
-    {
-      name         = "index_bg.wasm"
-      content_file = "${path.module}/../api/build/index_bg.wasm"
-      content_type = "application/wasm"
-    },
-  ]
-
-  bindings = concat(
-    [for name, value in local.api_worker_envs : {
-      type = "plain_text"
-      name = name
-      text = value
-    }],
-    [for name, value in local.api_worker_secrets : {
-      type = "secret_text"
-      name = name
-      text = value
-    }],
-    [{
-      type = "hyperdrive"
-      name = "HYPERDRIVE"
-      id   = cloudflare_hyperdrive_config.api.id
-    }],
-    [for bucket in [
-      cloudflare_r2_bucket.publishing,
-      cloudflare_r2_bucket.modules,
-      cloudflare_r2_bucket.docs,
-      cloudflare_r2_bucket.npm,
-      cloudflare_r2_bucket.ticket_attachments,
-      ] : {
-      type        = "r2_bucket"
-      name        = "R2_${replace(bucket.name, "-", "_")}"
-      bucket_name = bucket.name
-    }],
-  )
+  ])
 }
 
 resource "cloudflare_workers_deployment" "jsr_api" {

@@ -67,6 +67,7 @@ use crate::auth;
 use crate::iam::IamInfo;
 use crate::iam::ReqIamExt;
 use crate::provenance;
+use crate::task_dispatch::TaskDispatch;
 use crate::util;
 use crate::util::RequestIdExt;
 use crate::util::VersionOrLatest;
@@ -75,10 +76,8 @@ use crate::util::pagination;
 use crate::util::search;
 use crate::util::{ApiResult, docs_queries};
 use crate::util::{CacheDuration, DocsQueries};
-use registry_api_tasks::publish::publish_task;
 use shared::graph::JsrResolver;
 use shared::graph::ModuleParser;
-use shared::util::LicenseStore;
 
 use super::ApiCreatePackageRequest;
 use super::ApiDependency;
@@ -1053,14 +1052,8 @@ pub async fn version_publish_handler(
 
   let db = req.data::<Database>().unwrap().clone();
   let buckets = req.data::<Buckets>().unwrap().clone();
-  let license_store = req.data::<LicenseStore>().unwrap().clone();
-  let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
-  let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
-  let fallback_registry_url =
-    req.data::<FallbackRegistryUrl>().unwrap().0.clone();
   let publish_queue = req.data::<PublishQueue>().unwrap().0.clone();
-  let cache_purge = req.data::<CachePurge>().unwrap().clone();
-  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap().clone();
+  let task_dispatch = req.data::<TaskDispatch>().unwrap().clone();
 
   let iam = req.iam();
   let (access_restriction, user_id) = iam
@@ -1169,23 +1162,18 @@ pub async fn version_publish_handler(
 
     if let Some(queue) = publish_queue {
       let body = serde_json::to_vec(&publishing_task.id).unwrap();
-      queue.task_buffer(None, Some(body.into())).await?;
+      queue.send(body.into()).await?;
     } else {
-      let span = Span::current();
-      let fut = publish_task(
-        publishing_task.id,
-        0,
-        buckets,
-        license_store,
-        registry_url,
-        npm_url,
-        fallback_registry_url,
-        db.clone(),
-        algolia_client,
-        cache_purge,
-      )
-      .instrument(span);
-      crate::util::spawn_background(fut);
+      // No queue (local development): ask the tasks service to publish now.
+      let publishing_task_id = publishing_task.id;
+      crate::util::spawn_background(
+        async move {
+          if let Err(err) = task_dispatch.publish(publishing_task_id).await {
+            error!("publish of {publishing_task_id} failed: {err:?}");
+          }
+        }
+        .instrument(Span::current()),
+      );
     }
 
     Ok::<_, ApiError>(())

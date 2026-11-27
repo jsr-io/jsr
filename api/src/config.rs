@@ -3,8 +3,6 @@ use clap::ArgAction;
 use clap::Parser;
 use url::Url;
 
-use shared::gcp::MetadataStrategy;
-
 #[derive(Parser)]
 pub struct Config {
   #[clap(long = "port", env = "PORT", default_value = "8001")]
@@ -52,18 +50,6 @@ pub struct Config {
   /// The name of the S3 bucket where files attached to support ticket emails
   /// are stored.
   pub ticket_attachments_bucket: String,
-
-  #[clap(
-    long = "metadata_strategy",
-    env = "METADATA_STRATEGY",
-    default_value = "testing"
-  )]
-  /// The strategy to use to retrieve metadata from the GCP environment.
-  pub metadata_strategy: MetadataStrategy,
-
-  #[clap(long = "gcp_service_account_key", env = "GCP_SERVICE_ACCOUNT_KEY")]
-  /// Service account key JSON for the `service_account_key` metadata strategy.
-  pub gcp_service_account_key: Option<String>,
 
   #[clap(
     long = "database_url",
@@ -147,45 +133,15 @@ pub struct Config {
   pub fallback_registry_url: Option<Url>,
 
   #[clap(
-    long = "api",
-    default_missing_value("true"),
-    default_value("true"),
-    num_args(0..=1),
-    require_equals(true),
-    action = ArgAction::Set,
+    long = "tasks_url",
+    env = "TASKS_URL",
+    default_value = "http://127.0.0.1:8002/",
+    value_parser = parse_base_url
   )]
-  /// Enable serving the /api/* routes on the server, which enable users to make
-  /// API calls to the service. This also enables the /login, /login/callback,
-  /// and /logout routes.
-  pub api: bool,
-
-  #[clap(
-    long = "tasks",
-    default_missing_value("true"),
-    default_value("true"),
-    num_args(0..=1),
-    require_equals(true),
-    action = ArgAction::Set,
-  )]
-  /// Enable serving the /tasks/* routes on the server, which trigger async
-  /// background task processing.
-  pub tasks: bool,
-
-  #[clap(long = "publish_queue_id", env = "PUBLISH_QUEUE_ID")]
-  /// The ID of the publish queue.
-  pub publish_queue_id: Option<String>,
-
-  #[clap(
-    long = "npm_tarball_build_queue_id",
-    env = "NPM_TARBALL_BUILD_QUEUE_ID"
-  )]
-  /// The ID of the npm tarball build queue.
-  pub npm_tarball_build_queue_id: Option<String>,
-
-  #[clap(long = "email_queue_id", env = "EMAIL_QUEUE_ID")]
-  /// The ID of the queue that delivers outgoing email. Email is sent inline if
-  /// unset, which is the local development and testing path.
-  pub email_queue_id: Option<String>,
+  /// The base URL of the tasks service, which serves the `/tasks/*` routes.
+  /// The api calls it for work that runs in the task handlers: publishing when
+  /// no publish queue is configured, and admin re-analysis.
+  pub tasks_url: Url,
 
   #[clap(long = "cloudflare_account_id", env = "CLOUDFLARE_ACCOUNT_ID")]
   /// The Cloudflare account ID for Analytics Engine.
@@ -200,13 +156,6 @@ pub struct Config {
   /// package and npm version manifests when a package is published or
   /// mutated. Cache purge is skipped if unset.
   pub cloudflare_zone_id: Option<String>,
-
-  #[clap(
-    long = "cloudflare_analytics_dataset",
-    env = "CLOUDFLARE_ANALYTICS_DATASET"
-  )]
-  /// The Cloudflare Analytics Engine dataset name for download tracking.
-  pub cloudflare_analytics_dataset: Option<String>,
 
   #[clap(long = "turnstile_secret_key", env = "TURNSTILE_SECRET_KEY")]
   /// The Cloudflare Turnstile secret key, used to verify the captcha response
@@ -267,9 +216,8 @@ pub struct Config {
 
   #[clap(long = "setup", default_value_t = true, action = ArgAction::Set)]
   /// Migrate the database and upsert the service account token on startup.
-  /// Off on the worker, which builds the app for every request, and on the
-  /// deployed Cloud Run services: deploys run `registry_api setup` once
-  /// instead.
+  /// Off on the worker, which builds the app for every request: deploys run
+  /// `registry_api setup` once instead.
   pub setup: bool,
 }
 
@@ -307,11 +255,6 @@ impl std::fmt::Debug for Config {
       .field("port", &self.port)
       .field("publishing_bucket", &self.publishing_bucket)
       .field("modules_bucket", &self.modules_bucket)
-      .field("metadata_strategy", &self.metadata_strategy)
-      .field(
-        "gcp_service_account_key",
-        &self.gcp_service_account_key.as_ref().map(|_| "***"),
-      )
       .field("database_url", &"***")
       .field("github_client_id", &self.github_client_id)
       .field("github_client_secret", &"***")
@@ -319,13 +262,7 @@ impl std::fmt::Debug for Config {
       .field("otlp_headers", &self.otlp_headers.as_ref().map(|_| "***"))
       .field("deployment_environment", &self.deployment_environment)
       .field("registry_url", &self.registry_url)
-      .field("api", &self.api)
-      .field("tasks", &self.tasks)
-      .field("publish_queue_id", &self.publish_queue_id)
-      .field(
-        "npm_tarball_build_queue_id",
-        &self.npm_tarball_build_queue_id,
-      )
+      .field("tasks_url", &self.tasks_url)
       .field(
         "turnstile_secret_key",
         &self.turnstile_secret_key.as_ref().map(|_| "***"),
