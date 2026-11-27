@@ -46,16 +46,10 @@ resource "cloudflare_ruleset" "custom_firewall" {
 
   rules = [
     {
-      ref         = "website_bots_apac"
-      description = "Challenge likely bots on the website from Singapore, China, Vietnam and Hong Kong"
-      expression  = "(${local.website_bots}) and ip.src.country in {\"SG\" \"CN\" \"VN\" \"HK\"}"
-      action      = "managed_challenge"
-    },
-    {
       ref         = "website_bots"
       description = "Challenge likely bots on the website"
       expression  = local.website_bots
-      action      = "log"
+      action      = "managed_challenge"
     },
     {
       ref         = "website_scrapers"
