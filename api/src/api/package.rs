@@ -2391,29 +2391,85 @@ pub async fn get_downloads_handler(
   Span::current().record("scope", field::display(&scope));
   Span::current().record("package", field::display(&package));
 
+  let cache = req.data::<PackageDownloadsCache>().unwrap();
+  let key = format!("@{scope}/{package}");
+  if let Some(downloads) = cache.cache.get(&key) {
+    return Ok(downloads);
+  }
+
   let db = req.data::<Database>().unwrap();
   db.get_package(&scope, &package)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
+  let downloads = load_package_downloads(db, &scope, &package).await?;
+  cache.cache.insert(key, downloads.clone());
+  Ok(downloads)
+}
+
+#[derive(Clone)]
+pub struct PackageDownloadsCache {
+  cache: moka::sync::Cache<String, ApiPackageDownloads>,
+}
+
+impl PackageDownloadsCache {
+  pub fn new() -> Self {
+    #[cfg(target_arch = "wasm32")]
+    {
+      static SHARED: std::sync::LazyLock<PackageDownloadsCache> =
+        std::sync::LazyLock::new(PackageDownloadsCache::build);
+      SHARED.clone()
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    Self::build()
+  }
+
+  fn build() -> Self {
+    Self {
+      cache: moka::sync::Cache::builder()
+        .max_capacity(4 * 1024 * 1024)
+        .weigher(|key: &String, downloads: &ApiPackageDownloads| {
+          let points = downloads.total.len()
+            + downloads
+              .recent_versions
+              .iter()
+              .map(|version| version.downloads.len())
+              .sum::<usize>();
+          let bytes = key.len()
+            + points * std::mem::size_of::<ApiDownloadDataPoint>()
+            + downloads.recent_versions.len()
+              * std::mem::size_of::<ApiPackageDownloadsRecentVersion>();
+          bytes.try_into().unwrap_or(u32::MAX)
+        })
+        .time_to_live(std::time::Duration::from_secs(300))
+        .build(),
+    }
+  }
+}
+
+async fn load_package_downloads(
+  db: &Database,
+  scope: &ScopeName,
+  package: &PackageName,
+) -> Result<ApiPackageDownloads, ApiError> {
   let current = Utc::now();
   let start = current - chrono::Duration::days(90);
 
   let total_fut = async {
-    db.get_package_downloads_24h(&scope, &package, start, current)
+    db.get_package_downloads_24h(scope, package, start, current)
       .await
       .map_err(ApiError::from)
   };
 
   let recent_versions_fut = async {
     let recent_versions = db
-      .list_latest_unyanked_versions_for_package(&scope, &package, 5)
+      .list_latest_unyanked_versions_for_package(scope, package, 5)
       .await?;
 
     let data_points = db
       .get_package_versions_downloads_24h(
-        &scope,
-        &package,
+        scope,
+        package,
         &recent_versions,
         start,
         current,

@@ -158,7 +158,8 @@ pub(crate) fn main_router(
     .with(turnstile)
     .with(postmark_webhook_password)
     .with(inbound_trusted_authserv_id)
-    .with(db::DependentCountCache::new());
+    .with(db::DependentCountCache::new())
+    .with(crate::api::PackageDownloadsCache::new());
 
   let router = Router::new();
 

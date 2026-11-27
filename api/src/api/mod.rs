@@ -14,6 +14,7 @@ mod users;
 pub use self::errors::*;
 pub use self::hooks::InboundTrustedAuthservId;
 pub use self::hooks::PostmarkWebhookPassword;
+pub use self::package::PackageDownloadsCache;
 pub use self::package::PublishQueue;
 pub use self::package::RegistryMetadataCache;
 use self::publishing_task::publishing_task_router;
