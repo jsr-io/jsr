@@ -17,17 +17,42 @@ locals {
   }
 
   api_worker_envs = {
-    for name, value in local.api_envs : name => value
-    if !contains(concat(
-      keys(local.otlp_envs),
-      keys(local.api_worker_secrets),
-      # The database is reached through Hyperdrive, which does the TLS, and the
-      # queues through bindings.
-      [
-        "DATABASE_URL", "DB_CLIENT_CERT", "DB_CLIENT_KEY", "METADATA_STRATEGY",
-        "PUBLISH_QUEUE_ID", "NPM_TARBALL_BUILD_QUEUE_ID", "EMAIL_QUEUE_ID",
-      ],
-    ), name)
+    "NO_COLOR" = "true"
+
+    "DEPLOYMENT_ENVIRONMENT" = var.production ? "production" : "staging"
+
+    "PUBLISHING_BUCKET" = cloudflare_r2_bucket.publishing.name
+    "MODULES_BUCKET"    = cloudflare_r2_bucket.modules.name
+    "DOCS_BUCKET"       = cloudflare_r2_bucket.docs.name
+    "NPM_BUCKET"        = cloudflare_r2_bucket.npm.name
+
+    "TICKET_ATTACHMENTS_BUCKET" = cloudflare_r2_bucket.ticket_attachments.name
+
+    "S3_REGION"     = "auto"
+    "S3_ENDPOINT"   = "${var.cloudflare_account_id}.r2.cloudflarestorage.com"
+    "S3_ACCESS_KEY" = cloudflare_account_token.buckets_rw.id
+
+    "GITHUB_CLIENT_ID" = var.github_client_id
+    "GITLAB_CLIENT_ID" = var.gitlab_client_id
+
+    "ALGOLIA_APP_ID"         = var.algolia_app_id
+    "ALGOLIA_PACKAGES_INDEX" = algolia_index.packages.name
+    "ALGOLIA_SYMBOLS_INDEX"  = algolia_index.symbols.name
+
+    "REGISTRY_URL" = "https://${var.domain_name}"
+    "NPM_URL"      = "https://${local.npm_domain}"
+
+    "EMAIL_FROM" = "help@${var.domain_name}"
+
+    // Support mail is forwarded from the Google Workspace inbox to Postmark, so
+    // Postmark's own SPF check sees the forwarder rather than the sender. The
+    // Workspace results, recorded before the hop, are trusted instead.
+    "INBOUND_TRUSTED_AUTHSERV_ID" = "mx.google.com"
+    "EMAIL_FROM_NAME"             = var.email_from_name
+
+    "CLOUDFLARE_ACCOUNT_ID"        = var.cloudflare_account_id
+    "CLOUDFLARE_ZONE_ID"           = var.cloudflare_zone_id
+    "CLOUDFLARE_ANALYTICS_DATASET" = local.worker_download_analytics_dataset
   }
 
   # The API worker (api/) and the tasks worker (tasks/) are separate builds
@@ -136,40 +161,6 @@ resource "cloudflare_workers_deployment" "jsr_api" {
   }]
 }
 
-resource "google_service_account" "registry_api_worker" {
-  account_id   = "registry-api-worker"
-  display_name = "service account for the registry_api cloudflare worker"
-  project      = var.gcp_project
-}
-
-resource "google_cloud_tasks_queue_iam_member" "worker_publishing_tasks" {
-  name   = google_cloud_tasks_queue.publishing_tasks.id
-  role   = "roles/cloudtasks.enqueuer"
-  member = "serviceAccount:${google_service_account.registry_api_worker.email}"
-}
-
-resource "google_cloud_tasks_queue_iam_member" "worker_npm_tarball_build_tasks" {
-  name   = google_cloud_tasks_queue.npm_tarball_build_tasks.id
-  role   = "roles/cloudtasks.enqueuer"
-  member = "serviceAccount:${google_service_account.registry_api_worker.email}"
-}
-
-resource "google_cloud_tasks_queue_iam_member" "worker_email_delivery" {
-  name   = google_cloud_tasks_queue.email_delivery.id
-  role   = "roles/cloudtasks.enqueuer"
-  member = "serviceAccount:${google_service_account.registry_api_worker.email}"
-}
-
-resource "google_service_account_iam_member" "worker_act_as_task_dispatcher" {
-  service_account_id = google_service_account.task_dispatcher.name
-  role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:${google_service_account.registry_api_worker.email}"
-}
-
-resource "google_service_account_key" "registry_api_worker" {
-  service_account_id = google_service_account.registry_api_worker.name
-}
-
 # Named after their fingerprints, so a certificate left behind in the account
 # doesn't block creating these: names must be unique, and Cloudflare refuses to
 # delete a certificate it still counts as in use. A certificate imported under
@@ -223,6 +214,7 @@ resource "cloudflare_hyperdrive_config" "api" {
     disabled = true
   }
 
-  # Leaves room under max_connections (150) for the Cloud Run tasks service.
+  # Leaves room under max_connections (150) for database setup, which
+  # connects directly (see api_setup.tf).
   origin_connection_limit = 100
 }

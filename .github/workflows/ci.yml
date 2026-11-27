@@ -193,81 +193,10 @@ jobs:
           name: api-setup
           path: target/release/registry_api
 
-  docker-images:
-    if: github.event_name == 'merge_group' || github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'test-on-staging'))
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: read
-      id-token: write
-    env:
-      API_IMAGE_ID_BASE: us-central1-docker.pkg.dev/deno-registry3-infra/registry/api
-    outputs:
-      api_image_id: ${{ steps.api_image_id.outputs.image_id }}
-    steps:
-      - name: Clone repository
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
-
-      - name: Authenticate with GCP
-        id: gcp_auth
-        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
-        with:
-          project_id: deno-registry3-infra
-          token_format: access_token
-          workload_identity_provider: projects/289615555261/locations/global/workloadIdentityPools/github-actions/providers/github-actions
-          service_account: github-actions@deno-registry3-infra.iam.gserviceaccount.com
-
-      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
-        with:
-          registry: us-central1-docker.pkg.dev
-          username: oauth2accesstoken
-          password: ${{ steps.gcp_auth.outputs.access_token }}
-
-      # On push to main, try to reuse images already built during merge_group.
-      # Falls back to building if the images don't exist (e.g. admin bypass).
-      - name: Check if images already exist
-        if: github.event_name == 'push'
-        id: check_existing
-        run: |
-          if docker manifest inspect ${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }} > /dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Set up docker buildx
-        if: github.event_name != 'push' || steps.check_existing.outputs.exists != 'true'
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
-
-      - name: Build and push api docker image
-        if: github.event_name != 'push' || steps.check_existing.outputs.exists != 'true'
-        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
-        id: api_push
-        with:
-          context: .
-          file: api/Dockerfile
-          push: true
-          tags: ${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }}
-          # Use a registry cache (not type=gha): GHA caches are branch-scoped,
-          # and merge_group runs execute on transient refs, so a gha cache
-          # written there is never readable by later runs. A registry cache is
-          # shared across all refs. image-manifest/oci-mediatypes are required
-          # for Artifact Registry to accept the cache manifest.
-          cache-from: type=registry,ref=${{ env.API_IMAGE_ID_BASE }}:buildcache
-          cache-to: type=registry,ref=${{ env.API_IMAGE_ID_BASE }}:buildcache,mode=max,image-manifest=true,oci-mediatypes=true
-
-      - name: Set api_image_id output
-        id: api_image_id
-        run: |
-          if [ -n "${{ steps.api_push.outputs.imageid }}" ]; then
-            echo "image_id=${{ env.API_IMAGE_ID_BASE }}@${{ steps.api_push.outputs.imageid }}" >> $GITHUB_OUTPUT
-          else
-            echo "image_id=${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }}" >> $GITHUB_OUTPUT
-          fi
-
   staging:
     if: github.event_name == 'merge_group' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'test-on-staging'))
     runs-on: ubuntu-22.04
-    needs: [docker-images, api-wasm, api-setup]
+    needs: [api-wasm, api-setup]
     environment:
       name: staging
       url: https://deno-registry-staging.net
@@ -323,7 +252,6 @@ jobs:
           terraform version
           deno task tf:staging:plan
         env:
-          API_IMAGE_ID: ${{ needs.docker-images.outputs.api_image_id }}
           TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
           TF_VAR_gitlab_client_secret: ${{ secrets.GITLAB_CLIENT_SECRET }}
           TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
@@ -331,7 +259,6 @@ jobs:
           TF_VAR_algolia_app_id: ${{ vars.ALGOLIA_APP_ID }}
           TF_VAR_algolia_admin_api_key: ${{ secrets.ALGOLIA_ADMIN_API_KEY }}
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          TF_VAR_otlp_headers: ${{ secrets.OTLP_HEADERS }}
 
       - name: terraform apply
         run: deno task tf:staging:apply
@@ -353,7 +280,7 @@ jobs:
   prod:
     if: github.event_name == 'push' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
-    needs: [docker-images, api-wasm, api-setup]
+    needs: [api-wasm, api-setup]
     environment:
       name: prod
       url: https://jsr.io
@@ -409,7 +336,6 @@ jobs:
           terraform version
           deno task tf:prod:plan
         env:
-          API_IMAGE_ID: ${{ needs.docker-images.outputs.api_image_id }}
           TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
           TF_VAR_gitlab_client_secret: ${{ secrets.GITLAB_CLIENT_SECRET }}
           TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
@@ -417,7 +343,6 @@ jobs:
           TF_VAR_algolia_app_id: ${{ vars.ALGOLIA_APP_ID }}
           TF_VAR_algolia_admin_api_key: ${{ secrets.ALGOLIA_ADMIN_API_KEY }}
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          TF_VAR_otlp_headers: ${{ secrets.OTLP_HEADERS }}
 
       - name: terraform apply
         run: deno task tf:prod:apply

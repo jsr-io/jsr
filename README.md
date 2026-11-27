@@ -26,7 +26,7 @@ This is the source code for https://jsr.io, the new JavaScript registry.
 
 - Modules and package metadata are stored on Cloudflare R2
 - npm compatibility tarballs are stored on Cloudflare R2
-- Management API is implemented in Rust and runs on Google Cloud Run
+- Management API is implemented in Rust and runs as a Cloudflare Worker
 - Frontend uses Fresh and runs as a Cloudflare Worker
 - https://jsr.io, https://api.jsr.io, and https://npm.jsr.io are served by a
   Cloudflare Workers worker (the LB)

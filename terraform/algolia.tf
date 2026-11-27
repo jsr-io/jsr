@@ -74,8 +74,8 @@ resource "algolia_index" "docs" {
 }
 
 # Write key used by the API to index on publish (add/delete objects, and
-# deleteByQuery for symbols). Stored in Secret Manager (see secrets.tf) and
-# injected into Cloud Run. The reindex tools, which create transient `*_tmp`
+# deleteByQuery for symbols). A secret of the workers (see
+# cloudflare_api_worker.tf). The reindex tools, which create transient `*_tmp`
 # indices, authenticate with the admin key instead, so this key stays scoped to
 # the live indices and to object writes only.
 resource "algolia_api_key" "write" {

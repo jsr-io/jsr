@@ -2,7 +2,7 @@
 
 // Migrates the database and upserts the service account token
 // (`registry_api setup`), from the machine running terraform, whenever the
-// API's build changes. Everything serving the API depends on this, so a new
+// API's build changes. The workers depend on this, so a new
 // version only starts serving once the schema is migrated; nothing sets up
 // on its own (`--setup=false`).
 
