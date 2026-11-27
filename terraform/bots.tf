@@ -43,7 +43,8 @@ locals {
     )
   EOT
 
-  website_unverified = "(${local.website_requests}) and not cf.bot_management.verified_bot"
+  e2e_exemption      = var.e2e_bypass_token == "" ? "" : " and not any(http.request.headers[\"x-jsr-e2e\"][*] eq \"${var.e2e_bypass_token}\")"
+  website_unverified = "(${local.website_requests}) and not cf.bot_management.verified_bot${local.e2e_exemption}"
   website_bots       = "${local.website_unverified} and cf.bot_management.score lt 30"
 }
 

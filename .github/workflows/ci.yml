@@ -298,12 +298,15 @@ jobs:
           TF_VAR_algolia_admin_api_key: ${{ secrets.ALGOLIA_ADMIN_API_KEY }}
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TF_VAR_otlp_headers: ${{ secrets.OTLP_HEADERS }}
+          TF_VAR_e2e_bypass_token: ${{ secrets.E2E_BYPASS_TOKEN }}
 
       - name: terraform apply
         run: deno task tf:staging:apply
 
       - name: Run e2e tests
         run: deno task e2e:staging
+        env:
+          JSR_E2E_BYPASS_TOKEN: ${{ secrets.E2E_BYPASS_TOKEN }}
 
       - name: Reindex algolia docs search
         env:
@@ -372,12 +375,15 @@ jobs:
           TF_VAR_algolia_admin_api_key: ${{ secrets.ALGOLIA_ADMIN_API_KEY }}
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TF_VAR_otlp_headers: ${{ secrets.OTLP_HEADERS }}
+          TF_VAR_e2e_bypass_token: ${{ secrets.E2E_BYPASS_TOKEN }}
 
       - name: terraform apply
         run: deno task tf:prod:apply
 
       - name: Run e2e tests
         run: deno task e2e:prod
+        env:
+          JSR_E2E_BYPASS_TOKEN: ${{ secrets.E2E_BYPASS_TOKEN }}
 
       - name: Reindex algolia docs search
         env:

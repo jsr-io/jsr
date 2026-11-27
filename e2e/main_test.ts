@@ -2,6 +2,7 @@
 import { assertNotMatch, assertStringIncludes } from "./utils/assert.ts";
 import { assertEquals } from "./utils/assert.ts";
 import { JSR_URL } from "./utils/configuration.ts";
+import { jsrFetch } from "./utils/fetch.ts";
 
 async function assertHtml(resp: Response) {
   const text = await resp.text();
@@ -12,7 +13,7 @@ async function assertHtml(resp: Response) {
 
 Deno.test("[GET /, accept/html, no Sec-Fetch-Dest] should return html 200", async () => {
   // This is the IE11 case, where no `Sec-Fetch-Dest` header is sent.
-  const response = await fetch(JSR_URL, {
+  const response = await jsrFetch(JSR_URL, {
     headers: { "accept": "text/html" },
   });
   await assertHtml(response);
@@ -20,7 +21,7 @@ Deno.test("[GET /, accept/html, no Sec-Fetch-Dest] should return html 200", asyn
 
 Deno.test("[GET /, accept/html, Sec-Fetch-Dest: document] should return html 200", async () => {
   // This is how modern browsers send the request.
-  const response = await fetch(JSR_URL, {
+  const response = await jsrFetch(JSR_URL, {
     headers: { "accept": "text/html", "sec-fetch-dest": "document" },
   });
   await assertHtml(response);
@@ -28,7 +29,7 @@ Deno.test("[GET /, accept/html, Sec-Fetch-Dest: document] should return html 200
 
 Deno.test("[GET /@luca/flag/1.0.0_meta.json, accept/html, no Sec-Fetch-Dest] should return html 200", async () => {
   // IE11 case for the meta.json file.
-  const response = await fetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
+  const response = await jsrFetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
     headers: { "accept": "text/html" },
   });
   await assertHtml(response);
@@ -36,7 +37,7 @@ Deno.test("[GET /@luca/flag/1.0.0_meta.json, accept/html, no Sec-Fetch-Dest] sho
 
 Deno.test("[GET /@luca/flag/1.0.0_meta.json, from: googlebot] should return html 200", async () => {
   // Make sure Googlebot always sees the HTML.
-  const response = await fetch(JSR_URL, {
+  const response = await jsrFetch(JSR_URL, {
     headers: { "from": "googlebot(at)googlebot.com" },
   });
   await assertHtml(response);
@@ -44,7 +45,7 @@ Deno.test("[GET /@luca/flag/1.0.0_meta.json, from: googlebot] should return html
 
 Deno.test("[GET /@luca/flag/1.0.0_meta.json, accept/html, Sec-Fetch-Dest: document] should return html 200", async () => {
   // Modern browser case for the meta.json file.
-  const response = await fetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
+  const response = await jsrFetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
     headers: { "accept": "text/html", "sec-fetch-dest": "document" },
   });
   await assertHtml(response);
@@ -52,7 +53,7 @@ Deno.test("[GET /@luca/flag/1.0.0_meta.json, accept/html, Sec-Fetch-Dest: docume
 
 Deno.test("[GET /@luca/flag/1.0.0_meta.json, text/newhtml, Sec-Fetch-Dest: document] should return html 200", async () => {
   // Only Sec-Fetch-Dest is enough to trigger the HTML response.
-  const response = await fetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
+  const response = await jsrFetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
     headers: { "accept": "text/newhtml", "sec-fetch-dest": "document" },
   });
   await assertHtml(response);
@@ -60,7 +61,7 @@ Deno.test("[GET /@luca/flag/1.0.0_meta.json, text/newhtml, Sec-Fetch-Dest: docum
 
 Deno.test("[GET /@luca/flag/1.0.0_meta.json, no Accept, Sec-Fetch-Dest: script] should return html 200", async () => {
   // Only Sec-Fetch-Dest is enough to trigger the HTML response.
-  const response = await fetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
+  const response = await jsrFetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
     headers: { "sec-fetch-dest": "script" },
   });
   await assertHtml(response);
@@ -68,7 +69,7 @@ Deno.test("[GET /@luca/flag/1.0.0_meta.json, no Accept, Sec-Fetch-Dest: script] 
 
 Deno.test("[GET /@luca/flag/1.0.0_meta.json, no Accept, Sec-Fetch-Dest: style] should return html 200", async () => {
   // Only Sec-Fetch-Dest is enough to trigger the HTML response.
-  const response = await fetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
+  const response = await jsrFetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
     headers: { "sec-fetch-dest": "script" },
   });
   await assertHtml(response);
@@ -76,7 +77,7 @@ Deno.test("[GET /@luca/flag/1.0.0_meta.json, no Accept, Sec-Fetch-Dest: style] s
 
 Deno.test("[GET /@luca/flag/1.0.0_meta.json, no Accept, no Sec-Fetch-Dest] should return plain text 200", async () => {
   // No Sec-Fetch-Dest, and no Accept will result in a plain text response.
-  const response = await fetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
+  const response = await jsrFetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
     headers: {},
   });
   const text = JSON.stringify(await response.json());
@@ -90,7 +91,7 @@ Deno.test("[GET /@luca/flag/1.0.0_meta.json, no Accept, no Sec-Fetch-Dest] shoul
 
 Deno.test("[GET /@luca/flag/1.0.0_meta.json, no Accept, Sec-Fetch-Dest: empty] should return plain text 200", async () => {
   // Sec-Fetch-Dest: document is not enough to trigger the HTML response.
-  const response = await fetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
+  const response = await jsrFetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
     headers: { "sec-fetch-dest": "empty" },
   });
   const text = JSON.stringify(await response.json());
@@ -104,7 +105,7 @@ Deno.test("[GET /@luca/flag/1.0.0_meta.json, no Accept, Sec-Fetch-Dest: empty] s
 
 Deno.test("[GET /@luca/flag/1.0.0_meta.json, no Accept, Sec-Fetch-Dest: image] should return html 200", async () => {
   // Sec-Fetch-Dest: image is enough to trigger the HTML response.
-  const response = await fetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
+  const response = await jsrFetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
     headers: { "sec-fetch-dest": "image" },
   });
   await assertHtml(response);
@@ -112,7 +113,7 @@ Deno.test("[GET /@luca/flag/1.0.0_meta.json, no Accept, Sec-Fetch-Dest: image] s
 
 Deno.test("[GET /@luca/flag/1.0.0_meta.json, no Accept, Sec-Fetch-Dest: image, Sec-Fetch-Site: same-origin] should return plain text 200", async () => {
   // Sec-Fetch-Dest: image will trigger the JSON response if it's a same-origin request.
-  const response = await fetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
+  const response = await jsrFetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
     headers: { "sec-fetch-dest": "image", "sec-fetch-site": "same-origin" },
   });
   const text = JSON.stringify(await response.json());
@@ -126,7 +127,7 @@ Deno.test("[GET /@luca/flag/1.0.0_meta.json, no Accept, Sec-Fetch-Dest: image, S
 
 Deno.test("[GET /@luca/flag/1.0.0_meta.json, no Accept, Sec-Fetch-Dest: image, Sec-Fetch-Site: cross-origin] should return html 200", async () => {
   // Sec-Fetch-Dest: image will trigger the HTML response if it's a cross-origin request.
-  const response = await fetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
+  const response = await jsrFetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
     headers: { "sec-fetch-dest": "image", "sec-fetch-site": "cross-origin" },
   });
   await assertHtml(response);
@@ -134,7 +135,7 @@ Deno.test("[GET /@luca/flag/1.0.0_meta.json, no Accept, Sec-Fetch-Dest: image, S
 
 Deno.test("[GET /@luca/flag/1.0.0_meta.json, no Accept, Sec-Fetch-Dest: video] should return html 200", async () => {
   // Sec-Fetch-Dest: video is enough to trigger the HTML response.
-  const response = await fetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
+  const response = await jsrFetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
     headers: { "sec-fetch-dest": "video" },
   });
   await assertHtml(response);
@@ -142,7 +143,7 @@ Deno.test("[GET /@luca/flag/1.0.0_meta.json, no Accept, Sec-Fetch-Dest: video] s
 
 Deno.test("[GET /@luca/flag/1.0.0_meta.json, no Accept, Sec-Fetch-Dest: video, Sec-Fetch-Site: same-origin] should return plain text 200", async () => {
   // Sec-Fetch-Dest: video will trigger the JSON response if it's a same-origin request.
-  const response = await fetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
+  const response = await jsrFetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
     headers: { "sec-fetch-dest": "video", "sec-fetch-site": "same-origin" },
   });
   const text = JSON.stringify(await response.json());
@@ -156,14 +157,14 @@ Deno.test("[GET /@luca/flag/1.0.0_meta.json, no Accept, Sec-Fetch-Dest: video, S
 
 Deno.test("[GET /@luca/flag/1.0.0_meta.json, no Accept, Sec-Fetch-Dest: video, Sec-Fetch-Site: cross-origin] should return html 200", async () => {
   // Sec-Fetch-Dest: video will trigger the HTML response if it's a cross-origin request.
-  const response = await fetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
+  const response = await jsrFetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`, {
     headers: { "sec-fetch-dest": "video", "sec-fetch-site": "cross-origin" },
   });
   await assertHtml(response);
 });
 
 Deno.test("[GET /@luca/flag/meta.json] is valid", async () => {
-  const response = await fetch(`${JSR_URL}@luca/flag/meta.json`);
+  const response = await jsrFetch(`${JSR_URL}@luca/flag/meta.json`);
   const json = await response.json();
   assertEquals(json, {
     "scope": "luca",
@@ -182,7 +183,7 @@ Deno.test("[GET /@luca/flag/meta.json] is valid", async () => {
 });
 
 Deno.test("[GET /@luca/flag/1.0.0_meta.json] is valid", async () => {
-  const response = await fetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`);
+  const response = await jsrFetch(`${JSR_URL}@luca/flag/1.0.0_meta.json`);
   const json = await response.json();
   assertEquals(json, {
     "manifest": {
@@ -222,7 +223,7 @@ Deno.test("[GET /@luca/flag/1.0.0_meta.json] is valid", async () => {
 });
 
 Deno.test("[GET /@luca/flag/1.0.0/main.ts] is valid", async () => {
-  const response = await fetch(`${JSR_URL}@luca/flag/1.0.0/main.ts`);
+  const response = await jsrFetch(`${JSR_URL}@luca/flag/1.0.0/main.ts`);
   const text = await response.text();
   assertEquals(
     text,
@@ -325,7 +326,7 @@ if (import.meta.main) {
 });
 
 Deno.test("[GET /docs/introduction] renders docs page", async () => {
-  const res = await fetch(`${JSR_URL}docs/introduction`, {
+  const res = await jsrFetch(`${JSR_URL}docs/introduction`, {
     headers: { "accept": "text/html" },
   });
   await assertHtml(res);
@@ -333,21 +334,21 @@ Deno.test("[GET /docs/introduction] renders docs page", async () => {
 
 Deno.test("[GET /badges/@luca/flag] works", async (t) => {
   await t.step("Package badge", async () => {
-    const res = await fetch(`${JSR_URL}badges/@luca/flag`);
+    const res = await jsrFetch(`${JSR_URL}badges/@luca/flag`);
     const text = await res.text();
     assertEquals(res.status, 200);
     assertNotMatch(text, /please use https/);
   });
 
   await t.step("Package score badge", async () => {
-    const res = await fetch(`${JSR_URL}badges/@luca/flag/score`);
+    const res = await jsrFetch(`${JSR_URL}badges/@luca/flag/score`);
     const text = await res.text();
     assertEquals(res.status, 200);
     assertNotMatch(text, /please use https/);
   });
 
   await t.step("Scope badge", async () => {
-    const res = await fetch(`${JSR_URL}badges/@luca`);
+    const res = await jsrFetch(`${JSR_URL}badges/@luca`);
     const text = await res.text();
     assertEquals(res.status, 200);
     assertNotMatch(text, /please use https/);

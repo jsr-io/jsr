@@ -89,3 +89,15 @@ variable "otlp_headers" {
   default     = ""
   sensitive   = true
 }
+
+variable "e2e_bypass_token" {
+  description = "Value of the `x-jsr-e2e` header that exempts the post-deploy e2e tests from the website bot rules. Empty disables the exemption."
+  type        = string
+  default     = ""
+  sensitive   = true
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9]*$", var.e2e_bypass_token))
+    error_message = "e2e_bypass_token may only contain letters and digits."
+  }
+}
