@@ -76,8 +76,8 @@ tracing = "0.1"
 url = "2.5.4"
 uuid = { version = "1", features = ["v4", "serde"] }
 
-# The worker entry point, see `api/src/main.rs`.
-worker = { version = "0.9.0", features = ["experimental_tokio"] }
+# The worker entry points, see `api/src/main.rs` and `tasks/src/main.rs`.
+worker = { version = "0.9.0", features = ["experimental_tokio", "queue"] }
 worker-sys = "0.9.0"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"

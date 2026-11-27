@@ -69,7 +69,6 @@ tree-sitter-yaml = "0.7"
 tree-sitter-c = "0.24"
 lazy_static = "1.5.0"
 shared = { path = "../shared", package = "registry_api_shared" }
-registry_api_tasks = { path = "../tasks" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 worker.workspace = true
@@ -77,7 +76,6 @@ wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true
 js-sys.workspace = true
 web-sys.workspace = true
-worker-sys.workspace = true
 # aws-lc doesn't build for emscripten.
 jsonwebtoken = { version = "11", features = ["rust_crypto"] }
 

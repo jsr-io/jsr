@@ -112,26 +112,24 @@ impl EmailSender {
   }
 }
 
-/// The Cloud Tasks queue that drives `/tasks/send_email`. `None` outside
-/// production, where deliveries are sent inline instead (see [`enqueue`]).
-pub struct EmailQueue(pub Option<crate::gcp::Queue>);
+/// The queue that drives `/tasks/send_email`. `None` outside the worker, where deliveries are sent inline instead (see [`enqueue`]).
+pub struct EmailQueue(pub Option<crate::queue::Queue>);
 
-/// How many times a delivery is attempted before it is abandoned. Cloud Tasks
+/// How many times a delivery is attempted before it is abandoned. The queue
 /// does its own retrying on top of this; the count here is the backstop that
 /// stops a permanently undeliverable address being retried forever.
 pub const MAX_EMAIL_ATTEMPTS: i32 = 8;
 
-/// Queues an email and asks Cloud Tasks to deliver it.
+/// Queues an email for delivery.
 ///
 /// The row is committed first and the queue is nudged afterwards, so a failure
-/// to reach Cloud Tasks costs a delay rather than the email: the sweeper in
+/// to reach the queue costs a delay rather than the email: the sweeper in
 /// `tasks.rs` re-drives anything that never reached a terminal state. Errors
 /// from the nudge are logged and swallowed for that reason — the caller's own
 /// request must not fail because of an email.
 ///
 /// With no queue configured (local development, tests) the delivery is sent
-/// inline so behaviour matches production as closely as it can without Cloud
-/// Tasks.
+/// inline so behaviour matches production as closely as it can without one.
 #[instrument(name = "emails::enqueue", skip_all, err, fields(delivery_id))]
 pub async fn enqueue<T: Email>(
   db: &crate::db::Database,
@@ -170,10 +168,7 @@ pub async fn enqueue<T: Email>(
   match &queue.0 {
     Some(queue) => {
       let body = serde_json::to_vec(&SendEmailTask { id })?;
-      if let Err(err) = queue
-        .task_buffer(Some(id.to_string()), Some(body.into()))
-        .await
-      {
+      if let Err(err) = queue.send(body.into()).await {
         tracing::error!(
           delivery_id = %id,
           "failed to enqueue email delivery task, leaving it for the sweeper: {:?}",
@@ -196,7 +191,7 @@ pub async fn enqueue<T: Email>(
 }
 
 /// The body of a `/tasks/send_email` request.
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SendEmailTask {
   pub id: uuid::Uuid,
 }
@@ -206,7 +201,7 @@ pub struct SendEmailTask {
 /// Returns `Ok(true)` when the delivery reached a terminal state (sent, already
 /// sent, or abandoned) and must not be retried, and `Ok(false)` when it failed
 /// but is worth another attempt. The caller turns the latter into a non-2xx so
-/// Cloud Tasks retries.
+/// the queue retries.
 #[instrument(name = "emails::deliver", skip(db, email_sender), err)]
 pub async fn deliver(
   db: &crate::db::Database,
@@ -214,7 +209,7 @@ pub async fn deliver(
   id: uuid::Uuid,
 ) -> Result<bool, anyhow::Error> {
   let Some(delivery) = db.get_pending_email_delivery(id).await? else {
-    // Already sent or abandoned. Cloud Tasks redelivering a task it has already
+    // Already sent or abandoned. The queue redelivering a task it has already
     // run must not produce a second email.
     return Ok(true);
   };

@@ -54,11 +54,11 @@ use uuid::Uuid;
 /// How many times a publishing task may fail with a retryable error before it
 /// is marked as failed instead of being handed back to the task queue. Without
 /// this bound, a deterministic "retryable" error (e.g. the database rejecting
-/// the version insert, jsr-io/jsr#1505) burns through all of Cloud Tasks'
+/// the version insert, jsr-io/jsr#1505) burns through all of the queue's
 /// retries and then strands the task in `pending` forever, with the client
-/// polling indefinitely. Must be below the queue's `max_attempts` (30, see
-/// terraform/queues.tf) or Cloud Tasks gives up first and the failure is
-/// never recorded.
+/// polling indefinitely. Must be below the queue's `max_retries` (30, see
+/// terraform/cloudflare_queues.tf) or the queue gives up first and the
+/// failure is never recorded.
 const MAX_PUBLISH_ATTEMPTS: u32 = 10;
 
 #[instrument(
@@ -761,7 +761,7 @@ mod tests {
 
     // The fallback registry can't be reached, so processing fails with a
     // retryable error. Below the attempt cap the task goes back to `pending`
-    // for the queue to retry, and the error propagates so Cloud Tasks
+    // for the queue to retry, and the error propagates so the queue
     // schedules that retry.
     let run = |retry_count| {
       publish_task(

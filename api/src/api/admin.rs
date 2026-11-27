@@ -1,4 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+use crate::RegistryUrl;
 use axum::Router;
 use axum::body::Body;
 use axum::routing::delete;
@@ -6,24 +7,13 @@ use axum::routing::get;
 use axum::routing::patch;
 use axum::routing::post;
 use hyper::Request;
-use registry_api_tasks::analysis::PackageAnalysisData;
-use registry_api_tasks::analysis::analyze_package;
-use registry_api_tasks::publish::publish_task;
-use shared::FallbackRegistryUrl;
-use shared::NpmUrl;
-use shared::RegistryUrl;
-use shared::external::algolia::AlgoliaClient;
-use shared::ids::PackagePath;
 use shared::router::RequestExt;
-use shared::s3::Buckets;
-use shared::util::LicenseStore;
 use tracing::Instrument;
 use tracing::Span;
 use tracing::field;
 use tracing::instrument;
 
 use std::borrow::Cow;
-use std::collections::HashMap;
 
 use crate::emails;
 use crate::emails::EmailArgs;
@@ -42,6 +32,7 @@ use crate::util::sort;
 use super::ApiError;
 use super::map_unique_violation;
 use super::types::*;
+use crate::task_dispatch::TaskDispatch;
 use shared::PublishQueue;
 use shared::db::*;
 use shared::errors::SharedError;
@@ -436,8 +427,7 @@ pub async fn recompute_package_version_meta(
   Span::current().record("version", field::display(&version));
 
   let db = req.data::<Database>().unwrap();
-  let buckets = req.data::<Buckets>().unwrap();
-  let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
+  let task_dispatch = req.data::<TaskDispatch>().unwrap();
 
   let (pkg, _, _) = db
     .get_package(&scope, &package)
@@ -448,64 +438,9 @@ pub async fn recompute_package_version_meta(
     .await?
     .ok_or(SharedError::PackageVersionNotFound)?;
 
-  let mut files = HashMap::new();
-  for file in db.list_package_files(&scope, &package, &version).await? {
-    let s3_path =
-      shared::s3_paths::file_path(&scope, &package, &version, &file.path);
-    let bytes = buckets
-      .modules_bucket
-      .download(s3_path.into())
-      .await?
-      .ok_or_else(|| {
-        tracing::error!(
-          "module file '{}' of @{}/{}@{} is missing from the modules bucket",
-          file.path,
-          scope,
-          package,
-          version
-        );
-        ApiError::InternalServerError
-      })?;
-    files.insert(file.path, bytes.to_vec());
-  }
-
-  // the config file path is only used in analysis error messages; the
-  // exports driving the analysis come from the database
-  let config_file = ["/jsr.json", "/jsr.jsonc", "/deno.json", "/deno.jsonc"]
-    .into_iter()
-    .map(|path| PackagePath::new(path.to_string()).unwrap())
-    .find(|path| files.contains_key(path))
-    .unwrap_or_else(|| PackagePath::new("/jsr.json".to_string()).unwrap());
-
-  let span = Span::current();
-  let analysis_scope = scope.clone();
-  let analysis_package = package.clone();
-  let analysis_version = version.clone();
-  let data = PackageAnalysisData {
-    exports: package_version.exports.clone(),
-    files,
-  };
-  let output = crate::util::spawn_blocking(move || {
-    analyze_package(
-      span,
-      registry_url,
-      analysis_scope,
-      analysis_package,
-      analysis_version,
-      config_file,
-      data,
-    )
-  })
-  .await
-  .map_err(|join_error| {
-    tracing::error!("analysis task panicked: {join_error:?}");
-    ApiError::InternalServerError
-  })?
-  .map_err(|analysis_error| ApiError::PackageAnalysisFailed {
-    msg: analysis_error.to_string(),
-  })?;
-
-  let mut meta = output.meta;
+  let mut meta = task_dispatch
+    .recompute_version_meta(&scope, &package, &version)
+    .await?;
   // provenance is recorded post-publish and not derivable from the files
   meta.has_provenance = package_version.meta.has_provenance;
 
@@ -571,43 +506,27 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
   }
 
   let publish_queue = req.data::<PublishQueue>().unwrap().0.clone();
-  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap().clone();
 
   if let Some(queue) = publish_queue {
     let body = serde_json::to_vec(&publishing_task_id)?;
-    queue.task_buffer(None, Some(body.into())).await?;
+    queue.send(body.into()).await?;
   } else {
-    let buckets = req.data::<Buckets>().unwrap().clone();
-    let license_store = req.data::<LicenseStore>().unwrap().clone();
-    let registry = req.data::<RegistryUrl>().unwrap().0.clone();
-    let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
-    // Re-runs against the fallback registry configured *now*, which may differ
-    // from the one the task originally resolved its dependencies against. That
-    // is intentional — the requeue re-resolves from scratch — but it means a
-    // requeue can record different `dependency_fallback_url`s than the original
-    // run did.
-    let fallback_registry_url =
-      req.data::<FallbackRegistryUrl>().unwrap().0.clone();
-    let cache_purge = req
-      .data::<shared::external::cloudflare::CachePurge>()
-      .unwrap()
-      .clone();
-
-    let span = Span::current();
-    let fut = publish_task(
-      publishing_task_id,
-      0,
-      buckets,
-      license_store,
-      registry,
-      npm_url,
-      fallback_registry_url,
-      db,
-      algolia_client,
-      cache_purge,
-    )
-    .instrument(span);
-    crate::util::spawn_background(fut);
+    // No queue (local development): ask the tasks service to publish now. It
+    // re-runs
+    // against the fallback registry configured *now*, which may differ from
+    // the one the task originally resolved its dependencies against. That is
+    // intentional — the requeue re-resolves from scratch — but it means a
+    // requeue can record different `dependency_fallback_url`s than the
+    // original run did.
+    let task_dispatch = req.data::<TaskDispatch>().unwrap().clone();
+    crate::util::spawn_background(
+      async move {
+        if let Err(err) = task_dispatch.publish(publishing_task_id).await {
+          tracing::error!("publish of {publishing_task_id} failed: {err:?}");
+        }
+      }
+      .instrument(Span::current()),
+    );
   }
 
   Ok(())

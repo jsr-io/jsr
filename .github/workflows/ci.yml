@@ -93,16 +93,19 @@ jobs:
           tool: worker-build@0.9.0
 
       - name: Build API Cloudflare Worker
-        run: ./build-worker.sh
+        run: ../tools/build-worker.sh
         working-directory: api
+
+      - name: Build tasks Cloudflare Worker
+        run: ../tools/build-worker.sh
+        working-directory: tasks
 
       - name: Lint
         run: |
           cache=~/.cache/worker-build
           export PATH="$(echo $cache/emsdk-*/upstream/emscripten):$PATH"
           export EM_CONFIG="$(echo $cache/emscripten-*.config)"
-          cargo clippy --target wasm32-unknown-emscripten -- -D warnings
-        working-directory: api
+          cargo clippy -p registry_api -p registry_api_tasks --target wasm32-unknown-emscripten -- -D warnings
 
       - name: Install Deno
         uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
@@ -119,6 +122,8 @@ jobs:
           path: |
             api/build/index.js
             api/build/index_bg.wasm
+            tasks/build/index.js
+            tasks/build/index_bg.wasm
 
   check:
     runs-on: ubuntu-22.04
@@ -297,11 +302,10 @@ jobs:
         run: deno task build
         working-directory: frontend
 
-      - name: Download API Cloudflare Worker
+      - name: Download API and tasks Cloudflare Workers
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: api-wasm
-          path: api/build
 
       - name: Download API setup binary
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -384,11 +388,10 @@ jobs:
         run: deno task build
         working-directory: frontend
 
-      - name: Download API Cloudflare Worker
+      - name: Download API and tasks Cloudflare Workers
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: api-wasm
-          path: api/build
 
       - name: Download API setup binary
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0

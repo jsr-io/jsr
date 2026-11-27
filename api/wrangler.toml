@@ -7,8 +7,21 @@ compatibility_flags = ["nodejs_compat"]
 [observability.traces]
 enabled = true
 
+# The tasks worker, see ../tasks/wrangler.toml.
+[[services]]
+binding = "TASKS"
+service = "jsr-api-tasks"
+
+[[queues.producers]]
+binding = "PUBLISH_QUEUE"
+queue = "local-publish"
+
+[[queues.producers]]
+binding = "EMAIL_QUEUE"
+queue = "local-email"
+
 [build]
-command = "./build-worker.sh"
+command = "../tools/build-worker.sh"
 
 # `deno task smoke:worker`: every binding is local.
 [env.smoke.vars]
@@ -47,3 +60,7 @@ bucket_name = "npm"
 [[env.smoke.r2_buckets]]
 binding = "R2_ticket_attachments"
 bucket_name = "ticket-attachments"
+
+[[env.smoke.services]]
+binding = "TASKS"
+service = "jsr-api-tasks-smoke"

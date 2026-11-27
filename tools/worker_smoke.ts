@@ -82,6 +82,8 @@ async function startWorker(persistTo: string): Promise<Deno.ChildProcess> {
       "--yes",
       "wrangler@4",
       "dev",
+      "--config=wrangler.toml",
+      "--config=../tasks/wrangler.toml",
       "--env=smoke",
       `--port=${PORT}`,
       `--persist-to=${persistTo}`,

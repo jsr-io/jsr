@@ -29,3 +29,4 @@ lb/node_modules
 # wrangler
 .wrangler/
 api/build/
+tasks/build/

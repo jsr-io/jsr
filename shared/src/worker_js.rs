@@ -156,7 +156,9 @@ pub async fn fetch(
   follow_redirects: bool,
   decode_body: bool,
 ) -> reqwest::Response {
-  match AssertSend(fetch_inner(request, follow_redirects, decode_body)).await {
+  match AssertSend(fetch_inner(request, follow_redirects, decode_body, None))
+    .await
+  {
     Ok(response) => response,
     Err(err) => {
       tracing::error!("fetch failed: {err}");
@@ -169,10 +171,20 @@ pub async fn fetch(
   }
 }
 
+/// Sends `request` to the worker behind the service binding `binding`. The
+/// host of the request's URL is not used.
+pub async fn fetch_service(
+  binding: &str,
+  request: reqwest::Request,
+) -> Result<reqwest::Response, String> {
+  AssertSend(fetch_inner(request, true, true, Some(binding))).await
+}
+
 async fn fetch_inner(
   request: reqwest::Request,
   follow_redirects: bool,
   decode_body: bool,
+  service: Option<&str>,
 ) -> Result<reqwest::Response, String> {
   let headers = web_sys::Headers::new().map_err(js_error)?;
   for (name, value) in request.headers() {
@@ -207,12 +219,32 @@ async fn fetch_inner(
     Reflect::set(&init, &"encodeResponseBody".into(), &"manual".into())
       .map_err(js_error)?;
   }
-  let global: web_sys::WorkerGlobalScope = js_sys::global().unchecked_into();
-  let response: web_sys::Response = resolve(Ok(in_current(|| {
-    global.fetch_with_str_and_init(request.url().as_str(), &init)
-  })))
-  .await?
-  .unchecked_into();
+  let promise = match service {
+    Some(binding) => {
+      let service = ENV
+        .with(|env| {
+          let env = env.borrow();
+          Reflect::get(env.as_ref()?, &binding.into()).ok()
+        })
+        .filter(|service| !service.is_undefined())
+        .ok_or_else(|| format!("no service binding {binding}"))?;
+      let fetch: Function = Reflect::get(&service, &"fetch".into())
+        .map_err(js_error)?
+        .unchecked_into();
+      in_current(|| {
+        fetch.call2(&service, &request.url().as_str().into(), &init)
+      })
+      .map(JsValue::unchecked_into)
+    }
+    None => {
+      let global: web_sys::WorkerGlobalScope =
+        js_sys::global().unchecked_into();
+      Ok(in_current(|| {
+        global.fetch_with_str_and_init(request.url().as_str(), &init)
+      }))
+    }
+  };
+  let response: web_sys::Response = resolve(promise).await?.unchecked_into();
   let body = resolve(response.array_buffer()).await?;
 
   let mut builder = hyper::http::Response::builder().status(response.status());
@@ -235,6 +267,32 @@ async fn fetch_inner(
   }
   let body = Bytes::from(Uint8Array::new(&body).to_vec());
   Ok(builder.body(body).map_err(|err| err.to_string())?.into())
+}
+
+/// The producer binding of a Cloudflare Queue.
+#[derive(Clone)]
+pub struct Queue(AssertSend<JsValue>);
+
+impl Queue {
+  pub fn new(binding: &str) -> Option<Self> {
+    ENV.with(|env| {
+      let value = Reflect::get(env.borrow().as_ref()?, &binding.into()).ok()?;
+      (!value.is_undefined()).then(|| Self(AssertSend(value)))
+    })
+  }
+
+  /// Sends a message whose body is the value `body` is the JSON of.
+  pub async fn send(&self, body: Bytes) -> Result<(), anyhow::Error> {
+    AssertSend(async {
+      let body = std::str::from_utf8(&body).map_err(|err| err.to_string())?;
+      let body = js_sys::JSON::parse(body).map_err(js_error)?;
+      let promise = in_current(|| call1(&self.0.0, "send", &body));
+      resolve(promise.map(js_sys::Promise::from)).await?;
+      Ok(())
+    })
+    .await
+    .map_err(|err: String| anyhow::anyhow!("failed to queue task: {err}"))
+  }
 }
 
 #[derive(Clone)]
@@ -672,4 +730,93 @@ impl AsyncWrite for HyperdriveSocket {
     let _ = call(&self.writer, "close");
     Poll::Ready(Ok(()))
   }
+}
+
+/// Copies the worker's string bindings into the process environment, where
+/// the configuration is read from.
+pub fn env_into_process(env: &JsValue) {
+  let Ok(entries) = js_sys::Object::entries(&js_sys::Object::from(env.clone()))
+    .dyn_into::<js_sys::Array>()
+  else {
+    return;
+  };
+  for entry in entries.iter() {
+    let pair = js_sys::Array::from(&entry);
+    if let (Some(k), Some(v)) =
+      (pair.get(0).as_string(), pair.get(1).as_string())
+    {
+      // SAFETY: single-threaded emscripten worker; no other threads race here.
+      unsafe { std::env::set_var(k, v) };
+    }
+  }
+}
+
+pub async fn to_hyper_request(
+  req: web_sys::Request,
+) -> Result<hyper::Request<axum::body::Body>, JsValue> {
+  let method = hyper::Method::from_bytes(req.method().as_bytes())
+    .map_err(|e| JsValue::from_str(&format!("bad method: {e}")))?;
+  let uri: hyper::Uri = req
+    .url()
+    .parse()
+    .map_err(|e| JsValue::from_str(&format!("bad uri: {e}")))?;
+  let mut builder = hyper::Request::builder().method(method).uri(uri);
+
+  let headers = req.headers();
+  if let Some(iter) = js_sys::try_iter(&headers)? {
+    for entry in iter {
+      let pair = js_sys::Array::from(&entry?);
+      if let (Some(k), Some(v)) =
+        (pair.get(0).as_string(), pair.get(1).as_string())
+      {
+        builder = builder.header(k, v);
+      }
+    }
+  }
+
+  let body = match req.body() {
+    Some(stream) => axum::body::Body::from_stream(body_stream(stream)),
+    None => axum::body::Body::empty(),
+  };
+  builder
+    .body(body)
+    .map_err(|e| JsValue::from_str(&format!("build request: {e}")))
+}
+
+pub async fn to_web_response(
+  resp: hyper::Response<axum::body::Body>,
+) -> Result<web_sys::Response, JsValue> {
+  let (mut parts, body) = resp.into_parts();
+
+  let headers = web_sys::Headers::new()?;
+  for (k, v) in parts.headers.iter() {
+    if let Ok(v) = v.to_str() {
+      headers.append(k.as_str(), v)?;
+    }
+  }
+
+  let init = web_sys::ResponseInit::new();
+  init.set_status(parts.status.as_u16());
+  init.set_headers(&headers);
+
+  if matches!(parts.status.as_u16(), 101 | 204 | 205 | 304) {
+    return web_sys::Response::new_with_opt_str_and_init(None, &init);
+  }
+
+  if let Some(stream) = parts.extensions.remove::<ResponseStream>() {
+    return web_sys::Response::new_with_opt_readable_stream_and_init(
+      Some(&stream.0.0),
+      &init,
+    );
+  }
+
+  let bytes = axum::body::to_bytes(body, usize::MAX)
+    .await
+    .map_err(|e| JsValue::from_str(&format!("read response body: {e}")))?;
+
+  // Copy the body into JS memory: a `&mut [u8]` is passed as a view into
+  // wasm memory, which the runtime reads only after this function has
+  // returned and the buffer has been freed and reused.
+  let body = js_sys::Uint8Array::from(bytes.as_ref());
+  web_sys::Response::new_with_opt_buffer_source_and_init(Some(&body), &init)
 }

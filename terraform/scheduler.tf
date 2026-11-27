@@ -1,9 +1,13 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+
+// Paused: the tasks worker runs these on its cron triggers now (see
+// cloudflare_api_tasks_worker.tf).
 resource "google_cloud_scheduler_job" "npm_tarball_rebuild_missing" {
   name        = "npm-tarball-rebuild-missing"
   description = "Find missing npm tarballs and enqueue them for rebuild."
   schedule    = "*/15 * * * *"
   region      = "us-central1"
+  paused      = true
 
   http_target {
     http_method = "POST"
@@ -19,6 +23,7 @@ resource "google_cloud_scheduler_job" "clean_oauth_states" {
   description = "Delete expired OAuth states older than 1 hour."
   schedule    = "0 0 * * *"
   region      = "us-central1"
+  paused      = true
 
   http_target {
     http_method = "POST"
@@ -34,6 +39,7 @@ resource "google_cloud_scheduler_job" "clean_download_counts_4h" {
   description = "Delete version_download_counts_4h rows older than 7 days."
   schedule    = "0 3 * * *"
   region      = "us-central1"
+  paused      = true
 
   http_target {
     http_method = "POST"
@@ -49,6 +55,7 @@ resource "google_cloud_scheduler_job" "requeue_stuck_publishing_tasks" {
   description = "Re-drive publishing tasks stranded in processing/processed so their meta.json is regenerated and the version becomes resolvable."
   schedule    = "*/5 * * * *"
   region      = "us-central1"
+  paused      = true
 
   http_target {
     http_method = "POST"
@@ -64,6 +71,7 @@ resource "google_cloud_scheduler_job" "anonymize_deleted_users" {
   description = "Strip name and email from user_delete audit tombstones older than 1 year."
   schedule    = "0 4 * * *"
   region      = "us-central1"
+  paused      = true
 
   http_target {
     http_method = "POST"
@@ -79,6 +87,7 @@ resource "google_cloud_scheduler_job" "scrape_download_counts" {
   description = "Scrape download counts from Analytics Engine and insert them into Postgres."
   schedule    = "15 * * * *"
   region      = "us-central1"
+  paused      = true
 
   http_target {
     http_method = "POST"
@@ -94,6 +103,7 @@ resource "google_cloud_scheduler_job" "sweep_pending_emails" {
   description = "Re-drive queued emails whose Cloud Tasks hand-off never happened or whose task was dropped."
   schedule    = "*/5 * * * *"
   region      = "us-central1"
+  paused      = true
 
   http_target {
     http_method = "POST"

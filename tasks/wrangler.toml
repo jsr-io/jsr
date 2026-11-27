@@ -1,0 +1,83 @@
+# Local development only; staging deploys through terraform.
+name = "jsr-api-tasks"
+main = "build/index.js"
+compatibility_date = "2026-09-02"
+compatibility_flags = ["nodejs_compat"]
+
+[observability.traces]
+enabled = true
+
+[limits]
+cpu_ms = 300_000
+
+# Local stand-ins for the queues in terraform. Their names end the way the
+# worker tells the queues apart. The periodic tasks don't run locally.
+
+[[queues.producers]]
+binding = "PUBLISH_QUEUE"
+queue = "local-publish"
+
+[[queues.producers]]
+binding = "NPM_TARBALL_BUILD_QUEUE"
+queue = "local-npm-tarball-build"
+
+[[queues.producers]]
+binding = "EMAIL_QUEUE"
+queue = "local-email"
+
+[[queues.consumers]]
+queue = "local-publish"
+max_batch_size = 1
+max_retries = 30
+
+[[queues.consumers]]
+queue = "local-npm-tarball-build"
+max_batch_size = 1
+max_retries = 30
+
+[[queues.consumers]]
+queue = "local-email"
+max_batch_size = 1
+max_retries = 10
+
+[build]
+command = "../tools/build-worker.sh"
+cwd = "../tasks"
+
+# `deno task smoke:worker`, alongside the API worker.
+[env.smoke.vars]
+GITHUB_CLIENT_ID = "xxx"
+GITHUB_CLIENT_SECRET = "xxx"
+GITLAB_CLIENT_ID = "xxx"
+GITLAB_CLIENT_SECRET = "xxx"
+S3_REGION = "us-east-1"
+S3_ENDPOINT = "http://127.0.0.1:9000"
+S3_ACCESS_KEY = "minioadmin"
+S3_SECRET_KEY = "minioadmin"
+REGISTRY_URL = "http://jsr.test"
+NPM_URL = "http://npm.jsr.test"
+
+[[env.smoke.hyperdrive]]
+binding = "HYPERDRIVE"
+id = "00000000000000000000000000000000"
+localConnectionString = "postgres://user:password@127.0.0.1:5432/registry_worker_smoke"
+
+[[env.smoke.r2_buckets]]
+binding = "R2_publishing"
+bucket_name = "publishing"
+
+[[env.smoke.r2_buckets]]
+binding = "R2_modules"
+bucket_name = "modules"
+
+[[env.smoke.r2_buckets]]
+binding = "R2_docs"
+bucket_name = "docs"
+
+[[env.smoke.r2_buckets]]
+binding = "R2_npm"
+bucket_name = "npm"
+
+[[env.smoke.r2_buckets]]
+binding = "R2_ticket_attachments"
+bucket_name = "ticket-attachments"

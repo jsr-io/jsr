@@ -345,6 +345,17 @@ impl From<SharedError> for ApiError {
   }
 }
 
+impl From<crate::task_dispatch::AnalyzeVersionError> for ApiError {
+  fn from(error: crate::task_dispatch::AnalyzeVersionError) -> ApiError {
+    match error {
+      crate::task_dispatch::AnalyzeVersionError::Failed(msg) => {
+        ApiError::PackageAnalysisFailed { msg }
+      }
+      crate::task_dispatch::AnalyzeVersionError::Internal(err) => err.into(),
+    }
+  }
+}
+
 pub fn map_unique_violation(err: DbError, new_err: ApiError) -> ApiError {
   if err.is_unique_violation() {
     return new_err;
