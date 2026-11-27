@@ -4996,13 +4996,24 @@ pub enum CreatePublishingTaskResult {
 /// database load on package page views.
 #[derive(Clone)]
 pub struct DependentCountCache {
-  cache: moka::future::Cache<String, usize>,
+  cache: moka::sync::Cache<String, usize>,
 }
 
 impl DependentCountCache {
   pub fn new() -> Self {
+    #[cfg(target_arch = "wasm32")]
+    {
+      static SHARED: std::sync::LazyLock<DependentCountCache> =
+        std::sync::LazyLock::new(DependentCountCache::build);
+      SHARED.clone()
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    Self::build()
+  }
+
+  fn build() -> Self {
     Self {
-      cache: moka::future::Cache::builder()
+      cache: moka::sync::Cache::builder()
         .max_capacity(65536)
         .time_to_live(std::time::Duration::from_secs(900))
         .build(),
@@ -5016,11 +5027,11 @@ impl DependentCountCache {
     name: &PackageName,
   ) -> Result<usize> {
     let key = format!("@{scope}/{name}");
-    if let Some(count) = self.cache.get(&key).await {
+    if let Some(count) = self.cache.get(&key) {
       return Ok(count);
     }
     let count = db.count_package_dependents(scope, name).await?;
-    self.cache.insert(key, count).await;
+    self.cache.insert(key, count);
     Ok(count)
   }
 }
