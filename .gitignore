@@ -5,6 +5,7 @@ target/
 
 # terraform
 .terraform/
+api-setup.log
 *.tfplan
 *.tfstate*
 *.secret.tfvars

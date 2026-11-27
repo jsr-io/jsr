@@ -89,6 +89,9 @@ impl std::fmt::Debug for Database {
 pub struct DbTls {
   pub client_cert: String,
   pub client_key: String,
+  /// PEM certificate authority the server's certificate has to chain to. The
+  /// server's certificate is not verified at all without one.
+  pub server_ca: Option<String>,
 }
 
 impl Database {
