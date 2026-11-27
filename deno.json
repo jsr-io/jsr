@@ -35,11 +35,13 @@
   "exclude": [
     "target/",
     "api/testdata/",
+    "shared/testdata/",
+    "tasks/testdata/",
     ".gcs/",
     ".minio/",
     "frontend/_fresh",
     "e2e/vendor",
-    "api/license-list-data"
+    "shared/license-list-data"
   ],
   "imports": {
     "@deno/doc": "jsr:@deno/doc@^0.194.0",

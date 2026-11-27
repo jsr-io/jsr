@@ -180,8 +180,9 @@ done via the following steps:
 
 ### Migrating the database
 
-The API applies any pending migrations from `api/migrations` when it starts, so
-restarting it after the database schema has changed migrates the local database.
+The API applies any pending migrations from `shared/migrations` when it starts,
+so restarting it after the database schema has changed migrates the local
+database.
 
 ### Loading bad words
 

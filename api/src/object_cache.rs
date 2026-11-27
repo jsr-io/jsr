@@ -21,9 +21,9 @@
 //! discards it, which stops an object still being written during publish from
 //! being remembered as missing.
 
-use crate::s3::BucketWithQueue;
-use crate::s3::S3Error;
 use bytes::Bytes;
+use shared::s3::BucketWithQueue;
+use shared::s3::S3Error;
 use std::sync::Arc;
 use std::time::Duration;
 

@@ -1,6 +1,99 @@
 [workspace]
-members = ["api", "crates/jsr_types"]
+members = ["api", "shared", "tasks"]
 resolver = "2"
+
+[workspace.dependencies]
+anyhow = "1"
+askalono = { version = "0.5.0", features = ["gzip"] }
+async-trait = "0.1.73"
+axum = { version = "0.8", default-features = false, features = [
+    "http1",
+    "http2",
+    "tokio",
+] }
+base64 = "0.21"
+bytes = "1"
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", default-features = false, features = [
+    "derive",
+    "std",
+    "env",
+    "help",
+    "usage",
+    "error-context",
+    "suggestions",
+] }
+crc32fast = "1.3.2"
+deno_ast = { version = "0.53.0", features = ["view"] }
+# sync with frontend/deno.json
+deno_doc = { version = "=0.210.0", features = ["comrak"] }
+deno_error = "0.7.0"
+deno_graph = "=0.111.0"
+deno_semver = "0.10.1"
+dotenvy = "0.15.7"
+flate2 = "1"
+futures = "0.3"
+hyper = "1"
+indexmap = { version = "2.13.0", features = ["serde"] }
+moka = { version = "0.12", features = ["future", "sync"] }
+once_cell = "1"
+percent-encoding = "2"
+pretty_assertions = "1.4.0"
+rand = "0.8"
+regex = "1.10.2"
+reqwest = { version = "0.13", default-features = false, features = [
+    "rustls",
+    "http2",
+    "gzip",
+    "brotli",
+    "json",
+    "form",
+    "stream",
+    # For the OTLP exporters' client, see `shared/src/tracing.rs`.
+    "blocking",
+] }
+rmp-serde = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10.7"
+tar = "0.4"
+thiserror = "2"
+# `process`, `signal` and `rt-multi-thread` don't build for emscripten; native
+# adds `full` in each crate.
+tokio = { version = "1", features = [
+    "fs",
+    "io-util",
+    "io-std",
+    "macros",
+    "net",
+    "parking_lot",
+    "rt",
+    "sync",
+    "time",
+] }
+tower = { version = "0.5", features = ["util"] }
+tracing = "0.1"
+url = "2.5.4"
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# The worker entry point, see `api/src/main.rs`.
+worker = { version = "0.9.0", features = ["experimental_tokio"] }
+worker-sys = "0.9.0"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = [
+    "AbortSignal",
+    "Headers",
+    "ReadableStream",
+    "ReadableStreamDefaultReader",
+    "Request",
+    "RequestInit",
+    "RequestRedirect",
+    "Response",
+    "ResponseInit",
+    "WorkerGlobalScope",
+] }
 
 # For wasm32-unknown-emscripten.
 

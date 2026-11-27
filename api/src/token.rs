@@ -1,9 +1,10 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
-use crate::db::*;
 use chrono::DateTime;
 use chrono::Utc;
 use sha2::Digest;
+use shared::db::*;
+use shared::models::*;
 use uuid::Uuid;
 
 /// Generate a SHA256 hash of a string.

@@ -1,45 +1,37 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use crate::db::GithubRepository;
-use crate::db::ReadmeSource;
-use crate::db::RuntimeCompat;
-use crate::ids::PackageName;
-use crate::ids::ScopeName;
-use crate::ids::Version;
+
 use anyhow::Context;
-use bytes::Bytes;
-use comrak::nodes::Ast;
-use comrak::nodes::AstNode;
-use comrak::nodes::NodeValue;
 use deno_ast::ModuleSpecifier;
-use deno_doc::DeclarationDef;
-use deno_doc::Location;
-use deno_doc::ParseOutput;
-use deno_doc::Symbol;
-use deno_doc::html::DocNodeWithContext;
-use deno_doc::html::GenerateCtx;
-use deno_doc::html::HrefResolver;
-use deno_doc::html::RenderContext;
-use deno_doc::html::ShortPath;
-use deno_doc::html::UrlResolveKind;
-use deno_doc::html::UsageComposerEntry;
-use deno_doc::html::pages::SymbolPage;
-use deno_doc::html::util::BreadcrumbsCtx;
-use deno_semver::RangeSetOrTag;
-use flate2::Compression;
-use flate2::read::GzDecoder;
-use flate2::write::GzEncoder;
+use deno_doc::html::{
+  DocNodeWithContext, GenerateCtx, RenderContext, ShortPath, UrlResolveKind,
+};
+use deno_doc::{DeclarationDef, ParseOutput, Symbol};
 use indexmap::IndexMap;
-use serde::Deserialize;
-use serde::Serialize;
+use shared::ids::{PackageName, ScopeName, Version};
+use shared::models::{GithubRepository, ReadmeSource, RuntimeCompat};
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::io::Read;
-use std::io::Write;
 use std::sync::Arc;
 use std::sync::OnceLock;
 use std::time::Duration;
 use tracing::instrument;
-use url::Url;
+
+use comrak::nodes::Ast;
+use comrak::nodes::AstNode;
+use comrak::nodes::NodeValue;
+use deno_doc::html::pages::SymbolPage;
+use flate2::read::GzDecoder;
+use shared::docs::DocNodeCacheError;
+use shared::docs::DocsRequest;
+use shared::docs::GeneratedDocs;
+use shared::docs::GeneratedDocsContent;
+use shared::docs::GeneratedDocsOutput;
+use shared::docs::SYMBOL_LISTING_LIMIT;
+use shared::docs::URLRewriter;
+pub use shared::docs::get_docs_info;
+use shared::docs::has_create_export;
+use shared::docs::serialize_doc_nodes;
 
 /// Maximum number of concurrent doc rendering operations. Each doc render
 /// builds a GenerateCtx from doc nodes, which can use 10-50 MB.
@@ -60,295 +52,6 @@ pub async fn acquire_doc_render_permit() -> tokio::sync::OwnedSemaphorePermit {
     .acquire_owned()
     .await
     .expect("doc render semaphore closed")
-}
-
-/// Current doc nodes storage format version.
-const DOC_NODES_VERSION: u32 = 2;
-
-/// Versioned wrapper for stored doc nodes.
-#[derive(Serialize, Deserialize)]
-struct StoredDocNodes {
-  version: u32,
-  doc_nodes: ParseOutput,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum DocNodeCacheError {
-  #[error(transparent)]
-  S3(#[from] crate::s3::S3Error),
-  #[error("failed to decompress doc nodes: {0}")]
-  Decompress(std::io::Error),
-  #[error("failed to deserialize doc nodes: {0}")]
-  Deserialize(String),
-  #[error("failed to parse module specifier in legacy doc nodes: {0}")]
-  InvalidSpecifier(url::ParseError),
-  #[error("unexpected doc nodes JSON shape")]
-  UnexpectedJsonShape,
-  #[error("unsupported doc nodes version: {0} (expected {DOC_NODES_VERSION})")]
-  UnsupportedVersion(u32),
-}
-
-/// Serialize doc nodes to gzip-compressed MessagePack with a version field.
-pub fn serialize_doc_nodes(doc_nodes: &ParseOutput) -> Bytes {
-  let stored = StoredDocNodes {
-    version: DOC_NODES_VERSION,
-    doc_nodes: doc_nodes.clone(),
-  };
-  let msgpack = rmp_serde::to_vec_named(&stored).unwrap();
-  let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-  encoder.write_all(&msgpack).unwrap();
-  encoder.finish().unwrap().into()
-}
-
-/// Deserialize doc nodes from gzip-compressed MessagePack (v2 format).
-fn deserialize_doc_nodes_v2(
-  bytes: &[u8],
-) -> Result<ParseOutput, DocNodeCacheError> {
-  let mut decoder = GzDecoder::new(bytes);
-  let mut decompressed = Vec::new();
-  decoder
-    .read_to_end(&mut decompressed)
-    .map_err(DocNodeCacheError::Decompress)?;
-  let stored: StoredDocNodes = rmp_serde::from_slice(&decompressed)
-    .map_err(|e| DocNodeCacheError::Deserialize(e.to_string()))?;
-  if stored.version != DOC_NODES_VERSION {
-    return Err(DocNodeCacheError::UnsupportedVersion(stored.version));
-  }
-  Ok(stored.doc_nodes)
-}
-
-/// Deserialize doc nodes from legacy JSON (v1 format), migrating to v2.
-fn deserialize_doc_nodes_v1(
-  bytes: &[u8],
-) -> Result<ParseOutput, DocNodeCacheError> {
-  let value: serde_json::Value = serde_json::from_slice(bytes)
-    .map_err(|e| DocNodeCacheError::Deserialize(e.to_string()))?;
-
-  match value {
-    serde_json::Value::Object(map) => {
-      let mut result = IndexMap::new();
-      for (key, val) in map {
-        let specifier = ModuleSpecifier::parse(&key)
-          .map_err(DocNodeCacheError::InvalidSpecifier)?;
-        result.insert(specifier, deno_doc::docnodes_v1_to_v2(val));
-      }
-      Ok(result)
-    }
-    _ => Err(DocNodeCacheError::UnexpectedJsonShape),
-  }
-}
-
-/// Download doc nodes from GCS for a package version, trying v2
-/// (msgpack+gzip) first and falling back to v1 (JSON) with migration.
-/// Used by the diff endpoint which needs raw ParseOutput.
-pub async fn download_doc_nodes(
-  scope: &ScopeName,
-  package: &PackageName,
-  version: &Version,
-  bucket: &crate::s3::Buckets,
-) -> Result<Option<ParseOutput>, DocNodeCacheError> {
-  Ok(
-    download_doc_nodes_sized(scope, package, version, bucket)
-      .await?
-      .map(|(doc_nodes, _)| doc_nodes),
-  )
-}
-
-/// Like [`download_doc_nodes`], but also reports how many stored bytes the
-/// nodes were decoded from. [`GenerateCtxCache`] weighs its entries by that
-/// figure, so it needs the size the download already knows.
-async fn download_doc_nodes_sized(
-  scope: &ScopeName,
-  package: &PackageName,
-  version: &Version,
-  bucket: &crate::s3::Buckets,
-) -> Result<Option<(ParseOutput, usize)>, DocNodeCacheError> {
-  let v2_path = crate::s3_paths::docs_v2_path(scope, package, version);
-  let v2_result = bucket
-    .docs_bucket
-    .download(Arc::from(v2_path.as_str()))
-    .await?;
-
-  if let Some(bytes) = v2_result {
-    return Ok(Some((deserialize_doc_nodes_v2(&bytes)?, bytes.len())));
-  }
-
-  let v1_path = crate::s3_paths::docs_v1_path(scope, package, version);
-  let v1_result = bucket
-    .docs_bucket
-    .download(Arc::from(v1_path.as_str()))
-    .await?;
-
-  let Some(bytes) = v1_result else {
-    return Ok(None);
-  };
-
-  let doc_nodes = deserialize_doc_nodes_v1(&bytes)?;
-  let stored_bytes = bytes.len();
-
-  // Best-effort migration: re-upload as v2 and delete v1. Failures are
-  // logged but not propagated — the doc nodes were already read successfully.
-  let v2_bytes = serialize_doc_nodes(&doc_nodes);
-  match bucket
-    .docs_bucket
-    .upload(
-      Arc::from(v2_path.as_str()),
-      crate::s3::UploadTaskBody::Bytes(v2_bytes),
-      crate::s3::S3UploadOptions {
-        content_type: Some("application/x-msgpack".into()),
-        cache_control: Some(crate::s3::CACHE_CONTROL_IMMUTABLE.into()),
-        gzip_encoded: true,
-      },
-    )
-    .await
-  {
-    Ok(()) => {
-      if let Err(err) = bucket
-        .docs_bucket
-        .delete_file(Arc::from(v1_path.as_str()))
-        .await
-      {
-        tracing::warn!("failed to delete v1 doc nodes after migration: {err}");
-      }
-    }
-    Err(err) => {
-      tracing::warn!("failed to upload v2 doc nodes during migration: {err}");
-    }
-  }
-
-  Ok(Some((doc_nodes, stored_bytes)))
-}
-
-/// Total weight the cache may hold, measured in the *stored* (gzipped
-/// MessagePack) size of the doc nodes each context was built from.
-///
-/// This replaced a flat 64-entry capacity. Counting entries meant 64 tiny
-/// packages evicted each other exactly as readily as 64 enormous ones, while
-/// the memory actually held was bounded by nothing at all. Weighing by stored
-/// size bounds memory instead, which both caps the worst case and lets far more
-/// of the long tail stay resident — a production sample saw 534 distinct
-/// packages across 2000 docs requests against those 64 slots.
-///
-/// Stored size is a proxy: the built context is roughly an order of magnitude
-/// larger in memory than the bytes it was decoded from. The budget is set
-/// conservatively for that reason, and pinning the real ratio needs cache
-/// instrumentation that does not exist yet.
-const MAX_CACHED_DOC_NODE_BYTES: u64 = 16 * 1024 * 1024;
-
-/// Release contexts that go unread for this long, so a burst across many
-/// packages does not pin memory for the rest of the process's life.
-const CACHED_CTX_TIME_TO_IDLE: Duration = Duration::from_secs(30 * 60);
-
-#[derive(Clone)]
-struct CachedCtx {
-  ctx: Arc<GenerateCtx>,
-  /// Stored size of the doc nodes this was built from; the cache weight.
-  stored_bytes: u32,
-}
-
-/// Loader failure. `Absent` never reaches a caller — returning it as an error
-/// is how a package with no doc nodes escapes `try_get_with` without moka
-/// caching the miss.
-#[derive(Debug, thiserror::Error)]
-enum CtxLoadError {
-  #[error(transparent)]
-  DocNodes(#[from] DocNodeCacheError),
-  #[error("no doc nodes stored for this version")]
-  Absent,
-}
-
-#[derive(Debug, thiserror::Error)]
-#[error(transparent)]
-pub struct GenerateCtxCacheError(Arc<CtxLoadError>);
-
-/// Cache for fully-built GenerateCtx. Keyed by
-/// `scope/package/version/is_latest/has_readme/runtime_compat` so concurrent
-/// requests for the same doc page share a single GenerateCtx without
-/// rebuilding.
-#[derive(Clone)]
-pub struct GenerateCtxCache {
-  cache: moka::future::Cache<String, CachedCtx>,
-}
-
-impl GenerateCtxCache {
-  pub fn new() -> Self {
-    Self {
-      cache: moka::future::Cache::builder()
-        .max_capacity(MAX_CACHED_DOC_NODE_BYTES)
-        .weigher(|_key, cached: &CachedCtx| cached.stored_bytes)
-        .time_to_idle(CACHED_CTX_TIME_TO_IDLE)
-        .build(),
-    }
-  }
-
-  #[allow(clippy::too_many_arguments)]
-  pub async fn get(
-    &self,
-    scope: &ScopeName,
-    package: &PackageName,
-    version: &Version,
-    version_is_latest: bool,
-    has_readme: bool,
-    exports: &crate::db::ExportsMap,
-    github_repository: Option<GithubRepository>,
-    runtime_compat: RuntimeCompat,
-    registry_url: &str,
-    bucket: &crate::s3::Buckets,
-  ) -> Result<Option<Arc<GenerateCtx>>, GenerateCtxCacheError> {
-    // runtime_compat is part of the key because the usage instructions baked
-    // into the GenerateCtx depend on it, and it is editable in the package
-    // settings.
-    let key = format!(
-      "@{scope}/{package}/{version}/{version_is_latest}/{has_readme}/{:?}",
-      runtime_compat
-    );
-
-    // `try_get_with` single-flights the miss: concurrent requests for the same
-    // cold key wait on one download and one context build instead of each
-    // paying both. That matters more here than for a typical cache, because
-    // building a context allocates the 10-50 MB the render permit exists to
-    // bound, so a stampede on a popular cold package multiplied real memory as
-    // well as CPU.
-    let loaded = self
-      .cache
-      .try_get_with(key, async {
-        let Some((doc_nodes, stored_bytes)) =
-          download_doc_nodes_sized(scope, package, version, bucket).await?
-        else {
-          return Err(CtxLoadError::Absent);
-        };
-
-        let docs_info = get_docs_info(exports, None);
-        let ctx = get_generate_ctx(
-          "/doc".to_string(),
-          doc_nodes,
-          docs_info.main_entrypoint,
-          docs_info.rewrite_map,
-          scope.clone(),
-          package.clone(),
-          version.clone(),
-          version_is_latest,
-          github_repository,
-          has_readme,
-          runtime_compat,
-          has_create_export(exports),
-          registry_url.to_string(),
-          None,
-        );
-
-        Ok(CachedCtx {
-          ctx: Arc::new(ctx),
-          stored_bytes: stored_bytes.try_into().unwrap_or(u32::MAX),
-        })
-      })
-      .await;
-
-    match loaded {
-      Ok(cached) => Ok(Some(cached.ctx)),
-      Err(err) if matches!(&*err, CtxLoadError::Absent) => Ok(None),
-      Err(err) => Err(GenerateCtxCacheError(err)),
-    }
-  }
 }
 
 /// Upper bound on the number of symbol rows the "all symbols" listing may
@@ -391,9 +94,6 @@ fn listing_rows_exceed_limit(
   }
   false
 }
-
-pub type URLRewriter =
-  Arc<dyn (Fn(Option<&ShortPath>, &str) -> String) + Send + Sync>;
 
 thread_local! {
   static CURRENT_FILE: RefCell<Option<Option<ShortPath>>> = const { RefCell::new(None) };
@@ -636,246 +336,125 @@ static WEB_TYPES: OnceLock<
   Arc<std::collections::HashMap<Vec<String>, String>>,
 > = OnceLock::new();
 
-#[derive(serde::Deserialize)]
-struct WebType {
-  id: Vec<String>,
-  docs: String,
-}
-
-#[instrument(name = "generate_docs", skip(source_files, graph, analyzer), err)]
-pub fn generate_docs(
-  mut source_files: Vec<ModuleSpecifier>,
-  graph: &deno_graph::ModuleGraph,
-  analyzer: &deno_graph::ast::CapturingModuleAnalyzer,
-) -> Result<ParseOutput, anyhow::Error> {
-  source_files.sort();
-
-  let parser = deno_doc::DocParser::new(
-    graph,
-    analyzer,
-    &source_files,
-    deno_doc::DocParserOptions {
-      diagnostics: false,
-      private: false,
-    },
-  )?;
-
-  let doc_nodes_by_url = parser.parse()?;
-
-  Ok(doc_nodes_by_url)
-}
-
-#[derive(Debug)]
-pub enum DocsRequest {
-  AllSymbols,
-  Index,
-  File(ModuleSpecifier),
-  Symbol(ModuleSpecifier, String),
-}
-
-#[allow(clippy::large_enum_variant)]
-#[derive(Debug)]
-pub enum GeneratedDocsOutput {
-  Docs(GeneratedDocs),
-  Redirect(String),
-}
-
-#[derive(Debug)]
-pub struct GeneratedDocs {
-  pub breadcrumbs: Option<BreadcrumbsCtx>,
-  pub toc: deno_doc::html::ToCCtx,
-  pub main: GeneratedDocsContent,
-}
-
-#[derive(Debug)]
-pub enum GeneratedDocsContent {
-  AllSymbols(deno_doc::html::AllSymbolsCtx),
-  File(deno_doc::html::jsdoc::ModuleDocCtx),
-  Index(deno_doc::html::jsdoc::ModuleDocCtx),
-  Symbol(deno_doc::html::SymbolGroupCtx),
-}
-
-pub struct DocsInfo {
-  pub main_entrypoint: Option<Url>,
-  pub entrypoint_url: Option<Url>,
-  pub rewrite_map: IndexMap<Url, String>,
-}
-
-/// Whether `deno create @scope/package` works for this package: the CLI
-/// rewrites that into `jsr:@scope/package/create`, so it needs a `./create`
-/// export to run (jsr-io/jsr#1358).
-pub fn has_create_export(exports: &crate::db::ExportsMap) -> bool {
-  exports.contains_key("./create")
-}
-
-pub fn get_docs_info(
-  exports: &crate::db::ExportsMap,
-  entrypoint: Option<&str>,
-) -> DocsInfo {
-  let mut main_entrypoint = None;
-  let mut entrypoint_url = None;
-  let mut rewrite_map = IndexMap::new();
-
-  let base_url = Url::parse("file:///").unwrap();
-
-  for (name, path) in exports.iter() {
-    let specifier = Url::options()
-      .base_url(Some(&base_url))
-      .parse(path)
-      .unwrap();
-    let key = if name == "." {
-      main_entrypoint = Some(specifier.clone());
-
-      name.as_str()
-    } else {
-      name.strip_prefix('.').unwrap_or(name)
-    };
-    if let Some(entrypoint) = entrypoint
-      && key.strip_prefix('/').unwrap_or(key) == entrypoint
-    {
-      entrypoint_url = Some(specifier.clone());
-    }
-    rewrite_map.insert(specifier, key.into());
+/// Deserialize doc nodes from gzip-compressed MessagePack (v2 format).
+fn deserialize_doc_nodes_v2(
+  bytes: &[u8],
+) -> Result<ParseOutput, DocNodeCacheError> {
+  let mut decoder = GzDecoder::new(bytes);
+  let mut decompressed = Vec::new();
+  decoder
+    .read_to_end(&mut decompressed)
+    .map_err(DocNodeCacheError::Decompress)?;
+  let stored: shared::docs::StoredDocNodes =
+    rmp_serde::from_slice(&decompressed)
+      .map_err(|e| DocNodeCacheError::Deserialize(e.to_string()))?;
+  if stored.version != shared::docs::DOC_NODES_VERSION {
+    return Err(DocNodeCacheError::UnsupportedVersion(stored.version));
   }
-
-  DocsInfo {
-    main_entrypoint,
-    entrypoint_url,
-    rewrite_map,
-  }
+  Ok(stored.doc_nodes)
 }
 
-fn get_url_rewriter(
-  base: String,
-  github_repository: Option<GithubRepository>,
-  is_readme: bool,
-) -> URLRewriter {
-  Arc::new(move |current_file, url| {
-    // Anchors and protocol-relative URLs (`//host/...`) are left untouched.
-    if url.starts_with('#') || url.starts_with("//") {
-      return url.to_string();
-    }
+/// Deserialize doc nodes from legacy JSON (v1 format), migrating to v2.
+fn deserialize_doc_nodes_v1(
+  bytes: &[u8],
+) -> Result<ParseOutput, DocNodeCacheError> {
+  let value: serde_json::Value = serde_json::from_slice(bytes)
+    .map_err(|e| DocNodeCacheError::Deserialize(e.to_string()))?;
 
-    let base = if let Some(github_repository) = &github_repository {
-      if url.rsplit_once('.').is_some_and(|(_path, extension)| {
-        matches!(
-          extension,
-          "png"
-            | "jpg"
-            | "jpeg"
-            | "svg"
-            | "webm"
-            | "webp"
-            | "mp4"
-            | "mov"
-            | "avif"
-            | "gif"
-            | "ico"
-        )
-      }) {
-        format!(
-          "https://raw.githubusercontent.com/{}/{}/HEAD",
-          github_repository.owner, github_repository.name
-        )
-      } else {
-        format!(
-          "https://github.com/{}/{}/blob/HEAD",
-          github_repository.owner, github_repository.name
-        )
+  match value {
+    serde_json::Value::Object(map) => {
+      let mut result = IndexMap::new();
+      for (key, val) in map {
+        let specifier = ModuleSpecifier::parse(&key)
+          .map_err(DocNodeCacheError::InvalidSpecifier)?;
+        result.insert(specifier, deno_doc::docnodes_v1_to_v2(val));
       }
-    } else {
-      base.clone()
-    };
-
-    // Root-relative URLs (a single leading `/`) resolve against the
-    // repository root rather than the current file's directory. Without this
-    // they would be served relative to jsr.io and 404 (see #768).
-    if let Some(path) = url.strip_prefix('/') {
-      return format!("{base}/{path}");
+      Ok(result)
     }
-
-    if !is_readme && let Some(current_file) = current_file {
-      let (path, _file) = current_file
-        .specifier
-        .path()
-        .rsplit_once('/')
-        .unwrap_or((current_file.specifier.path(), ""));
-      return format!("{base}{path}/{url}");
-    }
-
-    format!("{base}/{url}")
-  })
+    _ => Err(DocNodeCacheError::UnexpectedJsonShape),
+  }
 }
 
-/// Renders a standalone markdown file from a package (e.g. a non-README `.md`
-/// opened in the source view) to sanitized HTML, without building a full
-/// `GenerateCtx`. `path` is the package-root-relative path of the file (with
-/// a leading slash); relative links resolve against the file's directory, the
-/// same way README links do.
-pub fn render_markdown_file(
-  md: &str,
+/// Download doc nodes from GCS for a package version, trying v2
+/// (msgpack+gzip) first and falling back to v1 (JSON) with migration.
+/// Used by the diff endpoint which needs raw ParseOutput.
+pub async fn download_doc_nodes(
   scope: &ScopeName,
   package: &PackageName,
   version: &Version,
-  github_repository: Option<GithubRepository>,
-  path: &str,
-) -> Option<String> {
-  let renderer = deno_doc::html::comrak::create_renderer(
-    Some(Arc::new(super::tree_sitter::ComrakAdapter::new(false))),
-    Some(Box::new(match_node_value)),
-    Some(Box::new(|html| AMMONIA.clean(&html).to_string())),
-  );
-
-  let url_rewriter = get_url_rewriter(
-    format!("/@{scope}/{package}/{version}"),
-    github_repository,
-    false,
-  );
-
-  let specifier = ModuleSpecifier::parse(&format!("file://{path}")).ok()?;
-  let short_path = ShortPath::new(specifier, None, None, None);
-
-  let anchorizer: deno_doc::html::jsdoc::Anchorizer = {
-    let seen = std::sync::Mutex::new(std::collections::HashMap::new());
-    Arc::new(move |content: String, level: u8| {
-      let mut slug = String::new();
-      for ch in content.chars() {
-        if ch.is_alphanumeric() {
-          slug.extend(ch.to_lowercase());
-        } else if (ch.is_whitespace() || ch == '-') && !slug.ends_with('-') {
-          slug.push('-');
-        }
-      }
-      let mut seen = seen.lock().unwrap();
-      let count = seen
-        .entry((slug.clone(), level))
-        .and_modify(|count| *count += 1)
-        .or_insert(0);
-      if *count > 0 {
-        format!("{slug}-{count}")
-      } else {
-        slug
-      }
-    })
-  };
-
-  CURRENT_FILE.set(Some(Some(short_path)));
-  URL_REWRITER.set(Some(url_rewriter));
-
-  let rendered = renderer(md, false, None, anchorizer);
-
-  CURRENT_FILE.set(None);
-  URL_REWRITER.set(None);
-
-  rendered
+  bucket: &shared::s3::Buckets,
+) -> Result<Option<ParseOutput>, DocNodeCacheError> {
+  Ok(
+    download_doc_nodes_sized(scope, package, version, bucket)
+      .await?
+      .map(|(doc_nodes, _)| doc_nodes),
+  )
 }
 
-/// Maximum number of symbol rows rendered in module symbol listings (the
-/// per-entrypoint overview and the "all symbols" page). Namespace-heavy
-/// packages (e.g. zod, which re-exports its whole API under several
-/// namespaces) can otherwise produce listings with tens of thousands of rows,
-/// blowing the docs response past Cloud Run's 32 MiB response cap.
-const SYMBOL_LISTING_LIMIT: usize = 2048;
+/// Like [`download_doc_nodes`], but also reports how many stored bytes the
+/// nodes were decoded from. [`GenerateCtxCache`] weighs its entries by that
+/// figure, so it needs the size the download already knows.
+async fn download_doc_nodes_sized(
+  scope: &ScopeName,
+  package: &PackageName,
+  version: &Version,
+  bucket: &shared::s3::Buckets,
+) -> Result<Option<(ParseOutput, usize)>, DocNodeCacheError> {
+  let v2_path = shared::s3_paths::docs_v2_path(scope, package, version);
+  let v2_result = bucket
+    .docs_bucket
+    .download(Arc::from(v2_path.as_str()))
+    .await?;
+
+  if let Some(bytes) = v2_result {
+    return Ok(Some((deserialize_doc_nodes_v2(&bytes)?, bytes.len())));
+  }
+
+  let v1_path = shared::s3_paths::docs_v1_path(scope, package, version);
+  let v1_result = bucket
+    .docs_bucket
+    .download(Arc::from(v1_path.as_str()))
+    .await?;
+
+  let Some(bytes) = v1_result else {
+    return Ok(None);
+  };
+
+  let doc_nodes = deserialize_doc_nodes_v1(&bytes)?;
+  let stored_bytes = bytes.len();
+
+  // Best-effort migration: re-upload as v2 and delete v1. Failures are
+  // logged but not propagated — the doc nodes were already read successfully.
+  let v2_bytes = serialize_doc_nodes(&doc_nodes);
+  match bucket
+    .docs_bucket
+    .upload(
+      Arc::from(v2_path.as_str()),
+      shared::s3::UploadTaskBody::Bytes(v2_bytes),
+      shared::s3::S3UploadOptions {
+        content_type: Some("application/x-msgpack".into()),
+        cache_control: Some(shared::s3::CACHE_CONTROL_IMMUTABLE.into()),
+        gzip_encoded: true,
+      },
+    )
+    .await
+  {
+    Ok(()) => {
+      if let Err(err) = bucket
+        .docs_bucket
+        .delete_file(Arc::from(v1_path.as_str()))
+        .await
+      {
+        tracing::warn!("failed to delete v1 doc nodes after migration: {err}");
+      }
+    }
+    Err(err) => {
+      tracing::warn!("failed to upload v2 doc nodes during migration: {err}");
+    }
+  }
+
+  Ok(Some((doc_nodes, stored_bytes)))
+}
 
 #[allow(clippy::too_many_arguments)]
 #[instrument(
@@ -942,68 +521,44 @@ pub fn get_generate_ctx(
     },
   );
 
-  GenerateCtx::new(
-    deno_doc::html::GenerateOptions {
-      package_name: Some(package_name),
-      main_entrypoint,
-      href_resolver: Arc::new(DocResolver {
-        scope: scope.clone(),
-        package: package.clone(),
-        version: version.clone(),
-        version_is_latest,
-        registry_url,
-        deno_types: DENO_TYPES
-          .get_or_init(|| {
-            Arc::new(
-              serde_json::from_str(include_str!("./docs/deno_types.json"))
-                .unwrap(),
-            )
-          })
-          .clone(),
-        web_types: WEB_TYPES
-          .get_or_init(|| {
-            Arc::new(
-              serde_json::from_str::<Vec<WebType>>(include_str!(
-                "./docs/web_builtins.json"
-              ))
-              .unwrap()
-              .into_iter()
-              .map(|web_type| (web_type.id, web_type.docs))
-              .collect(),
-            )
-          })
-          .clone(),
-        doc_base,
-        full: diff.as_ref().map(|diff| diff.1),
-      }),
-      usage_composer: diff.is_none().then(|| {
-        Arc::new(DocUsageComposer {
-          runtime_compat,
-          scope,
-          package,
-          version,
-          version_is_latest,
-          has_create_export,
-        }) as Arc<dyn deno_doc::html::UsageComposer>
-      }),
-      rewrite_map: Some(rewrite_map),
-      category_docs: None,
-      disable_search: false,
-      symbol_redirect_map: None,
-      default_symbol_map: None,
-      markdown_renderer,
-      markdown_stripper: Arc::new(deno_doc::html::comrak::strip),
-      head_inject: None,
-      id_prefix: None,
-      diff_only: diff.as_ref().map(|diff| !diff.1).unwrap_or_default(),
-      symbol_listing_limit: Some(SYMBOL_LISTING_LIMIT),
-    },
-    None,
-    deno_doc::html::FileMode::Normal,
+  let deno_types = DENO_TYPES
+    .get_or_init(|| {
+      Arc::new(
+        serde_json::from_str(include_str!("./docs/deno_types.json")).unwrap(),
+      )
+    })
+    .clone();
+  let web_types = WEB_TYPES
+    .get_or_init(|| {
+      Arc::new(
+        serde_json::from_str::<Vec<shared::docs::WebType>>(include_str!(
+          "./docs/web_builtins.json"
+        ))
+        .unwrap()
+        .into_iter()
+        .map(|web_type| (web_type.id, web_type.docs))
+        .collect(),
+      )
+    })
+    .clone();
+
+  shared::docs::get_generate_ctx(
+    doc_base,
     documents_by_url,
-    diff.map(|diff| diff.0),
+    main_entrypoint,
+    rewrite_map,
+    scope,
+    package,
+    version,
+    version_is_latest,
+    runtime_compat,
+    has_create_export,
+    registry_url,
+    diff,
+    deno_types,
+    web_types,
+    markdown_renderer,
   )
-  .unwrap()
 }
 
 #[instrument(name = "render_docs_html", skip(ctx, readme), err)]
@@ -1493,298 +1048,270 @@ fn generate_symbol_page(
   })
 }
 
-struct DocResolver {
-  scope: ScopeName,
-  package: PackageName,
-  version: Version,
-  version_is_latest: bool,
-  registry_url: String,
-  deno_types: Arc<std::collections::HashSet<Vec<String>>>,
-  web_types: Arc<std::collections::HashMap<Vec<String>, String>>,
-  doc_base: String,
-  full: Option<bool>,
+/// Renders a standalone markdown file from a package (e.g. a non-README `.md`
+/// opened in the source view) to sanitized HTML, without building a full
+/// `GenerateCtx`. `path` is the package-root-relative path of the file (with
+/// a leading slash); relative links resolve against the file's directory, the
+/// same way README links do.
+pub fn render_markdown_file(
+  md: &str,
+  scope: &ScopeName,
+  package: &PackageName,
+  version: &Version,
+  github_repository: Option<GithubRepository>,
+  path: &str,
+) -> Option<String> {
+  let renderer = deno_doc::html::comrak::create_renderer(
+    Some(Arc::new(super::tree_sitter::ComrakAdapter::new(false))),
+    Some(Box::new(match_node_value)),
+    Some(Box::new(|html| AMMONIA.clean(&html).to_string())),
+  );
+
+  let url_rewriter = get_url_rewriter(
+    format!("/@{scope}/{package}/{version}"),
+    github_repository,
+    false,
+  );
+
+  let specifier = ModuleSpecifier::parse(&format!("file://{path}")).ok()?;
+  let short_path = ShortPath::new(specifier, None, None, None);
+
+  let anchorizer: deno_doc::html::jsdoc::Anchorizer = {
+    let seen = std::sync::Mutex::new(std::collections::HashMap::new());
+    Arc::new(move |content: String, level: u8| {
+      let mut slug = String::new();
+      for ch in content.chars() {
+        if ch.is_alphanumeric() {
+          slug.extend(ch.to_lowercase());
+        } else if (ch.is_whitespace() || ch == '-') && !slug.ends_with('-') {
+          slug.push('-');
+        }
+      }
+      let mut seen = seen.lock().unwrap();
+      let count = seen
+        .entry((slug.clone(), level))
+        .and_modify(|count| *count += 1)
+        .or_insert(0);
+      if *count > 0 {
+        format!("{slug}-{count}")
+      } else {
+        slug
+      }
+    })
+  };
+
+  CURRENT_FILE.set(Some(Some(short_path)));
+  URL_REWRITER.set(Some(url_rewriter));
+
+  let rendered = renderer(md, false, None, anchorizer);
+
+  CURRENT_FILE.set(None);
+  URL_REWRITER.set(None);
+
+  rendered
 }
 
-impl HrefResolver for DocResolver {
-  fn resolve_path(
-    &self,
-    _current: UrlResolveKind,
-    target: UrlResolveKind,
-  ) -> String {
-    let package_base = format!(
-      "/@{}/{}{}",
-      self.scope,
-      self.package,
-      if !self.version_is_latest {
-        format!("@{}", self.version)
-      } else {
-        String::new()
-      }
-    );
-    let doc_base = format!("{package_base}{}", self.doc_base);
+fn get_url_rewriter(
+  base: String,
+  github_repository: Option<GithubRepository>,
+  is_readme: bool,
+) -> URLRewriter {
+  Arc::new(move |current_file, url| {
+    // Anchors and protocol-relative URLs (`//host/...`) are left untouched.
+    if url.starts_with('#') || url.starts_with("//") {
+      return url.to_string();
+    }
 
-    let path = match target {
-      UrlResolveKind::Root => package_base,
-      UrlResolveKind::AllSymbols => format!("{doc_base}/all_symbols"),
-      UrlResolveKind::Symbol { file, symbol } => {
+    let base = if let Some(github_repository) = &github_repository {
+      if url.rsplit_once('.').is_some_and(|(_path, extension)| {
+        matches!(
+          extension,
+          "png"
+            | "jpg"
+            | "jpeg"
+            | "svg"
+            | "webm"
+            | "webp"
+            | "mp4"
+            | "mov"
+            | "avif"
+            | "gif"
+            | "ico"
+        )
+      }) {
         format!(
-          "{doc_base}{}/~/{symbol}",
-          if file.is_main {
-            String::new()
-          } else {
-            format!("/{}", file.path)
-          }
+          "https://raw.githubusercontent.com/{}/{}/HEAD",
+          github_repository.owner, github_repository.name
+        )
+      } else {
+        format!(
+          "https://github.com/{}/{}/blob/HEAD",
+          github_repository.owner, github_repository.name
         )
       }
-      UrlResolveKind::File { file } => format!(
-        "{doc_base}{}/",
-        if file.is_main {
-          String::new()
-        } else {
-          format!("/{}", file.path)
-        }
-      ),
-      UrlResolveKind::Category { .. } => unreachable!(),
+    } else {
+      base.clone()
     };
 
-    if self.full.is_some_and(std::convert::identity) {
-      path + "?full"
-    } else {
-      path
+    // Root-relative URLs (a single leading `/`) resolve against the
+    // repository root rather than the current file's directory. Without this
+    // they would be served relative to jsr.io and 404 (see #768).
+    if let Some(path) = url.strip_prefix('/') {
+      return format!("{base}/{path}");
     }
-  }
 
-  fn resolve_global_symbol(&self, symbol: &[String]) -> Option<String> {
-    if let Some(mdn_docs) = self.web_types.get(symbol) {
-      Some(mdn_docs.to_owned())
-    } else if self.deno_types.contains(symbol) {
-      Some(format!(
-        "https://deno.land/api?unstable&s={}",
-        symbol.join(".")
-      ))
-    } else {
-      None
+    if !is_readme && let Some(current_file) = current_file {
+      let (path, _file) = current_file
+        .specifier
+        .path()
+        .rsplit_once('/')
+        .unwrap_or((current_file.specifier.path(), ""));
+      return format!("{base}{path}/{url}");
     }
-  }
 
-  fn resolve_import_href(
-    &self,
-    symbol: &[String],
-    src: &str,
-  ) -> Option<String> {
-    if let Ok(url) = Url::parse(src) {
-      match url.scheme() {
-        "node" => Some(format!("https://nodejs.org/api/{}.html", url.path())),
-        "bun" | "virtual" | "cloudflare" => None,
-        "npm" => {
-          let npm_package_req =
-            deno_semver::npm::NpmPackageReqReference::from_str(src).ok()?;
-          let req = npm_package_req.req();
-          Some(format!(
-            "https://www.npmjs.com/package/{}{}",
-            req.name,
-            match req.version_req.inner() {
-              RangeSetOrTag::RangeSet(_) => String::new(),
-              RangeSetOrTag::Tag(tag) => format!("/v/{tag}"),
-            },
-          ))
-        }
-        "http" | "https" if src.starts_with(&self.registry_url) => {
-          let path_parts = url.path().splitn(4, '/').collect::<Vec<_>>();
-
-          Some(format!(
-            "/{}/{}@{}",
-            path_parts[1], path_parts[2], path_parts[3]
-          ))
-        }
-        "jsr" => {
-          let symbol = symbol.join(".");
-          let jsr_package_req =
-            deno_semver::jsr::JsrPackageReqReference::from_str(src).ok()?;
-          let req = jsr_package_req.req();
-
-          let mut version_path = Cow::Borrowed("");
-          if let Some(range) = req.version_req.range()
-            && let Ok(version) = Version::new(&range.to_string())
-          {
-            // If using a specific version, link to it (e.g. prerelease)
-            version_path = Cow::Owned(format!("@{}", version));
-          }
-
-          let mut internal_path = Cow::Borrowed("");
-          if let Some(path) = jsr_package_req.sub_path() {
-            internal_path = Cow::Owned(format!("/{path}"));
-          }
-
-          Some(format!(
-            "/{}{version_path}/doc{internal_path}/~/{symbol}",
-            req.name
-          ))
-        }
-        _ => None,
-      }
-    } else {
-      None
-    }
-  }
-
-  fn resolve_source(&self, location: &Location) -> Option<String> {
-    let url = Url::parse(&location.filename).ok()?;
-    Some(format!(
-      "/@{}/{}/{}{}#L{}",
-      self.scope,
-      self.package,
-      self.version,
-      url.path(),
-      location.line,
-    ))
-  }
-
-  fn resolve_external_jsdoc_module(
-    &self,
-    _module: &str,
-    _symbol: Option<&str>,
-  ) -> Option<(String, String)> {
-    None
-  }
+    format!("{base}/{url}")
+  })
 }
 
-struct DocUsageComposer {
-  runtime_compat: RuntimeCompat,
-  scope: ScopeName,
-  package: PackageName,
-  version: Version,
-  version_is_latest: bool,
-  /// Whether the package has a `./create` export. `deno create @scope/pkg`
-  /// runs `jsr:@scope/pkg/create`, so that export is exactly what makes the
-  /// command work (jsr-io/jsr#1358).
-  has_create_export: bool,
+/// Total weight the cache may hold, measured in the *stored* (gzipped
+/// MessagePack) size of the doc nodes each context was built from.
+///
+/// This replaced a flat 64-entry capacity. Counting entries meant 64 tiny
+/// packages evicted each other exactly as readily as 64 enormous ones, while
+/// the memory actually held was bounded by nothing at all. Weighing by stored
+/// size bounds memory instead, which both caps the worst case and lets far more
+/// of the long tail stay resident — a production sample saw 534 distinct
+/// packages across 2000 docs requests against those 64 slots.
+///
+/// Stored size is a proxy: the built context is roughly an order of magnitude
+/// larger in memory than the bytes it was decoded from. The budget is set
+/// conservatively for that reason, and pinning the real ratio needs cache
+/// instrumentation that does not exist yet.
+const MAX_CACHED_DOC_NODE_BYTES: u64 = 16 * 1024 * 1024;
+
+/// Release contexts that go unread for this long, so a burst across many
+/// packages does not pin memory for the rest of the process's life.
+const CACHED_CTX_TIME_TO_IDLE: Duration = Duration::from_secs(30 * 60);
+
+#[derive(Clone)]
+struct CachedCtx {
+  ctx: Arc<GenerateCtx>,
+  /// Stored size of the doc nodes this was built from; the cache weight.
+  stored_bytes: u32,
 }
 
-impl deno_doc::html::UsageComposer for DocUsageComposer {
-  fn is_single_mode(&self) -> bool {
-    false
+/// Loader failure. `Absent` never reaches a caller — returning it as an error
+/// is how a package with no doc nodes escapes `try_get_with` without moka
+/// caching the miss.
+#[derive(Debug, thiserror::Error)]
+enum CtxLoadError {
+  #[error(transparent)]
+  DocNodes(#[from] DocNodeCacheError),
+  #[error("no doc nodes stored for this version")]
+  Absent,
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error(transparent)]
+pub struct GenerateCtxCacheError(Arc<CtxLoadError>);
+
+/// Cache for fully-built GenerateCtx. Keyed by
+/// `scope/package/version/is_latest/has_readme/runtime_compat` so concurrent
+/// requests for the same doc page share a single GenerateCtx without
+/// rebuilding.
+#[derive(Clone)]
+pub struct GenerateCtxCache {
+  cache: moka::future::Cache<String, CachedCtx>,
+}
+
+impl GenerateCtxCache {
+  pub fn new() -> Self {
+    Self {
+      cache: moka::future::Cache::builder()
+        .max_capacity(MAX_CACHED_DOC_NODE_BYTES)
+        .weigher(|_key, cached: &CachedCtx| cached.stored_bytes)
+        .time_to_idle(CACHED_CTX_TIME_TO_IDLE)
+        .build(),
+    }
   }
 
-  #[allow(clippy::nonminimal_bool)]
-  fn compose(
+  #[allow(clippy::too_many_arguments)]
+  pub async fn get(
     &self,
-    current_resolve: UrlResolveKind,
-    usage_to_md: deno_doc::html::UsageToMd,
-  ) -> IndexMap<UsageComposerEntry, String> {
-    let mut map = IndexMap::new();
-    // When the user is looking at a pinned, non-latest version, the add
-    // commands install exactly that version instead of the latest one.
-    let scoped_name = if self.version_is_latest {
-      format!("@{}/{}", self.scope, self.package)
-    } else {
-      format!("@{}/{}@{}", self.scope, self.package, self.version)
-    };
-
-    let (is_main, path) = current_resolve
-      .get_file()
-      .map(|short_path| (short_path.is_main, &*short_path.path))
-      .unwrap_or((true, ""));
-
-    let subpath = if is_main {
-      String::new()
-    } else {
-      format!("/{path}")
-    };
-
-    let url = format!("@{}/{}{}", self.scope, self.package, subpath);
-
-    // A direct jsr specifier always carries a version constraint so the
-    // snippet passes Deno's no-unversioned-import lint rule: a caret range on
-    // the latest version (matching what `deno add` writes), and the exact
-    // version when a non-latest version is pinned.
-    let jsr_url = format!(
-      "@{}/{}@{}{}{}",
-      self.scope,
-      self.package,
-      if self.version_is_latest { "^" } else { "" },
-      self.version,
-      subpath
+    scope: &ScopeName,
+    package: &PackageName,
+    version: &Version,
+    version_is_latest: bool,
+    has_readme: bool,
+    exports: &shared::models::ExportsMap,
+    github_repository: Option<GithubRepository>,
+    runtime_compat: RuntimeCompat,
+    registry_url: &str,
+    bucket: &shared::s3::Buckets,
+  ) -> Result<Option<Arc<GenerateCtx>>, GenerateCtxCacheError> {
+    // runtime_compat is part of the key because the usage instructions baked
+    // into the GenerateCtx depend on it, and it is editable in the package
+    // settings.
+    let key = format!(
+      "@{scope}/{package}/{version}/{version_is_latest}/{has_readme}/{:?}",
+      runtime_compat
     );
 
-    let import = format!(
-      "\nImport symbol\n{}",
-      usage_to_md(&url, Some(self.package.as_str()))
-    );
+    // `try_get_with` single-flights the miss: concurrent requests for the same
+    // cold key wait on one download and one context build instead of each
+    // paying both. That matters more here than for a typical cache, because
+    // building a context allocates the 10-50 MB the render permit exists to
+    // bound, so a stampede on a popular cold package multiplied real memory as
+    // well as CPU.
+    let loaded = self
+      .cache
+      .try_get_with(key, async {
+        let Some((doc_nodes, stored_bytes)) =
+          download_doc_nodes_sized(scope, package, version, bucket).await?
+        else {
+          return Err(CtxLoadError::Absent);
+        };
 
-    if !self.runtime_compat.deno.is_some_and(|compat| !compat) {
-      // Packages exporting `./create` are project scaffolds, so lead with the
-      // command that actually runs them.
-      let scaffold = if self.has_create_export {
-        format!("Scaffold a project\n```\ndeno create {scoped_name}\n```\n")
-      } else {
-        String::new()
-      };
+        let docs_info = get_docs_info(exports, None);
+        let ctx = get_generate_ctx(
+          "/doc".to_string(),
+          doc_nodes,
+          docs_info.main_entrypoint,
+          docs_info.rewrite_map,
+          scope.clone(),
+          package.clone(),
+          version.clone(),
+          version_is_latest,
+          github_repository,
+          has_readme,
+          runtime_compat,
+          has_create_export(exports),
+          registry_url.to_string(),
+          None,
+        );
 
-      map.insert(
-        UsageComposerEntry {
-          name: "Deno".to_string(),
-          icon: Some("/logos/deno.svg".into()),
-        },
-        format!("{scaffold}Add Package\n```\ndeno add jsr:{scoped_name}\n```{import}\n<div class='or-bar'>or</div>\n\nImport directly with a jsr specifier\n{}\n", usage_to_md(&format!("jsr:{jsr_url}"), Some(self.package.as_str()))),
-      );
+        Ok(CachedCtx {
+          ctx: Arc::new(ctx),
+          stored_bytes: stored_bytes.try_into().unwrap_or(u32::MAX),
+        })
+      })
+      .await;
+
+    match loaded {
+      Ok(cached) => Ok(Some(cached.ctx)),
+      Err(err) if matches!(&*err, CtxLoadError::Absent) => Ok(None),
+      Err(err) => Err(GenerateCtxCacheError(err)),
     }
-
-    // Packages that only target browsers or Cloudflare Workers are still
-    // installed through npm-ecosystem package managers (via a bundler), so an
-    // explicit browser/workerd "yes" shows these tabs even when node is "no".
-    if !self.runtime_compat.node.is_some_and(|compat| !compat)
-      || self.runtime_compat.browser.is_some_and(|compat| compat)
-      || self.runtime_compat.workerd.is_some_and(|compat| compat)
-    {
-      map.insert(
-        UsageComposerEntry {
-          name: "pnpm".to_string(),
-          icon: Some("/logos/pnpm_textless.svg".into()),
-        },
-        format!("Add Package\n```\npnpm i jsr:{scoped_name}\n```\n<div class='or-bar'>or (using pnpm 10.8 or older)</div>\n\n```\npnpm dlx jsr add {scoped_name}\n```{import}"),
-      );
-      map.insert(
-        UsageComposerEntry {
-          name: "Yarn".to_string(),
-          icon: Some("/logos/yarn_textless.svg".into()),
-        },
-        format!("Add Package\n```\nyarn add jsr:{scoped_name}\n```\n<div class='or-bar'>or (using Yarn 4.8 or older)</div>\n\n```\nyarn dlx jsr add {scoped_name}\n```{import}"),
-      );
-      map.insert(
-        UsageComposerEntry {
-          name: "vlt".to_string(),
-          icon: Some("/logos/vlt.svg".into()),
-        },
-        format!("Add Package\n```\nvlt install jsr:{scoped_name}\n```{import}"),
-      );
-      map.insert(
-        UsageComposerEntry {
-          name: "npm".to_string(),
-          icon: Some("/logos/npm_textless.svg".into()),
-        },
-        format!("Add Package\n```\nnpx jsr add {scoped_name}\n```{import}"),
-      );
-    }
-
-    if !self.runtime_compat.bun.is_some_and(|compat| !compat) {
-      map.insert(
-        UsageComposerEntry {
-          name: "Bun".to_string(),
-          icon: Some("/logos/bun.svg".into()),
-        },
-        format!("Add Package\n```\nbunx jsr add {scoped_name}\n```{import}"),
-      );
-    }
-
-    map
   }
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
+  use deno_ast::ModuleSpecifier;
   use deno_doc::html::ShortPath;
+  use shared::ids::{PackageName, ScopeName, Version};
+  use shared::models::GithubRepository;
 
   #[test]
   fn one_module_under_the_per_module_limit_is_allowed() {
@@ -1866,7 +1393,7 @@ mod tests {
       None,
       "/docs/guide.md",
     )
-    .unwrap();
+      .unwrap();
     assert!(
       html.contains(r#"href="/@scope/pkg/1.0.0/docs/./other.md""#),
       "{html}"
@@ -1902,188 +1429,6 @@ mod tests {
     assert!(html.contains(r#"id="fn-1""#), "{html}");
     assert!(html.contains(r##"href="#fnref-1""##), "{html}");
     assert!(html.contains(r#"id="fnref-1""#), "{html}");
-  }
-
-  #[test]
-  fn url_resolver_test() {
-    let resolver = DocResolver {
-      scope: ScopeName::new("foo".to_string()).unwrap(),
-      package: PackageName::new("bar".to_string()).unwrap(),
-      version: Version::new("0.0.1").unwrap(),
-      version_is_latest: false,
-      registry_url: "".to_string(),
-      deno_types: Default::default(),
-      web_types: Default::default(),
-      doc_base: "/doc".to_string(),
-      full: None,
-    };
-
-    let specifier = ModuleSpecifier::parse("file:///mod.ts").unwrap();
-    let short_path = ShortPath::new(
-      specifier.clone(),
-      None,
-      Some(&IndexMap::from([(specifier, "mod".to_string())])),
-      None,
-    );
-
-    {
-      assert_eq!(
-        resolver.resolve_path(UrlResolveKind::Root, UrlResolveKind::Root),
-        "/@foo/bar@0.0.1"
-      );
-      assert_eq!(
-        resolver.resolve_path(UrlResolveKind::Root, UrlResolveKind::AllSymbols),
-        "/@foo/bar@0.0.1/doc/all_symbols"
-      );
-      assert_eq!(
-        resolver.resolve_path(
-          UrlResolveKind::Root,
-          UrlResolveKind::File { file: &short_path }
-        ),
-        "/@foo/bar@0.0.1/doc/mod/"
-      );
-      assert_eq!(
-        resolver.resolve_path(
-          UrlResolveKind::Root,
-          UrlResolveKind::Symbol {
-            file: &short_path,
-            symbol: "bar",
-          }
-        ),
-        "/@foo/bar@0.0.1/doc/mod/~/bar"
-      );
-    }
-
-    {
-      assert_eq!(
-        resolver.resolve_path(UrlResolveKind::AllSymbols, UrlResolveKind::Root),
-        "/@foo/bar@0.0.1"
-      );
-      assert_eq!(
-        resolver
-          .resolve_path(UrlResolveKind::AllSymbols, UrlResolveKind::AllSymbols),
-        "/@foo/bar@0.0.1/doc/all_symbols"
-      );
-      assert_eq!(
-        resolver.resolve_path(
-          UrlResolveKind::AllSymbols,
-          UrlResolveKind::File { file: &short_path }
-        ),
-        "/@foo/bar@0.0.1/doc/mod/"
-      );
-      assert_eq!(
-        resolver.resolve_path(
-          UrlResolveKind::AllSymbols,
-          UrlResolveKind::Symbol {
-            file: &short_path,
-            symbol: "bar",
-          }
-        ),
-        "/@foo/bar@0.0.1/doc/mod/~/bar"
-      );
-    }
-
-    {
-      assert_eq!(
-        resolver.resolve_path(
-          UrlResolveKind::File { file: &short_path },
-          UrlResolveKind::Root
-        ),
-        "/@foo/bar@0.0.1"
-      );
-      assert_eq!(
-        resolver.resolve_path(
-          UrlResolveKind::File { file: &short_path },
-          UrlResolveKind::AllSymbols
-        ),
-        "/@foo/bar@0.0.1/doc/all_symbols"
-      );
-      assert_eq!(
-        resolver.resolve_path(
-          UrlResolveKind::File { file: &short_path },
-          UrlResolveKind::File { file: &short_path }
-        ),
-        "/@foo/bar@0.0.1/doc/mod/"
-      );
-      assert_eq!(
-        resolver.resolve_path(
-          UrlResolveKind::File { file: &short_path },
-          UrlResolveKind::Symbol {
-            file: &short_path,
-            symbol: "bar",
-          }
-        ),
-        "/@foo/bar@0.0.1/doc/mod/~/bar"
-      );
-    }
-
-    {
-      assert_eq!(
-        resolver.resolve_path(
-          UrlResolveKind::Symbol {
-            file: &short_path,
-            symbol: "bar"
-          },
-          UrlResolveKind::Root
-        ),
-        "/@foo/bar@0.0.1"
-      );
-      assert_eq!(
-        resolver.resolve_path(
-          UrlResolveKind::Symbol {
-            file: &short_path,
-            symbol: "bar"
-          },
-          UrlResolveKind::AllSymbols
-        ),
-        "/@foo/bar@0.0.1/doc/all_symbols"
-      );
-      assert_eq!(
-        resolver.resolve_path(
-          UrlResolveKind::Symbol {
-            file: &short_path,
-            symbol: "bar"
-          },
-          UrlResolveKind::File { file: &short_path }
-        ),
-        "/@foo/bar@0.0.1/doc/mod/"
-      );
-      assert_eq!(
-        resolver.resolve_path(
-          UrlResolveKind::Symbol {
-            file: &short_path,
-            symbol: "bar"
-          },
-          UrlResolveKind::Symbol {
-            file: &short_path,
-            symbol: "bar",
-          }
-        ),
-        "/@foo/bar@0.0.1/doc/mod/~/bar"
-      );
-    }
-
-    {
-      assert_eq!(
-        resolver
-          .resolve_import_href(
-            &["Expression".to_string()],
-            "jsr:@babel/types@0.0.0-beta.1"
-          )
-          .as_deref(),
-        Some("/@babel/types@0.0.0-beta.1/doc/~/Expression")
-      );
-
-      assert_eq!(
-        resolver
-          .resolve_import_href(
-            &["version".to_string()],
-            "jsr:@babel/core/package.json"
-          )
-          .as_deref(),
-        Some("/@babel/core/doc/package.json/~/version")
-      );
-    }
   }
 
   #[test]
@@ -2185,72 +1530,5 @@ mod tests {
     );
     // Protocol-relative URLs are left untouched.
     assert_eq!(rewriter(None, "//example.com/x"), "//example.com/x");
-  }
-
-  fn compose_deno_usage(has_create_export: bool) -> String {
-    use deno_doc::html::UsageComposer;
-
-    let composer = DocUsageComposer {
-      runtime_compat: RuntimeCompat {
-        browser: None,
-        deno: None,
-        node: None,
-        workerd: None,
-        bun: None,
-      },
-      scope: ScopeName::new("foo".to_string()).unwrap(),
-      package: PackageName::new("bar".to_string()).unwrap(),
-      version: Version::new("1.0.0").unwrap(),
-      version_is_latest: true,
-      has_create_export,
-    };
-
-    let usage_to_md = |url: &str, _name: Option<&str>| format!("`{url}`");
-    let usages = composer.compose(UrlResolveKind::Root, &usage_to_md);
-
-    usages
-      .into_iter()
-      .find(|(entry, _)| entry.name == "Deno")
-      .unwrap()
-      .1
-  }
-
-  #[test]
-  fn create_export_adds_scaffold_command() {
-    let with_create = compose_deno_usage(true);
-    assert!(
-      with_create.contains("deno create @foo/bar"),
-      "{with_create}"
-    );
-    // the scaffold block leads, but installing is still offered
-    assert!(
-      with_create.find("deno create @foo/bar").unwrap()
-        < with_create.find("deno add jsr:@foo/bar").unwrap(),
-      "{with_create}"
-    );
-
-    // a package without the export must not advertise a command that fails
-    let without_create = compose_deno_usage(false);
-    assert!(!without_create.contains("deno create"), "{without_create}");
-    assert!(
-      without_create.contains("deno add jsr:@foo/bar"),
-      "{without_create}"
-    );
-  }
-
-  #[test]
-  fn has_create_export_checks_the_export_key() {
-    let with_create = crate::db::ExportsMap::new(IndexMap::from([
-      (".".to_string(), "./mod.ts".to_string()),
-      ("./create".to_string(), "./create.ts".to_string()),
-    ]));
-    assert!(has_create_export(&with_create));
-
-    // a `create` *file* under some other export must not count
-    let without_create = crate::db::ExportsMap::new(IndexMap::from([
-      (".".to_string(), "./mod.ts".to_string()),
-      ("./cli".to_string(), "./create.ts".to_string()),
-    ]));
-    assert!(!has_create_export(&without_create));
   }
 }

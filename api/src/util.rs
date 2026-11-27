@@ -9,12 +9,8 @@ use hyper::StatusCode;
 use hyper::header;
 use hyper::header::COOKIE;
 use hyper::http::HeaderName;
-use serde::Serialize;
-use serde::de::DeserializeOwned;
 use std::future::Future;
-use std::pin::Pin;
 use std::sync::Arc;
-use std::sync::LazyLock;
 use tracing::Span;
 use tracing::error;
 use tracing::field;
@@ -23,75 +19,18 @@ use url::Url;
 use uuid::Uuid;
 
 use crate::api::ApiError;
-use crate::db::Database;
 use crate::external::github;
 use crate::external::oidc::OidcProviderKind;
 use crate::iam::IamInfo;
 use crate::iam::ReqIamExt as _;
-use crate::ids::PackageName;
-use crate::ids::ScopeName;
-use crate::ids::Version;
-use crate::router::RequestExt;
+use shared::db::Database;
+use shared::errors::SharedError;
+use shared::ids::PackageName;
+use shared::ids::ScopeName;
+use shared::ids::Version;
+use shared::router::RequestExt;
 
-pub const USER_AGENT: &str = "JSR";
-
-/// Sends requests through the runtime's `fetch` on the worker, which can't open
-/// sockets to Cloudflare's IP ranges.
-pub trait Fetch {
-  fn fetch(
-    self,
-  ) -> impl Future<Output = reqwest::Result<reqwest::Response>> + Send;
-}
-
-impl Fetch for reqwest::RequestBuilder {
-  async fn fetch(self) -> reqwest::Result<reqwest::Response> {
-    #[cfg(target_arch = "wasm32")]
-    return Ok(crate::worker_js::fetch(self.build()?, true, true).await);
-    #[cfg(not(target_arch = "wasm32"))]
-    self.send().await
-  }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub async fn spawn_blocking<T: Send + 'static>(
-  f: impl FnOnce() -> T + Send + 'static,
-) -> Result<T, tokio::task::JoinError> {
-  tokio::task::spawn_blocking(f).await
-}
-
-#[cfg(target_arch = "wasm32")]
-pub async fn spawn_blocking<Fut: Future>(
-  f: impl FnOnce() -> Fut,
-) -> Result<Fut::Output, tokio::task::JoinError> {
-  Ok(crate::worker_js::AssertSend(f()).await)
-}
-
-pub fn spawn_background<F>(fut: F)
-where
-  F: Future + Send + 'static,
-  F::Output: Send + 'static,
-{
-  #[cfg(target_arch = "wasm32")]
-  crate::worker_js::spawn_background(async move {
-    fut.await;
-  });
-  #[cfg(not(target_arch = "wasm32"))]
-  tokio::spawn(fut);
-}
-
-/// A shared `reqwest::Client` for all outbound HTTP requests. Reusing a single
-/// client avoids per-request connection pool and TLS session allocation.
-pub fn shared_http_client() -> &'static reqwest::Client {
-  static CLIENT: std::sync::OnceLock<reqwest::Client> =
-    std::sync::OnceLock::new();
-  CLIENT.get_or_init(|| {
-    reqwest::Client::builder()
-      .user_agent(USER_AGENT)
-      .connect_timeout(std::time::Duration::from_secs(10))
-      .build()
-      .expect("failed to build shared reqwest client")
-  })
-}
+pub use shared::util::*;
 
 /// The HTTP client the OAuth2 flows use to reach the providers' token and
 /// revocation endpoints, in the shape `oauth2` accepts: pass
@@ -115,7 +54,7 @@ pub async fn oauth2_http_request(
   #[cfg(target_arch = "wasm32")]
   let mut response = {
     let _ = client;
-    crate::worker_js::fetch(request.try_into()?, false, true).await
+    shared::worker_js::fetch(request.try_into()?, false, true).await
   };
   #[cfg(not(target_arch = "wasm32"))]
   let mut response = client.execute(request.try_into()?).await?;
@@ -128,9 +67,7 @@ pub async fn oauth2_http_request(
 }
 
 pub type ApiResult<D> = Result<D, ApiError>;
-
-pub type ApiHandlerFuture<D> =
-  Pin<Box<dyn Future<Output = ApiResult<D>> + Send>>;
+pub type ApiHandlerFuture<D> = HandlerFuture<D, ApiError>;
 
 pub trait RouteHandler:
   Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
@@ -148,48 +85,6 @@ impl<T> RouteHandler for T where
     + Sync
     + 'static
 {
-}
-
-/// Wrap an endpoint handler converting it's success return value into a JSON response
-///
-/// Uses [`respond_json`] under the hood, with a 200 status code.
-pub fn json<D, H, HF>(handler: H) -> impl RouteHandler
-where
-  D: Serialize,
-  H: Fn(Request<Body>) -> HF + Clone + Send + Sync + 'static,
-  HF: Future<Output = ApiResult<D>> + Send + 'static,
-{
-  move |req: Request<Body>| {
-    let fut = handler(req);
-    async move {
-      let data = fut.await?;
-      Ok::<Response<Body>, ApiError>(respond_json(&data, StatusCode::OK))
-    }
-    .boxed()
-  }
-}
-
-pub fn respond_json<V: ?Sized + Serialize>(
-  value: &V,
-  status_code: StatusCode,
-) -> Response<Body> {
-  let body = serde_json::to_string(value).unwrap();
-  create_response(status_code, "application/json", body)
-}
-
-pub fn create_response<B>(
-  status: StatusCode,
-  mime: &str, // TODO mime::Mime,
-  body: B,
-) -> Response<Body>
-where
-  B: Into<Body>,
-{
-  Response::builder()
-    .status(status)
-    .header(header::CONTENT_TYPE, mime)
-    .body(body.into())
-    .expect("expected to be able to create response")
 }
 
 /// Wrap a handler so its response is explicitly uncacheable
@@ -691,21 +586,6 @@ fn extract_token_and_sudo(
   None
 }
 
-pub async fn decode_json<T>(req: &mut Request<Body>) -> ApiResult<T>
-where
-  T: DeserializeOwned,
-{
-  let bytes = axum::body::to_bytes(std::mem::take(req.body_mut()), usize::MAX)
-    .await
-    .map_err(anyhow::Error::from)?;
-  let data = serde_json::from_slice(&bytes).map_err(|error| {
-    ApiError::MalformedRequest {
-      msg: error.to_string().into(),
-    }
-  })?;
-  Ok(data)
-}
-
 pub fn search(req: &Request<Body>) -> Option<&str> {
   req.query("query").map(|q| q.as_str())
 }
@@ -753,9 +633,12 @@ pub fn docs_queries(req: &Request<Body>) -> Result<DocsQueries<'_>, ApiError> {
     .transpose()?;
 
   if all_symbols && (entrypoint.is_some() || symbol.is_some()) {
-    return Err(ApiError::MalformedRequest {
-      msg: "Cannot specify both all_symbols and entrypoint".into(),
-    });
+    return Err(
+      SharedError::MalformedRequest {
+        msg: "Cannot specify both all_symbols and entrypoint".into(),
+      }
+      .into(),
+    );
   }
 
   Ok(DocsQueries {
@@ -882,59 +765,23 @@ impl RequestIdExt for Request<Body> {
   }
 }
 
-/// The SPDX license list. Decoding it takes ~100ms of CPU, and only
-/// publishing needs it, so it is decoded once per process, on first use: the
-/// worker, which builds the app for every request, never pays for it.
-#[derive(Clone)]
-pub struct LicenseStore(pub &'static LazyLock<askalono::Store>);
-
-impl LicenseStore {
-  /// Check if a license identifier is recognized, either as a primary key
-  /// or as an alias of another license (e.g. GPL-3.0-or-later is an alias
-  /// of GPL-3.0-only because they share the same license text).
-  pub fn is_recognized(&self, name: &str) -> bool {
-    if self.0.get_original(name).is_some() {
-      return true;
-    }
-    self.0.licenses().any(|key| {
-      self
-        .0
-        .aliases(key)
-        .is_ok_and(|aliases| aliases.iter().any(|a| a == name))
-    })
-  }
-}
-
-pub fn license_store() -> LicenseStore {
-  static CACHE: &[u8] =
-    include_bytes!(concat!(env!("OUT_DIR"), "/license-store.cache"));
-  static STORE: LazyLock<askalono::Store> =
-    LazyLock::new(|| askalono::Store::from_cache(CACHE).unwrap());
-  LicenseStore(&STORE)
-}
-
 #[cfg(test)]
 pub mod test {
   use crate::MainRouterOptions;
-  use crate::db::Database;
-  use crate::db::EphemeralDatabase;
-  use crate::db::NewGithubIdentity;
-  use crate::db::NewGitlabIdentity;
-  use crate::db::NewUser;
-  use crate::db::User;
-  use crate::errors_internal::ApiErrorStruct;
-  use crate::ids::ScopeDescription;
-  use crate::s3::BucketWithQueue;
-  use crate::s3::Buckets;
-  use crate::s3::FakeS3Tester;
-  use crate::util::LicenseStore;
-
-  static SERVERS_STARTED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
-  static LICENSE_STORE: std::sync::OnceLock<LicenseStore> =
-    std::sync::OnceLock::new();
-
-  static TEST_INSTANCE_COUNTER: std::sync::atomic::AtomicU64 =
-    std::sync::atomic::AtomicU64::new(0);
+  use bytes::Bytes;
+  use shared::db::CreatePackageResult;
+  use shared::db::CreatePublishingTaskResult;
+  use shared::db::Database;
+  use shared::errors_internal::ErrorStruct;
+  use shared::ids::PackageName;
+  use shared::ids::PackagePath;
+  use shared::ids::Version;
+  use shared::models::NewPublishingTask;
+  use shared::models::PublishingTask;
+  use shared::models::User;
+  use shared::s3::S3UploadOptions;
+  use shared::s3::UploadTaskBody;
+  use shared::s3_paths::bucket_tarball_path;
 
   /// The password the inbound email webhook accepts under test.
   pub const TEST_POSTMARK_WEBHOOK_PASSWORD: &str = "test-webhook-password";
@@ -943,13 +790,6 @@ pub mod test {
   /// under test.
   pub const TEST_TRUSTED_AUTHSERV_ID: &str = "mx.test.example";
 
-  /// Ensure fake s3 server is running. The first call starts S3; subsequent calls return immediately.
-  fn ensure_servers_started() {
-    SERVERS_STARTED.get_or_init(|| {
-      FakeS3Tester::new();
-    });
-  }
-  use crate::router::App;
   use crate::util::sanitize_redirect_url;
   use axum::body::Body;
   use hyper::HeaderMap;
@@ -958,8 +798,8 @@ pub mod test {
   use hyper::http::HeaderName;
   use hyper::http::HeaderValue;
   use serde::de::DeserializeOwned;
+  use shared::router::App;
   use std::convert::Infallible;
-  use std::net::Ipv4Addr;
   use tower::ServiceExt;
   use url::Url;
 
@@ -970,125 +810,31 @@ pub mod test {
     pub github_name: String,
   }
 
-  /// An in-process stand-in for a fallback JSR registry, serving the handful of
-  /// artifacts the fallback path asks for: package metadata, version metadata,
-  /// and module files.
-  ///
-  /// The fallback tests used to point at the real jsr.io, which made them
-  /// depend on network access and on whatever `@std/assert` happens to publish.
-  /// This serves a fixed `@std/assert@1.0.0` instead, so the tests assert the
-  /// fallback *mechanism* and nothing else.
-  pub struct FakeFallbackRegistry {
-    url: Url,
-    shutdown: Option<tokio::sync::oneshot::Sender<()>>,
-  }
+  pub use shared::test::FakeFallbackRegistry;
 
-  impl FakeFallbackRegistry {
-    pub async fn start() -> Self {
-      let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
-        .await
-        .unwrap();
-      let addr = listener.local_addr().unwrap();
-
-      let (tx, rx) = tokio::sync::oneshot::channel();
-      let app =
-        axum::Router::new().fallback(|req: hyper::Request<Body>| async move {
-          Self::respond(req.uri().path())
-        });
-      let server = axum::serve(listener, app).with_graceful_shutdown(async {
-        let _ = rx.await;
-      });
-      tokio::spawn(async move {
-        let _ = server.await;
-      });
-
-      Self {
-        url: Url::parse(&format!("http://{addr}/")).unwrap(),
-        shutdown: Some(tx),
-      }
-    }
-
-    pub fn url(&self) -> Url {
-      self.url.clone()
-    }
-
-    fn respond(path: &str) -> Response<Body> {
-      let (content_type, body) = match path {
-        "/@std/assert/meta.json" => (
-          "application/json",
-          r#"{
-            "scope": "std",
-            "name": "assert",
-            "latest": "1.0.0",
-            "versions": { "1.0.0": { "createdAt": "2024-01-01T00:00:00Z" } }
-          }"#
-            .to_owned(),
-        ),
-        "/@std/assert/1.0.0_meta.json" => (
-          "application/json",
-          r#"{
-            "manifest": {},
-            "moduleGraph2": {},
-            "exports": { ".": "./mod.ts" }
-          }"#
-            .to_owned(),
-        ),
-        "/@std/assert/1.0.0/mod.ts" => (
-          "text/typescript",
-          "export function assert(cond: unknown): asserts cond {\n  if (!cond) throw new Error(\"assertion failed\");\n}\n"
-            .to_owned(),
-        ),
-        _ => {
-          return Response::builder()
-            .status(StatusCode::NOT_FOUND)
-            .body(Body::from("not found"))
-            .unwrap();
-        }
-      };
-
-      Response::builder()
-        .status(StatusCode::OK)
-        .header(hyper::header::CONTENT_TYPE, content_type)
-        .body(Body::from(body))
-        .unwrap()
-    }
-  }
-
-  impl Drop for FakeFallbackRegistry {
-    fn drop(&mut self) {
-      if let Some(tx) = self.shutdown.take() {
-        let _ = tx.send(());
-      }
-    }
-  }
-
-  /// A loopback URL with nothing listening on it, so connections are refused
-  /// immediately. For exercising the "fallback registry is down" path without
-  /// waiting on a DNS or connect timeout.
-  pub fn unreachable_fallback_url() -> Url {
-    let listener =
-      std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
-    let addr = listener.local_addr().unwrap();
-    drop(listener);
-    Url::parse(&format!("http://{addr}/")).unwrap()
-  }
-
+  /// The shared harness (database, buckets, users, scope) plus the api router
+  /// and a web token for each user. Derefs to the inner harness, so
+  /// `t.db()`, `t.scope` and friends work as before, and `&t` can be handed to
+  /// the publish test helpers.
   pub struct TestSetup {
-    pub ephemeral_database: EphemeralDatabase,
-    pub buckets: Buckets,
-    pub license_store: LicenseStore,
+    inner: shared::test::TestSetup,
     pub user1: TestUser,
     pub user2: TestUser,
     pub user3: TestUser,
     pub staff_user: TestUser,
     #[allow(dead_code)]
-    pub scope: crate::db::Scope,
-    #[allow(dead_code)]
     pub github_oauth2_client: crate::auth::github::Oauth2Client,
     #[allow(dead_code)]
     pub gitlab_oauth2_client: crate::auth::gitlab::Oauth2Client,
     pub service: App,
-    pub fallback_registry_url: Option<Url>,
+  }
+
+  impl std::ops::Deref for TestSetup {
+    type Target = shared::test::TestSetup;
+
+    fn deref(&self) -> &Self::Target {
+      &self.inner
+    }
   }
 
   impl TestSetup {
@@ -1103,40 +849,13 @@ pub mod test {
     pub async fn with_fallback_registry(
       fallback_registry_url: Option<Url>,
     ) -> Self {
-      ensure_servers_started();
-      let test_id = TEST_INSTANCE_COUNTER
-        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-      let ephemeral_database = EphemeralDatabase::create().await;
-      let db = ephemeral_database.database.clone().unwrap();
-      let s3 = FakeS3Tester::new();
-      let publishing_name = format!("publishing-{test_id}");
-      let modules_name = format!("modules-{test_id}");
-      let docs_name = format!("docs-{test_id}");
-      let npm_name = format!("npm-{test_id}");
-      let ticket_attachments_name = format!("ticket-attachments-{test_id}");
-      let (
-        publishing_bucket,
-        modules_bucket,
-        docs_bucket,
-        npm_bucket,
-        ticket_attachments_bucket,
-      ) = tokio::join!(
-        s3.create_bucket(&publishing_name),
-        s3.create_bucket(&modules_name),
-        s3.create_bucket(&docs_name),
-        s3.create_bucket(&npm_name),
-        s3.create_bucket(&ticket_attachments_name),
-      );
-      let buckets = Buckets {
-        publishing_bucket: crate::s3::BucketWithQueue::new(publishing_bucket),
-        modules_bucket: BucketWithQueue::new(modules_bucket),
-        docs_bucket: crate::s3::BucketWithQueue::new(docs_bucket),
-        npm_bucket: crate::s3::BucketWithQueue::new(npm_bucket),
-        ticket_attachments_bucket: crate::s3::BucketWithQueue::new(
-          ticket_attachments_bucket,
-        ),
-      };
-      let registry_url = "http://jsr-tests.test".parse().unwrap();
+      let inner = shared::test::TestSetup::with_fallback_registry(
+        fallback_registry_url.clone(),
+      )
+      .await;
+      let db = inner.db();
+
+      let registry_url = inner.registry_url();
       let github_oauth2_client = crate::auth::github::Oauth2Client::new(
         &registry_url,
         "".to_string(),
@@ -1148,96 +867,14 @@ pub mod test {
         "".to_string(),
       );
 
-      let user1 = Self::create_user(
-        &db,
-        NewUser {
-          name: "User 1",
-          email: None,
-          avatar_url: "https://avatars0.githubusercontent.com/u/952?v=4",
-          github_id: Some(101),
-          gitlab_id: Some(101),
-          is_blocked: false,
-          is_staff: false,
-        },
-        "ry",
-      )
-      .await;
-
-      let user2 = Self::create_user(
-        &db,
-        NewUser {
-          name: "User 2",
-          email: None,
-          avatar_url: "",
-          github_id: Some(102),
-          gitlab_id: Some(102),
-          is_blocked: false,
-          is_staff: false,
-        },
-        "lucacasonato",
-      )
-      .await;
-
-      let user3 = Self::create_user(
-        &db,
-        NewUser {
-          name: "User 3",
-          email: None,
-          avatar_url: "",
-          github_id: Some(103),
-          gitlab_id: Some(103),
-          is_blocked: false,
-          is_staff: false,
-        },
-        "crowlkats",
-      )
-      .await;
-
-      let staff_user = Self::create_user(
-        &db,
-        NewUser {
-          name: "User 4",
-          email: None,
-          avatar_url: "",
-          github_id: Some(104),
-          gitlab_id: Some(104),
-          is_blocked: false,
-          is_staff: true,
-        },
-        "bartlomieju",
-      )
-      .await;
-
-      let scope_name = "scope".try_into().unwrap();
-
-      db.create_scope(
-        &user1.user.id,
-        false,
-        &scope_name,
-        user1.user.id,
-        &ScopeDescription::default(),
-      )
-      .await
-      .unwrap();
-      let (scope, _, _) = db
-        .update_scope_limits(
-          &staff_user.user.id,
-          &scope_name,
-          Some(250),
-          Some(200),
-          Some(1000),
-        )
-        .await
-        .unwrap();
-
-      db.add_bad_word_for_test("somebadword").await.unwrap();
-
-      let license_store =
-        LICENSE_STORE.get_or_init(super::license_store).clone();
+      let user1 = Self::with_token(&db, &inner.user1).await;
+      let user2 = Self::with_token(&db, &inner.user2).await;
+      let user3 = Self::with_token(&db, &inner.user3).await;
+      let staff_user = Self::with_token(&db, &inner.staff_user).await;
 
       let service = crate::main_router(MainRouterOptions {
         database: db,
-        buckets: buckets.clone(),
+        buckets: inner.buckets(),
         generate_ctx_cache: crate::docs::GenerateCtxCache::new(),
         object_cache: crate::object_cache::ObjectCache::new(),
         registry_metadata_cache: crate::api::RegistryMetadataCache::new(),
@@ -1245,10 +882,10 @@ pub mod test {
         gitlab_client: gitlab_oauth2_client.clone(),
         algolia_client: None,
         email_sender: None,
-        license_store: license_store.clone(),
+        license_store: inner.license_store(),
         registry_url,
-        npm_url: "http://npm.jsr-tests.test".parse().unwrap(),
-        fallback_registry_url: fallback_registry_url.clone(),
+        npm_url: inner.npm_url(),
+        fallback_registry_url,
         publish_queue: None,           // no queue locally
         npm_tarball_build_queue: None, // no queue locally
         // No Cloud Tasks locally, so queued email is delivered inline.
@@ -1256,7 +893,7 @@ pub mod test {
         analytics_engine_config: None, // no analytics engine locally
         cache_purge_client: None,      // no Cloudflare purge locally
         // No secret key, so the login captcha is not verified in tests.
-        turnstile: crate::external::cloudflare::Turnstile(None),
+        turnstile: shared::external::cloudflare::Turnstile(None),
         postmark_webhook_password: crate::api::PostmarkWebhookPassword(Some(
           TEST_POSTMARK_WEBHOOK_PASSWORD.to_owned(),
         )),
@@ -1268,50 +905,25 @@ pub mod test {
       });
 
       Self {
-        ephemeral_database,
-        buckets,
-        license_store,
+        inner,
         user1,
         user2,
         user3,
         staff_user,
-        scope,
         github_oauth2_client,
         gitlab_oauth2_client,
         service,
-        fallback_registry_url,
       }
     }
 
-    async fn create_user<'a>(
+    async fn with_token(
       db: &Database,
-      new_user: NewUser<'a>,
-      github_name: &str,
+      user: &shared::test::TestUser,
     ) -> TestUser {
-      db.upsert_github_identity(NewGithubIdentity {
-        github_id: new_user.github_id.unwrap(),
-        access_token: None,
-        access_token_expires_at: None,
-        refresh_token: None,
-        refresh_token_expires_at: None,
-      })
-      .await
-      .unwrap();
-      db.upsert_gitlab_identity(NewGitlabIdentity {
-        gitlab_id: new_user.gitlab_id.unwrap(),
-        access_token: None,
-        access_token_expires_at: None,
-        refresh_token: None,
-      })
-      .await
-      .unwrap();
-
-      let user = db.insert_user(new_user).await.unwrap();
-
       let token = crate::token::create_token(
         db,
-        user.id,
-        crate::db::TokenType::Web,
+        user.user.id,
+        shared::models::TokenType::Web,
         None,
         Some(chrono::Utc::now() + chrono::Duration::try_days(7).unwrap()),
         None,
@@ -1320,30 +932,10 @@ pub mod test {
       .unwrap();
 
       TestUser {
-        user,
+        user: user.user.clone(),
         token,
-        github_name: github_name.to_string(),
+        github_name: user.github_name.clone(),
       }
-    }
-
-    pub fn db(&self) -> Database {
-      self.ephemeral_database.database.clone().unwrap()
-    }
-
-    pub fn buckets(&self) -> Buckets {
-      self.buckets.clone()
-    }
-
-    pub fn license_store(&self) -> LicenseStore {
-      self.license_store.clone()
-    }
-
-    pub fn registry_url(&self) -> Url {
-      Url::parse("http://jsr-tests.test").unwrap()
-    }
-
-    pub fn npm_url(&self) -> Url {
-      Url::parse("http://npm.jsr-tests.test").unwrap()
     }
 
     pub fn http(&'_ mut self) -> TestHttpClient<'_, '_> {
@@ -1359,6 +951,97 @@ pub mod test {
         auth: None,
       }
     }
+  }
+
+  /// Publishes `tarball_data` as `@scope/foo@1.2.3` and returns the finished
+  /// publishing task.
+  pub async fn process_tarball_setup(
+    t: &TestSetup,
+    tarball_data: Bytes,
+  ) -> PublishingTask {
+    let package_name = PackageName::try_from("foo").unwrap();
+    let version = Version::try_from("1.2.3").unwrap();
+    process_tarball_setup2(t, tarball_data, &package_name, &version, false)
+      .await
+  }
+
+  /// Publishes `tarball_data` as the given version the way the upload
+  /// endpoint does: a publishing task row, the tarball in the publishing
+  /// bucket, then the publish run.
+  pub async fn process_tarball_setup2(
+    t: &TestSetup,
+    tarball_data: Bytes,
+    package_name: &PackageName,
+    version: &Version,
+    jsonc: bool,
+  ) -> PublishingTask {
+    let scope_name = "scope".try_into().unwrap();
+
+    let res = t
+      .db()
+      .create_package(&scope_name, package_name)
+      .await
+      .unwrap();
+    assert!(
+      matches!(res, CreatePackageResult::Ok(_))
+        || matches!(res, CreatePackageResult::AlreadyExists)
+    );
+
+    let CreatePublishingTaskResult::Created(task) = t
+      .db()
+      .create_publishing_task(NewPublishingTask {
+        user_id: Some(t.user1.user.id),
+        package_scope: &scope_name,
+        package_name,
+        package_version: version,
+        config_file: &PackagePath::try_from(format!(
+          "/jsr.json{}",
+          if jsonc { "c" } else { "" }
+        ))
+        .unwrap(),
+      })
+      .await
+      .unwrap()
+    else {
+      unreachable!()
+    };
+
+    let tarball_path = bucket_tarball_path(task.0.id);
+    t.buckets
+      .publishing_bucket
+      .upload(
+        tarball_path.into(),
+        UploadTaskBody::Bytes(tarball_data),
+        S3UploadOptions {
+          content_type: Some("application/x-tar".into()),
+          cache_control: None,
+          gzip_encoded: true,
+        },
+      )
+      .await
+      .unwrap();
+
+    registry_api_tasks::publish::publish_task(
+      task.0.id,
+      0,
+      t.buckets(),
+      t.license_store(),
+      t.registry_url(),
+      t.npm_url(),
+      t.fallback_registry_url.clone(),
+      t.db(),
+      None,
+      shared::external::cloudflare::CachePurge(None),
+    )
+    .await
+    .unwrap();
+
+    t.db()
+      .get_publishing_task(task.0.id)
+      .await
+      .unwrap()
+      .unwrap()
+      .0
   }
 
   pub struct TestHttpClient<'s, 't> {
@@ -1515,7 +1198,7 @@ pub mod test {
     async fn expect_ok_no_content(&mut self);
 
     #[track_caller]
-    async fn expect_err(&mut self, status: StatusCode) -> ApiErrorStruct {
+    async fn expect_err(&mut self, status: StatusCode) -> ErrorStruct {
       self.expect_json(status).await
     }
 
@@ -1524,8 +1207,8 @@ pub mod test {
       &mut self,
       status: StatusCode,
       code: &str,
-    ) -> ApiErrorStruct {
-      let err: ApiErrorStruct = self.expect_json(status).await;
+    ) -> ErrorStruct {
+      let err: ErrorStruct = self.expect_json(status).await;
       assert_eq!(err.code, code, "{}", err.message);
       err
     }

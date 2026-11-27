@@ -5,17 +5,18 @@ use hyper::Request;
 use uuid::Uuid;
 
 use crate::api::ApiError;
-use crate::db::Database;
-use crate::db::PackagePublishPermission;
-use crate::db::Permission;
-use crate::db::Permissions;
-use crate::db::Token;
-use crate::db::TokenType;
-use crate::db::User;
 use crate::external::oidc::OidcProviderKind;
-use crate::ids::PackageName;
-use crate::ids::ScopeName;
-use crate::ids::Version;
+
+use shared::db::Database;
+use shared::ids::PackageName;
+use shared::ids::ScopeName;
+use shared::ids::Version;
+use shared::models::PackagePublishPermission;
+use shared::models::Permission;
+use shared::models::Permissions;
+use shared::models::Token;
+use shared::models::TokenType;
+use shared::models::User;
 
 pub struct IamHandler<'s> {
   db: &'s Database,

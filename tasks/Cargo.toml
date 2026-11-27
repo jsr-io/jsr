@@ -1,0 +1,50 @@
+[package]
+name = "registry_api_tasks"
+version = "0.1.0"
+edition = "2024"
+resolver = "2"
+
+[dependencies]
+anyhow.workspace = true
+askalono.workspace = true
+async-trait.workspace = true
+axum.workspace = true
+base64.workspace = true
+bytes.workspace = true
+chrono.workspace = true
+deno_ast.workspace = true
+deno_doc.workspace = true
+deno_error.workspace = true
+deno_graph.workspace = true
+deno_semver.workspace = true
+flate2.workspace = true
+futures.workspace = true
+hyper.workspace = true
+indexmap.workspace = true
+once_cell.workspace = true
+regex.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tar.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tower.workspace = true
+tracing.workspace = true
+url.workspace = true
+uuid.workspace = true
+
+infer = "0.15.0"
+jsonc-parser = { version = "0.26.3", features = ["serde"] }
+sha1 = "0.10.6"
+shared = { path = "../shared", package = "registry_api_shared" }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { version = "1", features = ["full"] }
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+shared = { path = "../shared", package = "registry_api_shared", features = [
+    "testing",
+] }
