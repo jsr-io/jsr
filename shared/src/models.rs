@@ -831,7 +831,7 @@ pub type FullTicketMessage =
 pub type FullTicket = (Ticket, Option<User>, Vec<FullTicketMessage>);
 
 /// A queued outgoing email, already rendered. Written in the request that causes
-/// it and delivered out of band, so a Postmark failure never reaches the user
+/// it and delivered out of band, so a failure to send never reaches the user
 /// whose action triggered the mail.
 #[derive(Debug, Clone)]
 pub struct EmailDelivery {

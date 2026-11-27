@@ -12,6 +12,9 @@ enabled = true
 binding = "TASKS"
 service = "jsr-api-tasks"
 
+[[send_email]]
+name = "EMAIL"
+
 [[queues.producers]]
 binding = "PUBLISH_QUEUE"
 queue = "local-publish"

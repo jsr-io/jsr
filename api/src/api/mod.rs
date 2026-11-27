@@ -2,7 +2,6 @@
 mod admin;
 mod authorization;
 mod errors;
-mod hooks;
 pub mod package;
 mod publishing_task;
 mod scope;
@@ -12,13 +11,10 @@ mod types;
 mod users;
 
 pub use self::errors::*;
-pub use self::hooks::InboundTrustedAuthservId;
-pub use self::hooks::PostmarkWebhookPassword;
 pub use self::package::RegistryMetadataCache;
 use self::publishing_task::publishing_task_router;
 use self::self_user::self_user_router;
 pub use self::types::*;
-use crate::api::hooks::hooks_router;
 use crate::api::tickets::tickets_router;
 use axum::Router;
 use axum::body::Body;
@@ -74,7 +70,6 @@ pub fn api_router() -> Router {
       get(util::no_store(util::json(publishing_task::get_handler))),
     )
     .nest("/tickets", tickets_router())
-    .nest("/hooks", hooks_router())
     .route("/.well-known/openapi", get(openapi_handler));
 
   #[cfg(not(target_arch = "wasm32"))]

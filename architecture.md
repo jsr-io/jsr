@@ -33,7 +33,6 @@ graph LR
     API --> R2
     API -- "Hyperdrive" --> Postgres["PostgreSQL"]
     API --> Algolia
-    API --> Postmark["Postmark"]
     API -- "enqueue" --> Queues["Cloudflare Queues"]
     Queues --> Tasks["Tasks Worker<br/>(Rust, wasm)"]
     Cron["Cron Triggers"] --> Tasks
@@ -41,7 +40,7 @@ graph LR
     Tasks --> R2
     Tasks -- "Hyperdrive" --> Postgres
     Tasks --> Algolia
-    Tasks --> Postmark
+    Tasks --> Email["Cloudflare Email Sending"]
 ```
 
 ## Request Routing
@@ -104,7 +103,7 @@ api/
 │   │   └── errors.rs        # Error definitions
 │   ├── auth/                # OAuth handlers (GitHub, GitLab)
 │   ├── docs.rs              # Documentation rendering (deno_doc)
-│   ├── emails/              # Email templates (Postmark)
+│   ├── emails/              # Email templates
 │   ├── iam.rs               # Permissions and access control
 │   ├── provenance.rs        # Package provenance verification
 │   └── task_dispatch.rs     # Client for the tasks service
@@ -127,7 +126,7 @@ shared/
 │   ├── ids.rs               # Type-safe identifiers
 │   ├── docs.rs              # Documentation generation (deno_doc)
 │   ├── external/            # External service clients (Cloudflare, Algolia)
-│   ├── emails.rs            # Email delivery (Postmark)
+│   ├── emails.rs            # Email delivery
 │   ├── s3.rs                # R2/S3 storage operations
 │   ├── task_queue.rs        # Rate-limited background job queue
 │   ├── tracing.rs           # Logging and OpenTelemetry setup
@@ -280,9 +279,9 @@ collation so `1.10.0` sorts after `1.9.0`.
 ## Support tickets
 
 A ticket is opened either through the web UI by a signed-in user, or by anyone
-emailing the support address. Postmark delivers inbound mail to
-`POST /api/hooks/postmark` (`api/src/api/hooks.rs`), authenticated with basic
-auth against `POSTMARK_WEBHOOK_PASSWORD`.
+emailing the support address. Cloudflare Email Routing hands inbound mail to the
+API worker's `email` handler (`api/src/main.rs`), which files it through
+`api/src/inbound_email.rs`.
 
 An email-opened ticket has no `creator` — it belongs to `reporter_email` until
 somebody claims it with the token from the auto-reply, which binds it to their
@@ -291,41 +290,41 @@ message it announces, so a reply's `In-Reply-To` / `References` headers identify
 the ticket it belongs to; the `TICKET-YYYYMMDD-XXXXX` number in the subject is
 the fallback for clients that drop those headers.
 `ticket_messages.email_message_id` is unique, which is what makes a redelivered
-webhook a no-op rather than a duplicate.
+message a no-op rather than a duplicate.
 
 Whether a sender's address is proven is recorded per message and shown in the
-UI. Postmark's own SPF check only means something for mail delivered to it
-directly: support mail is forwarded from the Google Workspace inbox, so Postmark
-sees the forwarder as the sender and SPF fails regardless of who wrote in. The
-result Workspace recorded before forwarding survives the hop, so that is read
-instead — but only from the server named by `INBOUND_TRUSTED_AUTHSERV_ID`, and
-only the first such header, because each hop prepends its own and anyone can put
-a forged `Authentication-Results` in the mail they send. Unset the variable and
-only Postmark's own check is used.
+UI. Email Routing checks SPF and DKIM when it receives a message and records
+the results in an `Authentication-Results` header. That header is read only from
+the server named by `INBOUND_TRUSTED_AUTHSERV_ID`, and only the first such
+header, because each hop prepends its own and anyone can put a forged
+`Authentication-Results` in the mail they send. Unset the variable and every
+sender is recorded as unverified.
 
-The Postmark inbound stream's webhook URL is configured in the Postmark
-dashboard, not in terraform:
-`https://webhook:<POSTMARK_WEBHOOK_PASSWORD>@api.jsr.io/hooks/postmark`.
+A reply usually quotes the conversation so far; the quoted history is cut off
+before the message is stored.
 
 ## Outgoing email
 
 Email is never sent inline in a request. Sending is rendered at the point of the
 action and written to `email_deliveries`, then handed to a queue whose messages
-run `/tasks/send_email`; that handler is what talks to Postmark. A transient
-Postmark failure therefore retries out of band instead of failing the request
-that caused the mail — an admin ticket reply is saved once and delivered
+run `/tasks/send_email`; that handler sends through the worker's `EMAIL`
+binding to Cloudflare Email Sending. A transient failure therefore retries out
+of band instead of failing the request that caused the mail — an admin ticket reply is saved once and delivered
 independently, rather than returning 500 with the reply already committed.
 
 The delivery row is committed before the queue is told about it, so a failed
 hand-off leaves a row nothing would pick up. `/tasks/sweep_pending_emails`, run
 every five minutes by a cron trigger, re-drives those. Re-driving is safe: a row
-that has already been sent is skipped, and a redelivered task reuses the same
-`Message-ID`, so even a genuine double-send is collapsed by the recipient's mail
-client. A delivery that keeps failing is abandoned after eight attempts and kept
-with its last error rather than deleted.
+that has already been sent is skipped. A delivery that keeps failing is
+abandoned after eight attempts and kept with its last error rather than deleted;
+one Email Sending refuses outright, such as a suppressed recipient, is abandoned
+at once.
 
-With no queue configured — local development and tests — deliveries are sent
-inline instead.
+Email Sending chooses each email's `Message-ID`. A ticket email is queued under
+one of our own, recorded on the message it announces; when the send succeeds the
+real one replaces it there and in any delivery still waiting that refers to it.
+
+There is no sender natively, so local development and tests send nothing.
 
 ## Storage (Cloudflare R2)
 
@@ -399,7 +398,7 @@ Infrastructure is managed with Terraform across two configurations:
 - **Job queues**: Cloudflare Queues (publishing, npm tarball builds, emails)
 - **Analytics**: BigQuery (download metrics)
 - **Tracing**: Workers Observability
-- **Email**: Postmark
+- **Email**: Cloudflare Email Service
 - **CDN/Edge**: Cloudflare (Worker + R2 + Cache)
 
 ## Local Development

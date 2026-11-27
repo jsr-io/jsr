@@ -645,7 +645,7 @@ fn deserialize_version_download_count_from_analytics(
 const STALE_EMAIL_DELIVERY_SECS: i64 = 300;
 
 /// How many stale deliveries one sweep re-drives. Bounds the work a single
-/// scheduler tick can do if a long Postmark outage has backed the queue up.
+/// scheduler tick can do if a long outage of the sender has backed the queue up.
 const STALE_EMAIL_SWEEP_LIMIT: i64 = 500;
 
 /// Delivers one queued email. Driven by the email queue, which retries a
@@ -706,7 +706,7 @@ pub async fn sweep_pending_emails(
     // at all — it does not exist yet, or this service may not enqueue to it —
     // then every delivery is stuck behind the same failure, and a sweeper that
     // only ever enqueues would never notice. So the fallback is to deliver here
-    // instead, which needs nothing but the Postmark client.
+    // instead, which needs nothing but the sender.
     let queued = match queue {
       Some(queue) => {
         let body = serde_json::to_vec(&SendEmailTask { id }).unwrap();

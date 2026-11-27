@@ -25,16 +25,6 @@ variable "gitlab_client_secret" {
   sensitive = true
 }
 
-variable "postmark_token" {
-  type      = string
-  sensitive = true
-}
-
-variable "postmark_webhook_password" {
-  type      = string
-  sensitive = true
-}
-
 variable "email_from_name" {
   type = string
 }

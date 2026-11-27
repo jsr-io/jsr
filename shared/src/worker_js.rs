@@ -314,6 +314,82 @@ where
   op().await
 }
 
+#[derive(Clone)]
+pub struct SendEmail(AssertSend<JsValue>);
+
+#[derive(Debug)]
+pub struct SendEmailError {
+  pub code: Option<String>,
+  pub message: String,
+}
+
+impl SendEmail {
+  pub fn new(binding: &str) -> Option<Self> {
+    ENV.with(|env| {
+      let value = Reflect::get(env.borrow().as_ref()?, &binding.into()).ok()?;
+      (!value.is_undefined()).then(|| Self(AssertSend(value)))
+    })
+  }
+
+  pub async fn send(
+    &self,
+    from: (&str, &str),
+    to: &str,
+    subject: &str,
+    text: &str,
+    html: &str,
+    headers: &[(&str, String)],
+  ) -> Result<String, SendEmailError> {
+    fn error(err: JsValue) -> SendEmailError {
+      SendEmailError {
+        code: Reflect::get(&err, &"code".into())
+          .ok()
+          .and_then(|code| code.as_string()),
+        message: js_error(err),
+      }
+    }
+    fn invalid(message: String) -> SendEmailError {
+      SendEmailError {
+        code: None,
+        message,
+      }
+    }
+
+    AssertSend(async {
+      let (from_name, from_email) = from;
+      let from =
+        object(&[("name", from_name.into()), ("email", from_email.into())])
+          .map_err(invalid)?;
+      let mut message = vec![
+        ("from", from),
+        ("to", to.into()),
+        ("subject", subject.into()),
+        ("text", text.into()),
+        ("html", html.into()),
+      ];
+      if !headers.is_empty() {
+        let headers = headers
+          .iter()
+          .map(|(name, value)| (*name, JsValue::from_str(value)))
+          .collect::<Vec<_>>();
+        message.push(("headers", object(&headers).map_err(invalid)?));
+      }
+      let message = object(&message).map_err(invalid)?;
+
+      let promise =
+        in_current(|| call1(&self.0.0, "send", &message)).map_err(error)?;
+      let result = JsFuture::from(js_sys::Promise::from(promise))
+        .await
+        .map_err(error)?;
+      Reflect::get(&result, &"messageId".into())
+        .ok()
+        .and_then(|id| id.as_string())
+        .ok_or_else(|| invalid("the send returned no messageId".to_owned()))
+    })
+    .await
+  }
+}
+
 /// The R2 binding for a bucket, named `R2_<bucket name with - as _>`.
 #[derive(Clone)]
 pub struct R2Bucket(AssertSend<worker_sys::R2Bucket>);

@@ -10,8 +10,6 @@ locals {
     "GITHUB_CLIENT_SECRET"      = var.github_client_secret
     "GITLAB_CLIENT_SECRET"      = var.gitlab_client_secret
     "TURNSTILE_SECRET_KEY"      = cloudflare_turnstile_widget.login.secret
-    "POSTMARK_TOKEN"            = var.postmark_token
-    "POSTMARK_WEBHOOK_PASSWORD" = var.postmark_webhook_password
     "ALGOLIA_WRITE_API_KEY"     = algolia_api_key.write.key
     "CLOUDFLARE_API_TOKEN"      = var.cloudflare_api_token
   }
@@ -44,10 +42,9 @@ locals {
 
     "EMAIL_FROM" = "help@${var.domain_name}"
 
-    // Support mail is forwarded from the Google Workspace inbox to Postmark, so
-    // Postmark's own SPF check sees the forwarder rather than the sender. The
-    // Workspace results, recorded before the hop, are trusted instead.
-    "INBOUND_TRUSTED_AUTHSERV_ID" = "mx.google.com"
+    // Email Routing checks SPF and DKIM before it hands a message to the
+    // worker, and records the results under this name.
+    "INBOUND_TRUSTED_AUTHSERV_ID" = "mx.cloudflare.net"
     "EMAIL_FROM_NAME"             = var.email_from_name
 
     "CLOUDFLARE_ACCOUNT_ID"        = var.cloudflare_account_id
@@ -101,6 +98,10 @@ locals {
       type       = "queue"
       name       = queue.binding
       queue_name = cloudflare_queue.api[name].queue_name
+    }],
+    [{
+      type = "send_email"
+      name = "EMAIL"
     }],
   )
 }

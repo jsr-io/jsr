@@ -52,6 +52,7 @@ ammonia = "4.0.0"
 handlebars = "5.0.0"
 x509-parser = { version = "0.18", features = ["verify"] }
 sitemap-rs = "0.2.1"
+mail-parser = "1.0.1"
 
 tree-sitter-highlight = "0.27"
 tree-sitter-javascript = "0.25"

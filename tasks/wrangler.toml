@@ -10,6 +10,9 @@ enabled = true
 [limits]
 cpu_ms = 300_000
 
+[[send_email]]
+name = "EMAIL"
+
 # Local stand-ins for the queues in terraform. Their names end the way the
 # worker tells the queues apart. The periodic tasks don't run locally.
 
