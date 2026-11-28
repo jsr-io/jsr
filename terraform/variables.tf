@@ -74,6 +74,12 @@ variable "cloudflare_zone_id" {
   type = string
 }
 
+variable "cloudflare_custom_firewall_ruleset_id" {
+  description = "ID of the zone's existing http_request_firewall_custom entrypoint ruleset, imported into cloudflare_ruleset.custom_firewall. Only used in production."
+  type        = string
+  default     = ""
+}
+
 # OTLP/HTTP telemetry export (wired into the API Cloud Run services). Leave empty
 # to disable; set both to point traces and logs at an OTLP/HTTP backend such as
 # Grafana Cloud.
