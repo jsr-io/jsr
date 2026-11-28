@@ -29,7 +29,7 @@ use crate::worker_spans::in_current;
 
 thread_local! {
   // A `Cell`, not a `RefCell`: a JS exception or emscripten abort that
-  // unwinds through wasm frames skips Rust destructors (imports are
+  // unwinds through wasm frames can skip Rust destructors (imports are
   // nounwind), so a `RefCell` borrow could stay set and make every later
   // `set_env` panic.
   static ENV: Cell<Option<JsValue>> = const { Cell::new(None) };

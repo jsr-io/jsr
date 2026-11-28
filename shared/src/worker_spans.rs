@@ -29,9 +29,9 @@ use crate::worker_js::js_error;
 
 // Every binding is `catch`: the runtime can throw, for example when a span is
 // used from the async context of another request. An exception from an
-// import without `catch` unwinds through the wasm frames without running
-// Rust destructors, which can leave borrows, locks, and the event loop's
-// state behind for every later request on the isolate.
+// import without `catch` unwinds through the wasm frames and can skip Rust
+// destructors on the way, which can leave borrows, locks, and the event
+// loop's state behind for every later request on the isolate.
 #[wasm_bindgen(inline_js = "
 import { tracing } from 'cloudflare:workers';
 export function startSpan(name) { return tracing.startSpan(name); }
