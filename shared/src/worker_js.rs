@@ -4,7 +4,7 @@
 //! `fetch` and R2 through bucket bindings. Those calls are made with the
 //! current span active, so the runtime's spans for them nest under it.
 
-use std::cell::RefCell;
+use std::cell::Cell;
 use std::future::Future;
 use std::io;
 use std::pin::Pin;
@@ -28,7 +28,20 @@ use wasm_bindgen_futures::JsFuture;
 use crate::worker_spans::in_current;
 
 thread_local! {
-  static ENV: RefCell<Option<JsValue>> = const { RefCell::new(None) };
+  // A `Cell`, not a `RefCell`: a JS exception or emscripten abort that
+  // unwinds through wasm frames can skip Rust destructors (imports are
+  // nounwind), so a `RefCell` borrow could stay set and make every later
+  // `set_env` panic.
+  static ENV: Cell<Option<JsValue>> = const { Cell::new(None) };
+}
+
+/// The env of the request that most recently started on this isolate.
+fn env() -> Option<JsValue> {
+  ENV.with(|cell| {
+    let env = cell.take();
+    cell.set(env.clone());
+    env
+  })
 }
 
 tokio::task_local! {
@@ -66,20 +79,17 @@ pub async fn with_background<T>(fut: impl Future<Output = T>) -> T {
 }
 
 pub fn set_env(env: JsValue) {
-  ENV.with(|cell| *cell.borrow_mut() = Some(env));
+  ENV.with(|cell| cell.set(Some(env)));
 }
 
 /// The Hyperdrive binding's connection string. Only its credentials and
 /// database name are used: connections go through the binding's `connect()`
 /// (see [`WorkerConnect`]), never to the host in it.
 pub fn hyperdrive_database_url() -> Option<String> {
-  ENV.with(|env| {
-    let binding =
-      Reflect::get(env.borrow().as_ref()?, &"HYPERDRIVE".into()).ok()?;
-    Reflect::get(&binding, &"connectionString".into())
-      .ok()?
-      .as_string()
-  })
+  let binding = Reflect::get(&env()?, &"HYPERDRIVE".into()).ok()?;
+  Reflect::get(&binding, &"connectionString".into())
+    .ok()?
+    .as_string()
 }
 
 /// SAFETY: the worker is single-threaded (linked without `-pthread`), so
@@ -96,7 +106,7 @@ impl<F: Future> Future for AssertSend<F> {
   }
 }
 
-fn js_error(err: JsValue) -> String {
+pub(crate) fn js_error(err: JsValue) -> String {
   err
     .dyn_ref::<js_sys::Error>()
     .map(|err| String::from(err.message()))
@@ -263,10 +273,8 @@ pub struct R2Bucket(AssertSend<worker_sys::R2Bucket>);
 impl R2Bucket {
   pub fn new(bucket_name: &str) -> Option<Self> {
     let binding = format!("R2_{}", bucket_name.replace('-', "_"));
-    ENV.with(|env| {
-      let value = Reflect::get(env.borrow().as_ref()?, &binding.into()).ok()?;
-      (!value.is_undefined()).then(|| Self(AssertSend(value.unchecked_into())))
-    })
+    let value = Reflect::get(&env()?, &binding.into()).ok()?;
+    (!value.is_undefined()).then(|| Self(AssertSend(value.unchecked_into())))
   }
 
   pub async fn get(
@@ -408,11 +416,9 @@ impl deadpool_postgres::Connect for WorkerConnect {
   > {
     let pg_config = pg_config.clone();
     Box::pin(AssertSend(async move {
-      let has_binding = ENV.with(|env| {
-        env.borrow().as_ref().is_some_and(|env| {
-          Reflect::get(env, &"HYPERDRIVE".into())
-            .is_ok_and(|binding| !binding.is_undefined())
-        })
+      let has_binding = env().is_some_and(|env| {
+        Reflect::get(&env, &"HYPERDRIVE".into())
+          .is_ok_and(|binding| !binding.is_undefined())
       });
       if has_binding {
         let (client, connection) = pg_config
@@ -543,23 +549,22 @@ fn promise(value: Result<JsValue, JsValue>) -> io::Result<JsFuture> {
 }
 
 impl HyperdriveSocket {
+  /// The socket of a new Hyperdrive connection, with its reader and writer.
+  fn connect() -> Result<[JsValue; 3], String> {
+    let env = env().ok_or("no worker env")?;
+    let binding = Reflect::get(&env, &"HYPERDRIVE".into()).map_err(js_error)?;
+    let socket = in_current(|| call(&binding, "connect")).map_err(js_error)?;
+    let readable =
+      Reflect::get(&socket, &"readable".into()).map_err(js_error)?;
+    let writable =
+      Reflect::get(&socket, &"writable".into()).map_err(js_error)?;
+    let reader = call(&readable, "getReader").map_err(js_error)?;
+    let writer = call(&writable, "getWriter").map_err(js_error)?;
+    Ok([socket, reader, writer])
+  }
+
   fn open() -> Self {
-    let socket = ENV.with(|env| -> Result<[JsValue; 3], String> {
-      let env = env.borrow();
-      let env = env.as_ref().ok_or("no worker env")?;
-      let binding =
-        Reflect::get(env, &"HYPERDRIVE".into()).map_err(js_error)?;
-      let socket =
-        in_current(|| call(&binding, "connect")).map_err(js_error)?;
-      let readable =
-        Reflect::get(&socket, &"readable".into()).map_err(js_error)?;
-      let writable =
-        Reflect::get(&socket, &"writable".into()).map_err(js_error)?;
-      let reader = call(&readable, "getReader").map_err(js_error)?;
-      let writer = call(&writable, "getWriter").map_err(js_error)?;
-      Ok([socket, reader, writer])
-    });
-    let (error, [socket, reader, writer]) = match socket {
+    let (error, [socket, reader, writer]) = match Self::connect() {
       Ok(socket) => (None, socket),
       Err(err) => (
         Some(format!("Hyperdrive connect: {err}")),

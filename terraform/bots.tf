@@ -1,100 +1,80 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
+# Custom WAF rules for the production zone. Staging is left unmanaged here.
+#
+# The bot rules only match jsr.io requests whose Accept header starts with
+# text/html, which is how browsers and crawlers request pages. The LB never
+# serves module files to such requests (see `canAccessModuleFile` in
+# lb/main.ts), so module downloads, the Deno CLI, and npm clients aren't
+# matched, and api.jsr.io and npm.jsr.io are other hosts. On those requests,
+# the rules challenge unverified bots by Bot Management score.
 locals {
-  module_file_path       = "^/@[^/]+/[^/]+/(?:meta[.]json|[0-9][^/]*_meta[.]json|[0-9][^/]*/.*)$"
-  scraping_detection_ids = "50331648 50331649"
-
-  website_requests = <<-EOT
-    http.host eq "${var.domain_name}"
-    and not cf.bot_management.static_resource
-    and not starts_with(http.request.uri.path, "/api/")
-    and not starts_with(http.request.uri.path, "/login/")
-    and not starts_with(http.request.uri.path, "/connect/")
-    and not starts_with(http.request.uri.path, "/disconnect/")
-    and not starts_with(http.request.uri.path, "/badges/")
-    and not (http.request.uri.path matches "^/@[^/]+/[^/]+/og$")
-    and not (http.request.uri.path in {"/sitemap.xml" "/sitemap-scopes.xml" "/sitemap-packages.xml" "/logout"})
-    and not (
-      http.request.method in {"GET" "HEAD"}
-      and http.request.uri.path matches "${local.module_file_path}"
-      and not (
-        any(lower(http.request.headers.names[*])[*] eq "from")
-        and any(starts_with(lower(http.request.headers["from"][*])[*], "googlebot(at)googlebot.com"))
-      )
-      and not starts_with(lower(http.user_agent), "slack")
-      and not starts_with(lower(http.user_agent), "iframely")
-      and not starts_with(lower(http.user_agent), "twitter")
-      and not starts_with(lower(http.user_agent), "whatsapp")
-      and not starts_with(lower(http.user_agent), "mozilla/5.0 (compatible; discordbot")
-      and not (
-        any(lower(http.request.headers.names[*])[*] eq "accept")
-        and any(starts_with(http.request.headers["accept"][*], "text/html"))
-      )
-      and (
-        not any(lower(http.request.headers.names[*])[*] eq "sec-fetch-dest")
-        or any(len(http.request.headers["sec-fetch-dest"][*])[*] eq 0)
-        or any(http.request.headers["sec-fetch-dest"][*] eq "empty")
-        or (
-          any(http.request.headers["sec-fetch-dest"][*] in {"image" "video"})
-          and any(lower(http.request.headers.names[*])[*] eq "sec-fetch-site")
-          and any(http.request.headers["sec-fetch-site"][*] eq "same-origin")
-        )
-      )
-    )
-  EOT
-
-  e2e_exemption      = var.e2e_bypass_token == "" ? "" : " and not any(http.request.headers[\"x-jsr-e2e\"][*] eq \"${var.e2e_bypass_token}\")"
-  website_unverified = "(${local.website_requests}) and not cf.bot_management.verified_bot${local.e2e_exemption}"
-  website_bots       = "${local.website_unverified} and cf.bot_management.score lt 30"
-}
-
-resource "cloudflare_bot_management" "zone" {
-  zone_id           = var.cloudflare_zone_id
-  enable_js         = true
-  auto_update_model = true
+  website_page_request = join(" and ", [
+    "http.host eq \"${var.domain_name}\"",
+    "starts_with(lower(http.request.headers[\"accept\"][0]), \"text/html\")",
+    "not cf.bot_management.verified_bot",
+    # The post-deploy e2e tests fetch pages with Deno's default user agent from
+    # GitHub runners, which score as bots.
+    "not starts_with(http.user_agent, \"Deno/\")",
+    # Fediverse servers fetching link previews. Mastodon 4.2 and earlier send
+    # "http.rb/<version> (Mastodon/<version>; ...)".
+    "not http.user_agent contains \"Mastodon/\"",
+    "not starts_with(http.user_agent, \"Misskey/\")",
+    "not starts_with(http.user_agent, \"Pleroma \")",
+    "not starts_with(http.user_agent, \"Akkoma \")",
+  ])
 }
 
 resource "cloudflare_ruleset" "custom_firewall" {
+  count = var.production ? 1 : 0
+
   zone_id = var.cloudflare_zone_id
-  name    = "default"
-  kind    = "zone"
-  phase   = "http_request_firewall_custom"
+  # name, kind, phase, and zone_id force replacement, which would delete every
+  # rule in the zone until the new ruleset is created.
+  name  = "default"
+  kind  = "zone"
+  phase = "http_request_firewall_custom"
 
   rules = [
     {
-      ref         = "website_bots"
-      description = "Likely bots on the website"
-      expression  = local.website_bots
-      action      = "log"
+      # Rule refs keep the rule IDs stable across edits; Security Events filters
+      # by rule ID. These are the IDs the rules had in the dashboard.
+      ref         = "3665246027ea4f58bd39e10af19abb21"
+      description = "Singapore/China/Vietnam scrape"
+      action      = "managed_challenge"
+      enabled     = true
+      expression  = "(ip.src.asnum eq 136907 and ip.src.country eq \"SG\") or (ip.src.asnum eq 212238 and ip.src.country eq \"SG\") or (ip.src.asnum eq 132203 and ip.src.country eq \"SG\") or (ip.src.asnum eq 55967) or (ip.src.asnum eq 45899)"
     },
     {
-      ref         = "website_scrapers"
-      description = "Scraping detections on the website"
-      expression  = "${local.website_unverified} and any(cf.bot_management.detection_ids[*] in {${local.scraping_detection_ids}})"
-      action      = "log"
+      ref         = "75b22afd9b55498d83342e016d550ec4"
+      description = "Bots rendering frontend pages"
+      action      = "managed_challenge"
+      enabled     = true
+      # Lightpanda is a headless browser whose crawl overloaded the database on
+      # 2026-11-28. Its requests score 13-34, so it's matched by user agent and
+      # TLS fingerprint as well as by score.
+      expression = "(${local.website_page_request} and (cf.bot_management.score lt 10 or http.user_agent contains \"Lightpanda\" or cf.bot_management.ja4 eq \"t13d1710h2_5b57614c22b0_95ca0cbbc74b\"))"
+    },
+    {
+      ref         = "794a507f1f1243c9ac301f4c06b90f39"
+      description = "Likely bots rendering frontend pages"
+      action      = "managed_challenge"
+      enabled     = true
+      expression  = "(${local.website_page_request} and cf.bot_management.score ge 10 and cf.bot_management.score lt 30)"
     },
   ]
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
-resource "cloudflare_ruleset" "ratelimit" {
-  zone_id = var.cloudflare_zone_id
-  name    = "default"
-  kind    = "zone"
-  phase   = "http_ratelimit"
-
-  rules = [
-    {
-      ref         = "website_not_found"
-      description = "Clients probing the website for pages that do not exist"
-      expression  = local.website_unverified
-      action      = "log"
-      ratelimit = {
-        characteristics     = ["cf.colo.id", "ip.src", "cf.bot_management.ja4"]
-        period              = 60
-        requests_per_period = 20
-        mitigation_timeout  = 0
-        counting_expression = "${local.website_unverified} and http.response.code eq 404"
-      }
-    },
-  ]
+# The production zone's entrypoint ruleset was created in the dashboard, and a
+# zone can only have one per phase, so it's imported rather than created. To
+# stop managing it, use a `removed` block with `destroy = false`; deleting this
+# file would delete every custom rule in the zone.
+import {
+  for_each = var.production ? { "0" = var.cloudflare_custom_firewall_ruleset_id } : {}
+  to       = cloudflare_ruleset.custom_firewall[0]
+  id       = "zones/${var.cloudflare_zone_id}/${each.value}"
 }
