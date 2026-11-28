@@ -449,6 +449,9 @@ mod worker {
   use axum::body::Body;
   use tower::ServiceExt;
   use wasm_bindgen::prelude::*;
+  // Keeps the crate linked: its start function installs the panic hook that
+  // reports a panic to the runtime.
+  use ::worker as _;
 
   fn env_into_process(env: &JsValue) {
     let Ok(entries) =
