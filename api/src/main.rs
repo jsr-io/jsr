@@ -564,15 +564,15 @@ mod worker {
     .map_err(|e| JsValue::from_str(&format!("config: {e}")))?;
     // Keeps the invocation's span active on every poll: the spans the request
     // starts are parented under whichever span is active.
-    ::worker::observability::in_current_span(
-      shared::worker_js::with_background(async {
+    shared::worker_spans::in_active_span(shared::worker_js::with_background(
+      async {
         let app = build_router(config).await;
         let hyper_req = to_hyper_request(request).await?;
         let Ok(hyper_resp) =
           TracedRouterService::new(app, true).oneshot(hyper_req).await;
         to_web_response(hyper_resp).await
-      }),
-    )
+      },
+    ))
     .await
   }
 }
