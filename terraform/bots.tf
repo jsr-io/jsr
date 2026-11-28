@@ -8,7 +8,8 @@
 # never serves module files to such requests (see `canAccessModuleFile` in
 # lb/main.ts), so module downloads, the Deno CLI, and npm clients aren't
 # matched, and api.jsr.io and npm.jsr.io are other hosts. On those requests,
-# the rules challenge unverified bots by Bot Management score.
+# the rules challenge unverified bots by Bot Management score, and a few by
+# user agent, TLS fingerprint, or detection ID.
 #
 # The log rules cover the rest of the website, as routed by the LB, so their
 # matches can be measured before anything there is challenged.
