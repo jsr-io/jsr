@@ -9,7 +9,7 @@ on:
   merge_group:
 
 env:
-  TERRAFORM_VERSION: "1.4.2"
+  TERRAFORM_VERSION: "1.9.8"
 
 # Read-only by default; the jobs that need more declare their own block.
 permissions:
