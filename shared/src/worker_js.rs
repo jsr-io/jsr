@@ -28,12 +28,14 @@ use wasm_bindgen_futures::JsFuture;
 use crate::worker_spans::in_current;
 
 thread_local! {
-  // A `Cell`, not a `RefCell`: a request that dies while holding a borrow
-  // would leave the flag set, and every later request on the isolate would
-  // then panic in `set_env`.
+  // A `Cell`, not a `RefCell`: a JS exception or emscripten abort that
+  // unwinds through wasm frames can skip Rust destructors (imports are
+  // nounwind), so a `RefCell` borrow could stay set and make every later
+  // `set_env` panic.
   static ENV: Cell<Option<JsValue>> = const { Cell::new(None) };
 }
 
+/// The env of the request that most recently started on this isolate.
 fn env() -> Option<JsValue> {
   ENV.with(|cell| {
     let env = cell.take();
@@ -104,7 +106,7 @@ impl<F: Future> Future for AssertSend<F> {
   }
 }
 
-fn js_error(err: JsValue) -> String {
+pub(crate) fn js_error(err: JsValue) -> String {
   err
     .dyn_ref::<js_sys::Error>()
     .map(|err| String::from(err.message()))
@@ -547,22 +549,22 @@ fn promise(value: Result<JsValue, JsValue>) -> io::Result<JsFuture> {
 }
 
 impl HyperdriveSocket {
+  /// The socket of a new Hyperdrive connection, with its reader and writer.
+  fn connect() -> Result<[JsValue; 3], String> {
+    let env = env().ok_or("no worker env")?;
+    let binding = Reflect::get(&env, &"HYPERDRIVE".into()).map_err(js_error)?;
+    let socket = in_current(|| call(&binding, "connect")).map_err(js_error)?;
+    let readable =
+      Reflect::get(&socket, &"readable".into()).map_err(js_error)?;
+    let writable =
+      Reflect::get(&socket, &"writable".into()).map_err(js_error)?;
+    let reader = call(&readable, "getReader").map_err(js_error)?;
+    let writer = call(&writable, "getWriter").map_err(js_error)?;
+    Ok([socket, reader, writer])
+  }
+
   fn open() -> Self {
-    let socket = (|| -> Result<[JsValue; 3], String> {
-      let env = env().ok_or("no worker env")?;
-      let binding =
-        Reflect::get(&env, &"HYPERDRIVE".into()).map_err(js_error)?;
-      let socket =
-        in_current(|| call(&binding, "connect")).map_err(js_error)?;
-      let readable =
-        Reflect::get(&socket, &"readable".into()).map_err(js_error)?;
-      let writable =
-        Reflect::get(&socket, &"writable".into()).map_err(js_error)?;
-      let reader = call(&readable, "getReader").map_err(js_error)?;
-      let writer = call(&writable, "getWriter").map_err(js_error)?;
-      Ok([socket, reader, writer])
-    })();
-    let (error, [socket, reader, writer]) = match socket {
+    let (error, [socket, reader, writer]) = match Self::connect() {
       Ok(socket) => (None, socket),
       Err(err) => (
         Some(format!("Hyperdrive connect: {err}")),

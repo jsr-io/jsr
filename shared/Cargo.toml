@@ -65,8 +65,6 @@ rusty-s3 = "0.10.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-# For `worker::observability`, see `worker_spans.rs`.
-worker.workspace = true
 worker-sys.workspace = true
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true
