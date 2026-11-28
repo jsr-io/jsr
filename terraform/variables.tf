@@ -80,6 +80,17 @@ variable "cloudflare_custom_firewall_ruleset_id" {
   default     = ""
 }
 
+variable "cloudflare_ratelimit_ruleset_id" {
+  description = "ID of the zone's existing http_ratelimit entrypoint ruleset, imported into cloudflare_ruleset.ratelimit. Only used in production."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^([0-9a-f]{32})?$", var.cloudflare_ratelimit_ruleset_id))
+    error_message = "cloudflare_ratelimit_ruleset_id must be a ruleset ID (32 hex digits)."
+  }
+}
+
 # OTLP/HTTP telemetry export (wired into the API Cloud Run services). Leave empty
 # to disable; set both to point traces and logs at an OTLP/HTTP backend such as
 # Grafana Cloud.
