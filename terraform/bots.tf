@@ -39,13 +39,6 @@ resource "cloudflare_ruleset" "custom_firewall" {
     {
       # Rule refs keep the rule IDs stable across edits; Security Events filters
       # by rule ID. These are the IDs the rules had in the dashboard.
-      ref         = "3665246027ea4f58bd39e10af19abb21"
-      description = "Singapore/China/Vietnam scrape"
-      action      = "managed_challenge"
-      enabled     = true
-      expression  = "(ip.src.asnum eq 136907 and ip.src.country eq \"SG\") or (ip.src.asnum eq 212238 and ip.src.country eq \"SG\") or (ip.src.asnum eq 132203 and ip.src.country eq \"SG\") or (ip.src.asnum eq 55967) or (ip.src.asnum eq 45899)"
-    },
-    {
       ref         = "75b22afd9b55498d83342e016d550ec4"
       description = "Bots rendering frontend pages"
       action      = "managed_challenge"
