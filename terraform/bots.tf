@@ -17,6 +17,8 @@ locals {
   # lb/main.ts). lb/main_test.ts checks that the two agree.
   module_file_path       = "^/@[^/]+/[^/]+/(?:meta[.]json|[0-9][^/]*_meta[.]json|[0-9][^/]*/.*)$"
   scraping_detection_ids = "50331648 50331649"
+  # Detection for networks that scrape many zones; see website_scraping_networks.
+  scraping_network_detection_id = "50331656"
 
   # The post-deploy e2e tests fetch pages from GitHub runners, which score as
   # bots, so they send this header to skip the bot rules.
@@ -150,6 +152,16 @@ resource "cloudflare_ruleset" "custom_firewall" {
       action      = "managed_challenge"
       enabled     = true
       expression  = "(${local.website_page_request} and cf.bot_management.score ge 10 and cf.bot_management.score lt 30)"
+    },
+    {
+      ref         = "website_scraping_networks"
+      description = "Scraping networks rendering frontend pages"
+      action      = "managed_challenge"
+      enabled     = true
+      # Bot Management detection 50331656 flags networks that scrape many
+      # zones. On 2026-11-28 it caught a crawl of doc and diff pages from 1,000+
+      # proxy and VPN IPs that scored 30 or more, so the rules above missed it.
+      expression = "(${local.website_page_request} and any(cf.bot_management.detection_ids[*] eq ${local.scraping_network_detection_id}))"
     },
   ]
 
