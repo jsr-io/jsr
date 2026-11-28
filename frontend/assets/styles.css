@@ -70,8 +70,8 @@
 @font-face {
   font-family: "DM Mono";
   font-style: normal;
-  font-weight: bold;
-  src: url("/fonts/DMMono/DMMono-Bold.woff2") format("woff2");
+  font-weight: 500;
+  src: url("/fonts/DMMono/DMMono-Medium.woff2") format("woff2");
   font-display: swap;
 }
 

@@ -8,3 +8,6 @@ cloudflare_zone_id                    = "d0b4d9a871f50fe85f83f8cd9293d9c5"
 cloudflare_custom_firewall_ruleset_id = "08cb96d616564ba8aef74f696884d92c"
 otlp_endpoint                         = "https://otlp-gateway-prod-us-east-3.grafana.net/otlp"
 production                            = true
+
+# The http_ratelimit entrypoint ruleset, created through the API.
+cloudflare_ratelimit_ruleset_id = "ce91351f342540fabb83f26d5eb25346"
