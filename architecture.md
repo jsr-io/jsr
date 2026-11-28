@@ -271,9 +271,9 @@ database — they live in R2.
 | `ticket_attachments`           | Files that arrived attached to an inbound email     |
 
 Migrations are in `shared/migrations/` and applied by `registry_api setup`
-(`shared/src/db/migrate.rs`), which a Cloud Run job runs once per deploy before
-the new version serves. `cargo run` applies them at startup. Version columns use
-natural collation so `1.10.0` sorts after `1.9.0`.
+(`shared/src/db/migrate.rs`), which the deploy runs from CI before the new
+version serves. `cargo run` applies them at startup. Version columns use natural
+collation so `1.10.0` sorts after `1.9.0`.
 
 ## Support tickets
 

@@ -105,7 +105,7 @@ resource "cloudflare_worker_version" "jsr_api" {
 
 resource "cloudflare_workers_deployment" "jsr_api" {
   # Serve the new version only once the database is migrated.
-  depends_on = [google_cloud_run_v2_job.registry_api_setup]
+  depends_on = [terraform_data.api_setup]
 
   account_id  = var.cloudflare_account_id
   script_name = cloudflare_worker.jsr_api.name

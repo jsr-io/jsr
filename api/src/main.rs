@@ -202,7 +202,7 @@ async fn setup(database: &Database, service_account_token: Option<&str>) {
 }
 
 /// `registry_api setup`: runs [`setup`] and exits. Deploys run this once
-/// before the new version serves, see `terraform/cloud_run_api.tf`.
+/// before the new version serves, see `terraform/api_setup.tf`.
 #[cfg(not(target_arch = "wasm32"))]
 async fn setup_command() {
   let config = config::SetupConfig::parse_from(std::env::args().skip(1));
@@ -210,6 +210,7 @@ async fn setup_command() {
     (Some(client_cert), Some(client_key)) => Some(shared::db::DbTls {
       client_cert,
       client_key,
+      server_ca: config.db_server_ca,
     }),
     _ => None,
   };
@@ -242,6 +243,7 @@ async fn build_router(config: Config) -> App {
     (Some(client_cert), Some(client_key)) => Some(shared::db::DbTls {
       client_cert,
       client_key,
+      server_ca: None,
     }),
     _ => None,
   };
